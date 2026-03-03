@@ -1,13 +1,20 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddEntrySheet } from '@/components/add-entry-sheet';
+
 const TERRACOTTA = '#C4784B';
 
-function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+type CustomTabBarProps = BottomTabBarProps & {
+  fabOpen: boolean;
+  onFabPress: () => void;
+};
+
+function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   const icons = [
@@ -41,20 +48,33 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           );
         })}
       </View>
-      <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
-        <Ionicons name="add" size={30} color="white" />
+      <TouchableOpacity style={styles.fab} onPress={onFabPress} activeOpacity={0.8}>
+        <Ionicons name={fabOpen ? 'close' : 'add'} size={30} color="white" />
       </TouchableOpacity>
     </View>
   );
 }
 
 export default function TabLayout() {
+  const [sheetOpen, setSheetOpen] = useState(false);
+
   return (
-    <Tabs tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="log" />
-      <Tabs.Screen name="explore" />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => (
+          <CustomTabBar
+            {...props}
+            fabOpen={sheetOpen}
+            onFabPress={() => setSheetOpen((v) => !v)}
+          />
+        )}
+        screenOptions={{ headerShown: false }}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="log" />
+        <Tabs.Screen name="explore" />
+      </Tabs>
+      <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
   );
 }
 
