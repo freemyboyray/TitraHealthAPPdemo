@@ -1,5 +1,6 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -18,42 +19,55 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
   const insets = useSafeAreaInsets();
 
   const icons = [
-    {
-      focused: <Ionicons name="home" size={24} color={TERRACOTTA} />,
-      unfocused: <Ionicons name="home-outline" size={24} color="#AAAAAA" />,
-    },
-    {
-      focused: <MaterialIcons name="menu" size={26} color={TERRACOTTA} />,
-      unfocused: <MaterialIcons name="menu" size={26} color="#AAAAAA" />,
-    },
-    {
-      focused: <Ionicons name="document" size={24} color={TERRACOTTA} />,
-      unfocused: <Ionicons name="document-outline" size={24} color="#AAAAAA" />,
-    },
+    { focused: <Ionicons name="home" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="home-outline" size={24} color="rgba(255,255,255,0.55)" /> },
+    { focused: <MaterialIcons name="menu" size={26} color={TERRACOTTA} />, unfocused: <MaterialIcons name="menu" size={26} color="rgba(255,255,255,0.55)" /> },
+    { focused: <Ionicons name="document" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="document-outline" size={24} color="rgba(255,255,255,0.55)" /> },
   ];
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
-      <View style={styles.tabBar}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          return (
-            <TouchableOpacity
-              key={route.key}
-              style={styles.tabButton}
-              onPress={() => !isFocused && navigation.navigate(route.name)}
-              activeOpacity={0.7}>
-              {isFocused ? icons[index].focused : icons[index].unfocused}
-            </TouchableOpacity>
-          );
-        })}
+    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
+
+      {/* Glass pill */}
+      <View style={s.pillShadow}>
+        <View style={s.pillInner}>
+          <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, s.pillOverlay]} />
+          {/* Glass highlight border */}
+          <View pointerEvents="none" style={s.pillBorder} />
+          {/* Tab icons */}
+          <View style={s.pillContent}>
+            {state.routes.map((route, index) => {
+              const isFocused = state.index === index;
+              return (
+                <TouchableOpacity
+                  key={route.key}
+                  style={s.tabBtn}
+                  onPress={() => !isFocused && navigation.navigate(route.name)}
+                  activeOpacity={0.7}>
+                  {isFocused ? icons[index].focused : icons[index].unfocused}
+                  {isFocused && <View style={s.activeDot} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </View>
-      <TouchableOpacity style={styles.fab} onPress={onFabPress} activeOpacity={0.8}>
-        <Ionicons name={fabOpen ? 'close' : 'add'} size={30} color="white" />
+
+      {/* FAB */}
+      <TouchableOpacity style={s.fab} onPress={onFabPress} activeOpacity={0.85}>
+        <View style={s.fabInner}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, s.fabOverlay]} />
+          <View pointerEvents="none" style={s.fabBorder} />
+          <Ionicons name={fabOpen ? 'close' : 'add'} size={32} color={WHITE} />
+        </View>
       </TouchableOpacity>
+
     </View>
   );
 }
+
+const WHITE = '#FFFFFF';
 
 export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -78,48 +92,26 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'flex-end',
+    paddingHorizontal: 16, paddingTop: 8,
   },
-  tabBar: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: TERRACOTTA,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-    marginBottom: 4,
-  },
+
+  // Pill
+  pillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 20, elevation: 10 },
+  pillInner: { borderRadius: 36, overflow: 'hidden' },
+  pillOverlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.18)' },
+  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.7)', borderLeftColor: 'rgba(255,255,255,0.45)', borderRightColor: 'rgba(255,255,255,0.12)', borderBottomColor: 'rgba(255,255,255,0.06)' },
+  pillContent: { flexDirection: 'row', paddingVertical: 15, paddingHorizontal: 10 },
+
+  tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  activeDot: { position: 'absolute', bottom: -6, width: 4, height: 4, borderRadius: 2, backgroundColor: TERRACOTTA },
+
+  // FAB
+  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 16, elevation: 10, marginBottom: 2 },
+  fabInner: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  fabOverlay: { borderRadius: 31, backgroundColor: 'rgba(196,90,48,0.92)' },
+  fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,210,170,0.65)', borderLeftColor: 'rgba(255,200,160,0.4)', borderRightColor: 'rgba(0,0,0,0.12)', borderBottomColor: 'rgba(0,0,0,0.18)' },
 });
