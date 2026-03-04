@@ -3,6 +3,8 @@ import { BlurView } from 'expo-blur';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+
 const TERRACOTTA = '#C4784B';
 const WHITE = '#FFFFFF';
 const DARK = '#1C0F09';
@@ -14,20 +16,6 @@ const glassShadow = {
   shadowRadius: 28,
   elevation: 12,
 };
-
-// ─── Background ──────────────────────────────────────────────────────────────
-
-function AppBackground() {
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#D97040' }]} />
-      <View style={s.blob1} />
-      <View style={s.blob2} />
-      <View style={s.blob3} />
-      <View style={s.blob4} />
-    </View>
-  );
-}
 
 // ─── Glass primitives ─────────────────────────────────────────────────────────
 
@@ -66,11 +54,17 @@ function ScoreRing() {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const { onScroll } = useTabBarVisibility();
+
   return (
-    <View style={{ flex: 1 }}>
-      <AppBackground />
+    <View style={{ flex: 1, backgroundColor: '#F0EAE4' }}>
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={s.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+        >
 
           {/* ── Header ── */}
           <Text style={s.dateTitle}>October 24</Text>
@@ -78,9 +72,7 @@ export default function HomeScreen() {
 
           {/* ── Score Card — Terracotta Glass ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={[s.cardBody, { minHeight: 180 }]}>
-              <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.terracottaOverlay]} />
+            <View style={[s.cardBody, { minHeight: 180, backgroundColor: '#C4784B' }]}>
               <GlassBorder />
               <View style={s.scoreRow}>
                 <ScoreRing />
@@ -174,23 +166,16 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
-  // Background blobs
-  blob1: { position: 'absolute', width: 380, height: 380, borderRadius: 190, top: -140, left: -110, backgroundColor: 'rgba(164, 54, 22, 0.65)' },
-  blob2: { position: 'absolute', width: 280, height: 280, borderRadius: 140, top: 90, right: -80, backgroundColor: 'rgba(238, 124, 38, 0.52)' },
-  blob3: { position: 'absolute', width: 230, height: 230, borderRadius: 115, top: 360, left: 40, backgroundColor: 'rgba(248, 170, 95, 0.48)' },
-  blob4: { position: 'absolute', width: 360, height: 360, borderRadius: 180, bottom: -90, right: -70, backgroundColor: 'rgba(185, 68, 36, 0.42)' },
-
   // Header
-  dateTitle: { fontSize: 36, fontWeight: '800', color: WHITE, textAlign: 'center', letterSpacing: -1, marginBottom: 4, textShadowColor: 'rgba(0,0,0,0.22)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  dateSub: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.72)', textAlign: 'center', letterSpacing: 3.5, textTransform: 'uppercase', marginBottom: 28 },
+  dateTitle: { fontSize: 36, fontWeight: '800', color: '#1A1A1A', textAlign: 'center', letterSpacing: -1, marginBottom: 4 },
+  dateSub: { fontSize: 12, fontWeight: '600', color: '#888888', textAlign: 'center', letterSpacing: 3.5, textTransform: 'uppercase', marginBottom: 28 },
 
   // Glass card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
   cardBody: { borderRadius: 28, overflow: 'hidden' },
 
   // Color overlays
-  terracottaOverlay: { borderRadius: 28, backgroundColor: 'rgba(196, 90, 48, 0.60)' },
-  whiteOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.14)' },
+  whiteOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.25)' },
 
   // Score row
   scoreRow: { flexDirection: 'row', alignItems: 'center', padding: 22 },
@@ -221,13 +206,13 @@ const s = StyleSheet.create({
   insightsFooter: { fontSize: 13, color: 'rgba(28,15,9,0.52)', marginTop: 6, lineHeight: 19 },
 
   // Section title
-  sectionTitle: { fontSize: 24, fontWeight: '800', color: WHITE, letterSpacing: -0.5, marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+  sectionTitle: { fontSize: 24, fontWeight: '800', color: '#1A1A1A', letterSpacing: -0.5, marginBottom: 14 },
 
   // Focus cards
   focusWrap: { borderRadius: 20, ...glassShadow, shadowOpacity: 0.14, shadowRadius: 18 },
   focusBody: { borderRadius: 20, overflow: 'hidden' },
   focusRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  focusIconWrap: { width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.38)', borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.7)', borderLeftColor: 'rgba(255,255,255,0.5)', borderRightColor: 'rgba(255,255,255,0.18)', borderBottomColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  focusIconWrap: { width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.7)', borderLeftColor: 'rgba(255,255,255,0.5)', borderRightColor: 'rgba(255,255,255,0.18)', borderBottomColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   focusLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: DARK },
   badge: { backgroundColor: 'rgba(50,168,82,0.18)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(50,168,82,0.35)' },
   badgeText: { fontSize: 12, fontWeight: '700', color: '#2B9450' },

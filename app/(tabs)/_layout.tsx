@@ -3,10 +3,11 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
+import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
 const TERRACOTTA = '#C4784B';
 
@@ -17,15 +18,16 @@ type CustomTabBarProps = BottomTabBarProps & {
 
 function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { translateY } = useTabBarVisibility();
 
   const icons = [
-    { focused: <Ionicons name="home" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="home-outline" size={24} color="rgba(255,255,255,0.55)" /> },
-    { focused: <MaterialIcons name="menu" size={26} color={TERRACOTTA} />, unfocused: <MaterialIcons name="menu" size={26} color="rgba(255,255,255,0.55)" /> },
-    { focused: <Ionicons name="document" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="document-outline" size={24} color="rgba(255,255,255,0.55)" /> },
+    { focused: <Ionicons name="home" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="home-outline" size={24} color="#AAAAAA" /> },
+    { focused: <MaterialIcons name="menu" size={26} color={TERRACOTTA} />, unfocused: <MaterialIcons name="menu" size={26} color="#AAAAAA" /> },
+    { focused: <Ionicons name="document" size={24} color={TERRACOTTA} />, unfocused: <Ionicons name="document-outline" size={24} color="#AAAAAA" /> },
   ];
 
   return (
-    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
+    <Animated.View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }, { transform: [{ translateY }] }]}>
 
       {/* Glass pill */}
       <View style={s.pillShadow}>
@@ -63,7 +65,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
         </View>
       </TouchableOpacity>
 
-    </View>
+    </Animated.View>
   );
 }
 
@@ -73,7 +75,7 @@ export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
-    <>
+    <TabBarVisibilityProvider>
       <Tabs
         tabBar={(props) => (
           <CustomTabBar
@@ -88,7 +90,7 @@ export default function TabLayout() {
         <Tabs.Screen name="explore" />
       </Tabs>
       <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
-    </>
+    </TabBarVisibilityProvider>
   );
 }
 
