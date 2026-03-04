@@ -32,8 +32,10 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
       {/* Glass pill */}
       <View style={s.pillShadow}>
         <View style={s.pillInner}>
-          <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={85} tint="light" style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, s.pillOverlay]} />
+          {/* Top specular shine — liquid glass refraction strip */}
+          <View pointerEvents="none" style={s.pillShine} />
           {/* Glass highlight border */}
           <View pointerEvents="none" style={s.pillBorder} />
           {/* Tab icons */}
@@ -55,11 +57,14 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
         </View>
       </View>
 
-      {/* FAB */}
+      {/* FAB — liquid glass terracotta */}
       <TouchableOpacity style={s.fab} onPress={onFabPress} activeOpacity={0.85}>
         <View style={s.fabInner}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, s.fabOverlay]} />
+          {/* Specular highlight — top-left bright dot */}
+          <View pointerEvents="none" style={s.fabShine} />
+          <View pointerEvents="none" style={s.fabShineSm} />
           <View pointerEvents="none" style={s.fabBorder} />
           <Ionicons name={fabOpen ? 'close' : 'add'} size={32} color={WHITE} />
         </View>
@@ -102,18 +107,23 @@ const s = StyleSheet.create({
   },
 
   // Pill
-  pillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 20, elevation: 10 },
+  pillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#1C0F09', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 28, elevation: 10 },
   pillInner: { borderRadius: 36, overflow: 'hidden' },
-  pillOverlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.18)' },
-  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.7)', borderLeftColor: 'rgba(255,255,255,0.45)', borderRightColor: 'rgba(255,255,255,0.12)', borderBottomColor: 'rgba(255,255,255,0.06)' },
+  pillOverlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.22)' },
+  // Top specular shine strip — simulates liquid glass light refraction
+  pillShine: { position: 'absolute', top: 0, left: 16, right: 16, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.90)' },
+  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.75)', borderLeftColor: 'rgba(255,255,255,0.50)', borderRightColor: 'rgba(255,255,255,0.10)', borderBottomColor: 'rgba(255,255,255,0.04)' },
   pillContent: { flexDirection: 'row', paddingVertical: 15, paddingHorizontal: 10 },
 
   tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   activeDot: { position: 'absolute', bottom: -6, width: 4, height: 4, borderRadius: 2, backgroundColor: TERRACOTTA },
 
-  // FAB
-  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 16, elevation: 10, marginBottom: 2 },
+  // FAB — liquid glass terracotta (blur shows through, not solid)
+  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 18, elevation: 10, marginBottom: 2 },
   fabInner: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  fabOverlay: { borderRadius: 31, backgroundColor: 'rgba(196,90,48,0.92)' },
-  fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,210,170,0.65)', borderLeftColor: 'rgba(255,200,160,0.4)', borderRightColor: 'rgba(0,0,0,0.12)', borderBottomColor: 'rgba(0,0,0,0.18)' },
+  fabOverlay: { borderRadius: 31, backgroundColor: 'rgba(196,90,48,0.70)' },
+  // Specular highlights — sphere-like refraction
+  fabShine: { position: 'absolute', top: 9, left: 11, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,220,190,0.35)' },
+  fabShineSm: { position: 'absolute', top: 20, left: 20, width: 9, height: 9, borderRadius: 4.5, backgroundColor: 'rgba(255,255,255,0.22)' },
+  fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,220,185,0.80)', borderLeftColor: 'rgba(255,210,170,0.50)', borderRightColor: 'rgba(0,0,0,0.10)', borderBottomColor: 'rgba(0,0,0,0.20)' },
 });

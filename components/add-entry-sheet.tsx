@@ -84,7 +84,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
         <View style={s.sheetShadow}>
           <View style={s.sheetBody}>
             <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,245,235,0.38)' }]} />
+            <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,255,255,0.35)' }]} />
             {/* Top glass border only */}
             <View pointerEvents="none" style={s.sheetTopBorder} />
 
@@ -116,9 +116,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.18)' }]} />
               <View pointerEvents="none" style={s.pillBorder} />
               <View style={s.navIcons}>
-                <Ionicons name="home-outline" size={24} color="rgba(28,15,9,0.4)" style={s.navIcon} />
-                <MaterialIcons name="menu" size={26} color="rgba(28,15,9,0.4)" style={s.navIcon} />
-                <Ionicons name="document-outline" size={24} color="rgba(28,15,9,0.4)" style={s.navIcon} />
+                <Ionicons name="home-outline" size={24} color="rgba(0,0,0,0.4)" style={s.navIcon} />
+                <MaterialIcons name="menu" size={26} color="rgba(0,0,0,0.4)" style={s.navIcon} />
+                <Ionicons name="document-outline" size={24} color="rgba(0,0,0,0.4)" style={s.navIcon} />
               </View>
             </View>
           </View>
@@ -141,7 +141,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
 const s = StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(100,40,10,0.4)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
 
   // Sheet
   sheetShadow: { borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.22, shadowRadius: 28, elevation: 16 },
@@ -149,7 +149,7 @@ const s = StyleSheet.create({
   sheetTopBorder: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.65)' },
   sheetContent: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 },
 
-  handle: { width: 44, height: 4, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
+  handle: { width: 44, height: 4, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
   title: { fontSize: 24, fontWeight: '800', color: DARK, letterSpacing: -0.5, marginBottom: 4 },
   subtitle: { fontSize: 14, color: 'rgba(28,15,9,0.5)', fontWeight: '400', marginBottom: 18 },
   dash: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(80,130,210,0.6)', marginBottom: 22 },
@@ -159,7 +159,7 @@ const s = StyleSheet.create({
   gridItem: { width: '33.33%', alignItems: 'center', marginBottom: 24 },
 
   // Icon circles
-  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.55)', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
 
   // ASK AI sphere
   specialCircle: { width: 64, height: 64, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 6 },
