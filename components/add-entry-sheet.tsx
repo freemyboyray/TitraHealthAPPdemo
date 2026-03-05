@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useHealthData } from '@/contexts/health-data';
+
 const TERRACOTTA = '#C4784B';
 const DARK = '#1C0F09';
 const ICON_SIZE = 24;
@@ -21,6 +23,7 @@ type GridItem = {
   route: string;
   special?: boolean;
   icon?: React.ReactNode;
+  onPress?: () => void;
 };
 
 const GRID: GridItem[] = [
@@ -81,6 +84,31 @@ function GridBtn({ item, onClose }: { item: GridItem; onClose: () => void }) {
 
 export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { dispatch } = useHealthData();
+
+  const handleAskAI = () => {
+    onClose();
+    setTimeout(() => router.push('/ai-chat'), 300);
+  };
+
+  const handleLogInjection = () => {
+    dispatch({ type: 'LOG_INJECTION' });
+    onClose();
+  };
+
+  const handleDescribeFood = () => {
+    // Demo: log 30g protein
+    dispatch({ type: 'LOG_PROTEIN', grams: 30 });
+    onClose();
+  };
+
+  const gridItems: GridItem[] = GRID.map((item) => {
+    if (item.label === 'ASK AI')         return { ...item, onPress: handleAskAI };
+    if (item.label === 'LOG INJECTION')  return { ...item, onPress: handleLogInjection };
+    if (item.label === 'DESCRIBE FOOD')  return { ...item, onPress: handleDescribeFood };
+    return item;
+  });
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

@@ -1,8 +1,21 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RingBreakdown } from '@/components/ring-breakdown';
+import { ScoreRing } from '@/components/score-ring';
+import { useHealthData } from '@/contexts/health-data';
+import {
+  generateInsights,
+  recoveryBreakdown,
+  recoveryColor,
+  recoveryMessage,
+  supportBreakdown,
+  supportColor,
+  supportMessage,
+} from '@/constants/scoring';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
 const TERRACOTTA = '#D67455';
@@ -35,16 +48,65 @@ function GlassBorder({ r = 28 }: { r?: number }) {
   );
 }
 
-// ─── Score Rings ──────────────────────────────────────────────────────────────
-// Two concentric rings: outer = Exercise (terracotta), inner = Stand (dark)
+// ─── Health Monitor types + data ──────────────────────────────────────────────
 
-function ScoreRings() {
+type HMStatus = 'good' | 'normal' | 'low' | 'elevated';
+
+type HealthMetric = {
+  id: string;
+  label: string;
+  value: string;
+  unit: string;
+  status: HMStatus;
+  iconName: string;
+  iconSet: 'Ionicons' | 'MaterialIcons';
+  rangeLabel: string;
+};
+
+const HEALTH_DATA: HealthMetric[] = [
+  { id: 'rrr',   label: 'Resp. Rate', value: '16',    unit: 'bpm', status: 'normal',   iconSet: 'MaterialIcons', iconName: 'air',           rangeLabel: 'Normal' },
+  { id: 'rhr',   label: 'Resting HR', value: '58',    unit: 'bpm', status: 'good',     iconSet: 'Ionicons',      iconName: 'heart-outline',  rangeLabel: 'Optimal' },
+  { id: 'hrv',   label: 'HRV',        value: '45',    unit: 'ms',  status: 'good',     iconSet: 'MaterialIcons', iconName: 'show-chart',    rangeLabel: 'Strong' },
+  { id: 'spo2',  label: 'SpO₂',       value: '98',    unit: '%',   status: 'normal',   iconSet: 'MaterialIcons', iconName: 'bloodtype',     rangeLabel: 'Normal' },
+  { id: 'temp',  label: 'Temp',        value: '98.4', unit: '°F',  status: 'normal',   iconSet: 'MaterialIcons', iconName: 'thermostat',    rangeLabel: 'Normal' },
+  { id: 'sleep', label: 'Sleep',       value: '7h 23m', unit: '',  status: 'low',      iconSet: 'Ionicons',      iconName: 'moon-outline',  rangeLabel: 'Below Goal' },
+];
+
+const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
+  good:     { bg: 'rgba(43,148,80,0.12)',    text: '#2B9450' },
+  normal:   { bg: 'rgba(91,139,245,0.12)',   text: '#5B8BF5' },
+  low:      { bg: 'rgba(232,150,12,0.12)',   text: '#E8960C' },
+  elevated: { bg: 'rgba(220,50,50,0.10)',    text: '#DC3232' },
+};
+
+// ─── Health Monitor Card ──────────────────────────────────────────────────────
+
+function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
+  const ss = hmStatusStyle[metric.status];
+  const icon = metric.iconSet === 'Ionicons'
+    ? <Ionicons name={metric.iconName as any} size={20} color={TERRACOTTA} />
+    : <MaterialIcons name={metric.iconName as any} size={20} color={TERRACOTTA} />;
+
   return (
-    <View style={s.ringsContainer}>
-      {/* Outer ring — Exercise */}
-      <View style={s.ringOuter} />
-      {/* Inner ring — Stand */}
-      <View style={s.ringInner} />
+    <View style={[s.hmWrap, glassShadow]}>
+      <View style={[s.hmBody, { borderRadius: 20 }]}>
+        <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFillObject} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.42)' }]} />
+        <GlassBorder r={20} />
+        <View style={s.hmInner}>
+          <View style={s.hmTopRow}>
+            <View style={s.hmIconWrap}>{icon}</View>
+            <View style={[s.hmBadge, { backgroundColor: ss.bg }]}>
+              <Text style={[s.hmBadgeText, { color: ss.text }]}>{metric.rangeLabel}</Text>
+            </View>
+          </View>
+          <Text style={s.hmLabel}>{metric.label}</Text>
+          <Text style={s.hmValue}>
+            {metric.value}
+            {metric.unit ? <Text style={s.hmUnit}> {metric.unit}</Text> : null}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -53,6 +115,15 @@ function ScoreRings() {
 
 export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
+  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets } = useHealthData();
+
+  const [recoveryBreakdownVisible, setRecoveryBreakdownVisible] = useState(false);
+  const [supportBreakdownVisible, setSupportBreakdownVisible] = useState(false);
+
+  const recovColor = recoveryColor(recoveryScore);
+  const suppColor  = supportColor(supportScore);
+
+  const insights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F0EAE4' }}>
@@ -66,62 +137,82 @@ export default function HomeScreen() {
 
           {/* ── Header ── */}
           <Text style={s.dateTitle}>October 24</Text>
-          <Text style={s.dateSub}>Shot Day</Text>
+          <Text style={s.dateSub}>Shot Day · Day {2}</Text>
 
-          {/* ── Score Card — White Glass ── */}
+          {/* ── Score Card ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
             <View style={s.cardBody}>
               <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
               <GlassBorder />
-              <View style={s.scoreRow}>
-                <ScoreRings />
-                <View style={s.statsCol}>
-                  {/* Exercise stat */}
-                  <View style={s.statLabel}>
-                    <View style={[s.dot, { backgroundColor: TERRACOTTA }]} />
-                    <Text style={s.statName}>Exercise</Text>
-                  </View>
-                  <Text style={s.statValWrap}>
-                    <Text style={s.statBold}>240</Text>
-                    <Text style={s.statLight}>/600min</Text>
-                  </Text>
-                  {/* Stand stat */}
-                  <View style={[s.statLabel, { marginTop: 20 }]}>
-                    <View style={[s.dot, { backgroundColor: DARK }]} />
-                    <Text style={s.statName}>Stand</Text>
-                  </View>
-                  <Text style={s.statValWrap}>
-                    <Text style={s.statBold}>160</Text>
-                    <Text style={s.statLight}>/600min</Text>
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
 
-          {/* ── Insights Card — White Glass ── */}
-          <View style={[s.cardWrap, { marginBottom: 24 }]}>
-            <View style={s.cardBody}>
-              <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
-              <GlassBorder />
-              <View style={{ padding: 20 }}>
-                <View style={s.insightsHead}>
-                  <Text style={s.insightsTitle}>Insights</Text>
-                  <Text style={s.shotPhase}>SHOT PHASE</Text>
+              <View style={s.scoreCard}>
+                <Text style={s.scoreCardTitle}>Recovery / Readiness</Text>
+
+                <View style={s.ringsRow}>
+                  {/* Recovery Ring — larger */}
+                  <ScoreRing
+                    score={recoveryScore}
+                    size={148}
+                    strokeWidth={10}
+                    color={recovColor}
+                    label="Recovery"
+                    message={recoveryMessage(recoveryScore)}
+                    onTap={() => setRecoveryBreakdownVisible(true)}
+                    ripple={lastLogAction === 'water'}
+                    proteinPulse={lastLogAction === 'protein'}
+                  />
+
+                  <View style={s.ringDivider} />
+
+                  {/* GLP-1 Support Ring — smaller */}
+                  <ScoreRing
+                    score={supportScore}
+                    size={120}
+                    strokeWidth={9}
+                    color={suppColor}
+                    label="GLP-1"
+                    message={supportMessage(supportScore)}
+                    onTap={() => setSupportBreakdownVisible(true)}
+                    glowPulse={lastLogAction === 'injection'}
+                    ripple={lastLogAction === 'water'}
+                    proteinPulse={lastLogAction === 'protein'}
+                  />
                 </View>
-                <View style={s.bulletRow}>
-                  <View style={[s.bullet, { backgroundColor: TERRACOTTA }]} />
-                  <Text style={s.bulletText}>Increase protein by 20g today</Text>
+
+                {/* Recovery alert */}
+                {recoveryScore < 40 && (
+                  <View style={s.alertBadge}>
+                    <Text style={s.alertText}>⚠ Stress detected · Focus on rest</Text>
+                  </View>
+                )}
+
+                {/* Stats row */}
+                <View style={s.statsRow}>
+                  <View style={s.statItem}>
+                    <MaterialIcons name="restaurant" size={14} color={TERRACOTTA} />
+                    <Text style={s.statItemText}>
+                      <Text style={s.statBold}>{actuals.proteinG}</Text>
+                      <Text style={s.statLight}>/{targets.proteinG}g</Text>
+                    </Text>
+                  </View>
+                  <View style={s.statDot} />
+                  <View style={s.statItem}>
+                    <Ionicons name="water-outline" size={14} color="#5B8BF5" />
+                    <Text style={s.statItemText}>
+                      <Text style={s.statBold}>{Math.round(actuals.waterMl / 100) / 10}</Text>
+                      <Text style={s.statLight}>/{Math.round(targets.waterMl / 100) / 10}L</Text>
+                    </Text>
+                  </View>
+                  <View style={s.statDot} />
+                  <View style={s.statItem}>
+                    <MaterialIcons name="directions-walk" size={14} color="#2B9450" />
+                    <Text style={s.statItemText}>
+                      <Text style={s.statBold}>{actuals.steps.toLocaleString()}</Text>
+                      <Text style={s.statLight}>/{targets.steps.toLocaleString()}</Text>
+                    </Text>
+                  </View>
                 </View>
-                <View style={s.bulletRow}>
-                  <View style={[s.bullet, { backgroundColor: TERRACOTTA }]} />
-                  <Text style={s.bulletText}>Drink 2 more liters of water</Text>
-                </View>
-                <Text style={s.insightsFooter}>
-                  Levels are peaking. Focus on hydration to minimize side effects.
-                </Text>
               </View>
             </View>
           </View>
@@ -162,8 +253,54 @@ export default function HomeScreen() {
             </View>
           ))}
 
+          {/* ── Insights Card ── */}
+          <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
+            <View style={s.cardBody}>
+              <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
+              <GlassBorder />
+              <View style={{ padding: 20 }}>
+                <View style={s.insightsHead}>
+                  <Text style={s.insightsTitle}>Insights</Text>
+                  <Text style={s.shotPhase}>{insights[0]?.phase ?? 'TODAY'}</Text>
+                </View>
+                {insights.map((b, i) => (
+                  <View key={i} style={s.bulletRow}>
+                    <View style={[s.bullet, { backgroundColor: TERRACOTTA }]} />
+                    <Text style={s.bulletText}>{b.text}</Text>
+                  </View>
+                ))}
+                <Text style={s.insightsFooter}>
+                  Based on your latest biometrics and medication phase.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Health Monitor ── */}
+          <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Monitor</Text>
+          <View style={s.hmGrid}>
+            {HEALTH_DATA.map(m => <HealthMonitorCard key={m.id} metric={m} />)}
+          </View>
+
         </ScrollView>
       </SafeAreaView>
+
+      {/* Breakdown sheets */}
+      <RingBreakdown
+        visible={recoveryBreakdownVisible}
+        title="Recovery Breakdown"
+        color={recovColor}
+        rows={recoveryBreakdown(wearable)}
+        onClose={() => setRecoveryBreakdownVisible(false)}
+      />
+      <RingBreakdown
+        visible={supportBreakdownVisible}
+        title="GLP-1 Support Breakdown"
+        color={suppColor}
+        rows={supportBreakdown(actuals, targets)}
+        onClose={() => setSupportBreakdownVisible(false)}
+      />
     </View>
   );
 }
@@ -184,32 +321,34 @@ const s = StyleSheet.create({
   // Color overlays
   whiteOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.45)' },
 
-  // Score row
-  scoreRow: { flexDirection: 'row', alignItems: 'center', padding: 28 },
+  // Score card inner
+  scoreCard: { padding: 24 },
+  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#888', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18 },
 
-  // Score rings (concentric circles)
-  ringsContainer: { width: 148, height: 148, alignItems: 'center', justifyContent: 'center' },
-  ringOuter: {
-    position: 'absolute',
-    width: 148, height: 148, borderRadius: 74,
-    borderWidth: 10, borderColor: TERRACOTTA,
-    opacity: 0.9,
-  },
-  ringInner: {
-    position: 'absolute',
-    width: 108, height: 108, borderRadius: 54,
-    borderWidth: 10, borderColor: DARK,
-    opacity: 0.85,
-  },
+  // Rings row
+  ringsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  ringDivider: { width: 20 },
 
-  // Stats (right of rings)
-  statsCol: { flex: 1, paddingLeft: 24 },
-  statLabel: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  dot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 8 },
-  statName: { fontSize: 13, color: '#888888', fontWeight: '500' },
-  statValWrap: { marginLeft: 15 },
-  statBold: { fontSize: 24, fontWeight: '800', color: DARK, letterSpacing: -0.5 },
-  statLight: { fontSize: 14, color: '#AAAAAA', fontWeight: '400' },
+  // Alert badge
+  alertBadge: {
+    marginTop: 14,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(229,62,62,0.10)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(229,62,62,0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  alertText: { fontSize: 12, fontWeight: '700', color: '#E53E3E' },
+
+  // Stats row
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, gap: 12 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statItemText: {},
+  statBold: { fontSize: 14, fontWeight: '800', color: DARK },
+  statLight: { fontSize: 12, color: '#AAAAAA', fontWeight: '400' },
+  statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#CCC' },
 
   // Insights card
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -217,7 +356,7 @@ const s = StyleSheet.create({
   shotPhase: { fontSize: 10, fontWeight: '700', color: '#5B8BF5', letterSpacing: 1.2 },
   bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   bullet: { width: 7, height: 7, borderRadius: 3.5, marginRight: 10 },
-  bulletText: { fontSize: 15, color: '#444444', fontWeight: '400' },
+  bulletText: { fontSize: 15, color: '#444444', fontWeight: '400', flex: 1 },
   insightsFooter: { fontSize: 12, color: '#AAAAAA', fontWeight: '500', marginTop: 6, lineHeight: 18 },
 
   // Section title
@@ -240,4 +379,17 @@ const s = StyleSheet.create({
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(50,168,82,0.25)',
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450' },
+
+  // Health Monitor grid
+  hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
+  hmWrap: { width: '47.5%', borderRadius: 20 },
+  hmBody: { overflow: 'hidden' },
+  hmInner: { padding: 16 },
+  hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  hmIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(214,116,85,0.10)', alignItems: 'center', justifyContent: 'center' },
+  hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
+  hmBadgeText: { fontSize: 9, fontWeight: '700' },
+  hmLabel: { fontSize: 12, color: '#888888', fontWeight: '500', marginBottom: 3 },
+  hmValue: { fontSize: 22, fontWeight: '800', color: DARK, letterSpacing: -0.5 },
+  hmUnit: { fontSize: 13, fontWeight: '500', color: '#AAAAAA', letterSpacing: 0 },
 });

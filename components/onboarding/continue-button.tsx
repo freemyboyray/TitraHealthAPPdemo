@@ -1,0 +1,48 @@
+import React from 'react';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type Props = {
+  onPress: () => void;
+  disabled?: boolean;
+  label?: string;
+};
+
+export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.8}
+        style={[s.btn, disabled && s.btnDisabled]}>
+        <Text style={s.label}>{label}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  wrapper: {
+    paddingTop: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  btn: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.35,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+});

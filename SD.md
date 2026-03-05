@@ -14,10 +14,12 @@
 4. [Navigation Structure](#4-navigation-structure)
 5. [Design System](#5-design-system)
 6. [Screens](#6-screens)
-   - [Home](#61-home-screen)
-   - [Insights](#62-insights-screen)
-   - [Education](#63-education-screen)
-   - [Add Entry Sheet](#64-add-entry-sheet)
+   - [Splash Gate](#60-splash-gate)
+   - [Onboarding](#61-onboarding-flow-14-screens)
+   - [Home](#62-home-screen)
+   - [Insights](#63-insights-screen)
+   - [Education](#64-education-screen)
+   - [Add Entry Sheet](#65-add-entry-sheet)
 7. [Data Models](#7-data-models)
 8. [State Management](#8-state-management)
 9. [Component Inventory](#9-component-inventory)
@@ -65,6 +67,7 @@ Most GLP-1 apps focus on one dimension (food log *or* injection tracker *or* wei
 | Platform Icons (iOS) | expo-symbols | `~1.0.8` |
 | Image Handling | expo-image | `~3.0.11` |
 | Web Support | react-native-web | `~0.21.0` |
+| Local Persistence | @react-native-async-storage/async-storage | `^2.1.2` |
 | Language | TypeScript | `~5.9.2` |
 | Linting | ESLint + eslint-config-expo | `^9.25.0` |
 
@@ -82,8 +85,26 @@ Most GLP-1 apps focus on one dimension (food log *or* injection tracker *or* wei
 ```
 TitraHealthAPPdemo/
 ├── app/
-│   ├── _layout.tsx              # Root Stack navigator + ThemeProvider
+│   ├── _layout.tsx              # Root Stack + GestureHandlerRootView + ProfileProvider
+│   ├── index.tsx                # Splash gate — redirects to /onboarding or /(tabs)
 │   ├── modal.tsx                # Generic modal screen
+│   ├── ai-chat.tsx              # AI Chat modal screen
+│   ├── onboarding/
+│   │   ├── _layout.tsx          # Stack navigator (slide_from_right, no header)
+│   │   ├── index.tsx            # Step 1: GLP-1 journey stage
+│   │   ├── medication.tsx       # Step 2: Medication brand
+│   │   ├── dose.tsx             # Step 3: Current dose
+│   │   ├── schedule.tsx         # Step 4: Injection frequency + last shot date
+│   │   ├── sex.tsx              # Step 5: Biological sex
+│   │   ├── birthday.tsx         # Step 6: Birthday (wheel picker)
+│   │   ├── body.tsx             # Step 7: Height + Weight (wheels, unit toggle)
+│   │   ├── health-sync.tsx      # Step 8: Apple Health (optional)
+│   │   ├── start.tsx            # Step 9: Starting weight + start date
+│   │   ├── goal-weight.tsx      # Step 10: Goal weight (horizontal ruler picker)
+│   │   ├── goal-speed.tsx       # Step 11: Weekly loss target (snap selector)
+│   │   ├── activity.tsx         # Step 12: Activity level
+│   │   ├── cravings.tsx         # Step 13: Craving days (multi-select)
+│   │   └── side-effects.tsx     # Step 14: Side effects → save → redirect
 │   └── (tabs)/
 │       ├── _layout.tsx          # Tab navigator + CustomTabBar + FAB + AddEntrySheet
 │       ├── index.tsx            # Home screen (dashboard)
@@ -91,19 +112,25 @@ TitraHealthAPPdemo/
 │       └── explore.tsx          # Education screen (placeholder)
 ├── components/
 │   ├── add-entry-sheet.tsx      # FAB-triggered bottom sheet for all logging
-│   ├── hello-wave.tsx           # (Expo boilerplate, unused)
-│   ├── haptic-tab.tsx           # Haptic-feedback tab button
-│   ├── external-link.tsx        # Utility link component
-│   ├── parallax-scroll-view.tsx # Parallax header scroll
-│   ├── themed-text.tsx          # Theme-aware Text
-│   ├── themed-view.tsx          # Theme-aware View
+│   ├── score-ring.tsx           # Animated SVG ring (Reanimated + react-native-svg)
+│   ├── ring-breakdown.tsx       # Tap-to-expand score breakdown sheet
+│   ├── onboarding/
+│   │   ├── onboarding-header.tsx  # Progress bar (Reanimated width) + back button
+│   │   ├── option-pill.tsx        # Single/multi-select pill button
+│   │   ├── continue-button.tsx    # Full-width dark CTA pinned to bottom
+│   │   └── wheel-picker.tsx       # Snap-scroll FlatList wheel picker
 │   └── ui/
 │       ├── collapsible.tsx      # Expand/collapse section
 │       ├── icon-symbol.tsx      # Cross-platform icon bridge
 │       └── icon-symbol.ios.tsx  # iOS SF Symbols version
 ├── contexts/
+│   ├── profile-context.tsx      # ProfileProvider — AsyncStorage load/save, draft, completeOnboarding
+│   ├── health-data.tsx          # HealthProvider(profile) — useReducer scores + dispatch
 │   └── tab-bar-visibility.tsx   # Scroll-aware tab bar hide/show (Animated.spring)
 ├── constants/
+│   ├── user-profile.ts          # FullUserProfile type, ProfileDraft, BRAND_TO_GLP1_TYPE, helpers
+│   ├── mock-profile.ts          # MOCK_PROFILE (FullUserProfile shape, fallback when no onboarding)
+│   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights
 │   └── theme.ts                 # Color tokens + Font definitions
 ├── hooks/
 │   ├── use-color-scheme.ts
@@ -115,365 +142,270 @@ TitraHealthAPPdemo/
 
 ### Key Architectural Decisions
 
-- **File-based routing via Expo Router** — screens map directly to files under `app/`. Deep linking and URL handling are automatic.
-- **AddEntrySheet rendered at tab layout level** — the sheet is a sibling of `<Tabs>`, not a child of any tab screen. This allows it to overlay the entire UI including the nav bar.
-- **Scroll-aware tab bar** — `TabBarVisibilityProvider` in `contexts/tab-bar-visibility.tsx` exposes an `onScroll` handler that uses `Animated.spring` to slide the tab bar off-screen when scrolling down and restore it when scrolling up.
-- **No global state library (yet)** — all state is local `useState`. A state management solution (Zustand recommended) will be needed when real data is introduced.
-- **No backend / persistence layer yet** — all data is hardcoded/static. A data layer decision is pending (see Section 11).
+- **File-based routing via Expo Router** — screens map directly to files under `app/`.
+- **ProfileProvider at root** — wraps everything in `_layout.tsx`. Loads `FullUserProfile` from AsyncStorage on mount. `profile === null` means onboarding not complete.
+- **Splash gate** — `app/index.tsx` checks `isLoading` + `profile` and redirects to `/onboarding` or `/(tabs)`. Fresh install always hits onboarding; returning users go straight to tabs.
+- **HealthProvider accepts profile prop** — `(tabs)/_layout.tsx` reads `useProfile()` and passes `profile ?? MOCK_PROFILE` to `HealthProvider`. All scoring is personalized from day one.
+- **GestureHandlerRootView at root** — wraps entire app in `_layout.tsx` so gesture-based components (sliders, drag handles) work everywhere.
+- **AddEntrySheet rendered at tab layout level** — sibling of `<Tabs>`, overlays entire UI including nav bar.
+- **Scroll-aware tab bar** — `TabBarVisibilityProvider` exposes `onScroll` handler, `Animated.spring` slide.
+- **AsyncStorage key:** `@titrahealth_profile`
 
 ---
 
 ## 4. Navigation Structure
 
 ```
-Root Stack
+Root Stack (GestureHandlerRootView > ProfileProvider > ThemeProvider)
+├── index                         ← Splash gate (instant redirect)
+├── onboarding/                   ← 14-screen Stack (slide_from_right)
+│   ├── index    (Step 1)
+│   ├── medication … side-effects (Steps 2–14)
 └── (tabs)                        ← No header
     ├── index       [Home]
     ├── log         [Insights]    ← Rename to insights.tsx pending
     └── explore     [Education]   ← Rename to education.tsx pending
 
-Overlays (rendered outside tab navigator, managed by tab layout state):
+Overlays (rendered outside tab navigator):
 └── AddEntrySheet                 ← Modal, slide animation, transparent
 ```
 
 ### Custom Tab Bar
 
-The default React Navigation tab bar is replaced with a custom `CustomTabBar` component that renders:
+The default React Navigation tab bar is replaced with `CustomTabBar`:
 
-1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 75, light tint) containing the three tab icon buttons. The active tab shows a terracotta `#D67455` dot indicator below the icon.
-2. **FAB** — a floating circular button to the right of the pill, rendered with `BlurView` + a terracotta overlay. Toggles between `add` and `close` icons. Opens/closes `AddEntrySheet`.
-
-Both elements are positioned `absolute` and float over the scrollable content. Tab screens apply `paddingBottom: 120` to prevent content from hiding under the bar.
+1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 75, light tint) with three tab icon buttons. Active tab shows a terracotta `#D67455` dot indicator.
+2. **FAB** — floating circular button, terracotta glass overlay. Toggles `add` ↔ `close`. Opens/closes `AddEntrySheet`.
 
 ### Scroll-Aware Behavior
 
-The tab bar auto-hides when the user scrolls down and reappears on scroll up. Driven by `useTabBarVisibility()` hook — each scroll-enabled screen passes `onScroll` to its `ScrollView`. The animation uses `Animated.spring` for a fluid feel.
+Auto-hides on scroll down, restores on scroll up. `Animated.spring` animation.
 
 ---
 
 ## 5. Design System
 
-### Color Palette
+### Main App — Glassmorphism
 
 | Token | Hex | Usage |
 |---|---|---|
-| `TERRACOTTA` | `#D67455` | Primary brand — FAB, active icons, bullets, accents |
-| `DARK` | `#1C0F09` / `#1A1A1A` | Primary body text (slight variation across files) |
-| App Background | `#F0EAE4` | Warm linen/off-white app background |
-| Score Badge Green | `#2B9450` | Positive progress badges |
-| Score Badge Red | `#DC3232` | Negative/deficit indicators |
-| Muted Gray | `#888888` / `#AAAAAA` | Secondary labels, timestamps |
+| `TERRACOTTA` | `#D67455` | Primary brand — FAB, active icons, accents |
+| `DARK` | `#1C0F09` / `#1A1A1A` | Primary body text |
+| App Background | `#F0EAE4` | Warm linen |
+| Score Green | `#2B9450` | Positive badges |
+| Score Red | `#DC3232` | Negative/deficit |
+| Muted | `#888888` / `#AAAAAA` | Secondary labels |
 
-### Glassmorphism Pattern
-
-Every card in the app uses a consistent glass treatment:
-
+Glass card pattern:
 ```
 Container (glassShadow + borderRadius)
-└── View style cardWrap + cardBody (overflow: hidden)
-    └── BlurView (intensity 55–80, tint: "light") — absolute fill
-        └── rgba(255,255,255, 0.42) overlay — absolute fill
-            └── GlassBorder helper — absolute, pointer-events none
-                ├── borderTopColor:    rgba(255,255,255, 0.80)  ← strong highlight
-                ├── borderLeftColor:   rgba(255,255,255, 0.55)
-                ├── borderRightColor:  rgba(255,255,255, 0.18)
-                └── borderBottomColor: rgba(255,255,255, 0.10) ← subtle fade
+└── BlurView (intensity 55–80, tint: "light") — absolute fill
+    └── rgba(255,255,255, 0.42) overlay
+        └── GlassBorder: top rgba(255,255,255,0.80), left 0.55, right 0.18, bottom 0.10
 ```
 
-`GlassBorder` is currently duplicated inline in `index.tsx`, `add-entry-sheet.tsx`, and `log.tsx`. It should be extracted to `components/ui/glass-border.tsx` and shared.
+Shadow: `shadowColor '#1A1A1A', offset {0,8}, opacity 0.08, radius 24, elevation 8`
 
-### Typography
+### Onboarding — Clean / Clinical
 
-| Usage | Weight | Letter Spacing |
-|---|---|---|
-| Display numbers (score, weight) | `800` | `-1` to `-1.5` |
-| Section headings | `700`–`800` | `0` to `0.5` |
-| Card titles | `700` | `0` |
-| Uppercase labels / pills | `700` | `1.5`–`3.5` |
-| Body text | `500`–`600` | `0` |
-| Timestamps / muted | `500` | `0` |
+Distinct from the main app aesthetic — minimal and focused:
 
-Font family: System fonts (SF Pro Rounded on iOS via `constants/theme.ts`). No custom fonts loaded.
-
-### Shadow Style (`glassShadow`)
-
-```typescript
-{
-  shadowColor: '#1A1A1A',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.08,
-  shadowRadius: 24,
-  elevation: 8,  // Android
-}
-```
-
-### Status / Impact Colors
-
-Used for metric change badges and log entry impact tags:
-
-```typescript
-const statusStyle = {
-  positive: { bg: 'rgba(43,148,80,0.12)',   text: '#2B9450' },
-  negative: { bg: 'rgba(220,50,50,0.10)',   text: '#DC3232' },
-  neutral:  { bg: 'rgba(150,150,150,0.10)', text: '#888888' },
-};
-```
+| Token | Value |
+|---|---|
+| Background | `#FFFFFF` |
+| Title | `#1A1A1A`, 28px, weight 800 |
+| Subtitle | `#666666`, 15px, weight 400 |
+| Option pill unselected | white bg, `rgba(0,0,0,0.12)` border |
+| Option pill selected | `#1A1A1A` bg, white text |
+| Continue button | `#1A1A1A` bg, 56px height, 28px radius, white text |
+| Progress bar track | `rgba(0,0,0,0.08)`, 3px height |
+| Progress bar fill | `#1A1A1A`, animated with Reanimated `withTiming` |
+| Wheel picker center | full opacity; ±1 = 0.55; ±2 = 0.25 |
 
 ---
 
 ## 6. Screens
 
-### 6.1 Home Screen
+### 6.0 Splash Gate
+
+**File:** `app/index.tsx`
+**Status:** ✅ Built
+
+Checks `ProfileContext.isLoading` + `profile`. Shows brand wordmark while AsyncStorage loads (~instant), then redirects:
+- `profile === null` → `/onboarding`
+- `profile !== null` → `/(tabs)`
+
+---
+
+### 6.1 Onboarding Flow (14 Screens)
+
+**Files:** `app/onboarding/index.tsx` … `side-effects.tsx`
+**Status:** ✅ Built
+
+All 14 screens use `ProfileContext.updateDraft()` to accumulate data. The final screen (`side-effects.tsx`) calls `completeOnboarding()` which computes derived metrics, saves the full `FullUserProfile` to AsyncStorage, sets `profile` in context, then navigates to `/(tabs)`.
+
+Each screen shares the same shell: white background, `SafeAreaView`, `<OnboardingHeader>` (step N / 14 + animated progress bar), title, subtitle, content, `<ContinueButton>` pinned to bottom.
+
+| Step | File | Input Collected |
+|---|---|---|
+| 1 | `index.tsx` | `glp1Status` (active / starting) |
+| 2 | `medication.tsx` | `medicationBrand`, `glp1Type` (auto-mapped) |
+| 3 | `dose.tsx` | `doseMg` (preset or custom) |
+| 4 | `schedule.tsx` | `injectionFrequencyDays`, `lastInjectionDate` |
+| 5 | `sex.tsx` | `sex` |
+| 6 | `birthday.tsx` | `birthday` (wheel picker — Month / Day / Year columns) |
+| 7 | `body.tsx` | `unitSystem`, `heightFt/In/Cm`, `weightLbs/Kg` (imperial/metric toggle) |
+| 8 | `health-sync.tsx` | `appleHealthEnabled` (skip-able) |
+| 9 | `start.tsx` | `startWeightLbs`, `startDate` |
+| 10 | `goal-weight.tsx` | `goalWeightLbs/Kg` (horizontal ruler picker) |
+| 11 | `goal-speed.tsx` | `targetWeeklyLossLbs` (7 snap values; live forecast date) |
+| 12 | `activity.tsx` | `activityLevel` |
+| 13 | `cravings.tsx` | `cravingDays` (multi-select, skip-able) |
+| 14 | `side-effects.tsx` | `sideEffects` → `completeOnboarding()` → `/(tabs)` |
+
+**Onboarding → App Effects:**
+
+| Input | Effect |
+|---|---|
+| `glp1Type = tirzepatide` | `proteinG *= 1.1` |
+| `glp1Type = semaglutide` | `waterMl *= 1.1` |
+| `doseMg >= 5` | `proteinG *= 1.1`, `waterMl *= 1.1` |
+| `doseMg >= 7.5` | `proteinG *= 1.15`, `waterMl *= 1.15` |
+| `activityLevel` | Steps target: sedentary 6k / light 8k / active 10k / very_active 12k |
+| `sideEffects: constipation` | `fiberG = 35` (vs 30), `waterMl *= 1.1` |
+| `weightLbs` | Protein baseline `* 0.8`, hydration baseline `* 0.6 oz` |
+| `glp1Status = starting` | Protein goal ramps over first 3 weeks (week 1: ×0.75, week 3+: ×1.0) |
+
+---
+
+### 6.2 Home Screen
 
 **File:** `app/(tabs)/index.tsx`
-**Status:** Built (static/hardcoded data), Apple Liquid Glass aesthetic
+**Status:** ✅ Built — data-driven via `HealthContext` (personalized from `FullUserProfile`)
 
-The Home screen is a vertically scrollable daily dashboard with scroll-aware tab bar. It consists of four main sections:
+Vertically scrollable daily dashboard. Four sections:
 
-#### Header
-
-- Large bold date: e.g., `"October 24"`
-- Uppercase subtitle: `"SHOT DAY"` (or neutral day label)
-
-#### Lifestyle Effectiveness Score Card
-
-- Terracotta glass card with triple concentric rings (`ScoreRings` — inline component)
-- Central score number (0–100), e.g., `85`
-- Two stat columns below the rings:
-  - Exercise: `240 / 600 min`
-  - Stand: `160 / 600 min`
-- **Score influences:** Protein intake, hydration, exercise, rest/recovery
-
-#### Insights Card
-
-- White frosted glass card (`InsightsCard` — inline component)
-- Title: `"Insights"`
-- Phase label pill: e.g., `"SHOT PHASE"`
-- Bullet recommendations: e.g., `"Increase protein by 20g today"`, `"Drink 2 more liters of water"`
-- Footer note about current medication phase
-
-#### Today's Focuses
-
-- Vertical list of focus cards (`FocusCard` — inline component, hardcoded: `"High Protein Meal"`, `"15 min Walk"`)
-- Each card: terracotta icon + label + green `"+X% Score"` badge
-- Will be driven by user data and daily logic once data layer exists
+1. **Header** — date + day label (Shot Day / Recovery Day / etc.)
+2. **Score Card** — two animated SVG rings (`ScoreRing`): Recovery (0–100) + GLP-1 Support (0–100). Tapping either ring opens `RingBreakdown` sheet with sub-score breakdown.
+3. **Insights Card** — 1–3 contextual insight bullets driven by `generateInsights()` from `scoring.ts`
+4. **Focus Cards** — action items (hardcoded; will be driven by data layer)
 
 ---
 
-### 6.2 Insights Screen
+### 6.3 Insights Screen
 
 **File:** `app/(tabs)/log.tsx` *(rename to `insights.tsx` pending)*
-**Status:** Built (static/hardcoded data) — all 3 tabs fully rendered
+**Status:** ✅ Built (static/hardcoded data) — all 3 tabs fully rendered
 
-The Insights screen has a glass segmented control at the top (Medication | Lifestyle | Progress). Each tab renders a full set of cards with hardcoded data. A collapsible **Recent Logs** card appears at the bottom of every tab.
-
-#### Shared Components (used across all 3 tabs)
-
-| Component | Description |
-|---|---|
-| `GlassBorder` | Directional glass border overlay (same as Home/Sheet) |
-| `RecentLogsCard` | Collapsible card showing historical log entries for the active tab. Collapsed by default. Expand/collapse driven by `LayoutAnimation.Presets.easeInEaseOut`. Each entry shows: icon, title, timestamp, detail line, and a colored impact tag (`statusStyle`). |
-
-#### Medication Tab
-
-| Component | Description |
-|---|---|
-| `MedAIInsightsCard` | AI Insights banner — adherence %, metabolic response status |
-| `MedLevelChartCard` | 7-day line chart of estimated GLP-1 level in body. Custom SVG-style view (absolute-positioned lines + dots, no charting library). Shows "Optimal / In Range" badge. |
-| Injection Details grid | 2×2 `InjectionCard` grid: Last Site, Rotate To, Last Dosage, Next Injection |
-| `RecentLogsCard` | 3 injection log entries (Ozempic 0.5mg, 0.5mg, 0.25mg with site, batch, adherence impact) |
-
-#### Lifestyle Tab
-
-| Component | Description |
-|---|---|
-| `AIInsightsCard` | AI Insights banner — protein and hydration deficit warning |
-| Metrics row | 2-column `MetricCard` row: Calories Burned (ring indicator) + Daily Steps (ring indicator) |
-| Daily Metrics grid | 2×2 `DailyMetricCard` grid: Protein, Fiber, Hydration, Carbs — each with icon, value, change badge |
-| `RecentLogsCard` | 4 lifestyle entries (Cheeseburger, Greek Yogurt Bowl, Morning Walk, Water Intake) |
-
-#### Progress Tab
-
-| Component | Description |
-|---|---|
-| `ProgAIInsightsCard` | AI Insights banner — on-track message with goal date |
-| `WeightChartCard` | Weight journey line chart with 4-period toggle (7D / 30D / 90D / 1Y). Custom chart (no charting library). Shows start label, current dot with halo ring, goal/current annotation. |
-| Stats grid | 2-column `ProgressStatCard` grid: Current BMI (with down badge) + To Goal % (with inline progress bar) |
-| Weight Timeline section | `WeightTimelineCard` — 3-milestone timeline: Starting Weight, Current Weight, Est. Goal Weight |
-| `RecentLogsCard` | 3 weight log entries with BMI and goal progress impact |
+Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has cards + collapsible Recent Logs. See previous SD version for full card inventory.
 
 ---
 
-### 6.3 Education Screen
+### 6.4 Education Screen
 
 **File:** `app/(tabs)/explore.tsx` *(rename to `education.tsx` pending)*
-**Status:** Expo boilerplate — content not yet designed
-
-Planned content areas:
-- GLP-1 mechanism of action (how the medication works)
-- Nutrition guidance specific to GLP-1 users (high-protein, fiber, anti-nausea)
-- Injection technique and site rotation best practices
-- Managing common side effects
-- Lifestyle optimization tips (meal timing, hydration, sleep)
-
-Content format TBD: static articles, interactive cards, or video-linked tiles.
+**Status:** ⬜ Expo boilerplate — not yet designed
 
 ---
 
-### 6.4 Add Entry Sheet
+### 6.5 Add Entry Sheet
 
 **File:** `components/add-entry-sheet.tsx`
-**Status:** Built (UI complete, no actions wired up)
+**Status:** ✅ Built — LOG INJECTION + DESCRIBE FOOD wired to `HealthContext` dispatch
 
-A bottom sheet modal triggered by the FAB. Slides up from the bottom with a semi-transparent backdrop.
-
-#### Layout
-
-```
-Backdrop (dismiss on tap)
-└── Glass Sheet (top-rounded corners)
-    ├── Drag Handle
-    ├── Title: "Add Entry"
-    ├── Subtitle
-    ├── Dashed Divider (blue tint)
-    ├── 3-Column Grid (9 items)
-    └── Nav Bar Replica (glass pill + FAB ×)
-```
-
-#### Grid Items
-
-| Label | Icon Source | Icon Name |
-|---|---|---|
-| DESCRIBE FOOD | MaterialIcons | `restaurant` |
-| LOG INJECTION | FontAwesome5 | `syringe` |
-| CAPTURE FOOD | Ionicons | `camera-outline` |
-| SCAN FOOD | Ionicons | `barcode-outline` |
-| ASK AI | Custom (terracotta sphere) | — |
-| SEARCH FOOD | Ionicons | `search-outline` |
-| LOG WEIGHT | MaterialCommunityIcons | `scale-bathroom` |
-| SIDE EFFECTS | Ionicons | `warning-outline` |
-| LOG ACTIVITY | MaterialIcons | `directions-run` |
-
-The `ASK AI` button uses a custom rendered orb (terracotta sphere with specular highlight), not a standard icon.
-
-#### Nav Bar Replica
-
-The sheet renders a pixel-matched copy of the floating glass pill + FAB at its bottom edge. This creates a seamless visual transition where the sheet appears to sit directly above the persistent nav bar.
+Bottom sheet modal triggered by FAB. 9-item grid. LOG INJECTION dispatches `LOG_INJECTION` action; DESCRIBE FOOD opens AI Chat modal.
 
 ---
 
 ## 7. Data Models
 
-> All fields marked with `*` are not yet implemented — these are planned schemas.
-> The `LogEntry` type below **is** implemented in `log.tsx` as hardcoded mock data.
+### FullUserProfile (implemented — persisted to AsyncStorage)
+
+```typescript
+// constants/user-profile.ts
+
+export type FullUserProfile = {
+  glp1Status: 'active' | 'starting';
+  medicationBrand: MedicationBrand;   // zepbound | mounjaro | ozempic | wegovy | trulicity | compounded_* | other
+  glp1Type: 'semaglutide' | 'tirzepatide' | 'dulaglutide';
+  doseMg: number;
+  injectionFrequencyDays: number;     // 1 | 7 | 14 | custom
+  lastInjectionDate: string;          // YYYY-MM-DD
+  sex: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  birthday: string;                   // YYYY-MM-DD
+  age: number;                        // computed at completeOnboarding
+  unitSystem: 'imperial' | 'metric';
+  heightCm: number;
+  heightFt: number;
+  heightIn: number;
+  weightLbs: number;
+  weightKg: number;
+  appleHealthEnabled: boolean;
+  startWeightLbs: number;
+  startDate: string;                  // YYYY-MM-DD
+  goalWeightLbs: number;
+  goalWeightKg: number;
+  targetWeeklyLossLbs: number;        // 0.2 | 0.5 | 1.0 | 1.5 | 2.0 | 2.5 | 3.0
+  activityLevel: 'sedentary' | 'light' | 'active' | 'very_active';
+  cravingDays: string[];              // ['monday', 'wednesday', ...]
+  sideEffects: SideEffect[];          // nausea | fatigue | hair_loss | constipation | bloating | sulfur_burps
+  onboardingCompletedAt: string;      // ISO datetime
+};
+```
+
+`MOCK_PROFILE` in `constants/mock-profile.ts` satisfies `FullUserProfile` and is used as a fallback in `(tabs)/_layout.tsx` when `profile === null`.
+
+### Scoring Types (implemented)
+
+```typescript
+// constants/scoring.ts
+
+type DailyTargets = { proteinG: number; waterMl: number; fiberG: number; steps: number };
+type DailyActuals = { proteinG: number; waterMl: number; fiberG: number; steps: number; injectionLogged: boolean };
+type WearableData  = { sleepMinutes: number; hrvMs: number; restingHR: number; spo2Pct: number };
+```
+
+### Scoring Formulas (implemented)
+
+```typescript
+// Protein: weight-based + medication/dose multipliers
+let proteinG = profile.weightLbs * 0.8;
+if (glp1Type === 'tirzepatide') proteinG *= 1.1;
+if (doseMg >= 7.5) proteinG *= 1.15; else if (doseMg >= 5) proteinG *= 1.1;
+
+// Hydration: oz → ml
+let waterOz = profile.weightLbs * 0.6;
+if (glp1Type === 'semaglutide') waterOz *= 1.1;
+// same dose multipliers as protein
+if (sideEffects.includes('constipation')) waterOz *= 1.1;
+const waterMl = Math.round(waterOz * 29.5735);
+
+// Fiber
+let fiberG = sideEffects.includes('constipation') ? 35 : 30;
+if (daysSinceShot <= 3) fiberG += 5;
+
+// Steps: activity-level driven
+const steps = { sedentary: 6000, light: 8000, active: 10000, very_active: 12000 }[activityLevel];
+```
 
 ### LogEntry (implemented — mock data only)
 
 ```typescript
 type LogEntry = {
-  id: string;
-  timestamp: string;       // e.g. "Today, 12:34 PM"
-  title: string;           // e.g. "Cheeseburger"
-  details: string;         // e.g. "520 cal · 28g protein · 2g fiber · 40g carbs"
-  impact: string;          // e.g. "Updated Protein +28g, Carbs +40g, Fiber +2g"
-  impactStatus: Status;    // 'positive' | 'negative' | 'neutral'
+  id: string; timestamp: string; title: string;
+  details: string; impact: string;
+  impactStatus: 'positive' | 'negative' | 'neutral';
   icon: React.ReactElement;
 };
 ```
 
-### User Profile *
+### Planned Schemas (not yet implemented)
 
-```typescript
-type UserProfile = {
-  id: string;
-  name: string;
-  heightCm: number;
-  startWeight: number;       // lbs or kg
-  goalWeight: number;
-  startDate: string;         // ISO date
-  medicationName: string;    // e.g., "Ozempic", "Wegovy"
-  injectionFrequency: 'weekly' | 'biweekly';
-  units: 'imperial' | 'metric';
-};
-```
-
-### Injection Log *
-
-```typescript
-type InjectionLog = {
-  id: string;
-  date: string;              // ISO datetime
-  doseMg: number;
-  site: InjectionSite;
-  notes?: string;
-};
-
-type InjectionSite =
-  | 'abdomen-left'
-  | 'abdomen-right'
-  | 'thigh-left'
-  | 'thigh-right'
-  | 'arm-left'
-  | 'arm-right';
-```
-
-### Food Log Entry *
-
-```typescript
-type FoodEntry = {
-  id: string;
-  timestamp: string;
-  inputMethod: 'search' | 'barcode' | 'photo' | 'describe' | 'ai';
-  name: string;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-  fiberG: number;
-  servingSize?: string;
-};
-```
-
-### Daily Log *
-
-```typescript
-type DailyLog = {
-  date: string;              // YYYY-MM-DD
-  waterMl: number;
-  stepsCount: number;
-  activityMinutes: number;
-  weightKg?: number;
-  foodEntries: FoodEntry[];
-  sideEffects?: SideEffectEntry[];
-};
-```
-
-### Side Effect Entry *
-
-```typescript
-type SideEffectEntry = {
-  id: string;
-  timestamp: string;
-  type: 'nausea' | 'fatigue' | 'constipation' | 'injection-site' | 'other';
-  severity: 1 | 2 | 3 | 4 | 5;
-  notes?: string;
-};
-```
-
-### Lifestyle Effectiveness Score *
-
-```typescript
-type EffectivenessScore = {
-  date: string;
-  score: number;             // 0–100
-  breakdown: {
-    protein: number;         // 0–100 sub-score
-    hydration: number;
-    exercise: number;
-    recovery: number;
-  };
-};
-```
+- `InjectionLog` — date, doseMg, site rotation, notes
+- `FoodEntry` — inputMethod, macros, serving
+- `DailyLog` — water, steps, activityMinutes, weightKg, foodEntries, sideEffects
+- `SideEffectEntry` — type, severity 1–5, notes
+- `EffectivenessScore` — score 0–100, breakdown by protein/hydration/exercise/recovery
 
 ---
 
@@ -481,22 +413,45 @@ type EffectivenessScore = {
 
 ### Current State
 
-All state is local `useState` within individual components. No global state exists.
-
-| State | Location | Value |
+| Layer | Mechanism | What It Holds |
 |---|---|---|
-| `sheetOpen` | `app/(tabs)/_layout.tsx` | `boolean` — controls AddEntrySheet visibility |
-| `activeTab` | `app/(tabs)/log.tsx` (InsightsScreen) | `'medication' \| 'lifestyle' \| 'progress'` |
-| `expanded` | `RecentLogsCard` (log.tsx) | `boolean` — collapse state per tab render |
-| `activePeriod` | `WeightChartCard` (log.tsx) | `'7D' \| '30D' \| '90D' \| '1Y'` |
-| `chartWidth` | `MedLevelChartCard`, `WeightChartCard` | `number` — layout-measured width for chart drawing |
-| Tab bar offset | `contexts/tab-bar-visibility.tsx` | `Animated.Value` — scroll-driven show/hide |
+| Profile | `ProfileContext` (AsyncStorage) | `FullUserProfile` persisted across sessions; `draft` accumulated during onboarding |
+| Health / Scores | `HealthContext` (useReducer) | Daily actuals, targets, wearable data, recovery + support scores |
+| Tab bar visibility | `TabBarVisibilityContext` | `Animated.Value` for scroll-driven show/hide |
+| UI (local) | `useState` | Sheet open, active tab, chart width |
+
+### ProfileContext API
+
+```typescript
+{
+  profile: FullUserProfile | null;   // null = onboarding not complete
+  draft: ProfileDraft;               // Partial<FullUserProfile> built during onboarding
+  updateDraft(fields): void;         // merge fields into draft
+  completeOnboarding(): Promise<void>; // derive metrics, save to AsyncStorage, set profile
+  resetProfile(): Promise<void>;     // clear AsyncStorage + state (dev/testing)
+  isLoading: boolean;                // true while AsyncStorage.getItem is pending
+}
+```
+
+### HealthContext API
+
+```typescript
+{
+  profile: FullUserProfile;
+  wearable: WearableData;
+  actuals: DailyActuals;
+  targets: DailyTargets;
+  recoveryScore: number;    // 0–100
+  supportScore: number;     // 0–100
+  lastLogAction: 'water' | 'protein' | 'injection' | null;
+  dispatch: Dispatch<Action>;
+}
+// Actions: LOG_WATER | LOG_PROTEIN | LOG_INJECTION | LOG_STEPS | CLEAR_ACTION
+```
 
 ### Planned State Architecture
 
-**Recommendation: Zustand** (lightweight, no boilerplate, works well with React Native)
-
-Proposed stores:
+**Recommendation: Zustand** for when real data logging is introduced.
 
 ```
 stores/
@@ -506,11 +461,6 @@ stores/
 └── uiStore.ts           # Sheet open state, active tab, loading states
 ```
 
-### Persistence
-
-- **Local persistence:** `expo-secure-store` (sensitive data) + `AsyncStorage` (general data)
-- **Remote sync (future):** REST API or Supabase (see Section 11)
-
 ---
 
 ## 9. Component Inventory
@@ -519,29 +469,28 @@ stores/
 |---|---|---|---|
 | `CustomTabBar` | `app/(tabs)/_layout.tsx` | ✅ Complete | Glass pill + FAB + scroll-aware hide/show |
 | `TabBarVisibilityProvider` | `contexts/tab-bar-visibility.tsx` | ✅ Complete | Animated.spring scroll handler |
-| Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Static data, Apple Liquid Glass |
-| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | UI only, no actions wired |
-| `SegmentedControl` | `app/(tabs)/log.tsx` | ✅ Built | 3-tab glass pill |
-| `AIInsightsCard` | `app/(tabs)/log.tsx` | ✅ Built | Lifestyle tab AI banner |
-| `MedAIInsightsCard` | `app/(tabs)/log.tsx` | ✅ Built | Medication tab AI banner |
-| `ProgAIInsightsCard` | `app/(tabs)/log.tsx` | ✅ Built | Progress tab AI banner |
-| `MetricCard` | `app/(tabs)/log.tsx` | ✅ Built | Ring indicator + label |
-| `RingIndicator` | `app/(tabs)/log.tsx` | ✅ Built | Circular progress ring (CSS-style) |
-| `DailyMetricCard` | `app/(tabs)/log.tsx` | ✅ Built | 2×2 grid metric tile |
-| `MedLevelChartCard` | `app/(tabs)/log.tsx` | ✅ Built | 7-day GLP-1 level line chart (custom, no lib) |
-| `InjectionCard` | `app/(tabs)/log.tsx` | ✅ Built | Injection detail tile |
-| `WeightChartCard` | `app/(tabs)/log.tsx` | ✅ Built | Weight journey line chart, 4-period toggle (custom, no lib) |
-| `ProgressStatCard` | `app/(tabs)/log.tsx` | ✅ Built | BMI / goal % stat tile |
-| `WeightTimelineCard` | `app/(tabs)/log.tsx` | ✅ Built | 3-milestone weight timeline |
-| `RecentLogsCard` | `app/(tabs)/log.tsx` | ✅ Built | Collapsible log history, all 3 tabs |
+| `ProfileProvider` | `contexts/profile-context.tsx` | ✅ Complete | AsyncStorage persistence, onboarding draft |
+| `HealthProvider` | `contexts/health-data.tsx` | ✅ Complete | Accepts `profile` prop, useReducer scoring |
+| `OnboardingHeader` | `components/onboarding/onboarding-header.tsx` | ✅ Complete | Reanimated progress bar + back button |
+| `OptionPill` | `components/onboarding/option-pill.tsx` | ✅ Complete | Single/multi-select pill |
+| `ContinueButton` | `components/onboarding/continue-button.tsx` | ✅ Complete | Full-width dark CTA |
+| `WheelPicker` | `components/onboarding/wheel-picker.tsx` | ✅ Complete | Snap-scroll FlatList, opacity gradients |
+| Onboarding Screens 1–14 | `app/onboarding/*.tsx` | ✅ Complete | All 14 steps, back navigation, draft wiring |
+| Splash Gate | `app/index.tsx` | ✅ Complete | AsyncStorage gate, brand splash |
+| `ScoreRing` | `components/score-ring.tsx` | ✅ Complete | Animated SVG arc (Reanimated + react-native-svg) |
+| `RingBreakdown` | `components/ring-breakdown.tsx` | ✅ Complete | Tap-to-expand breakdown sheet |
+| Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven via HealthContext |
+| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | LOG INJECTION + DESCRIBE FOOD wired |
+| Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | Static data, all 3 tabs |
+| AI Chat | `app/ai-chat.tsx` | ✅ Built | Modal screen |
 | `GlassBorder` | `index.tsx`, `add-entry-sheet.tsx`, `log.tsx` | ⚠️ Duplicated ×3 | Extract to `components/ui/glass-border.tsx` |
-| `ScoreRings` | (inline in `index.tsx`) | ⚠️ Inline | Extract to `components/score-rings.tsx` |
-| `InsightsCard` | (inline in `index.tsx`) | ⚠️ Inline | Extract to `components/insights-card.tsx` |
-| `FocusCard` | (inline in `index.tsx`) | ⚠️ Inline | Extract to `components/focus-card.tsx` |
+| `ScoreRings` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/score-rings.tsx` |
+| `InsightsCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
+| `FocusCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
 | Education Screen | `app/(tabs)/explore.tsx` | ⬜ Boilerplate | Needs full build |
-| `BodyDiagram` | Not yet built | ⬜ Planned | Injection site rotation map |
-| `FoodLogForm` | Not yet built | ⬜ Planned | Triggered from AddEntrySheet |
-| `InjectionLogForm` | Not yet built | ⬜ Planned | Triggered from AddEntrySheet |
+| `BodyDiagram` | Not built | ⬜ Planned | Injection site rotation map |
+| `FoodLogForm` | Not built | ⬜ Planned | All input methods |
+| `InjectionLogForm` | Not built | ⬜ Planned | From AddEntrySheet |
 
 ---
 
@@ -552,16 +501,21 @@ stores/
 - [x] App shell — root layout, routing, tab navigation
 - [x] Custom glass pill tab bar with FAB
 - [x] Scroll-aware tab bar (auto-hide on scroll down, restore on scroll up)
-- [x] Home screen — score card, insights card, focus cards (static data), Apple Liquid Glass aesthetic
-- [x] Add Entry Sheet — 9-item grid, glass styling, nav replica
-- [x] Insights screen — Medication tab (AI insights, GLP-1 level chart, injection detail grid, recent logs)
-- [x] Insights screen — Lifestyle tab (AI insights, calorie/steps rings, daily metrics grid, recent logs)
-- [x] Insights screen — Progress tab (AI insights, weight journey chart with period toggle, BMI/goal stats, weight timeline, recent logs)
-- [x] Collapsible Recent Logs card — all 3 Insights tabs (hardcoded mock data, smooth LayoutAnimation)
+- [x] Home screen — personalized score rings + insights (data-driven via HealthContext)
+- [x] Score rings — animated SVG arcs, micro-interactions, breakdown sheets
+- [x] Add Entry Sheet — 9-item grid; LOG INJECTION + DESCRIBE FOOD wired
+- [x] Insights screen — all 3 tabs (Medication, Lifestyle, Progress) with mock data
+- [x] Collapsible Recent Logs card across all Insights tabs
+- [x] **14-screen onboarding flow** — collects full metabolic profile
+- [x] **ProfileProvider** — AsyncStorage persistence, draft accumulation, `completeOnboarding`
+- [x] **Splash gate** — redirects new users to onboarding, returning users to tabs
+- [x] **FullUserProfile data model** — replaces old minimal UserProfile
+- [x] **Personalized scoring engine** — weight-based protein/hydration, activity-driven steps, dose/medication multipliers, side effect adjustments
+- [x] **GestureHandlerRootView** at root — fixes gesture-in-gesture crashes
 
 ### In Progress / Partially Done
 
-- [ ] Home screen — wire dynamic data to score, insights, focus cards
+- [ ] Home screen — wire focus cards to real profile data
 - [ ] Insights screen — wire real data to all cards (currently all hardcoded)
 - [ ] Tab bar — rename `log` → `insights`, `explore` → `education`
 - [ ] Extract `GlassBorder` to shared component (currently duplicated in 3 files)
@@ -569,21 +523,19 @@ stores/
 ### Not Started
 
 - [ ] Education screen — content structure and articles
-- [ ] Food logging flow (all input methods: describe, search, scan, photo, AI)
+- [ ] Food logging flow (describe, search, scan, photo, AI)
 - [ ] Injection logging form + site rotation logic
 - [ ] Weight logging (wire Add Entry sheet → store → Progress tab)
-- [ ] Water intake tracking
-- [ ] Activity / steps tracking
+- [ ] Water / fiber / steps tracking (live, not seed data)
 - [ ] Side effects logging
 - [ ] Lifestyle Effectiveness Score computation engine
-- [ ] User profile setup / onboarding
-- [ ] Data persistence (AsyncStorage / expo-secure-store)
-- [ ] Notification system (injection reminders, daily check-in)
+- [ ] Notification system (injection reminders, daily check-in, craving-day alerts)
 - [ ] AI food description parsing
 - [ ] Barcode scanning
 - [ ] Photo-based food recognition
-- [ ] Zustand store setup (userStore, logStore, insightsStore, uiStore)
-- [ ] Apple Health / Google Fit integration (steps, weight)
+- [ ] Zustand store setup
+- [ ] Apple Health integration (live HRV/sleep/steps — currently seed data)
+- [ ] User account / cloud sync
 
 ---
 
@@ -591,13 +543,13 @@ stores/
 
 | Integration | Purpose | Library / Service |
 |---|---|---|
-| Health data (steps, weight) | Pull from Apple Health / Google Fit | `expo-health` (HealthKit) |
-| Barcode scanning | Food product lookup | `expo-camera` + USDA FoodData API or Open Food Facts |
-| Food database | Nutritional info lookup | USDA FoodData Central API or Nutritionix |
+| Health data (steps, HRV, sleep) | Apple Health / Google Fit | `expo-health` (HealthKit) |
+| Barcode scanning | Food product lookup | `expo-camera` + Open Food Facts |
+| Food database | Nutritional info lookup | USDA FoodData Central or Nutritionix |
 | AI food description | Parse text/photo into nutrients | OpenAI Vision API or custom model |
-| Charts | Weight trend, macro charts | `victory-native` or `react-native-gifted-charts` (not yet decided — current charts are custom-drawn) |
-| Push notifications | Injection reminders, daily tips | `expo-notifications` |
-| Local persistence | Offline-first data storage | `@react-native-async-storage/async-storage` |
+| Charts | Weight trend, macro charts | `victory-native` or `react-native-gifted-charts` |
+| Push notifications | Injection reminders, craving-day alerts | `expo-notifications` |
+| Local persistence | ✅ Implemented for profile | `@react-native-async-storage/async-storage` |
 | Auth (future) | User accounts + cloud sync | Supabase Auth or Clerk |
 | Backend (future) | Data sync across devices | Supabase (Postgres + REST) or Firebase |
 
@@ -607,29 +559,29 @@ stores/
 
 ### Design / UX
 
-- What is the exact scoring algorithm for the Lifestyle Effectiveness Score? (weights per metric, normalization)
-- Should the Home screen personalize differently based on injection day vs. non-injection day?
-- Should water intake use oz or mL — or let the user choose in settings?
-- What does an "empty state" look like for a brand new user with no data?
-- Should `RecentLogsCard` entries be paginated or infinite-scroll once real data is wired?
+- Should the Home screen show a different layout on injection day vs. recovery day?
+- What does the first-launch experience look like after onboarding completes? (empty state vs. seeded goals)
+- Should water intake use oz or mL — or follow the `unitSystem` from the profile?
+- Should `RecentLogsCard` entries be paginated once real data is wired?
+- Craving-day alerts: push notification or in-app banner?
 
 ### Technical
 
-- Decide on charting library before committing to it for real data — current charts are custom-drawn with absolute-positioned Views (no external lib). `victory-native` (established) vs. `react-native-gifted-charts` (lighter).
-- Extract `GlassBorder` into `components/ui/glass-border.tsx` before adding more screens — currently duplicated in `index.tsx`, `add-entry-sheet.tsx`, and `log.tsx`.
-- Extract inline components from `index.tsx` (`ScoreRings`, `InsightsCard`, `FocusCard`) to reduce file size.
-- Confirm state management approach (Zustand recommended) before wiring any real data.
-- Decide on offline-first vs. sync-first architecture for data persistence.
-- Determine whether AI food logging (photo/description) is handled client-side or via API call.
-- `LayoutAnimation` on Android requires `UIManager.setLayoutAnimationEnabledExperimental(true)` in the app entry point — add this before releasing Android builds.
+- Decide on charting library (`victory-native` vs. `react-native-gifted-charts`) before wiring real weight data.
+- Extract `GlassBorder` into `components/ui/glass-border.tsx` — currently duplicated in 3 files.
+- Extract inline components from `index.tsx` (`ScoreRings`, `InsightsCard`, `FocusCard`).
+- Confirm Zustand vs. Context for log store before implementing food/injection logging.
+- Apple Health stub in `health-sync.tsx` needs real HealthKit permission call (`expo-health`).
+- `LayoutAnimation` on Android requires `UIManager.setLayoutAnimationEnabledExperimental(true)` in app entry point.
+- `app/ai-chat.tsx` has a pre-existing TypeScript error (`maxHeight` on `TextInput`) — fix before next release.
 
 ### Product
 
-- Onboarding flow: what information does the user provide at signup? (medication name, dose, start date, weight, goal)
-- Does the app support multiple GLP-1 medications with different dosing schedules?
-- Will there be a provider-facing dashboard in the future, or is this purely consumer?
-- Should side effects be shared with a care team (HIPAA implications)?
-- What is the monetization model — freemium, subscription, or healthcare B2B?
+- Does the app support dose titration tracking (changing dose over time)?
+- Will there be a provider-facing dashboard, or is this purely consumer?
+- Should side effects be shareable with a care team (HIPAA implications)?
+- Monetization model: freemium, subscription, or healthcare B2B?
+- Should `resetProfile()` be exposed in Settings for users who want to redo onboarding?
 
 ---
 

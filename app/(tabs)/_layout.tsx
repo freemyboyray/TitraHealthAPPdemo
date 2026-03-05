@@ -7,6 +7,9 @@ import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
+import { MOCK_PROFILE } from '@/constants/mock-profile';
+import { HealthProvider } from '@/contexts/health-data';
+import { useProfile } from '@/contexts/profile-context';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useLogStore } from '@/stores/log-store';
 
@@ -81,24 +84,28 @@ export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
   useEffect(() => { fetchInsightsData(); }, []);
+  const { profile } = useProfile();
+  const effectiveProfile = profile ?? MOCK_PROFILE;
 
   return (
-    <TabBarVisibilityProvider>
-      <Tabs
-        tabBar={(props) => (
-          <CustomTabBar
-            {...props}
-            fabOpen={sheetOpen}
-            onFabPress={() => setSheetOpen((v) => !v)}
-          />
-        )}
-        screenOptions={{ headerShown: false }}>
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="log" />
-        <Tabs.Screen name="explore" />
-      </Tabs>
-      <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
-    </TabBarVisibilityProvider>
+    <HealthProvider profile={effectiveProfile}>
+      <TabBarVisibilityProvider>
+        <Tabs
+          tabBar={(props) => (
+            <CustomTabBar
+              {...props}
+              fabOpen={sheetOpen}
+              onFabPress={() => setSheetOpen((v) => !v)}
+            />
+          )}
+          screenOptions={{ headerShown: false }}>
+          <Tabs.Screen name="index" />
+          <Tabs.Screen name="log" />
+          <Tabs.Screen name="explore" />
+        </Tabs>
+        <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+      </TabBarVisibilityProvider>
+    </HealthProvider>
   );
 }
 

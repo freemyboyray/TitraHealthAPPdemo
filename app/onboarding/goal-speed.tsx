@@ -1,0 +1,177 @@
+import { useRouter } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import { ContinueButton } from '@/components/onboarding/continue-button';
+import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
+import { addWeeks } from '@/constants/user-profile';
+import { useProfile } from '@/contexts/profile-context';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const SNAP_VALUES = [0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+const ITEM_W = 56;
+const ITEM_MARGIN = 8;
+const UNIT_W = ITEM_W + ITEM_MARGIN * 2;
+
+const CONTEXT_NOTES: Record<string, string> = {
+  '0.2': 'This slower pace is gentle and sustainable for your journey.',
+  '0.5': 'A gentle, sustainable pace — great for long-term success.',
+  '1.0': 'A moderate pace with good results.',
+  '1.5': 'A moderate pace with good results.',
+  '2.0': 'Aggressive — ensure adequate protein and recovery.',
+  '2.5': 'Aggressive — ensure adequate protein and recovery.',
+  '3.0': 'Aggressive — ensure adequate protein and recovery.',
+};
+
+export default function GoalSpeedScreen() {
+  const router = useRouter();
+  const { draft, updateDraft } = useProfile();
+  const [speedIdx, setSpeedIdx] = useState(2); // default 1.0
+  const speed = SNAP_VALUES[speedIdx];
+
+  // Forecast
+  const lbsToLose = Math.max(1, (draft.weightLbs ?? 180) - (draft.goalWeightLbs ?? 160));
+  const weeks = lbsToLose / speed;
+  const goalDate = addWeeks(new Date(), weeks);
+  const dateStr = goalDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const handleContinue = () => {
+    updateDraft({ targetWeeklyLossLbs: speed });
+    router.push('/onboarding/activity');
+  };
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <View style={s.container}>
+        <OnboardingHeader step={11} total={14} onBack={() => router.back()} />
+
+        <Text style={s.title}>How quickly do you want to reach your goal?</Text>
+        <Text style={s.subtitle}>
+          (Don't worry — we'll help you stay healthy whatever pace you choose.)
+        </Text>
+
+        {/* Forecast chip */}
+        <View style={s.chip}>
+          <Text style={s.chipText}>Est. Goal Date: {dateStr}</Text>
+        </View>
+
+        {/* Big speed display */}
+        <View style={s.display}>
+          <Text style={s.displayLabel}>Weekly Change</Text>
+          <Text style={s.displayValue}>{speed.toFixed(1)} lbs</Text>
+        </View>
+
+        {/* Context note */}
+        <Text style={s.contextNote}>{CONTEXT_NOTES[speed.toFixed(1)]}</Text>
+
+        {/* Snap selector */}
+        <View style={s.selectorRow}>
+          {SNAP_VALUES.map((v, i) => {
+            const isSelected = i === speedIdx;
+            return (
+              <TouchableOpacity
+                key={v}
+                onPress={() => setSpeedIdx(i)}
+                activeOpacity={0.7}
+                style={[s.snapItem, isSelected && s.snapItemSelected]}>
+                <Text style={[s.snapLabel, isSelected && s.snapLabelSelected]}>
+                  {v.toFixed(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Track markers */}
+        <View style={s.markerRow}>
+          <Text style={s.markerText}>🚶 Gentle</Text>
+          <Text style={s.markerText}>🚗 Moderate</Text>
+          <Text style={s.markerText}>🚀 Fast</Text>
+        </View>
+
+        <View style={s.spacer} />
+        <ContinueButton onPress={handleContinue} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#666666', marginBottom: 20, lineHeight: 22 },
+  chip: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#1A1A1A' },
+  display: { alignItems: 'center', marginBottom: 12 },
+  displayLabel: { fontSize: 13, color: '#888', letterSpacing: 0.5 },
+  displayValue: { fontSize: 52, fontWeight: '800', color: '#1A1A1A', marginTop: 4 },
+  contextNote: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 12,
+  },
+  snapItem: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  snapItemSelected: {
+    backgroundColor: '#1A1A1A',
+    borderColor: '#1A1A1A',
+  },
+  snapLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+  },
+  snapLabelSelected: {
+    color: '#FFFFFF',
+  },
+  markerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  markerText: {
+    fontSize: 12,
+    color: '#AAA',
+  },
+  spacer: { flex: 1 },
+});
