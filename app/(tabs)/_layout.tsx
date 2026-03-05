@@ -2,12 +2,13 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { useLogStore } from '@/stores/log-store';
 
 const TERRACOTTA = '#C4784B';
 
@@ -78,6 +79,8 @@ const WHITE = '#FFFFFF';
 
 export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
+  useEffect(() => { fetchInsightsData(); }, []);
 
   return (
     <TabBarVisibilityProvider>

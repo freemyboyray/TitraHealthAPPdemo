@@ -1,0 +1,713 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      activity_logs: {
+        Row: {
+          active_calories: number
+          date: string
+          duration_min: number | null
+          exercise_minutes: number
+          exercise_type: string | null
+          id: string
+          intensity: string | null
+          source: Database["public"]["Enums"]["activity_source"]
+          steps: number
+          user_id: string
+        }
+        Insert: {
+          active_calories?: number
+          date: string
+          duration_min?: number | null
+          exercise_minutes?: number
+          exercise_type?: string | null
+          id?: string
+          intensity?: string | null
+          source?: Database["public"]["Enums"]["activity_source"]
+          steps?: number
+          user_id: string
+        }
+        Update: {
+          active_calories?: number
+          date?: string
+          duration_min?: number | null
+          exercise_minutes?: number
+          exercise_type?: string | null
+          id?: string
+          intensity?: string | null
+          source?: Database["public"]["Enums"]["activity_source"]
+          steps?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      articles: {
+        Row: {
+          body_markdown: string
+          category: Database["public"]["Enums"]["article_category"]
+          featured_image_url: string | null
+          id: string
+          is_daily_featured: boolean
+          phase_focus: string
+          published_at: string
+          reading_time_minutes: number
+          slug: string
+          subtitle: string | null
+          title: string
+        }
+        Insert: {
+          body_markdown: string
+          category: Database["public"]["Enums"]["article_category"]
+          featured_image_url?: string | null
+          id?: string
+          is_daily_featured?: boolean
+          phase_focus?: string
+          published_at?: string
+          reading_time_minutes?: number
+          slug: string
+          subtitle?: string | null
+          title: string
+        }
+        Update: {
+          body_markdown?: string
+          category?: Database["public"]["Enums"]["article_category"]
+          featured_image_url?: string | null
+          id?: string
+          is_daily_featured?: boolean
+          phase_focus?: string
+          published_at?: string
+          reading_time_minutes?: number
+          slug?: string
+          subtitle?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          context_snapshot: Json | null
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["chat_role"]
+          user_id: string
+        }
+        Insert: {
+          content: string
+          context_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["chat_role"]
+          user_id: string
+        }
+        Update: {
+          content?: string
+          context_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["chat_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_article_schedule: {
+        Row: {
+          article_id: string
+          date: string
+          id: string
+          phase: Database["public"]["Enums"]["phase_type"]
+        }
+        Insert: {
+          article_id: string
+          date: string
+          id?: string
+          phase: Database["public"]["Enums"]["phase_type"]
+        }
+        Update: {
+          article_id?: string
+          date?: string
+          id?: string
+          phase?: Database["public"]["Enums"]["phase_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_article_schedule_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_entries: {
+        Row: {
+          calories: number
+          carbs_g: number
+          created_at: string
+          fat_g: number
+          fiber_g: number
+          id: string
+          input_method: string
+          logged_at: string
+          name: string
+          protein_g: number
+          serving_size: string | null
+          user_id: string | null
+        }
+        Insert: {
+          calories?: number
+          carbs_g?: number
+          created_at?: string
+          fat_g?: number
+          fiber_g?: number
+          id?: string
+          input_method: string
+          logged_at?: string
+          name: string
+          protein_g?: number
+          serving_size?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          calories?: number
+          carbs_g?: number
+          created_at?: string
+          fat_g?: number
+          fiber_g?: number
+          id?: string
+          input_method?: string
+          logged_at?: string
+          name?: string
+          protein_g?: number
+          serving_size?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      food_logs: {
+        Row: {
+          barcode: string | null
+          calories: number
+          carbs_g: number
+          fat_g: number
+          fiber_g: number
+          food_name: string
+          id: string
+          logged_at: string
+          meal_type: Database["public"]["Enums"]["meal_type"]
+          protein_g: number
+          raw_ai_response: Json | null
+          source: Database["public"]["Enums"]["food_source"]
+          user_id: string
+        }
+        Insert: {
+          barcode?: string | null
+          calories?: number
+          carbs_g?: number
+          fat_g?: number
+          fiber_g?: number
+          food_name: string
+          id?: string
+          logged_at?: string
+          meal_type: Database["public"]["Enums"]["meal_type"]
+          protein_g?: number
+          raw_ai_response?: Json | null
+          source?: Database["public"]["Enums"]["food_source"]
+          user_id: string
+        }
+        Update: {
+          barcode?: string | null
+          calories?: number
+          carbs_g?: number
+          fat_g?: number
+          fiber_g?: number
+          food_name?: string
+          id?: string
+          logged_at?: string
+          meal_type?: Database["public"]["Enums"]["meal_type"]
+          protein_g?: number
+          raw_ai_response?: Json | null
+          source?: Database["public"]["Enums"]["food_source"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      injection_logs: {
+        Row: {
+          batch_number: string | null
+          created_at: string
+          dose_mg: number
+          id: string
+          injection_date: string
+          injection_time: string | null
+          medication_name: string | null
+          notes: string | null
+          site: string | null
+          user_id: string
+        }
+        Insert: {
+          batch_number?: string | null
+          created_at?: string
+          dose_mg: number
+          id?: string
+          injection_date: string
+          injection_time?: string | null
+          medication_name?: string | null
+          notes?: string | null
+          site?: string | null
+          user_id: string
+        }
+        Update: {
+          batch_number?: string | null
+          created_at?: string
+          dose_mg?: number
+          id?: string
+          injection_date?: string
+          injection_time?: string | null
+          medication_name?: string | null
+          notes?: string | null
+          site?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "injection_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          access_token: string
+          enabled: boolean
+          expires_at: string | null
+          id: string
+          last_synced_at: string | null
+          provider: Database["public"]["Enums"]["integration_provider"]
+          refresh_token: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          provider: Database["public"]["Enums"]["integration_provider"]
+          refresh_token?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          provider?: Database["public"]["Enums"]["integration_provider"]
+          refresh_token?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          dob: string | null
+          dose_mg: number | null
+          full_name: string | null
+          goal_weight_lbs: number | null
+          height_inches: number | null
+          id: string
+          injection_day_of_week: number | null
+          injection_frequency_days: number
+          injection_time: string | null
+          medication_type: Database["public"]["Enums"]["medication_type"] | null
+          program_start_date: string | null
+          start_weight_lbs: number | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          dob?: string | null
+          dose_mg?: number | null
+          full_name?: string | null
+          goal_weight_lbs?: number | null
+          height_inches?: number | null
+          id: string
+          injection_day_of_week?: number | null
+          injection_frequency_days?: number
+          injection_time?: string | null
+          medication_type?:
+            | Database["public"]["Enums"]["medication_type"]
+            | null
+          program_start_date?: string | null
+          start_weight_lbs?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          dob?: string | null
+          dose_mg?: number | null
+          full_name?: string | null
+          goal_weight_lbs?: number | null
+          height_inches?: number | null
+          id?: string
+          injection_day_of_week?: number | null
+          injection_frequency_days?: number
+          injection_time?: string | null
+          medication_type?:
+            | Database["public"]["Enums"]["medication_type"]
+            | null
+          program_start_date?: string | null
+          start_weight_lbs?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      side_effect_logs: {
+        Row: {
+          effect_type: Database["public"]["Enums"]["side_effect_type"]
+          id: string
+          logged_at: string
+          notes: string | null
+          phase_at_log: Database["public"]["Enums"]["phase_type"]
+          severity: number
+          user_id: string
+        }
+        Insert: {
+          effect_type: Database["public"]["Enums"]["side_effect_type"]
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          phase_at_log: Database["public"]["Enums"]["phase_type"]
+          severity: number
+          user_id: string
+        }
+        Update: {
+          effect_type?: Database["public"]["Enums"]["side_effect_type"]
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          phase_at_log?: Database["public"]["Enums"]["phase_type"]
+          severity?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "side_effect_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_goals: {
+        Row: {
+          active_calories_target: number
+          daily_calories_target: number
+          daily_fiber_g_target: number
+          daily_protein_g_target: number
+          daily_steps_target: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_calories_target?: number
+          daily_calories_target?: number
+          daily_fiber_g_target?: number
+          daily_protein_g_target?: number
+          daily_steps_target?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_calories_target?: number
+          daily_calories_target?: number
+          daily_fiber_g_target?: number
+          daily_protein_g_target?: number
+          daily_steps_target?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_goals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weight_logs: {
+        Row: {
+          id: string
+          logged_at: string
+          notes: string | null
+          user_id: string
+          weight_lbs: number
+        }
+        Insert: {
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          user_id: string
+          weight_lbs: number
+        }
+        Update: {
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          user_id?: string
+          weight_lbs?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weight_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      activity_source: "manual" | "apple_health" | "fitbit"
+      article_category:
+        | "nutrition"
+        | "medication"
+        | "lifestyle"
+        | "mindset"
+        | "exercise"
+      chat_role: "user" | "assistant"
+      food_source: "manual" | "barcode" | "photo_ai" | "mfp_sync" | "search_db"
+      integration_provider: "apple_health" | "fitbit" | "myfitnesspal"
+      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
+      medication_type: "semaglutide" | "tirzepatide" | "liraglutide"
+      phase_type: "shot" | "peak" | "balance" | "reset"
+      side_effect_type:
+        | "nausea"
+        | "vomiting"
+        | "fatigue"
+        | "constipation"
+        | "diarrhea"
+        | "headache"
+        | "injection_site"
+        | "appetite_loss"
+        | "other"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      activity_source: ["manual", "apple_health", "fitbit"],
+      article_category: [
+        "nutrition",
+        "medication",
+        "lifestyle",
+        "mindset",
+        "exercise",
+      ],
+      chat_role: ["user", "assistant"],
+      food_source: ["manual", "barcode", "photo_ai", "mfp_sync", "search_db"],
+      integration_provider: ["apple_health", "fitbit", "myfitnesspal"],
+      meal_type: ["breakfast", "lunch", "dinner", "snack"],
+      medication_type: ["semaglutide", "tirzepatide", "liraglutide"],
+      phase_type: ["shot", "peak", "balance", "reset"],
+      side_effect_type: [
+        "nausea",
+        "vomiting",
+        "fatigue",
+        "constipation",
+        "diarrhea",
+        "headache",
+        "injection_site",
+        "appetite_loss",
+        "other",
+      ],
+    },
+  },
+} as const

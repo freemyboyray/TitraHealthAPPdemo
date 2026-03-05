@@ -1,5 +1,6 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import {
   Modal,
   Pressable,
@@ -17,20 +18,21 @@ const ICON_COLOR = '#2A1A12';
 
 type GridItem = {
   label: string;
+  route: string;
   special?: boolean;
   icon?: React.ReactNode;
 };
 
 const GRID: GridItem[] = [
-  { label: 'DESCRIBE FOOD', icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'LOG INJECTION', icon: <FontAwesome5 name="syringe" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'CAPTURE FOOD', icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'SCAN FOOD', icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'ASK AI', special: true },
-  { label: 'SEARCH FOOD', icon: <Ionicons name="search-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'LOG WEIGHT', icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'SIDE EFFECTS', icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
-  { label: 'LOG ACTIVITY', icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'DESCRIBE FOOD', route: '/entry/describe-food', icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'LOG INJECTION', route: '/entry/log-injection', icon: <FontAwesome5 name="syringe" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'CAPTURE FOOD', route: '/entry/capture-food', icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'SCAN FOOD', route: '/entry/scan-food', icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'ASK AI', route: '/entry/ask-ai', special: true },
+  { label: 'SEARCH FOOD', route: '/entry/search-food', icon: <Ionicons name="search-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'LOG WEIGHT', route: '/entry/log-weight', icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'SIDE EFFECTS', route: '/entry/side-effects', icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={ICON_COLOR} /> },
+  { label: 'LOG ACTIVITY', route: '/entry/log-activity', icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={ICON_COLOR} /> },
 ];
 
 // ─── Glass border overlay ──────────────────────────────────────────────────────
@@ -46,9 +48,16 @@ function GlassBorder({ r = 24 }: { r?: number }) {
 
 // ─── Grid button ───────────────────────────────────────────────────────────────
 
-function GridBtn({ item }: { item: GridItem }) {
+function GridBtn({ item, onClose }: { item: GridItem; onClose: () => void }) {
+  const router = useRouter();
+
+  function handlePress() {
+    onClose();
+    router.push(item.route as any);
+  }
+
   return (
-    <TouchableOpacity style={s.gridItem} activeOpacity={0.7}>
+    <TouchableOpacity style={s.gridItem} activeOpacity={0.7} onPress={handlePress}>
       {item.special ? (
         <View style={s.specialCircle}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
@@ -102,7 +111,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
               {/* Grid */}
               <View style={s.grid}>
-                {GRID.map((item) => <GridBtn key={item.label} item={item} />)}
+                {GRID.map((item) => <GridBtn key={item.label} item={item} onClose={onClose} />)}
               </View>
             </View>
           </View>
