@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 5, 2026
+**Last Updated:** March 6, 2026
 
 ---
 
@@ -174,8 +174,8 @@ Overlays (rendered outside tab navigator):
 
 The default React Navigation tab bar is replaced with `CustomTabBar`:
 
-1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 75, light tint) with three tab icon buttons. Active tab shows a terracotta `#D67455` dot indicator.
-2. **FAB** — floating circular button, terracotta glass overlay. Toggles `add` ↔ `close`. Opens/closes `AddEntrySheet`.
+1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 75, dark tint) with three tab icon buttons. Active tab renders a 46×46 orange circle (`#E8831A`) behind a white icon. Inactive icons use `#5A5754`.
+2. **FAB** — floating circular button, orange glass overlay (`rgba(232,131,26,0.70–0.92)`). Toggles `add` ↔ `close`. Opens/closes `AddEntrySheet`.
 
 ### Scroll-Aware Behavior
 
@@ -185,42 +185,53 @@ Auto-hides on scroll down, restores on scroll up. `Animated.spring` animation.
 
 ## 5. Design System
 
-### Main App — Glassmorphism
+### Dark-First Design (current)
+
+All screens use a unified dark palette. Tokens are exported from `constants/theme.ts`.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `TERRACOTTA` | `#D67455` | Primary brand — FAB, active icons, accents |
-| `DARK` | `#1C0F09` / `#1A1A1A` | Primary body text |
-| App Background | `#F0EAE4` | Warm linen |
-| Score Green | `#2B9450` | Positive badges |
-| Score Red | `#DC3232` | Negative/deficit |
-| Muted | `#888888` / `#AAAAAA` | Secondary labels |
+| `BG_BASE` | `#141210` | All screen backgrounds |
+| `BG_SURFACE` | `#1E1B17` | Card / sheet surface |
+| `BG_SURFACE2` | `#252219` | Elevated / active surface, input bg |
+| `ORANGE` | `#E8831A` | Primary brand accent — FAB, active tab, accents, progress bars |
+| `ORANGE_DIM` | `rgba(232,131,26,0.15)` | Icon bg tint, selected pill bg |
+| `TEXT_PRIMARY` | `#FFFFFF` | All primary text |
+| `TEXT_SECONDARY` | `#9A9490` | Subtitles, labels, secondary text |
+| `TEXT_MUTED` | `#5A5754` | Placeholders, disabled, section labels |
+| `BORDER_SUBTLE` | `rgba(255,255,255,0.08)` | Dividers, card borders |
+| `GLASS_OVERLAY` | `rgba(255,255,255,0.04)` | BlurView overlay on dark bg |
+| `SHADOW_COLOR` | `#000000` | Drop shadows |
+
+**Status colors (semantic, unchanged):**
+- Good: `#27AE60` | Low: `#F39C12` | Bad: `#E74C3C`
 
 Glass card pattern:
 ```
-Container (glassShadow + borderRadius)
-└── BlurView (intensity 55–80, tint: "light") — absolute fill
-    └── rgba(255,255,255, 0.42) overlay
-        └── GlassBorder: top rgba(255,255,255,0.80), left 0.55, right 0.18, bottom 0.10
+Container (shadow + borderRadius)
+└── backgroundColor: '#1E1B17'
+└── BlurView (intensity 55–80, tint: "dark") — absolute fill
+    └── rgba(255,255,255, 0.04) overlay
+        └── GlassBorder: top rgba(255,255,255,0.13), left 0.08, right 0.03, bottom 0.02
 ```
 
-Shadow: `shadowColor '#1A1A1A', offset {0,8}, opacity 0.08, radius 24, elevation 8`
+Shadow: `shadowColor '#000000', offset {0,8}, opacity 0.08–0.12, radius 24, elevation 8`
 
-### Onboarding — Clean / Clinical
+### Onboarding — Dark, consistent with main app
 
-Distinct from the main app aesthetic — minimal and focused:
+Shares the same dark palette (no longer a separate "clean/clinical" aesthetic):
 
 | Token | Value |
 |---|---|
-| Background | `#FFFFFF` |
-| Title | `#1A1A1A`, 28px, weight 800 |
-| Subtitle | `#666666`, 15px, weight 400 |
-| Option pill unselected | white bg, `rgba(0,0,0,0.12)` border |
-| Option pill selected | `#1A1A1A` bg, white text |
-| Continue button | `#1A1A1A` bg, 56px height, 28px radius, white text |
-| Progress bar track | `rgba(0,0,0,0.08)`, 3px height |
-| Progress bar fill | `#1A1A1A`, animated with Reanimated `withTiming` |
-| Wheel picker center | full opacity; ±1 = 0.55; ±2 = 0.25 |
+| Background | `#141210` |
+| Title | `#FFFFFF`, 28px, weight 800 |
+| Subtitle | `#9A9490`, 15px, weight 400 |
+| Option pill unselected | `#252219` bg, `rgba(255,255,255,0.10)` border, white text |
+| Option pill selected | `rgba(232,131,26,0.15)` bg, `#E8831A` border + text |
+| Continue button | `#FFFFFF` bg, 56px height, 28px radius, `#141210` text (inverted CTA) |
+| Progress bar track | `rgba(255,255,255,0.12)`, 3px height |
+| Progress bar fill | `#E8831A`, animated with Reanimated `withTiming` |
+| Wheel picker center | full opacity; ±1 = 0.55; ±2 = 0.25; selected highlight `rgba(232,131,26,0.10)` |
 
 ---
 
@@ -483,7 +494,7 @@ stores/
 | `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | LOG INJECTION + DESCRIBE FOOD wired |
 | Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | Static data, all 3 tabs |
 | AI Chat | `app/ai-chat.tsx` | ✅ Built | Modal screen |
-| `GlassBorder` | `index.tsx`, `add-entry-sheet.tsx`, `log.tsx` | ⚠️ Duplicated ×3 | Extract to `components/ui/glass-border.tsx` |
+| `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Extracted | Dark-mode border values; still inline-duplicated in entry screens |
 | `ScoreRings` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/score-rings.tsx` |
 | `InsightsCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
 | `FocusCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
@@ -512,6 +523,7 @@ stores/
 - [x] **FullUserProfile data model** — replaces old minimal UserProfile
 - [x] **Personalized scoring engine** — weight-based protein/hydration, activity-driven steps, dose/medication multipliers, side effect adjustments
 - [x] **GestureHandlerRootView** at root — fixes gesture-in-gesture crashes
+- [x] **Dark-first UI redesign** — unified dark palette (`#141210` bg, `#E8831A` orange accent, `#FFFFFF` text) across all 20+ files; BlurView tint `"dark"` throughout; orange circle active tab indicator; `constants/theme.ts` exports design tokens
 
 ### In Progress / Partially Done
 
@@ -585,4 +597,4 @@ stores/
 
 ---
 
-*This document reflects the state of the codebase as of March 5, 2026. It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 6, 2026. It should be updated as features are built and decisions are made.*

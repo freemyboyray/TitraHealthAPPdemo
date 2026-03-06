@@ -26,7 +26,6 @@ export default function GoalWeightScreen() {
   const { draft, updateDraft } = useProfile();
   const unit = draft.unitSystem ?? 'imperial';
 
-  // Build ruler range: current - 60 to current - 5
   const currentLbs = draft.weightLbs ?? 180;
   const minLbs = Math.max(80, Math.round(currentLbs - 80));
   const maxLbs = Math.round(currentLbs - 5);
@@ -86,7 +85,6 @@ export default function GoalWeightScreen() {
 
         {/* Horizontal ruler */}
         <View style={s.rulerContainer}>
-          {/* Center indicator */}
           <View style={s.indicator} />
           <FlatList
             ref={listRef}
@@ -100,7 +98,7 @@ export default function GoalWeightScreen() {
             initialScrollIndex={selectedLbs - minLbs}
             getItemLayout={(_, index) => ({ length: UNIT_W, offset: UNIT_W * index, index })}
             onMomentumScrollEnd={handleScroll}
-            renderItem={({ item, index }) => {
+            renderItem={({ item }) => {
               const isMajor = item % 10 === 0;
               const isMid = item % 5 === 0;
               return (
@@ -126,24 +124,24 @@ export default function GoalWeightScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 24, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 24, lineHeight: 22 },
   display: { alignItems: 'center', marginBottom: 16 },
-  displaySmall: { fontSize: 13, color: '#888', letterSpacing: 0.5 },
-  displayValue: { fontSize: 42, fontWeight: '800', color: '#1A1A1A', marginTop: 4 },
+  displaySmall: { fontSize: 13, color: '#9A9490', letterSpacing: 0.5 },
+  displayValue: { fontSize: 42, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
   toggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 10,
     padding: 3,
     alignSelf: 'center',
     marginBottom: 24,
   },
   toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: '#1A1A1A' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#888' },
+  toggleBtnActive: { backgroundColor: '#E8831A' },
+  toggleText: { fontSize: 14, fontWeight: '600', color: '#9A9490' },
   toggleTextActive: { color: '#FFFFFF' },
   rulerContainer: {
     height: 72,
@@ -157,7 +155,7 @@ const s = StyleSheet.create({
     left: '50%',
     width: 2,
     height: 48,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#E8831A',
     zIndex: 2,
     marginLeft: -1,
   },
@@ -169,13 +167,13 @@ const s = StyleSheet.create({
   tickLine: {
     width: 1.5,
     height: 18,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  tickMid: { height: 26, backgroundColor: 'rgba(0,0,0,0.3)' },
-  tickMajor: { height: 36, backgroundColor: '#1A1A1A', width: 2 },
+  tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.25)' },
+  tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
   tickLabel: {
     fontSize: 11,
-    color: '#888',
+    color: '#9A9490',
     marginTop: 4,
   },
 });

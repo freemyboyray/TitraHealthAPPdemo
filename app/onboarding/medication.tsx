@@ -57,10 +57,10 @@ export default function MedicationScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
   options: {},
 });

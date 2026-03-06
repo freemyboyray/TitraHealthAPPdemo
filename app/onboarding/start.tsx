@@ -58,6 +58,7 @@ export default function StartScreen() {
                   style={s.inputText}
                   keyboardType="decimal-pad"
                   placeholder={`Weight in ${weightLabel}`}
+                  placeholderTextColor="rgba(255,255,255,0.25)"
                   value={weightInput}
                   onChangeText={setWeightInput}
                   autoFocus
@@ -70,7 +71,7 @@ export default function StartScreen() {
                 <Text style={s.rowValue}>
                   {weightInput ? `${weightInput} ${weightLabel}` : `Tap to enter`}
                 </Text>
-                <Ionicons name="pencil" size={16} color="#888" style={{ marginLeft: 8 }} />
+                <Ionicons name="pencil" size={16} color="#9A9490" style={{ marginLeft: 8 }} />
               </View>
             )}
           </TouchableOpacity>
@@ -83,6 +84,7 @@ export default function StartScreen() {
                 <TextInput
                   style={s.dateInput}
                   placeholder="MM"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
                   keyboardType="number-pad"
                   maxLength={2}
                   value={month}
@@ -92,6 +94,7 @@ export default function StartScreen() {
                 <TextInput
                   style={s.dateInput}
                   placeholder="DD"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
                   keyboardType="number-pad"
                   maxLength={2}
                   value={day}
@@ -100,6 +103,7 @@ export default function StartScreen() {
                 <TextInput
                   style={[s.dateInput, { flex: 1.5 }]}
                   placeholder="YYYY"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
                   keyboardType="number-pad"
                   maxLength={4}
                   value={year}
@@ -114,7 +118,7 @@ export default function StartScreen() {
                     ? `${month}/${day}/${year}`
                     : 'Tap to enter'}
                 </Text>
-                <Ionicons name="pencil" size={16} color="#888" style={{ marginLeft: 8 }} />
+                <Ionicons name="pencil" size={16} color="#9A9490" style={{ marginLeft: 8 }} />
               </View>
             )}
           </TouchableOpacity>
@@ -127,37 +131,38 @@ export default function StartScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
     minHeight: 64,
     gap: 12,
   },
-  rowLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A1A' },
+  rowLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
   rowRight: { flexDirection: 'row', alignItems: 'center' },
-  rowValue: { fontSize: 16, color: '#888' },
+  rowValue: { fontSize: 16, color: '#9A9490' },
   inlineInput: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  inputText: { fontSize: 18, color: '#1A1A1A', minWidth: 80, textAlign: 'right' },
-  unitHint: { fontSize: 14, color: '#888' },
+  inputText: { fontSize: 18, color: '#FFFFFF', minWidth: 80, textAlign: 'right' },
+  unitHint: { fontSize: 14, color: '#9A9490' },
   dateRow: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
   dateInput: {
     flex: 1,
     height: 40,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.18)',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 8,
     paddingHorizontal: 8,
     fontSize: 15,
     textAlign: 'center',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    backgroundColor: '#252219',
   },
 });

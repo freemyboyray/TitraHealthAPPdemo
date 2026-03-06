@@ -1,9 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  SafeAreaView, StyleSheet, Text, TouchableOpacity, View,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -13,9 +18,30 @@ export default function HealthSyncScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
 
-  const handleConnect = () => {
-    // Stub: in production call HealthKit permissions
-    updateDraft({ appleHealthEnabled: true });
+  const handleConnect = async () => {
+    if (Platform.OS === 'ios') {
+      try {
+        const HealthKit = require('@kingstinct/react-native-healthkit').default;
+        const { HKQuantityTypeIdentifier } = require('@kingstinct/react-native-healthkit');
+
+        const typesToRead = [
+          HKQuantityTypeIdentifier.stepCount,
+          HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
+          HKQuantityTypeIdentifier.restingHeartRate,
+          HKQuantityTypeIdentifier.oxygenSaturation,
+          HKQuantityTypeIdentifier.bodyMass,
+        ];
+
+        const authorized = await HealthKit.requestAuthorization(typesToRead, []);
+        if (authorized) {
+          updateDraft({ appleHealthEnabled: true });
+        }
+      } catch {
+        updateDraft({ appleHealthEnabled: true });
+      }
+    } else {
+      updateDraft({ appleHealthEnabled: true });
+    }
     router.push('/onboarding/start');
   };
 
@@ -56,10 +82,10 @@ export default function HealthSyncScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
   illustration: {
     flex: 1,
     alignItems: 'center',
@@ -70,22 +96,22 @@ const s = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 28,
-    backgroundColor: '#FFF0F3',
+    backgroundColor: 'rgba(255,45,85,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#FF2D55',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 20,
   },
   healthLabel: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   healthDesc: {
     fontSize: 15,
-    color: '#888',
+    color: '#9A9490',
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
@@ -97,7 +123,7 @@ const s = StyleSheet.create({
   },
   skipText: {
     fontSize: 15,
-    color: '#888',
+    color: '#9A9490',
     fontWeight: '500',
   },
 });

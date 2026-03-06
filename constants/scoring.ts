@@ -88,7 +88,7 @@ export function getDailyTargets(
 
 // ─── Recovery Sub-Scorers ─────────────────────────────────────────────────────
 
-function scoreSleep(minutes: number): number {
+export function scoreSleep(minutes: number): number {
   if (minutes >= 420 && minutes <= 540) return 1.0;
   if (minutes >= 360 && minutes < 420) return 0.75;
   if (minutes >= 300 && minutes < 360) return 0.5;
@@ -97,7 +97,7 @@ function scoreSleep(minutes: number): number {
   return Math.max(0, minutes / 420);
 }
 
-function scoreHRV(ms: number): number {
+export function scoreHRV(ms: number): number {
   if (ms >= 60) return 1.0;
   if (ms >= 50) return 0.9;
   if (ms >= 40) return 0.75;
@@ -106,7 +106,7 @@ function scoreHRV(ms: number): number {
   return 0.1;
 }
 
-function scoreRHR(bpm: number): number {
+export function scoreRHR(bpm: number): number {
   if (bpm < 55) return 1.0;
   if (bpm < 65) return 0.85;
   if (bpm < 75) return 0.65;
@@ -114,7 +114,7 @@ function scoreRHR(bpm: number): number {
   return 0.15;
 }
 
-function scoreSPO2(pct: number): number {
+export function scoreSPO2(pct: number): number {
   if (pct >= 98) return 1.0;
   if (pct >= 96) return 0.8;
   if (pct >= 94) return 0.5;
@@ -242,3 +242,65 @@ export function supportBreakdown(
     { label: 'Medication', actual: actuals.injectionLogged ? 15 : 0,                                  max: 15 },
   ];
 }
+
+// ─── Gradient Helpers ─────────────────────────────────────────────────────────
+
+export function recoveryGradient(score: number): { start: string; end: string } {
+  if (score < 40) return { start: '#C0392B', end: '#E74C3C' };
+  if (score < 65) return { start: '#D4801A', end: '#F39C12' };
+  if (score < 85) return { start: '#1E8449', end: '#27AE60' };
+  return { start: '#0E6655', end: '#1ABC9C' };
+}
+
+export function supportGradient(score: number): { start: string; end: string } {
+  if (score < 50) return { start: '#C05C10', end: '#E8831A' };
+  if (score < 80) return { start: '#E8831A', end: '#F4A44A' };
+  return { start: '#E8831A', end: '#F9BE6A' };
+}
+
+// ─── Sub-Metric Chip Data ─────────────────────────────────────────────────────
+
+export type ChipData = { label: string; value: string; pct: number; glp1Note?: string };
+
+export function recoveryChips(wearable: WearableData): ChipData[] {
+  const h = Math.floor(wearable.sleepMinutes / 60);
+  const m = wearable.sleepMinutes % 60;
+  return [
+    { label: 'Sleep',      value: `${h}h ${m}m`,          pct: scoreSleep(wearable.sleepMinutes) },
+    { label: 'HRV',        value: `${wearable.hrvMs}ms`,   pct: scoreHRV(wearable.hrvMs),
+      glp1Note: wearable.hrvMs < 50 ? 'GLP-1 effect' : undefined },
+    { label: 'Heart Rate', value: `${wearable.restingHR}`, pct: scoreRHR(wearable.restingHR) },
+    { label: 'SpO₂',       value: `${wearable.spo2Pct}%`, pct: scoreSPO2(wearable.spo2Pct) },
+  ];
+}
+
+export function supportChips(actuals: DailyActuals, targets: DailyTargets): ChipData[] {
+  return [
+    { label: 'Protein',  value: `${actuals.proteinG}g`,                          pct: Math.min(actuals.proteinG / targets.proteinG, 1) },
+    { label: 'Water',    value: `${Math.round(actuals.waterMl / 29.57)}oz`,       pct: Math.min(actuals.waterMl / targets.waterMl, 1) },
+    { label: 'Movement', value: actuals.steps.toLocaleString(),                   pct: Math.min(actuals.steps / targets.steps, 1) },
+    { label: 'Fiber',    value: `${actuals.fiberG}g`,                             pct: Math.min(actuals.fiberG / targets.fiberG, 1) },
+  ];
+}
+
+// ─── Breakdown Row Notes ──────────────────────────────────────────────────────
+
+export const RECOVERY_ROW_NOTES = [
+  "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin.",
+  "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this.",
+  "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks.",
+  "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
+];
+
+export const GLP1_ROW_NOTES = [
+  "GLP-1 medications suppress appetite broadly — intentional protein intake prevents muscle loss alongside fat.",
+  "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects.",
+  "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue.",
+  "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes.",
+];
+
+export const RECOVERY_COACH_NOTE =
+  "HRV and sleep improve most with consistent aerobic exercise and 7–9h sleep. GLP-1 users typically see +4ms HRV improvement over 8 weeks of treatment.";
+
+export const GLP1_COACH_NOTE =
+  "Hitting your protein target is the single highest-impact daily action on GLP-1. Each 10g above baseline preserves ~0.5 lbs of muscle over 12 weeks.";

@@ -33,15 +33,15 @@ const s = StyleSheet.create({
     height: 56,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.12)',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#252219',
     justifyContent: 'center',
     paddingHorizontal: 18,
     marginBottom: 10,
   },
   pillSelected: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
+    backgroundColor: 'rgba(232,131,26,0.15)',
+    borderColor: '#E8831A',
   },
   inner: {
     flexDirection: 'row',
@@ -56,17 +56,17 @@ const s = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   labelSelected: {
-    color: '#FFFFFF',
+    color: '#E8831A',
   },
   subtitle: {
     fontSize: 13,
-    color: '#888888',
+    color: '#9A9490',
     marginTop: 1,
   },
   subtitleSelected: {
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(232,131,26,0.65)',
   },
 });

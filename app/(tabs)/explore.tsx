@@ -1,112 +1,272 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { GlassBorder } from '@/components/ui/glass-border';
+import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
-export default function TabTwoScreen() {
+const ORANGE = '#E8831A';
+const DARK = '#FFFFFF';
+const BG = '#141210';
+
+const glassShadow = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.3,
+  shadowRadius: 24,
+  elevation: 8,
+};
+
+// ─── Education content ────────────────────────────────────────────────────────
+
+type Section = {
+  id: string;
+  icon: string;
+  iconSet: 'Ionicons' | 'MaterialIcons';
+  title: string;
+  items: { q: string; a: string }[];
+};
+
+const SECTIONS: Section[] = [
+  {
+    id: 'medication',
+    icon: 'medical',
+    iconSet: 'Ionicons',
+    title: 'Understanding Your Medication',
+    items: [
+      {
+        q: 'How do GLP-1 agonists work?',
+        a: 'GLP-1 receptor agonists mimic the glucagon-like peptide-1 hormone. They slow gastric emptying, signal fullness to the brain, and help regulate blood sugar — resulting in reduced appetite and significant weight loss over time.',
+      },
+      {
+        q: 'Tirzepatide vs Semaglutide',
+        a: 'Tirzepatide (Zepbound/Mounjaro) is a dual GIP + GLP-1 agonist, activating two incretin pathways. Clinical trials show it may produce greater weight loss (up to 22%) vs semaglutide (up to 15%). Both are weekly injections; tirzepatide tends to have a faster weight loss curve.',
+      },
+      {
+        q: 'What is dose escalation?',
+        a: 'Both medications start at a low "starter" dose to minimize side effects, then increase every 4 weeks. This ramp period is when nausea is most common. Never skip ahead — your body needs time to adjust to each dose.',
+      },
+      {
+        q: 'How long does it take to work?',
+        a: 'Most people notice reduced appetite within 1–2 weeks. Significant weight loss typically begins at 4–8 weeks. Peak efficacy is usually reached at the maintenance dose after 5–20 months of consistent use.',
+      },
+    ],
+  },
+  {
+    id: 'nutrition',
+    icon: 'restaurant',
+    iconSet: 'MaterialIcons',
+    title: 'Nutrition Guide',
+    items: [
+      {
+        q: 'Why is protein so critical on GLP-1s?',
+        a: 'GLP-1 medications suppress appetite broadly — including protein. Without intentional protein intake, your body can lose muscle mass alongside fat. Aim for 0.7–1g protein per pound of body weight daily. Prioritize protein at every meal.',
+      },
+      {
+        q: 'How much water should I drink?',
+        a: 'GLP-1s slow gastric emptying, which can increase dehydration risk and worsen constipation. Aim for at least 0.5–0.6 oz per pound of body weight daily (more if you experience constipation or are on semaglutide).',
+      },
+      {
+        q: 'What foods work best on GLP-1s?',
+        a: 'High-protein, nutrient-dense foods: Greek yogurt, eggs, lean meats, fish, legumes, cottage cheese. Eat small, frequent meals. Avoid high-fat or spicy foods near injection day — they can worsen nausea. Fiber-rich vegetables reduce constipation.',
+      },
+      {
+        q: 'Should I track calories?',
+        a: 'GLP-1s naturally reduce caloric intake — many people eat 30–40% less. Focus on hitting protein and hydration targets first. If you do track, a deficit of 500–750 kcal/day is sustainable. Avoid going below 1,200 kcal (women) or 1,500 kcal (men) without medical guidance.',
+      },
+    ],
+  },
+  {
+    id: 'lifestyle',
+    icon: 'directions-run',
+    iconSet: 'MaterialIcons',
+    title: 'Lifestyle & Exercise',
+    items: [
+      {
+        q: 'What exercise is best?',
+        a: 'A combination of resistance training (2–3x/week) and daily walking is optimal. Resistance training preserves muscle mass that GLP-1 medications can reduce. Even 20–30 minutes of walking daily significantly improves insulin sensitivity and cardiovascular health.',
+      },
+      {
+        q: 'Why does sleep matter?',
+        a: 'Poor sleep (under 6 hours) blunts GLP-1 appetite control by up to 30% and increases cortisol, which can counteract weight loss. Aim for 7–9 hours. Good sleep hygiene is as important as diet on GLP-1 therapy.',
+      },
+      {
+        q: 'How does stress affect my results?',
+        a: 'Chronic stress elevates cortisol, which promotes fat storage and increases hunger — partially overriding the appetite-suppressing effects of GLP-1 medications. Mindfulness, regular movement, and adequate sleep are the best stress management tools.',
+      },
+    ],
+  },
+  {
+    id: 'side-effects',
+    icon: 'warning-outline',
+    iconSet: 'Ionicons',
+    title: 'Managing Side Effects',
+    items: [
+      {
+        q: 'How do I manage nausea?',
+        a: 'Nausea is most common in the first 4–8 weeks or after a dose increase. Eat slowly, take small bites, avoid lying down after eating, and stay hydrated. Ginger tea, peppermint, and anti-nausea foods (crackers, bland rice) can help. Contact your doctor if it\'s severe or persistent.',
+      },
+      {
+        q: 'Tips for constipation',
+        a: 'GLP-1s slow gut motility, making constipation common. Increase fiber (aim for 30–35g/day), drink extra water, and stay active. Psyllium husk, magnesium citrate, or prune juice can help. Your doctor may recommend a gentle laxative if symptoms persist.',
+      },
+      {
+        q: 'Why do I feel fatigued?',
+        a: 'Fatigue is common in early weeks, especially at the starter dose. Your body is adapting to reduced caloric intake and metabolic changes. Ensure adequate protein, iron, and B12. Fatigue usually resolves by week 4–6. If it persists, discuss with your doctor.',
+      },
+      {
+        q: 'What about hair loss?',
+        a: 'Temporary hair shedding (telogen effluvium) can occur 3–6 months into treatment due to rapid caloric restriction or nutritional deficiency. Prioritize protein, biotin, zinc, and iron intake. Hair typically grows back after 6–12 months once nutrition stabilizes.',
+      },
+    ],
+  },
+  {
+    id: 'faq',
+    icon: 'help-circle-outline',
+    iconSet: 'Ionicons',
+    title: 'Frequently Asked Questions',
+    items: [
+      {
+        q: 'What if I miss a dose?',
+        a: 'For weekly injections (semaglutide/tirzepatide): take the missed dose within 5 days of your scheduled day. If more than 5 days have passed, skip it and resume your regular schedule. Never double-dose. Note your next injection date and set a reminder.',
+      },
+      {
+        q: 'Can I drink alcohol?',
+        a: 'Alcohol is not prohibited, but it can worsen nausea and dehydration on GLP-1 therapy. Alcohol is also calorie-dense and can undermine weight loss progress. If you drink, do so in moderation and ensure adequate hydration beforehand.',
+      },
+      {
+        q: 'Why did my weight loss plateau?',
+        a: 'Weight loss plateaus are normal and expected, typically occurring at 6–12 months. Your body adapts its metabolism. Strategies: increase protein, add or intensify exercise, review caloric intake, ensure adequate sleep, and discuss with your doctor whether a dose adjustment is appropriate.',
+      },
+      {
+        q: 'Is GLP-1 therapy permanent?',
+        a: 'GLP-1s are most effective as long-term therapies. Studies show that stopping medication typically leads to weight regain within 12 months. Lifestyle habits built during treatment significantly affect long-term outcomes. Discuss a long-term plan with your prescriber.',
+      },
+    ],
+  },
+];
+
+// ─── Expandable card component ────────────────────────────────────────────────
+
+function EducationCard({ section }: { section: Section }) {
+  const [expandedItem, setExpandedItem] = useState<number | null>(null);
+
+  const icon =
+    section.iconSet === 'Ionicons'
+      ? <Ionicons name={section.icon as any} size={20} color={ORANGE} />
+      : <MaterialIcons name={section.icon as any} size={20} color={ORANGE} />;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
+    <View style={[c.cardWrap, glassShadow]}>
+      <View style={[c.cardBody, { backgroundColor: '#1E1B17' }]}>
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+        <GlassBorder r={24} />
+
+        {/* Card header */}
+        <View style={c.cardHeader}>
+          <View style={c.iconWrap}>{icon}</View>
+          <Text style={c.cardTitle}>{section.title}</Text>
+        </View>
+
+        <View style={c.divider} />
+
+        {/* Expandable items */}
+        {section.items.map((item, idx) => {
+          const isOpen = expandedItem === idx;
+          return (
+            <View key={idx}>
+              <TouchableOpacity
+                style={c.itemHeader}
+                onPress={() => setExpandedItem(isOpen ? null : idx)}
+                activeOpacity={0.7}
+              >
+                <Text style={c.itemQ} numberOfLines={isOpen ? undefined : 2}>{item.q}</Text>
+                <Ionicons
+                  name={isOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#5A5754"
+                  style={{ marginLeft: 8, flexShrink: 0 }}
+                />
+              </TouchableOpacity>
+              {isOpen && (
+                <View style={c.itemBody}>
+                  <Text style={c.itemA}>{item.a}</Text>
+                </View>
+              )}
+              {idx < section.items.length - 1 && <View style={c.itemDivider} />}
+            </View>
+          );
         })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </View>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function EducationScreen() {
+  const { onScroll } = useTabBarVisibility();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={s.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+        >
+          {/* ── Header ── */}
+          <Text style={s.headerTitle}>Education</Text>
+          <Text style={s.headerSub}>Your guide to GLP-1 therapy</Text>
+
+          {SECTIONS.map((section) => (
+            <EducationCard key={section.id} section={section} />
+          ))}
+
+          <Text style={s.disclaimer}>
+            This content is for informational purposes only. Always consult your healthcare provider before making any changes to your treatment.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4 },
+  headerSub: { fontSize: 14, color: '#9A9490', fontWeight: '500', marginBottom: 28 },
+  disclaimer: { fontSize: 11, color: '#5A5754', textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8 },
+});
+
+const c = StyleSheet.create({
+  cardWrap: { borderRadius: 24, marginBottom: 16 },
+  cardBody: { borderRadius: 24, overflow: 'hidden' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
+  iconWrap: {
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: 'rgba(232,131,26,0.12)',
+    borderWidth: 1, borderColor: 'rgba(232,131,26,0.20)',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 12,
   },
-  titleContainer: {
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flex: 1, letterSpacing: -0.3 },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
+  itemHeader: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
+  itemQ: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1, lineHeight: 20 },
+  itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
+  itemA: { fontSize: 14, color: '#9A9490', lineHeight: 22, fontWeight: '400' },
+  itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 },
 });

@@ -4,13 +4,14 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const DARK = '#1C0F09';
+const ORANGE = '#E8831A';
 
 type BreakdownRow = { label: string; actual: number; max: number };
 
@@ -19,10 +20,12 @@ type RingBreakdownProps = {
   title: string;
   color: string;
   rows: BreakdownRow[];
+  rowNotes?: string[];
+  coachNote?: string;
   onClose: () => void;
 };
 
-export function RingBreakdown({ visible, title, color, rows, onClose }: RingBreakdownProps) {
+export function RingBreakdown({ visible, title, color, rows, rowNotes, coachNote, onClose }: RingBreakdownProps) {
   const slideY = useRef(new Animated.Value(SCREEN_H)).current;
 
   useEffect(() => {
@@ -58,21 +61,35 @@ export function RingBreakdown({ visible, title, color, rows, onClose }: RingBrea
           <Text style={[styles.totalScore, { color }]}>{actual} / {total}</Text>
         </View>
 
-        {/* Rows */}
-        {rows.map((row) => {
-          const pct = row.max > 0 ? row.actual / row.max : 0;
-          return (
-            <View key={row.label} style={styles.row}>
-              <Text style={styles.rowLabel}>{row.label}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${pct * 100}%` as any, backgroundColor: color }]} />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Rows */}
+          {rows.map((row, i) => {
+            const pct = row.max > 0 ? row.actual / row.max : 0;
+            const note = rowNotes?.[i];
+            return (
+              <View key={row.label} style={styles.rowGroup}>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>{row.label}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${pct * 100}%` as any, backgroundColor: color }]} />
+                  </View>
+                  <Text style={[styles.rowScore, { color }]}>{row.actual}<Text style={styles.rowMax}>/{row.max}</Text></Text>
+                </View>
+                {note && <Text style={styles.rowNote}>{note}</Text>}
               </View>
-              <Text style={[styles.rowScore, { color }]}>{row.actual}<Text style={styles.rowMax}>/{row.max}</Text></Text>
-            </View>
-          );
-        })}
+            );
+          })}
 
-        <Text style={styles.footer}>Tap outside to dismiss</Text>
+          {/* Coach section */}
+          {coachNote && (
+            <View style={styles.coachSection}>
+              <Text style={styles.coachLabel}>WHAT MOVES THIS SCORE</Text>
+              <Text style={styles.coachText}>{coachNote}</Text>
+            </View>
+          )}
+
+          <Text style={styles.footer}>Tap outside to dismiss</Text>
+        </ScrollView>
       </Animated.View>
     </Modal>
   );
@@ -81,22 +98,23 @@ export function RingBreakdown({ visible, title, color, rows, onClose }: RingBrea
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.28)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   sheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FAF6F2',
+    backgroundColor: '#1E1B17',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 14,
     paddingBottom: 48,
+    maxHeight: SCREEN_H * 0.85,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 16,
   },
@@ -104,7 +122,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignSelf: 'center',
     marginBottom: 20,
   },
@@ -117,7 +135,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: DARK,
+    color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   totalScore: {
@@ -125,21 +143,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.3,
   },
+  rowGroup: {
+    marginBottom: 8,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
   },
   rowLabel: {
     width: 76,
     fontSize: 13,
     fontWeight: '600',
-    color: '#555',
+    color: '#9A9490',
   },
   barTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: 'rgba(0,0,0,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 4,
     overflow: 'hidden',
     marginHorizontal: 10,
@@ -157,11 +177,39 @@ const styles = StyleSheet.create({
   rowMax: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#AAA',
+    color: '#5A5754',
+  },
+  rowNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#6A6764',
+    marginTop: 3,
+    marginBottom: 8,
+    lineHeight: 17,
+    paddingLeft: 76 + 10,
+  },
+  coachSection: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  coachLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: ORANGE,
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  coachText: {
+    fontSize: 13,
+    color: '#9A9490',
+    lineHeight: 20,
   },
   footer: {
     fontSize: 11,
-    color: '#BBB',
+    color: '#5A5754',
     textAlign: 'center',
     marginTop: 16,
   },

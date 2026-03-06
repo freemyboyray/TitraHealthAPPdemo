@@ -19,12 +19,12 @@ export default function BodyScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
   const [unit, setUnit] = useState<UnitSystem>('imperial');
-  const [ftIdx, setFtIdx] = useState(2);   // 6 ft
+  const [ftIdx, setFtIdx] = useState(2);
   const [inIdx, setInIdx] = useState(0);
-  const [lbsIdx, setLbsIdx] = useState(100); // 180 lbs
+  const [lbsIdx, setLbsIdx] = useState(100);
   const [halfIdx, setHalfIdx] = useState(0);
-  const [cmIdx, setCmIdx] = useState(45);  // 165 cm
-  const [kgIdx, setKgIdx] = useState(42); // 82 kg
+  const [cmIdx, setCmIdx] = useState(45);
+  const [kgIdx, setKgIdx] = useState(42);
 
   const handleContinue = () => {
     if (unit === 'imperial') {
@@ -127,13 +127,13 @@ export default function BodyScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 20, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 20, lineHeight: 22 },
   toggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     padding: 3,
     marginBottom: 24,
@@ -145,12 +145,12 @@ const s = StyleSheet.create({
     borderRadius: 10,
   },
   toggleBtnActive: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#E8831A',
   },
   toggleText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#888',
+    color: '#9A9490',
   },
   toggleTextActive: {
     color: '#FFFFFF',
@@ -159,7 +159,7 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#888',
+    color: '#9A9490',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,

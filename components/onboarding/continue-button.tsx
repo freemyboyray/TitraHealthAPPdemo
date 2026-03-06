@@ -27,12 +27,12 @@ export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props)
 const s = StyleSheet.create({
   wrapper: {
     paddingTop: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#141210',
   },
   btn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -42,7 +42,7 @@ const s = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#141210',
     letterSpacing: 0.2,
   },
 });

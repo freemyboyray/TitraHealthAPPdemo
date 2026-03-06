@@ -36,10 +36,9 @@ const CONTEXT_NOTES: Record<string, string> = {
 export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
-  const [speedIdx, setSpeedIdx] = useState(2); // default 1.0
+  const [speedIdx, setSpeedIdx] = useState(2);
   const speed = SNAP_VALUES[speedIdx];
 
-  // Forecast
   const lbsToLose = Math.max(1, (draft.weightLbs ?? 180) - (draft.goalWeightLbs ?? 160));
   const weeks = lbsToLose / speed;
   const goalDate = addWeeks(new Date(), weeks);
@@ -111,25 +110,25 @@ export default function GoalSpeedScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 20, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 20, lineHeight: 22 },
   chip: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     marginBottom: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#1A1A1A' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   display: { alignItems: 'center', marginBottom: 12 },
-  displayLabel: { fontSize: 13, color: '#888', letterSpacing: 0.5 },
-  displayValue: { fontSize: 52, fontWeight: '800', color: '#1A1A1A', marginTop: 4 },
+  displayLabel: { fontSize: 13, color: '#9A9490', letterSpacing: 0.5 },
+  displayValue: { fontSize: 52, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
   contextNote: {
     fontSize: 14,
-    color: '#666',
+    color: '#9A9490',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 20,
@@ -146,19 +145,19 @@ const s = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.12)',
+    borderColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#252219',
   },
   snapItemSelected: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#1A1A1A',
+    backgroundColor: '#E8831A',
+    borderColor: '#E8831A',
   },
   snapLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#888',
+    color: '#9A9490',
   },
   snapLabelSelected: {
     color: '#FFFFFF',
@@ -171,7 +170,7 @@ const s = StyleSheet.create({
   },
   markerText: {
     fontSize: 12,
-    color: '#AAA',
+    color: '#5A5754',
   },
   spacer: { flex: 1 },
 });

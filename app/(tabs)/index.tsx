@@ -4,49 +4,39 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GlassBorder } from '@/components/ui/glass-border';
 import { RingBreakdown } from '@/components/ring-breakdown';
 import { ScoreRing } from '@/components/score-ring';
 import { useHealthData } from '@/contexts/health-data';
 import {
+  ChipData,
+  daysSinceInjection,
   generateInsights,
+  GLP1_COACH_NOTE,
+  GLP1_ROW_NOTES,
   recoveryBreakdown,
-  recoveryColor,
+  RECOVERY_COACH_NOTE,
+  RECOVERY_ROW_NOTES,
+  recoveryChips,
+  recoveryGradient,
   recoveryMessage,
   supportBreakdown,
-  supportColor,
+  supportChips,
+  supportGradient,
   supportMessage,
 } from '@/constants/scoring';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
-const TERRACOTTA = '#D67455';
-const DARK = '#1A1A1A';
+const ORANGE = '#E8831A';
+const DARK = '#FFFFFF';
 
 const glassShadow = {
-  shadowColor: '#1A1A1A',
+  shadowColor: '#000000',
   shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.08,
+  shadowOpacity: 0.3,
   shadowRadius: 24,
   elevation: 8,
 };
-
-// ─── Glass primitives ─────────────────────────────────────────────────────────
-
-function GlassBorder({ r = 28 }: { r?: number }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        borderRadius: r,
-        borderWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.80)',
-        borderLeftColor: 'rgba(255,255,255,0.55)',
-        borderRightColor: 'rgba(255,255,255,0.18)',
-        borderBottomColor: 'rgba(255,255,255,0.10)',
-      }}
-    />
-  );
-}
 
 // ─── Health Monitor types + data ──────────────────────────────────────────────
 
@@ -73,10 +63,10 @@ const HEALTH_DATA: HealthMetric[] = [
 ];
 
 const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
-  good:     { bg: 'rgba(43,148,80,0.12)',    text: '#2B9450' },
-  normal:   { bg: 'rgba(91,139,245,0.12)',   text: '#5B8BF5' },
-  low:      { bg: 'rgba(232,150,12,0.12)',   text: '#E8960C' },
-  elevated: { bg: 'rgba(220,50,50,0.10)',    text: '#DC3232' },
+  good:     { bg: 'rgba(39,174,96,0.15)',   text: '#27AE60' },
+  normal:   { bg: 'rgba(91,139,245,0.15)',  text: '#7BA3F7' },
+  low:      { bg: 'rgba(243,156,18,0.15)',  text: '#F39C12' },
+  elevated: { bg: 'rgba(231,76,60,0.15)',   text: '#E74C3C' },
 };
 
 // ─── Health Monitor Card ──────────────────────────────────────────────────────
@@ -84,14 +74,14 @@ const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
 function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   const ss = hmStatusStyle[metric.status];
   const icon = metric.iconSet === 'Ionicons'
-    ? <Ionicons name={metric.iconName as any} size={20} color={TERRACOTTA} />
-    : <MaterialIcons name={metric.iconName as any} size={20} color={TERRACOTTA} />;
+    ? <Ionicons name={metric.iconName as any} size={20} color={ORANGE} />
+    : <MaterialIcons name={metric.iconName as any} size={20} color={ORANGE} />;
 
   return (
     <View style={[s.hmWrap, glassShadow]}>
-      <View style={[s.hmBody, { borderRadius: 20 }]}>
-        <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.42)' }]} />
+      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: '#1E1B17' }]}>
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
         <GlassBorder r={20} />
         <View style={s.hmInner}>
           <View style={s.hmTopRow}>
@@ -111,22 +101,79 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   );
 }
 
+// ─── Sub-Metric Chips ─────────────────────────────────────────────────────────
+
+function SubMetricChips({ chips, color }: { chips: ChipData[]; color: string }) {
+  return (
+    <View style={chipStyles.row}>
+      {chips.map((chip) => (
+        <View key={chip.label} style={chipStyles.chip}>
+          <Text style={chipStyles.label}>{chip.label}</Text>
+          {chip.glp1Note
+            ? <Text style={[chipStyles.value, { color }]}>~{chip.value}</Text>
+            : <Text style={chipStyles.value}>{chip.value}</Text>}
+          <View style={chipStyles.barTrack}>
+            <View style={[chipStyles.barFill, { width: `${chip.pct * 100}%` as any, backgroundColor: color }]} />
+          </View>
+          {chip.glp1Note && <Text style={[chipStyles.glp1Tag, { color }]}>{chip.glp1Note}</Text>}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 8, marginTop: 12, paddingHorizontal: 4 },
+  chip: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 12,
+    padding: 8,
+    alignItems: 'center',
+  },
+  label: { fontSize: 9, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, marginBottom: 3 },
+  value: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', marginBottom: 5, textAlign: 'center' },
+  barTrack: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  barFill: { height: 4, borderRadius: 2 },
+  glp1Tag: { fontSize: 8, fontWeight: '700', marginTop: 4, letterSpacing: 0.2 },
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
-  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets } = useHealthData();
+  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile } = useHealthData();
 
   const [recoveryBreakdownVisible, setRecoveryBreakdownVisible] = useState(false);
   const [supportBreakdownVisible, setSupportBreakdownVisible] = useState(false);
 
-  const recovColor = recoveryColor(recoveryScore);
-  const suppColor  = supportColor(supportScore);
+  const recovGrad = recoveryGradient(recoveryScore);
+  const suppGrad  = supportGradient(supportScore);
+  const recChips  = recoveryChips(wearable);
+  const supChips  = supportChips(actuals, targets);
 
   const insights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
 
+  const todayLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const dayNum = daysSinceInjection(profile.lastInjectionDate);
+  const freq = profile.injectionFrequencyDays;
+  const phaseLabel = (() => {
+    if (dayNum === 1) return 'Shot Day';
+    if (dayNum <= 3) return `Shot Phase · Day ${dayNum}`;
+    if (dayNum < freq) return `Recovery · Day ${dayNum}`;
+    if (dayNum === freq) return 'Shot Day Tomorrow';
+    return 'Shot Overdue';
+  })();
+  const phaseOverdue = dayNum > freq;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F0EAE4' }}>
+    <View style={{ flex: 1, backgroundColor: '#141210' }}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -136,48 +183,54 @@ export default function HomeScreen() {
         >
 
           {/* ── Header ── */}
-          <Text style={s.dateTitle}>October 24</Text>
-          <Text style={s.dateSub}>Shot Day · Day {2}</Text>
+          <Text style={s.dateTitle}>{todayLabel}</Text>
+          <Text style={[s.dateSub, phaseOverdue && { color: '#E53E3E' }]}>{phaseLabel}</Text>
 
           {/* ── Score Card ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={s.cardBody}>
-              <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
+            <View style={[s.cardBody, { backgroundColor: '#1E1B17' }]}>
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
               <GlassBorder />
 
               <View style={s.scoreCard}>
                 <Text style={s.scoreCardTitle}>Recovery / Readiness</Text>
 
-                <View style={s.ringsRow}>
-                  {/* Recovery Ring — larger */}
+                {/* Primary ring — Body Response */}
+                <View style={{ alignItems: 'center' }}>
                   <ScoreRing
                     score={recoveryScore}
-                    size={148}
-                    strokeWidth={10}
-                    color={recovColor}
-                    label="Recovery"
+                    size={160}
+                    strokeWidth={11}
+                    gradientStart={recovGrad.start}
+                    gradientEnd={recovGrad.end}
+                    label="BODY RESPONSE"
                     message={recoveryMessage(recoveryScore)}
                     onTap={() => setRecoveryBreakdownVisible(true)}
                     ripple={lastLogAction === 'water'}
                     proteinPulse={lastLogAction === 'protein'}
                   />
+                  <SubMetricChips chips={recChips} color={recovGrad.end} />
+                </View>
 
-                  <View style={s.ringDivider} />
+                <View style={{ height: 20 }} />
 
-                  {/* GLP-1 Support Ring — smaller */}
+                {/* Secondary ring — GLP-1 Amplifier */}
+                <View style={{ alignItems: 'center' }}>
                   <ScoreRing
                     score={supportScore}
-                    size={120}
+                    size={110}
                     strokeWidth={9}
-                    color={suppColor}
-                    label="GLP-1"
+                    gradientStart={suppGrad.start}
+                    gradientEnd={suppGrad.end}
+                    label="GLP-1 AMP"
                     message={supportMessage(supportScore)}
                     onTap={() => setSupportBreakdownVisible(true)}
                     glowPulse={lastLogAction === 'injection'}
                     ripple={lastLogAction === 'water'}
                     proteinPulse={lastLogAction === 'protein'}
                   />
+                  <SubMetricChips chips={supChips} color={suppGrad.end} />
                 </View>
 
                 {/* Recovery alert */}
@@ -190,7 +243,7 @@ export default function HomeScreen() {
                 {/* Stats row */}
                 <View style={s.statsRow}>
                   <View style={s.statItem}>
-                    <MaterialIcons name="restaurant" size={14} color={TERRACOTTA} />
+                    <MaterialIcons name="restaurant" size={14} color={ORANGE} />
                     <Text style={s.statItemText}>
                       <Text style={s.statBold}>{actuals.proteinG}</Text>
                       <Text style={s.statLight}>/{targets.proteinG}g</Text>
@@ -222,25 +275,25 @@ export default function HomeScreen() {
 
           {[
             {
-              icon: <MaterialIcons name="restaurant" size={22} color={TERRACOTTA} />,
+              icon: <MaterialIcons name="restaurant" size={22} color={ORANGE} />,
               label: 'High Protein Meal',
               badge: '+3% Score',
             },
             {
-              icon: <MaterialIcons name="trending-up" size={22} color={TERRACOTTA} />,
+              icon: <MaterialIcons name="trending-up" size={22} color={ORANGE} />,
               label: '15 min Walk',
               badge: '+2% Score',
             },
             {
-              icon: <Ionicons name="water-outline" size={22} color={TERRACOTTA} />,
+              icon: <Ionicons name="water-outline" size={22} color={ORANGE} />,
               label: 'Hydration Goal',
               badge: '+1% Score',
             },
           ].map((item) => (
             <View key={item.label} style={[s.focusWrap, { marginBottom: 12 }]}>
-              <View style={s.focusBody}>
-                <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
+              <View style={[s.focusBody, { backgroundColor: '#1E1B17' }]}>
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
                 <GlassBorder r={20} />
                 <View style={s.focusRow}>
                   <View style={s.focusIconWrap}>{item.icon}</View>
@@ -255,9 +308,9 @@ export default function HomeScreen() {
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
-            <View style={s.cardBody}>
-              <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.whiteOverlay]} />
+            <View style={[s.cardBody, { backgroundColor: '#1E1B17' }]}>
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
               <GlassBorder />
               <View style={{ padding: 20 }}>
                 <View style={s.insightsHead}>
@@ -266,7 +319,7 @@ export default function HomeScreen() {
                 </View>
                 {insights.map((b, i) => (
                   <View key={i} style={s.bulletRow}>
-                    <View style={[s.bullet, { backgroundColor: TERRACOTTA }]} />
+                    <View style={[s.bullet, { backgroundColor: ORANGE }]} />
                     <Text style={s.bulletText}>{b.text}</Text>
                   </View>
                 ))}
@@ -290,15 +343,19 @@ export default function HomeScreen() {
       <RingBreakdown
         visible={recoveryBreakdownVisible}
         title="Recovery Breakdown"
-        color={recovColor}
+        color={recovGrad.end}
         rows={recoveryBreakdown(wearable)}
+        rowNotes={RECOVERY_ROW_NOTES}
+        coachNote={RECOVERY_COACH_NOTE}
         onClose={() => setRecoveryBreakdownVisible(false)}
       />
       <RingBreakdown
         visible={supportBreakdownVisible}
         title="GLP-1 Support Breakdown"
-        color={suppColor}
+        color={suppGrad.end}
         rows={supportBreakdown(actuals, targets)}
+        rowNotes={GLP1_ROW_NOTES}
+        coachNote={GLP1_COACH_NOTE}
         onClose={() => setSupportBreakdownVisible(false)}
       />
     </View>
@@ -311,23 +368,19 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
   // Header
-  dateTitle: { fontSize: 36, fontWeight: '800', color: DARK, textAlign: 'center', letterSpacing: -1, marginBottom: 4 },
-  dateSub: { fontSize: 14, fontWeight: '500', color: '#888888', textAlign: 'center', marginBottom: 28 },
+  dateTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -1, marginBottom: 4 },
+  dateSub: { fontSize: 14, fontWeight: '500', color: '#9A9490', textAlign: 'center', marginBottom: 28 },
 
   // Glass card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
   cardBody: { borderRadius: 28, overflow: 'hidden' },
 
-  // Color overlays
-  whiteOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.45)' },
+  // Dark overlay
+  darkOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' },
 
   // Score card inner
   scoreCard: { padding: 24 },
-  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#888', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18 },
-
-  // Rings row
-  ringsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  ringDivider: { width: 20 },
+  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18 },
 
   // Alert badge
   alertBadge: {
@@ -346,21 +399,21 @@ const s = StyleSheet.create({
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, gap: 12 },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statItemText: {},
-  statBold: { fontSize: 14, fontWeight: '800', color: DARK },
-  statLight: { fontSize: 12, color: '#AAAAAA', fontWeight: '400' },
-  statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#CCC' },
+  statBold: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  statLight: { fontSize: 12, color: '#5A5754', fontWeight: '400' },
+  statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#3A3735' },
 
   // Insights card
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  insightsTitle: { fontSize: 17, fontWeight: '700', color: DARK },
-  shotPhase: { fontSize: 10, fontWeight: '700', color: '#5B8BF5', letterSpacing: 1.2 },
+  insightsTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  shotPhase: { fontSize: 10, fontWeight: '700', color: '#7BA3F7', letterSpacing: 1.2 },
   bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   bullet: { width: 7, height: 7, borderRadius: 3.5, marginRight: 10 },
-  bulletText: { fontSize: 15, color: '#444444', fontWeight: '400', flex: 1 },
-  insightsFooter: { fontSize: 12, color: '#AAAAAA', fontWeight: '500', marginTop: 6, lineHeight: 18 },
+  bulletText: { fontSize: 15, color: '#9A9490', fontWeight: '400', flex: 1 },
+  insightsFooter: { fontSize: 12, color: '#5A5754', fontWeight: '500', marginTop: 6, lineHeight: 18 },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: DARK, letterSpacing: -0.5, marginBottom: 14 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14 },
 
   // Focus cards
   focusWrap: { borderRadius: 20, ...glassShadow },
@@ -368,11 +421,11 @@ const s = StyleSheet.create({
   focusRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   focusIconWrap: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(214,116,85,0.10)',
-    borderWidth: 1, borderColor: 'rgba(214,116,85,0.18)',
+    backgroundColor: 'rgba(232,131,26,0.12)',
+    borderWidth: 1, borderColor: 'rgba(232,131,26,0.20)',
     alignItems: 'center', justifyContent: 'center', marginRight: 14,
   },
-  focusLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: DARK },
+  focusLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   badge: {
     backgroundColor: 'rgba(50,168,82,0.12)',
     paddingHorizontal: 10, paddingVertical: 5,
@@ -386,10 +439,10 @@ const s = StyleSheet.create({
   hmBody: { overflow: 'hidden' },
   hmInner: { padding: 16 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  hmIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(214,116,85,0.10)', alignItems: 'center', justifyContent: 'center' },
+  hmIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(232,131,26,0.12)', alignItems: 'center', justifyContent: 'center' },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   hmBadgeText: { fontSize: 9, fontWeight: '700' },
-  hmLabel: { fontSize: 12, color: '#888888', fontWeight: '500', marginBottom: 3 },
-  hmValue: { fontSize: 22, fontWeight: '800', color: DARK, letterSpacing: -0.5 },
-  hmUnit: { fontSize: 13, fontWeight: '500', color: '#AAAAAA', letterSpacing: 0 },
+  hmLabel: { fontSize: 12, color: '#9A9490', fontWeight: '500', marginBottom: 3 },
+  hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+  hmUnit: { fontSize: 13, fontWeight: '500', color: '#5A5754', letterSpacing: 0 },
 });

@@ -35,8 +35,8 @@ export function WheelPicker({
   const getOpacity = (index: number) => {
     const diff = Math.abs(index - selectedIndex);
     if (diff === 0) return 1;
-    if (diff === 1) return 0.55;
-    return 0.25;
+    if (diff === 1) return 0.45;
+    return 0.2;
   };
 
   const getFontSize = (index: number) => {
@@ -45,6 +45,14 @@ export function WheelPicker({
 
   return (
     <View style={[s.container, { height: containerHeight }]}>
+      {/* Center selector highlight */}
+      <View
+        pointerEvents="none"
+        style={[
+          s.selectedHighlight,
+          { top: padding, height: itemHeight },
+        ]}
+      />
       {/* Center selector lines */}
       <View pointerEvents="none" style={[s.centerLine, s.topLine, { top: padding - 0.5 }]} />
       <View pointerEvents="none" style={[s.centerLine, s.bottomLine, { top: padding + itemHeight - 0.5 }]} />
@@ -89,19 +97,27 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  selectedHighlight: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(232,131,26,0.10)',
+    borderRadius: 8,
+    zIndex: 0,
+  },
   item: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemText: {
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   centerLine: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    backgroundColor: 'rgba(232,131,26,0.25)',
     zIndex: 1,
   },
   topLine: {},

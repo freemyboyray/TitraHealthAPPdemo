@@ -11,7 +11,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -21,7 +21,8 @@ type ScoreRingProps = {
   score: number;
   size: number;
   strokeWidth: number;
-  color: string;
+  gradientStart: string;
+  gradientEnd: string;
   label: string;
   message: string;
   onTap: () => void;
@@ -36,7 +37,8 @@ export function ScoreRing({
   score,
   size,
   strokeWidth,
-  color,
+  gradientStart,
+  gradientEnd,
   label,
   message,
   onTap,
@@ -48,6 +50,7 @@ export function ScoreRing({
   const circumference = 2 * Math.PI * r;
   const cx = size / 2;
   const cy = size / 2;
+  const gradId = `grad-${label.replace(/\s+/g, '-')}`;
 
   // Arc progress
   const animScore = useSharedValue(0);
@@ -73,14 +76,12 @@ export function ScoreRing({
 
   useEffect(() => {
     if (!isMounted.current) {
-      // First mount: ease in from 0
       animScore.value = withTiming(score, {
         duration: 1200,
         easing: Easing.out(Easing.cubic),
       });
       isMounted.current = true;
     } else {
-      // Score update: overshoot then spring
       animScore.value = withSequence(
         withTiming(Math.min(score + 3, 100), { duration: 200 }),
         withSpring(score, { damping: 12, stiffness: 180 }),
@@ -175,15 +176,29 @@ export function ScoreRing({
       <GestureDetector gesture={tap}>
         <Animated.View style={[styles.container, { width: size, height: size }, wrapStyle]}>
           <Svg width={size} height={size}>
+            <Defs>
+              <LinearGradient
+                id={gradId}
+                x1={cx}
+                y1="0"
+                x2={cx}
+                y2={size}
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0%" stopColor={gradientStart} />
+                <Stop offset="100%" stopColor={gradientEnd} />
+              </LinearGradient>
+            </Defs>
+
             {/* Track */}
             <Circle
               cx={cx}
               cy={cy}
               r={r}
               strokeWidth={strokeWidth}
-              stroke={color}
+              stroke={gradientEnd}
               fill="none"
-              opacity={0.12}
+              opacity={0.08}
             />
             {/* Progress arc */}
             <AnimatedCircle
@@ -191,7 +206,7 @@ export function ScoreRing({
               cy={cy}
               r={r}
               fill="none"
-              stroke={color}
+              stroke={`url(#${gradId})`}
               strokeLinecap="round"
               strokeDasharray={circumference}
               animatedProps={arcProps}
@@ -203,7 +218,7 @@ export function ScoreRing({
               cx={cx}
               cy={cy}
               fill="none"
-              stroke={color}
+              stroke={gradientEnd}
               strokeWidth={2}
               animatedProps={rippleProps}
             />
@@ -212,7 +227,7 @@ export function ScoreRing({
               cx={cx}
               cy={cy}
               fill="none"
-              stroke={color}
+              stroke={gradientEnd}
               strokeWidth={strokeWidth + 6}
               animatedProps={glowProps}
               strokeDasharray={`${2 * Math.PI * (r + strokeWidth)}`}
@@ -221,14 +236,14 @@ export function ScoreRing({
 
           {/* Center text overlay */}
           <View style={[styles.centerText, { width: size, height: size }]} pointerEvents="none">
-            <Text style={[styles.scoreNum, { fontSize: size * 0.22, color }]}>{score}</Text>
-            <Text style={[styles.labelText, { color }]}>{label}</Text>
+            <Text style={[styles.scoreNum, { fontSize: size * 0.33, color: gradientEnd }]}>{score}</Text>
+            <Text style={[styles.labelText, { color: gradientEnd }]}>{label.toUpperCase()}</Text>
           </View>
         </Animated.View>
       </GestureDetector>
 
       {/* Message below ring */}
-      <Text style={[styles.message, { color }]}>{message}</Text>
+      <Text style={[styles.message, { color: gradientEnd }]}>{message}</Text>
     </View>
   );
 }
@@ -246,12 +261,12 @@ const styles = StyleSheet.create({
   },
   scoreNum: {
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: -2,
   },
   labelText: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.3,
+    letterSpacing: 1.5,
     opacity: 0.75,
     marginTop: 1,
   },

@@ -19,7 +19,7 @@ export function OnboardingHeader({ step, total, onBack }: Props) {
       <View style={s.row}>
         {step > 1 && onBack ? (
           <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
         ) : (
           <View style={s.backPlaceholder} />
@@ -47,6 +47,12 @@ const s = StyleSheet.create({
   },
   backBtn: {
     padding: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backPlaceholder: {
     width: 32,
@@ -57,13 +63,13 @@ const s = StyleSheet.create({
   },
   track: {
     height: 3,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   fill: {
     height: 3,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#E8831A',
     borderRadius: 2,
   },
 });

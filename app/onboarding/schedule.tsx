@@ -22,7 +22,6 @@ export default function ScheduleScreen() {
   const { updateDraft } = useProfile();
   const [freq, setFreq] = useState<number | 'custom' | null>(null);
   const [customFreq, setCustomFreq] = useState('');
-  // Last shot date fields
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
   const [year, setYear] = useState('');
@@ -64,6 +63,7 @@ export default function ScheduleScreen() {
               <TextInput
                 style={s.input}
                 placeholder="Frequency in days (e.g. 10)"
+                placeholderTextColor="rgba(255,255,255,0.25)"
                 keyboardType="number-pad"
                 value={customFreq}
                 onChangeText={setCustomFreq}
@@ -77,6 +77,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputSm]}
               placeholder="MM"
+              placeholderTextColor="rgba(255,255,255,0.25)"
               keyboardType="number-pad"
               maxLength={2}
               value={month}
@@ -85,6 +86,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputSm]}
               placeholder="DD"
+              placeholderTextColor="rgba(255,255,255,0.25)"
               keyboardType="number-pad"
               maxLength={2}
               value={day}
@@ -93,6 +95,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputLg]}
               placeholder="YYYY"
+              placeholderTextColor="rgba(255,255,255,0.25)"
               keyboardType="number-pad"
               maxLength={4}
               value={year}
@@ -108,27 +111,28 @@ export default function ScheduleScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: '#141210' },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1A1A1A', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#666666', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
+  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
   options: {},
   input: {
     height: 52,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.18)',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginTop: 4,
     marginBottom: 10,
+    backgroundColor: '#252219',
   },
   sectionLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginTop: 24,
     marginBottom: 12,
   },
@@ -139,12 +143,13 @@ const s = StyleSheet.create({
   dateInput: {
     height: 52,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.18)',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 18,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     textAlign: 'center',
+    backgroundColor: '#252219',
   },
   dateInputSm: { flex: 1 },
   dateInputLg: { flex: 1.8 },

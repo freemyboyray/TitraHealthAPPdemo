@@ -10,7 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.TitraHealthAPPdemo"
+      "bundleIdentifier": "com.anonymous.TitraHealthAPPdemo",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
+        "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +46,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@kingstinct/react-native-healthkit"
     ],
     "experiments": {
       "typedRoutes": true,
