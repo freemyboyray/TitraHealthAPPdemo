@@ -131,11 +131,11 @@ export default function StartScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -146,12 +146,12 @@ const s = StyleSheet.create({
     minHeight: 64,
     gap: 12,
   },
-  rowLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  rowLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
   rowRight: { flexDirection: 'row', alignItems: 'center' },
-  rowValue: { fontSize: 16, color: '#9A9490' },
+  rowValue: { fontSize: 16, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
   inlineInput: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  inputText: { fontSize: 18, color: '#FFFFFF', minWidth: 80, textAlign: 'right' },
-  unitHint: { fontSize: 14, color: '#9A9490' },
+  inputText: { fontSize: 18, color: '#FFFFFF', minWidth: 80, textAlign: 'right', fontFamily: 'Helvetica Neue' },
+  unitHint: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
   dateRow: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
   dateInput: {
     flex: 1,
@@ -161,8 +161,9 @@ const s = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     fontSize: 15,
+    fontFamily: 'Helvetica Neue',
     textAlign: 'center',
     color: '#FFFFFF',
-    backgroundColor: '#252219',
+    backgroundColor: '#000000',
   },
 });

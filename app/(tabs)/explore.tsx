@@ -1,15 +1,13 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassBorder } from '@/components/ui/glass-border';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
-const ORANGE = '#E8831A';
-const DARK = '#FFFFFF';
-const BG = '#141210';
+const ORANGE = '#FF742A';
+const BG = '#000000';
+const FF = 'Helvetica Neue';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -160,11 +158,7 @@ function EducationCard({ section }: { section: Section }) {
 
   return (
     <View style={[c.cardWrap, glassShadow]}>
-      <View style={[c.cardBody, { backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
-
+      <View style={c.cardBody}>
         {/* Card header */}
         <View style={c.cardHeader}>
           <View style={c.iconWrap}>{icon}</View>
@@ -187,7 +181,7 @@ function EducationCard({ section }: { section: Section }) {
                 <Ionicons
                   name={isOpen ? 'chevron-up' : 'chevron-down'}
                   size={16}
-                  color="#5A5754"
+                  color="rgba(255,255,255,0.35)"
                   style={{ marginLeft: 8, flexShrink: 0 }}
                 />
               </TouchableOpacity>
@@ -240,24 +234,22 @@ export default function EducationScreen() {
 
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4 },
-  headerSub: { fontSize: 14, color: '#9A9490', fontWeight: '500', marginBottom: 28 },
-  disclaimer: { fontSize: 11, color: '#5A5754', textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8 },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: FF },
+  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 28, fontFamily: FF },
+  disclaimer: { fontSize: 11, color: 'rgba(255,255,255,0.30)', textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
 });
 
 const c = StyleSheet.create({
   cardWrap: { borderRadius: 24, marginBottom: 16 },
-  cardBody: { borderRadius: 24, overflow: 'hidden' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 10,
-    backgroundColor: 'rgba(232,131,26,0.12)',
-    borderWidth: 1, borderColor: 'rgba(232,131,26,0.20)',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 12,
+  cardBody: {
+    borderRadius: 24, overflow: 'hidden',
+    backgroundColor: '#000000',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flex: 1, letterSpacing: -0.3 },
-  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
+  iconWrap: { marginRight: 12 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flex: 1, letterSpacing: -0.3, fontFamily: FF },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 18 },
   itemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,8 +257,8 @@ const c = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
-  itemQ: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1, lineHeight: 20 },
+  itemQ: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1, lineHeight: 20, fontFamily: FF },
   itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
-  itemA: { fontSize: 14, color: '#9A9490', lineHeight: 22, fontWeight: '400' },
-  itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 },
+  itemA: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 22, fontWeight: '400', fontFamily: FF },
+  itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
 });

@@ -124,13 +124,13 @@ export default function GoalWeightScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 24, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   display: { alignItems: 'center', marginBottom: 16 },
-  displaySmall: { fontSize: 13, color: '#9A9490', letterSpacing: 0.5 },
-  displayValue: { fontSize: 42, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
+  displaySmall: { fontSize: 13, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  displayValue: { fontSize: 42, fontWeight: '800', color: '#FFFFFF', marginTop: 4, fontFamily: 'Helvetica Neue' },
   toggle: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -140,9 +140,9 @@ const s = StyleSheet.create({
     marginBottom: 24,
   },
   toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: '#E8831A' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#9A9490' },
-  toggleTextActive: { color: '#FFFFFF' },
+  toggleBtnActive: { backgroundColor: '#FF742A' },
+  toggleText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
+  toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
   rulerContainer: {
     height: 72,
     position: 'relative',
@@ -155,7 +155,7 @@ const s = StyleSheet.create({
     left: '50%',
     width: 2,
     height: 48,
-    backgroundColor: '#E8831A',
+    backgroundColor: '#FF742A',
     zIndex: 2,
     marginLeft: -1,
   },
@@ -173,7 +173,8 @@ const s = StyleSheet.create({
   tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
   tickLabel: {
     fontSize: 11,
-    color: '#9A9490',
+    color: 'rgba(255,255,255,0.45)',
     marginTop: 4,
+    fontFamily: 'Helvetica Neue',
   },
 });

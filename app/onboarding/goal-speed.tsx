@@ -110,10 +110,10 @@ export default function GoalSpeedScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 20, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   chip: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -122,13 +122,14 @@ const s = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
   display: { alignItems: 'center', marginBottom: 12 },
-  displayLabel: { fontSize: 13, color: '#9A9490', letterSpacing: 0.5 },
-  displayValue: { fontSize: 52, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
+  displayLabel: { fontSize: 13, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  displayValue: { fontSize: 52, fontWeight: '800', color: '#FFFFFF', marginTop: 4, fontFamily: 'Helvetica Neue' },
   contextNote: {
     fontSize: 14,
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 20,
@@ -148,19 +149,21 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#252219',
+    backgroundColor: '#000000',
   },
   snapItemSelected: {
-    backgroundColor: '#E8831A',
-    borderColor: '#E8831A',
+    backgroundColor: '#FF742A',
+    borderColor: '#FF742A',
   },
   snapLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
   },
   snapLabelSelected: {
     color: '#FFFFFF',
+    fontFamily: 'Helvetica Neue',
   },
   markerRow: {
     flexDirection: 'row',
@@ -170,7 +173,8 @@ const s = StyleSheet.create({
   },
   markerText: {
     fontSize: 12,
-    color: '#5A5754',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.35)',
   },
   spacer: { flex: 1 },
 });

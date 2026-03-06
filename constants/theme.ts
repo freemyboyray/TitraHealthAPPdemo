@@ -2,11 +2,14 @@ import { Platform } from 'react-native';
 
 // ─── Dark-first palette ────────────────────────────────────────────────────────
 
-export const BG_BASE        = '#141210';
-export const BG_SURFACE     = '#1E1B17';
-export const BG_SURFACE2    = '#252219';
-export const ORANGE         = '#E8831A';
-export const ORANGE_DIM     = 'rgba(232,131,26,0.15)';
+export const BG_BASE        = '#000000';
+export const BG_SURFACE     = '#000000';
+export const BG_SURFACE2    = '#000000';
+export const FONT_FAMILY    = 'Helvetica Neue';
+export const CARD_BORDER_WIDTH = 0.5;
+export const CARD_BORDER_COLOR = 'rgba(255,255,255,0.18)';
+export const ORANGE         = '#FF742A';
+export const ORANGE_DIM     = 'rgba(255,116,42,0.15)';
 export const TEXT_PRIMARY   = '#FFFFFF';
 export const TEXT_SECONDARY = '#9A9490';
 export const TEXT_MUTED     = '#5A5754';

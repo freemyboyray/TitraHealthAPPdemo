@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
 
-const BG='#141210', ORANGE='#E8831A', DARK='#FFFFFF';
+const BG='#000000', ORANGE='#FF742A', DARK='#FFFFFF';
 const SHADOW={shadowColor:'#000000',shadowOffset:{width:0,height:8} as const,shadowOpacity:0.12,shadowRadius:24,elevation:8};
 
 const SYMPTOMS:{label:string;value:SideEffectType}[]=[
@@ -29,7 +29,7 @@ function GB({r=24}:{r?:number}){
 function Card({children,mt=0}:{children:React.ReactNode;mt?:number}){
   return(
     <View style={{borderRadius:24,marginTop:mt,...SHADOW}}>
-      <View style={{borderRadius:24,overflow:'hidden',backgroundColor:'#1E1B17'}}>
+      <View style={{borderRadius:24,overflow:'hidden',backgroundColor:'#111111'}}>
         <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject}/>
         <View style={[StyleSheet.absoluteFillObject,{borderRadius:24,backgroundColor:'rgba(255,255,255,0.04)'}]}/>
         <GB r={24}/>
@@ -75,8 +75,8 @@ export default function SideEffectsScreen(){
               return(
                 <TouchableOpacity key={value} onPress={()=>toggle(value)} activeOpacity={0.75}
                   style={{borderRadius:20,overflow:'hidden',paddingVertical:10,paddingHorizontal:16,...SHADOW,shadowOpacity:0.07,shadowRadius:8,shadowOffset:{width:0,height:3},shadowColor:a?ORANGE:'#000'}}>
-                  {a?<View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'rgba(232,131,26,0.9)'}]}/>
-                    :<><View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'#252219'}]}/></>}
+                  {a?<View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'rgba(255,116,42,0.9)'}]}/>
+                    :<><View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'#1A1A1A'}]}/></>}
                   <GB r={20}/><Text style={{fontSize:14,fontWeight:'600',color:a?'#FFF':'#9A9490'}}>{label}</Text>
                 </TouchableOpacity>
               );
@@ -109,8 +109,8 @@ export default function SideEffectsScreen(){
                 return(
                   <TouchableOpacity key={value} onPress={()=>setPhase(value)} activeOpacity={0.75}
                     style={{borderRadius:20,overflow:'hidden',paddingVertical:10,paddingHorizontal:16,...SHADOW,shadowOpacity:0.07,shadowRadius:8,shadowOffset:{width:0,height:3}}}>
-                    {a?<View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'rgba(232,131,26,0.9)'}]}/>
-                      :<><View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'#252219'}]}/></>}
+                    {a?<View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'rgba(255,116,42,0.9)'}]}/>
+                      :<><View style={[StyleSheet.absoluteFillObject,{borderRadius:20,backgroundColor:'#1A1A1A'}]}/></>}
                     <GB r={20}/><Text style={{fontSize:14,fontWeight:'600',color:a?'#FFF':'#9A9490'}}>{label}</Text>
                   </TouchableOpacity>
                 );
@@ -128,7 +128,7 @@ export default function SideEffectsScreen(){
         </Card>
       </ScrollView>
       <View style={{paddingHorizontal:20,paddingTop:12,paddingBottom:insets.bottom+16,backgroundColor:BG,borderTopWidth:1,borderTopColor:'rgba(255,255,255,0.06)'}}>
-        <TouchableOpacity style={{backgroundColor:has?ORANGE:'rgba(232,131,26,0.2)',borderRadius:28,paddingVertical:17,alignItems:'center',justifyContent:'center',shadowColor:ORANGE,shadowOffset:{width:0,height:8},shadowOpacity:has?0.35:0,shadowRadius:20,elevation:has?10:0}} onPress={save} activeOpacity={has?0.8:1} disabled={!has||loading}>
+        <TouchableOpacity style={{backgroundColor:has?ORANGE:'rgba(255,116,42,0.2)',borderRadius:28,paddingVertical:17,alignItems:'center',justifyContent:'center',shadowColor:ORANGE,shadowOffset:{width:0,height:8},shadowOpacity:has?0.35:0,shadowRadius:20,elevation:has?10:0}} onPress={save} activeOpacity={has?0.8:1} disabled={!has||loading}>
           {loading?<ActivityIndicator color="#FFF" size="small"/>:<Text style={{fontSize:16,fontWeight:'800',color:has?'#FFF':'rgba(255,255,255,0.25)',letterSpacing:0.4}}>Log Side Effects</Text>}
         </TouchableOpacity>
       </View>

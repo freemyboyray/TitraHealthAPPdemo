@@ -2,6 +2,8 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const FF = 'Helvetica Neue';
+
 type Props = {
   onPress: () => void;
   disabled?: boolean;
@@ -27,7 +29,7 @@ export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props)
 const s = StyleSheet.create({
   wrapper: {
     paddingTop: 16,
-    backgroundColor: '#141210',
+    backgroundColor: '#000000',
   },
   btn: {
     height: 56,
@@ -42,7 +44,8 @@ const s = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#141210',
+    color: '#000000',
     letterSpacing: 0.2,
+    fontFamily: FF,
   },
 });

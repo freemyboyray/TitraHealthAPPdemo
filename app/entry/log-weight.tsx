@@ -6,7 +6,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 
-const BG = '#141210', ORANGE = '#E8831A', DARK = '#FFFFFF', WHITE = '#FFFFFF';
+const BG = '#000000', ORANGE = '#FF742A', DARK = '#FFFFFF', WHITE = '#FFFFFF';
 const SHADOW = { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 } as const, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 };
 const LB_TO_KG = 0.453592;
 
@@ -57,7 +57,7 @@ export default function LogWeightScreen() {
       <ScrollView contentContainerStyle={[s.scroll,{paddingBottom:insets.bottom+32}]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Text style={s.date}>{new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}).toUpperCase()}</Text>
         <View style={[s.card,{marginBottom:16}]}>
-          <View style={{borderRadius:28,overflow:'hidden',backgroundColor:'#1E1B17'}}>
+          <View style={{borderRadius:28,overflow:'hidden',backgroundColor:'#111111'}}>
             <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject}/>
             <View style={[StyleSheet.absoluteFillObject,{borderRadius:28,backgroundColor:'rgba(255,255,255,0.04)'}]}/>
             <GlassBorder r={28}/>
@@ -81,7 +81,7 @@ export default function LogWeightScreen() {
           </View>
         </View>
         <View style={[s.card,{marginBottom:24}]}>
-          <View style={{borderRadius:24,overflow:'hidden',backgroundColor:'#1E1B17'}}>
+          <View style={{borderRadius:24,overflow:'hidden',backgroundColor:'#111111'}}>
             <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject}/>
             <View style={[StyleSheet.absoluteFillObject,{borderRadius:24,backgroundColor:'rgba(255,255,255,0.04)'}]}/>
             <GlassBorder r={24}/>
@@ -92,7 +92,7 @@ export default function LogWeightScreen() {
           </View>
         </View>
         <TouchableOpacity onPress={save} activeOpacity={0.85} disabled={loading} style={[s.saveBtn,loading&&{opacity:0.75}]}>
-          {loading ? <ActivityIndicator color={WHITE} size="small"/> : <Text style={{fontSize:17,fontWeight:'700',color:'#141210',letterSpacing:0.5}}>Save</Text>}
+          {loading ? <ActivityIndicator color={WHITE} size="small"/> : <Text style={{fontSize:17,fontWeight:'700',color:'#000000',letterSpacing:0.5}}>Save</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

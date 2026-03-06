@@ -4,12 +4,11 @@ import { useState } from 'react';
 import { LayoutAnimation, LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassBorder } from '@/components/ui/glass-border';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
-const ORANGE = '#E8831A';
+const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
-const BG = '#141210';
+const BG = '#000000';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -32,9 +31,6 @@ const TABS: { key: Tab; label: string }[] = [
 function SegmentedControl({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
     <View style={sc.wrap}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, sc.overlay]} />
-      <GlassBorder r={36} />
       <View style={sc.row}>
         {TABS.map(({ key, label }) => {
           const isActive = active === key;
@@ -65,14 +61,16 @@ const sc = StyleSheet.create({
     borderRadius: 36, overflow: 'hidden', marginBottom: 24,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
   },
   overlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)' },
   row: { flexDirection: 'row', padding: 5 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
   tabActive: {},
-  tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(232,131,26,0.15)' },
-  tabLabel: { fontSize: 13, fontWeight: '600', color: '#5A5754' },
-  tabLabelActive: { color: ORANGE, fontWeight: '700' },
+  tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
+  tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Helvetica Neue' },
 });
 
 // ─── Ring indicator ───────────────────────────────────────────────────────────
@@ -99,10 +97,7 @@ function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: 
 function AIInsightsCard() {
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.aiAccent} />
         <View style={s.aiContent}>
           <View style={s.aiHeader}>
@@ -125,10 +120,7 @@ function AIInsightsCard() {
 function MetricCard({ value, label, ringColor }: { value: string; label: string; ringColor: string }) {
   return (
     <View style={[s.metricWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={22} />
+      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.metricInner}>
           <View style={s.ringWrap}>
             <RingIndicator color={ringColor} />
@@ -171,10 +163,7 @@ function DailyMetricCard({
   const ss = statusStyle[status];
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={20} />
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.dailyInner}>
           <View style={s.dailyTopRow}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -195,10 +184,7 @@ function DailyMetricCard({
 function MedAIInsightsCard() {
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.aiAccent} />
         <View style={s.aiContent}>
           <View style={s.aiHeader}>
@@ -239,10 +225,7 @@ function MedLevelChartCard() {
 
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={{ padding: 18 }}>
           <Text style={s.chartMuted}>Medication Level in Body</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 2, gap: 10 }}>
@@ -265,7 +248,7 @@ function MedLevelChartCard() {
                       width: colW,
                       top: pt.y,
                       bottom: 0,
-                      backgroundColor: 'rgba(232,131,26,0.08)',
+                      backgroundColor: 'rgba(255,116,42,0.08)',
                     }}
                   />
                 ))}
@@ -326,10 +309,7 @@ function MedLevelChartCard() {
 function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={20} />
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -431,10 +411,7 @@ const PROGRESS_LOGS: LogEntry[] = [
 function ProgAIInsightsCard() {
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.aiAccent} />
         <View style={s.aiContent}>
           <View style={s.aiHeader}>
@@ -475,17 +452,14 @@ function WeightChartCard() {
 
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 }}>Weight Journey</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
               <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
             </View>
-            <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1 }}>195 lbs</Text>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>195 lbs</Text>
           </View>
 
           <View style={s.progPeriodRow}>
@@ -513,7 +487,7 @@ function WeightChartCard() {
                     style={{
                       position: 'absolute', left: colW * i, width: colW,
                       top: pt.y, bottom: 0,
-                      backgroundColor: 'rgba(232,131,26,0.08)',
+                      backgroundColor: 'rgba(255,116,42,0.08)',
                     }}
                   />
                 ))}
@@ -589,10 +563,7 @@ function ProgressStatCard({
 }) {
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={20} />
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -617,10 +588,7 @@ function WeightTimelineCard() {
 
   return (
     <View style={s.cardWrap}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={{ padding: 18 }}>
           {milestones.map((m, i) => (
             <View key={i}>
@@ -655,10 +623,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
 
   return (
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={24} />
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
 
         <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -667,7 +632,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
               <Text style={s.logCountText}>{entries.length}</Text>
             </View>
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color="#5A5754" />
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color="rgba(255,255,255,0.35)" />
         </TouchableOpacity>
 
         {expanded && (
@@ -705,10 +670,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
 function ComingSoon({ title }: { title: string }) {
   return (
     <View style={[s.cardWrap, { marginTop: 8 }]}>
-      <View style={[s.cardBody, { borderRadius: 28, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={28} />
+      <View style={[s.cardBody, { borderRadius: 28, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={s.comingSoonContent}>
           <MaterialIcons name="construction" size={36} color="rgba(255,255,255,0.15)" />
           <Text style={s.comingSoonTitle}>{title}</Text>
@@ -738,10 +700,7 @@ export default function InsightsScreen() {
           {/* ── Header ── */}
           <View style={s.header}>
             <Text style={s.headerTitle}>Insights</Text>
-            <TouchableOpacity style={s.bellBtn} activeOpacity={0.7}>
-              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.bellOverlay]} />
-              <GlassBorder r={22} />
+            <TouchableOpacity style={[s.bellBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]} activeOpacity={0.7}>
               <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -855,7 +814,7 @@ const s = StyleSheet.create({
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1 },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'Helvetica Neue' },
   bellBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   bellOverlay: { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)' },
 
@@ -867,8 +826,8 @@ const s = StyleSheet.create({
   aiAccent: { position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, backgroundColor: ORANGE, borderTopLeftRadius: 24, borderBottomLeftRadius: 24 },
   aiContent: { paddingVertical: 18, paddingLeft: 20, paddingRight: 18 },
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase' },
-  aiBody: { fontSize: 14, color: '#9A9490', lineHeight: 21 },
+  aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
+  aiBody: { fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 21, fontFamily: 'Helvetica Neue' },
 
   // Metrics row
   metricsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
@@ -876,68 +835,68 @@ const s = StyleSheet.create({
   metricInner: { padding: 18, alignItems: 'center' },
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   ringCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5 },
-  metricLabel: { fontSize: 12, color: '#9A9490', fontWeight: '500', textAlign: 'center' },
+  metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  metricLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', textAlign: 'center', fontFamily: 'Helvetica Neue' },
 
   // Daily Metrics grid
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
   dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   dailyWrap: { width: '47.5%', borderRadius: 20 },
   dailyInner: { padding: 16 },
   dailyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  dailyIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(232,131,26,0.12)', alignItems: 'center', justifyContent: 'center' },
+  dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  changeText: { fontSize: 10, fontWeight: '700' },
-  dailyLabel: { fontSize: 12, color: '#9A9490', fontWeight: '500', marginBottom: 3 },
-  dailyValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+  changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
+  dailyLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  dailyValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
 
   // Coming soon
   comingSoonContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  comingSoonTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 16, marginBottom: 6 },
-  comingSoonSub: { fontSize: 14, color: '#9A9490' },
+  comingSoonTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 16, marginBottom: 6, fontFamily: 'Helvetica Neue' },
+  comingSoonSub: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
 
   // Medication chart card
-  chartMuted: { fontSize: 12, color: '#9A9490', fontWeight: '500' },
-  chartBig: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+  chartMuted: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', fontFamily: 'Helvetica Neue' },
+  chartBig: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   inRangeBadge: { backgroundColor: 'rgba(43,148,80,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  inRangeText: { fontSize: 12, fontWeight: '700', color: '#2B9450' },
-  dayLabel: { fontSize: 10, fontWeight: '600', color: '#5A5754', letterSpacing: 0.5 },
+  inRangeText: { fontSize: 12, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
+  dayLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.35)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
 
   // Progress chart
   progPeriodRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
   progPeriodBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   progPeriodBtnActive: { backgroundColor: ORANGE },
-  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: '#5A5754' },
-  progPeriodLabelActive: { color: '#FFFFFF' },
-  progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: '#1E1B17' },
-  progGoalLabel: { fontSize: 10, fontWeight: '600', color: '#5A5754' },
+  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
+  progPeriodLabelActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: '#000000' },
+  progGoalLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
 
   // Progress stat card
   progStatSub: { marginTop: 6 },
-  progBar: { height: 6, borderRadius: 3, backgroundColor: 'rgba(232,131,26,0.15)', marginTop: 6, overflow: 'hidden' },
+  progBar: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,116,42,0.15)', marginTop: 6, overflow: 'hidden' },
   progBarFill: { height: 6, backgroundColor: ORANGE, borderRadius: 3 },
 
   // Timeline
   timelineRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
   timelineDot: { width: 10, height: 10, borderRadius: 5 },
-  timelineLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  timelineDate: { fontSize: 11, color: '#9A9490', fontWeight: '500', marginTop: 2 },
-  timelineWeight: { marginLeft: 'auto', fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-  timelineWeightMuted: { color: '#5A5754' },
+  timelineLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  timelineDate: { fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginTop: 2, fontFamily: 'Helvetica Neue' },
+  timelineWeight: { marginLeft: 'auto', fontSize: 18, fontWeight: '800', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  timelineWeightMuted: { color: 'rgba(255,255,255,0.35)' },
   timelineDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
 
   // Recent Logs card
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  logHeaderText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(232,131,26,0.12)' },
-  logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE },
+  logHeaderText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)' },
+  logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
   logEntryList: { paddingHorizontal: 18, paddingBottom: 14 },
   logDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
   logEntryRow: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
-  logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, backgroundColor: 'rgba(232,131,26,0.12)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logEntryTitle: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1 },
-  logEntryTime: { fontSize: 11, color: '#5A5754', fontWeight: '500', flexShrink: 0, marginLeft: 8 },
-  logEntryDetails: { fontSize: 12, color: '#9A9490', lineHeight: 18, marginTop: 3 },
+  logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  logEntryTitle: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1, fontFamily: 'Helvetica Neue' },
+  logEntryTime: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Helvetica Neue' },
+  logEntryDetails: { fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 18, marginTop: 3, fontFamily: 'Helvetica Neue' },
   logImpactTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  logImpactText: { fontSize: 10, fontWeight: '700' },
+  logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
 });

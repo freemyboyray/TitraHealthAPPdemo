@@ -89,6 +89,7 @@ TitraHealthAPPdemo/
 │   ├── index.tsx                # Splash gate — redirects to /onboarding or /(tabs)
 │   ├── modal.tsx                # Generic modal screen
 │   ├── ai-chat.tsx              # AI Chat modal screen
+│   ├── score-detail.tsx         # Score drill-down screen (Recovery / GLP-1 Amplifier)
 │   ├── onboarding/
 │   │   ├── _layout.tsx          # Stack navigator (slide_from_right, no header)
 │   │   ├── index.tsx            # Step 1: GLP-1 journey stage
@@ -130,7 +131,7 @@ TitraHealthAPPdemo/
 ├── constants/
 │   ├── user-profile.ts          # FullUserProfile type, ProfileDraft, BRAND_TO_GLP1_TYPE, helpers
 │   ├── mock-profile.ts          # MOCK_PROFILE (FullUserProfile shape, fallback when no onboarding)
-│   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights
+│   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights, breakdown data, coach notes
 │   └── theme.ts                 # Color tokens + Font definitions
 ├── hooks/
 │   ├── use-color-scheme.ts
@@ -194,8 +195,8 @@ All screens use a unified dark palette. Tokens are exported from `constants/them
 | `BG_BASE` | `#141210` | All screen backgrounds |
 | `BG_SURFACE` | `#1E1B17` | Card / sheet surface |
 | `BG_SURFACE2` | `#252219` | Elevated / active surface, input bg |
-| `ORANGE` | `#E8831A` | Primary brand accent — FAB, active tab, accents, progress bars |
-| `ORANGE_DIM` | `rgba(232,131,26,0.15)` | Icon bg tint, selected pill bg |
+| `ORANGE` | `#FF742A` | Primary brand accent — FAB, active tab, accents, progress bars, score rings |
+| `ORANGE_DIM` | `rgba(255,116,42,0.15)` | Icon bg tint, selected pill bg |
 | `TEXT_PRIMARY` | `#FFFFFF` | All primary text |
 | `TEXT_SECONDARY` | `#9A9490` | Subtitles, labels, secondary text |
 | `TEXT_MUTED` | `#5A5754` | Placeholders, disabled, section labels |
@@ -297,9 +298,34 @@ Each screen shares the same shell: white background, `SafeAreaView`, `<Onboardin
 Vertically scrollable daily dashboard. Four sections:
 
 1. **Header** — date + day label (Shot Day / Recovery Day / etc.)
-2. **Score Card** — two animated SVG rings (`ScoreRing`): Recovery (0–100) + GLP-1 Support (0–100). Tapping either ring opens `RingBreakdown` sheet with sub-score breakdown.
+2. **Score Card** — inline `DualRingArc` component: two concentric animated SVG arcs (Reanimated `withTiming`, 1200ms cubic ease-out). Outer ring = Recovery (0–100), inner ring = GLP-1 Amplifier (0–100). Tapping either ring navigates to `score-detail?type=recovery` or `score-detail?type=support`.
 3. **Insights Card** — 1–3 contextual insight bullets driven by `generateInsights()` from `scoring.ts`
 4. **Focus Cards** — action items (hardcoded; will be driven by data layer)
+
+---
+
+### 6.2.1 Score Detail Screen
+
+**File:** `app/score-detail.tsx`
+**Status:** ✅ Built — fully data-driven via `HealthContext`
+
+Dedicated full-screen drill-down for each score type, pushed from home via `router.push('score-detail?type=recovery|support')`.
+
+**Structure:**
+- **Nav bar** — back chevron + title (Recovery / GLP-1 Amplifier) + today's date
+- **Hero ring** — large `ScoreRing` (180px, strokeWidth 14) with gradient colors and phase label (Shot Day, Recovery Day N, Shot Overdue, etc.)
+- **Score Breakdown** — per-metric `MetricCard` list:
+  - Recovery type: Sleep (h m), HRV (ms), Resting HR (bpm), SpO₂ (%)
+  - GLP-1 Amplifier type: Protein (g), Hydration (oz), Movement (steps), Fiber (g), Medication (logged ✓ / not logged)
+  - Each card shows pts earned / pts max, a labeled progress bar, and a coaching note
+- **Coach Note** — glass card with `RECOVERY_COACH_NOTE` or `GLP1_COACH_NOTE` from `scoring.ts`
+
+**New exports added to `constants/scoring.ts`:**
+- `recoveryBreakdown(wearable)` → `{ actual, max }[]` for 4 wearable rows
+- `supportBreakdown(actuals, targets)` → `{ actual, max }[]` for 5 lifestyle rows
+- `RECOVERY_ROW_NOTES` / `GLP1_ROW_NOTES` — per-row coaching copy arrays
+- `RECOVERY_COACH_NOTE` / `GLP1_COACH_NOTE` — full-paragraph coaching text
+- `daysSinceInjection` now accepts optional `refDate?: Date` for testability
 
 ---
 
@@ -523,7 +549,10 @@ stores/
 - [x] **FullUserProfile data model** — replaces old minimal UserProfile
 - [x] **Personalized scoring engine** — weight-based protein/hydration, activity-driven steps, dose/medication multipliers, side effect adjustments
 - [x] **GestureHandlerRootView** at root — fixes gesture-in-gesture crashes
-- [x] **Dark-first UI redesign** — unified dark palette (`#141210` bg, `#E8831A` orange accent, `#FFFFFF` text) across all 20+ files; BlurView tint `"dark"` throughout; orange circle active tab indicator; `constants/theme.ts` exports design tokens
+- [x] **Dark-first UI redesign** — unified dark palette (`#141210` bg, `#FF742A` orange accent, `#FFFFFF` text) across all 20+ files; BlurView tint `"dark"` throughout; orange circle active tab indicator; `constants/theme.ts` exports design tokens
+- [x] **Score Detail Screen** — dedicated drill-down for Recovery + GLP-1 Amplifier scores; per-metric breakdown cards with progress bars + pts earned; phase-aware labels; coach note; navigated from home via `expo-router` push
+- [x] **DualRingArc** on home screen — replaced separate `ScoreRing` + `RingBreakdown` pattern with inline concentric SVG arcs (Reanimated `withTiming`); ring taps navigate to score-detail
+- [x] **Scoring engine expanded** — `recoveryBreakdown`, `supportBreakdown`, `RECOVERY_ROW_NOTES`, `GLP1_ROW_NOTES`, `RECOVERY_COACH_NOTE`, `GLP1_COACH_NOTE` exported from `scoring.ts`; `daysSinceInjection` accepts optional `refDate` for testability
 
 ### In Progress / Partially Done
 

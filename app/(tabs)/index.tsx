@@ -1,34 +1,27 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
 import { GlassBorder } from '@/components/ui/glass-border';
-import { RingBreakdown } from '@/components/ring-breakdown';
-import { ScoreRing } from '@/components/score-ring';
 import { useHealthData } from '@/contexts/health-data';
 import {
-  ChipData,
   daysSinceInjection,
   generateInsights,
-  GLP1_COACH_NOTE,
-  GLP1_ROW_NOTES,
-  recoveryBreakdown,
-  RECOVERY_COACH_NOTE,
-  RECOVERY_ROW_NOTES,
-  recoveryChips,
   recoveryGradient,
   recoveryMessage,
-  supportBreakdown,
-  supportChips,
   supportGradient,
   supportMessage,
 } from '@/constants/scoring';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 
-const ORANGE = '#E8831A';
-const DARK = '#FFFFFF';
+const ORANGE = '#FF742A';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -79,10 +72,7 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
 
   return (
     <View style={[s.hmWrap, glassShadow]}>
-      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: '#1E1B17' }]}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-        <GlassBorder r={20} />
+      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: '#000000' }]}>
         <View style={s.hmInner}>
           <View style={s.hmTopRow}>
             <View style={s.hmIconWrap}>{icon}</View>
@@ -101,48 +91,160 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   );
 }
 
-// ─── Sub-Metric Chips ─────────────────────────────────────────────────────────
+// ─── Dual Ring Arc ────────────────────────────────────────────────────────────
 
-function SubMetricChips({ chips, color }: { chips: ChipData[]; color: string }) {
+type DualRingArcProps = {
+  recoveryScore: number;
+  supportScore: number;
+};
+
+function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
+  const SVG_SIZE = 500;
+  const cx = 250, cy = 250;
+  const OUTER_R = 200, INNER_R = 148, SW = 38;
+  const outerCirc = 2 * Math.PI * OUTER_R;
+  const innerCirc = 2 * Math.PI * INNER_R;
+
+  const outerOffset = useSharedValue(outerCirc);
+  const innerOffset = useSharedValue(innerCirc);
+
+  useEffect(() => {
+    outerOffset.value = withTiming(outerCirc * (1 - recoveryScore / 100), {
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+    });
+    innerOffset.value = withTiming(innerCirc * (1 - supportScore / 100), {
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [recoveryScore, supportScore]);
+
+  const outerProps = useAnimatedProps(() => ({ strokeDashoffset: outerOffset.value }));
+  const innerProps = useAnimatedProps(() => ({ strokeDashoffset: innerOffset.value }));
+
   return (
-    <View style={chipStyles.row}>
-      {chips.map((chip) => (
-        <View key={chip.label} style={chipStyles.chip}>
-          <Text style={chipStyles.label}>{chip.label}</Text>
-          {chip.glp1Note
-            ? <Text style={[chipStyles.value, { color }]}>~{chip.value}</Text>
-            : <Text style={chipStyles.value}>{chip.value}</Text>}
-          <View style={chipStyles.barTrack}>
-            <View style={[chipStyles.barFill, { width: `${chip.pct * 100}%` as any, backgroundColor: color }]} />
-          </View>
-          {chip.glp1Note && <Text style={[chipStyles.glp1Tag, { color }]}>{chip.glp1Note}</Text>}
+    <Svg width={SVG_SIZE} height={SVG_SIZE}>
+      <Circle cx={cx} cy={cy} r={OUTER_R} strokeWidth={SW} stroke="#FF742A" fill="none" opacity={0.15} />
+      <Circle cx={cx} cy={cy} r={INNER_R} strokeWidth={SW} stroke="#FFFFFF" fill="none" opacity={0.15} />
+      <AnimatedCircle
+        cx={cx} cy={cy} r={OUTER_R} fill="none"
+        stroke="#FF742A" strokeWidth={SW} strokeLinecap="round"
+        strokeDasharray={outerCirc} animatedProps={outerProps}
+        rotation="-90" origin={`${cx}, ${cy}`}
+      />
+      <AnimatedCircle
+        cx={cx} cy={cy} r={INNER_R} fill="none"
+        stroke="#FFFFFF" strokeWidth={SW} strokeLinecap="round"
+        strokeDasharray={innerCirc} animatedProps={innerProps}
+        rotation="-90" origin={`${cx}, ${cy}`}
+      />
+    </Svg>
+  );
+}
+
+// ─── Local date helpers ───────────────────────────────────────────────────────
+
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+// ─── Calendar Dropdown ────────────────────────────────────────────────────────
+
+type CalendarDropdownProps = {
+  selectedDate: Date;
+  onSelect: (date: Date) => void;
+  top: number;
+};
+
+function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps) {
+  const today = new Date();
+  const [viewYear, setViewYear]   = useState(selectedDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
+
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+  }
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', {
+    month: 'long', year: 'numeric',
+  });
+
+  return (
+    <View style={[cal.container, glassShadow, { top }]}>
+      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+      <GlassBorder r={20} />
+      <View style={cal.inner}>
+        {/* Month nav */}
+        <View style={cal.monthRow}>
+          <Pressable onPress={prevMonth} hitSlop={10}>
+            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+          </Pressable>
+          <Text style={cal.monthLabel}>{monthLabel}</Text>
+          <Pressable onPress={nextMonth} hitSlop={10}>
+            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+          </Pressable>
         </View>
-      ))}
+        {/* Day headers */}
+        <View style={cal.weekRow}>
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+            <Text key={d} style={cal.dayHeader}>{d}</Text>
+          ))}
+        </View>
+        {/* Day grid */}
+        {chunk(cells, 7).map((week, wi) => (
+          <View key={wi} style={cal.weekRow}>
+            {week.map((day, di) => {
+              if (!day) return <View key={di} style={cal.cell} />;
+              const date  = new Date(viewYear, viewMonth, day);
+              const isSel = sameDay(date, selectedDate);
+              const isTod = sameDay(date, today);
+              const isFut = date > today && !isTod;
+              return (
+                <Pressable key={di} style={cal.cell} onPress={() => onSelect(date)}>
+                  <View style={[cal.dayCircle, isSel && cal.daySelected]}>
+                    <Text style={[cal.dayNum, isSel && cal.dayNumSel, isFut && cal.dayFuture]}>
+                      {day}
+                    </Text>
+                  </View>
+                  {isTod && !isSel && <View style={cal.todayDot} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
-const chipStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, marginTop: 12, paddingHorizontal: 4 },
-  chip: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 12,
-    padding: 8,
-    alignItems: 'center',
-  },
-  label: { fontSize: 9, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, marginBottom: 3 },
-  value: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', marginBottom: 5, textAlign: 'center' },
-  barTrack: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  barFill: { height: 4, borderRadius: 2 },
-  glp1Tag: { fontSize: 8, fontWeight: '700', marginTop: 4, letterSpacing: 0.2 },
-});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -150,18 +252,25 @@ export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
   const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile } = useHealthData();
 
-  const [recoveryBreakdownVisible, setRecoveryBreakdownVisible] = useState(false);
-  const [supportBreakdownVisible, setSupportBreakdownVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const recovGrad = recoveryGradient(recoveryScore);
   const suppGrad  = supportGradient(supportScore);
-  const recChips  = recoveryChips(wearable);
-  const supChips  = supportChips(actuals, targets);
 
   const insights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
 
-  const todayLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  const dayNum = daysSinceInjection(profile.lastInjectionDate);
+  const today   = new Date();
+  const isToday = sameDay(selectedDate, today);
+  const isFuture = !isToday && selectedDate > today;
+
+  const dateLabel = isToday
+    ? `Today, ${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`
+    : `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
+  const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+  const dayNum = daysSinceInjection(profile.lastInjectionDate, selectedDate);
   const freq = profile.injectionFrequencyDays;
   const phaseLabel = (() => {
     if (dayNum === 1) return 'Shot Day';
@@ -173,8 +282,37 @@ export default function HomeScreen() {
   const phaseOverdue = dayNum > freq;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#141210' }}>
+    <View style={{ flex: 1, backgroundColor: '#000000' }}>
       <SafeAreaView style={{ flex: 1 }}>
+
+        {/* ── Fixed header ── */}
+        <View
+          style={s.headerArea}
+          onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
+            <Text style={s.dateTitle}>{dateLabel}</Text>
+            <Ionicons
+              name={calendarOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color="#FFFFFF"
+              style={{ marginLeft: 6, marginTop: 2 }}
+            />
+          </Pressable>
+          <Text style={s.weekday}>{weekday}</Text>
+          <Text style={[s.phaseLabel, phaseOverdue && { color: '#E53E3E' }]}>{phaseLabel}</Text>
+          {isFuture && <Text style={s.futureNote}>No data yet — showing targets</Text>}
+        </View>
+
+        {/* ── Calendar dropdown overlay ── */}
+        {calendarOpen && (
+          <CalendarDropdown
+            selectedDate={selectedDate}
+            onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
+            top={headerHeight}
+          />
+        )}
+
         <ScrollView
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
@@ -182,91 +320,45 @@ export default function HomeScreen() {
           scrollEventThrottle={16}
         >
 
-          {/* ── Header ── */}
-          <Text style={s.dateTitle}>{todayLabel}</Text>
-          <Text style={[s.dateSub, phaseOverdue && { color: '#E53E3E' }]}>{phaseLabel}</Text>
-
           {/* ── Score Card ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={[s.cardBody, { backgroundColor: '#1E1B17' }]}>
-              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
-              <GlassBorder />
-
-              <View style={s.scoreCard}>
-                <Text style={s.scoreCardTitle}>Recovery / Readiness</Text>
-
-                {/* Primary ring — Body Response */}
-                <View style={{ alignItems: 'center' }}>
-                  <ScoreRing
-                    score={recoveryScore}
-                    size={160}
-                    strokeWidth={11}
-                    gradientStart={recovGrad.start}
-                    gradientEnd={recovGrad.end}
-                    label="BODY RESPONSE"
-                    message={recoveryMessage(recoveryScore)}
-                    onTap={() => setRecoveryBreakdownVisible(true)}
-                    ripple={lastLogAction === 'water'}
-                    proteinPulse={lastLogAction === 'protein'}
-                  />
-                  <SubMetricChips chips={recChips} color={recovGrad.end} />
+            <View style={[s.cardBody, { backgroundColor: '#000000' }]}>
+              {/* ── Ring + Info panel section ── */}
+              <View style={{ height: 220 }}>
+                {/* Concentric rings anchored to bottom-left corner */}
+                <View style={s.ringsWrap} pointerEvents="none">
+                  <DualRingArc recoveryScore={recoveryScore} supportScore={supportScore} />
                 </View>
 
-                <View style={{ height: 20 }} />
+                {/* Info panel — right side */}
+                <View style={s.infoPanel}>
+                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=recovery')}>
+                    <View style={s.infoLabelRow}>
+                      <View style={[s.infoDot, { backgroundColor: '#FF742A' }]} />
+                      <Text style={s.infoLabel}>RECOVERY</Text>
+                    </View>
+                    <View style={s.infoScoreRow}>
+                      <Text style={s.infoScore}>{recoveryScore}</Text>
+                      <Text style={s.infoDenom}>/100</Text>
+                    </View>
+                  </Pressable>
 
-                {/* Secondary ring — GLP-1 Amplifier */}
-                <View style={{ alignItems: 'center' }}>
-                  <ScoreRing
-                    score={supportScore}
-                    size={110}
-                    strokeWidth={9}
-                    gradientStart={suppGrad.start}
-                    gradientEnd={suppGrad.end}
-                    label="GLP-1 AMP"
-                    message={supportMessage(supportScore)}
-                    onTap={() => setSupportBreakdownVisible(true)}
-                    glowPulse={lastLogAction === 'injection'}
-                    ripple={lastLogAction === 'water'}
-                    proteinPulse={lastLogAction === 'protein'}
-                  />
-                  <SubMetricChips chips={supChips} color={suppGrad.end} />
-                </View>
+                  <View style={s.infoDiv} />
 
-                {/* Recovery alert */}
-                {recoveryScore < 40 && (
-                  <View style={s.alertBadge}>
-                    <Text style={s.alertText}>⚠ Stress detected · Focus on rest</Text>
-                  </View>
-                )}
-
-                {/* Stats row */}
-                <View style={s.statsRow}>
-                  <View style={s.statItem}>
-                    <MaterialIcons name="restaurant" size={14} color={ORANGE} />
-                    <Text style={s.statItemText}>
-                      <Text style={s.statBold}>{actuals.proteinG}</Text>
-                      <Text style={s.statLight}>/{targets.proteinG}g</Text>
-                    </Text>
-                  </View>
-                  <View style={s.statDot} />
-                  <View style={s.statItem}>
-                    <Ionicons name="water-outline" size={14} color="#5B8BF5" />
-                    <Text style={s.statItemText}>
-                      <Text style={s.statBold}>{Math.round(actuals.waterMl / 100) / 10}</Text>
-                      <Text style={s.statLight}>/{Math.round(targets.waterMl / 100) / 10}L</Text>
-                    </Text>
-                  </View>
-                  <View style={s.statDot} />
-                  <View style={s.statItem}>
-                    <MaterialIcons name="directions-walk" size={14} color="#2B9450" />
-                    <Text style={s.statItemText}>
-                      <Text style={s.statBold}>{actuals.steps.toLocaleString()}</Text>
-                      <Text style={s.statLight}>/{targets.steps.toLocaleString()}</Text>
-                    </Text>
-                  </View>
+                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=support')}>
+                    <View style={s.infoLabelRow}>
+                      <View style={[s.infoDot, { backgroundColor: '#FFFFFF' }]} />
+                      <Text style={s.infoLabel}>READINESS</Text>
+                    </View>
+                    <View style={s.infoScoreRow}>
+                      <Text style={s.infoScore}>{supportScore}</Text>
+                      <Text style={s.infoDenom}>/100</Text>
+                    </View>
+                  </Pressable>
                 </View>
               </View>
+
+
             </View>
           </View>
 
@@ -291,12 +383,9 @@ export default function HomeScreen() {
             },
           ].map((item) => (
             <View key={item.label} style={[s.focusWrap, { marginBottom: 12 }]}>
-              <View style={[s.focusBody, { backgroundColor: '#1E1B17' }]}>
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
-                <GlassBorder r={20} />
+              <View style={[s.focusBody, { backgroundColor: '#000000' }]}>
                 <View style={s.focusRow}>
-                  <View style={s.focusIconWrap}>{item.icon}</View>
+                  {item.icon}
                   <Text style={s.focusLabel}>{item.label}</Text>
                   <View style={s.badge}>
                     <Text style={s.badgeText}>{item.badge}</Text>
@@ -308,10 +397,7 @@ export default function HomeScreen() {
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
-            <View style={[s.cardBody, { backgroundColor: '#1E1B17' }]}>
-              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.darkOverlay]} />
-              <GlassBorder />
+            <View style={[s.cardBody, { backgroundColor: '#000000' }]}>
               <View style={{ padding: 20 }}>
                 <View style={s.insightsHead}>
                   <Text style={s.insightsTitle}>Insights</Text>
@@ -337,27 +423,8 @@ export default function HomeScreen() {
           </View>
 
         </ScrollView>
-      </SafeAreaView>
 
-      {/* Breakdown sheets */}
-      <RingBreakdown
-        visible={recoveryBreakdownVisible}
-        title="Recovery Breakdown"
-        color={recovGrad.end}
-        rows={recoveryBreakdown(wearable)}
-        rowNotes={RECOVERY_ROW_NOTES}
-        coachNote={RECOVERY_COACH_NOTE}
-        onClose={() => setRecoveryBreakdownVisible(false)}
-      />
-      <RingBreakdown
-        visible={supportBreakdownVisible}
-        title="GLP-1 Support Breakdown"
-        color={suppGrad.end}
-        rows={supportBreakdown(actuals, targets)}
-        rowNotes={GLP1_ROW_NOTES}
-        coachNote={GLP1_COACH_NOTE}
-        onClose={() => setSupportBreakdownVisible(false)}
-      />
+      </SafeAreaView>
     </View>
   );
 }
@@ -367,20 +434,24 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
-  // Header
-  dateTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', letterSpacing: -1, marginBottom: 4 },
-  dateSub: { fontSize: 14, fontWeight: '500', color: '#9A9490', textAlign: 'center', marginBottom: 28 },
+  // Fixed header
+  headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
+  dateTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  dateTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  weekday: { fontSize: 13, fontWeight: '500', color: '#7A7570', marginBottom: 4, fontFamily: 'Helvetica Neue' },
+  phaseLabel: { fontSize: 13, fontWeight: '600', color: '#9A9490', fontFamily: 'Helvetica Neue' },
+  futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Helvetica Neue' },
 
   // Glass card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
-  cardBody: { borderRadius: 28, overflow: 'hidden' },
+  cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
 
   // Dark overlay
   darkOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' },
 
   // Score card inner
   scoreCard: { padding: 24 },
-  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18 },
+  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18, fontFamily: 'Helvetica Neue' },
 
   // Alert badge
   alertBadge: {
@@ -393,45 +464,86 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  alertText: { fontSize: 12, fontWeight: '700', color: '#E53E3E' },
+  alertText: { fontSize: 12, fontWeight: '700', color: '#E53E3E', fontFamily: 'Helvetica Neue' },
+
+  // Dual ring arc card
+  ringsWrap: {
+    position: 'absolute',
+    bottom: -250,
+    left: -250,
+  },
+  infoPanel: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    bottom: 16,
+    width: '52%',
+    backgroundColor: '#000000',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  infoRow: {
+    flexDirection: 'column',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  infoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoDot: { width: 8, height: 8, borderRadius: 4 },
+  infoText: { flex: 1 },
+  infoLabel: {
+    fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 1.4, fontFamily: 'Helvetica Neue',
+  },
+  infoScoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  infoScore: { fontSize: 42, fontWeight: '700', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'Helvetica Neue' },
+  infoDenom: { fontSize: 20, fontWeight: '400', color: 'rgba(255,255,255,0.55)', fontFamily: 'Helvetica Neue' },
+  infoMsg: { fontSize: 10, fontWeight: '600', marginTop: 3, fontFamily: 'Helvetica Neue' },
+  infoDiv: {
+    height: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: 14,
+  },
 
   // Stats row
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, gap: 12 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statItemText: {},
-  statBold: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
-  statLight: { fontSize: 12, color: '#5A5754', fontWeight: '400' },
+  statBold: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  statLight: { fontSize: 12, color: '#5A5754', fontWeight: '400', fontFamily: 'Helvetica Neue' },
   statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#3A3735' },
 
   // Insights card
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  insightsTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  shotPhase: { fontSize: 10, fontWeight: '700', color: '#7BA3F7', letterSpacing: 1.2 },
+  insightsTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Helvetica Neue' },
   bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   bullet: { width: 7, height: 7, borderRadius: 3.5, marginRight: 10 },
-  bulletText: { fontSize: 15, color: '#9A9490', fontWeight: '400', flex: 1 },
-  insightsFooter: { fontSize: 12, color: '#5A5754', fontWeight: '500', marginTop: 6, lineHeight: 18 },
+  bulletText: { fontSize: 15, color: 'rgba(255,255,255,0.75)', fontWeight: '400', flex: 1, fontFamily: 'Helvetica Neue' },
+  insightsFooter: { fontSize: 12, color: 'rgba(255,255,255,0.40)', fontWeight: '500', marginTop: 6, lineHeight: 18, fontFamily: 'Helvetica Neue' },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
 
   // Focus cards
   focusWrap: { borderRadius: 20, ...glassShadow },
-  focusBody: { borderRadius: 20, overflow: 'hidden' },
+  focusBody: { borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
   focusRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  focusIconWrap: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(232,131,26,0.12)',
-    borderWidth: 1, borderColor: 'rgba(232,131,26,0.20)',
-    alignItems: 'center', justifyContent: 'center', marginRight: 14,
-  },
-  focusLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  focusIconWrap: { marginRight: 14 },
+  focusLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginLeft: 14, fontFamily: 'Helvetica Neue' },
   badge: {
     backgroundColor: 'rgba(50,168,82,0.12)',
     paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(50,168,82,0.25)',
   },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450' },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
 
   // Health Monitor grid
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
@@ -439,10 +551,35 @@ const s = StyleSheet.create({
   hmBody: { overflow: 'hidden' },
   hmInner: { padding: 16 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  hmIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(232,131,26,0.12)', alignItems: 'center', justifyContent: 'center' },
+  hmIconWrap: { alignItems: 'center', justifyContent: 'center' },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
-  hmBadgeText: { fontSize: 9, fontWeight: '700' },
-  hmLabel: { fontSize: 12, color: '#9A9490', fontWeight: '500', marginBottom: 3 },
-  hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
-  hmUnit: { fontSize: 13, fontWeight: '500', color: '#5A5754', letterSpacing: 0 },
+  hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Helvetica Neue' },
+  hmLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  hmUnit: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.45)', letterSpacing: 0, fontFamily: 'Helvetica Neue' },
+  hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
+});
+
+const cal = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 200,
+    elevation: 200,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  inner:      { padding: 16 },
+  monthRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  monthLabel: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  weekRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: '#5A5754', fontFamily: 'Helvetica Neue' },
+  cell:       { width: 36, height: 42, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 3 },
+  dayCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  daySelected: { backgroundColor: '#FF742A' },
+  dayNum:     { fontSize: 14, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  dayNumSel:  { fontWeight: '800' },
+  dayFuture:  { opacity: 0.45 },
+  todayDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },
 });

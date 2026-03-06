@@ -127,10 +127,10 @@ export default function BodyScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 20, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   toggle: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -145,21 +145,24 @@ const s = StyleSheet.create({
     borderRadius: 10,
   },
   toggleBtnActive: {
-    backgroundColor: '#E8831A',
+    backgroundColor: '#FF742A',
   },
   toggleText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
   },
   toggleTextActive: {
     color: '#FFFFFF',
+    fontFamily: 'Helvetica Neue',
   },
   pickersSection: { flex: 1 },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,

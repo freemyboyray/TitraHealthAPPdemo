@@ -19,7 +19,7 @@ import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 
-const ORANGE = '#E8831A';
+const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
 const ICON_SIZE = 24;
 const ICON_COLOR = '#FFFFFF';
@@ -293,7 +293,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           {/* Sheet — dark frosted glass */}
           <View style={s.sheetShadow}>
-            <View style={[s.sheetBody, { backgroundColor: '#1E1B17' }]}>
+            <View style={[s.sheetBody, { backgroundColor: '#000000' }]}>
               <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
               <View pointerEvents="none" style={s.sheetTopBorder} />
@@ -331,7 +331,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                           {item.special ? (
                             <View style={s.specialCircle}>
                               <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-                              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 32, backgroundColor: 'rgba(232,131,26,0.85)' }]} />
+                              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 32, backgroundColor: 'rgba(255,116,42,0.85)' }]} />
                               <GlassBorder r={32} />
                               <View style={s.sphereShine} />
                               <View style={s.sphereShineSmall} />
@@ -369,7 +369,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             <TouchableOpacity style={s.fabClose} onPress={closeSheet} activeOpacity={0.85}>
               <View style={s.fabInner}>
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: 'rgba(232,131,26,0.92)' }]} />
+                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: 'rgba(255,116,42,0.92)' }]} />
                 <View pointerEvents="none" style={s.fabBorder} />
                 <Ionicons name="close" size={32} color="#FFF" />
               </View>
@@ -418,17 +418,19 @@ const f = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Helvetica Neue',
   },
   unit: {
     fontSize: 15,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
     minWidth: 32,
+    fontFamily: 'Helvetica Neue',
   },
   confirmBtn: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: '#E8831A',
+    backgroundColor: '#FF742A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,6 +439,7 @@ const f = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+    fontFamily: 'Helvetica Neue',
   },
 });
 
@@ -453,8 +456,8 @@ const s = StyleSheet.create({
   sheetContent: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 },
 
   handle: { width: 44, height: 4, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
-  title: { fontSize: 24, fontWeight: '800', color: DARK, letterSpacing: -0.5, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginBottom: 18 },
+  title: { fontSize: 24, fontWeight: '800', color: DARK, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginBottom: 18, fontFamily: 'Helvetica Neue' },
   dash: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(80,130,210,0.3)', marginBottom: 22 },
 
   // Grid
@@ -469,7 +472,7 @@ const s = StyleSheet.create({
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 
-  gridLabel: { fontSize: 10, fontWeight: '700', color: DARK, letterSpacing: 0.4, textAlign: 'center' },
+  gridLabel: { fontSize: 10, fontWeight: '700', color: DARK, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Helvetica Neue' },
   gridLabelSpecial: { color: ORANGE },
 
   // Bottom nav

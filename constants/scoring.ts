@@ -26,13 +26,17 @@ export type WearableData = {
 
 // ─── Shot Cycle ───────────────────────────────────────────────────────────────
 
-export function daysSinceInjection(lastInjectionDate: string | Date): number {
+export function daysSinceInjection(
+  lastInjectionDate: string | Date,
+  refDate?: Date,
+): number {
   const last =
     typeof lastInjectionDate === 'string'
       ? new Date(lastInjectionDate)
       : lastInjectionDate;
+  const ref = refDate ?? new Date();
   const msPerDay = 24 * 60 * 60 * 1000;
-  const days = Math.floor((Date.now() - last.getTime()) / msPerDay) + 1;
+  const days = Math.floor((ref.getTime() - last.getTime()) / msPerDay) + 1;
   return Math.max(1, Math.min(7, days));
 }
 
@@ -253,9 +257,9 @@ export function recoveryGradient(score: number): { start: string; end: string } 
 }
 
 export function supportGradient(score: number): { start: string; end: string } {
-  if (score < 50) return { start: '#C05C10', end: '#E8831A' };
-  if (score < 80) return { start: '#E8831A', end: '#F4A44A' };
-  return { start: '#E8831A', end: '#F9BE6A' };
+  if (score < 50) return { start: '#C05C10', end: '#FF742A' };
+  if (score < 80) return { start: '#FF742A', end: '#F4A44A' };
+  return { start: '#FF742A', end: '#F9BE6A' };
 }
 
 // ─── Sub-Metric Chip Data ─────────────────────────────────────────────────────

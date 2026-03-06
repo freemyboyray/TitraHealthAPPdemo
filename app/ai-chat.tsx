@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const BG = '#141210';
-const ORANGE = '#E8831A';
+const BG = '#000000';
+const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
 const glassShadow = {
   shadowColor: '#000000',
@@ -56,7 +56,7 @@ function AiOrb() {
     <View style={s.orbShadow}>
       <View style={s.orb}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(232,131,26,0.88)' }]} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,116,42,0.88)' }]} />
         <GlassBorder r={40} />
         <View style={s.orbShine} />
         <View style={s.orbShineSmall} />
@@ -121,7 +121,7 @@ export default function AiChatScreen() {
         {/* Input card */}
         <View style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4 }]}>
           <View style={[s.inputCardShadow, glassShadow]}>
-            <View style={[s.inputCard, { backgroundColor: '#1E1B17' }]}>
+            <View style={[s.inputCard, { backgroundColor: '#111111' }]}>
               <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
               <GlassBorder r={24} />

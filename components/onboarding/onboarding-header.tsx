@@ -69,7 +69,7 @@ const s = StyleSheet.create({
   },
   fill: {
     height: 3,
-    backgroundColor: '#E8831A',
+    backgroundColor: '#FF742A',
     borderRadius: 2,
   },
 });

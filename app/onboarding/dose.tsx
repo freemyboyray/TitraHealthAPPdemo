@@ -69,11 +69,11 @@ export default function DoseScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   options: {},
   input: {
     height: 52,
@@ -82,8 +82,9 @@ const s = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
+    fontFamily: 'Helvetica Neue',
     color: '#FFFFFF',
     marginTop: 4,
-    backgroundColor: '#252219',
+    backgroundColor: '#000000',
   },
 });

@@ -21,7 +21,7 @@ export default function Index() {
     <View style={s.container}>
       <Text style={s.wordmark}>titra</Text>
       <Text style={s.tagline}>GLP-1 Companion</Text>
-      {isLoading && <ActivityIndicator style={s.spinner} color="#E8831A" />}
+      {isLoading && <ActivityIndicator style={s.spinner} color="#FF742A" />}
     </View>
   );
 }
@@ -29,7 +29,7 @@ export default function Index() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#141210',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },

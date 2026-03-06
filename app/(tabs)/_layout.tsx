@@ -7,13 +7,11 @@ import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
-import { MOCK_PROFILE } from '@/constants/mock-profile';
-import { HealthProvider } from '@/contexts/health-data';
-import { useProfile } from '@/contexts/profile-context';
+
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useLogStore } from '@/stores/log-store';
 
-const ORANGE = '#E8831A';
+const ORANGE = '#FF742A';
 
 type CustomTabBarProps = BottomTabBarProps & {
   fabOpen: boolean;
@@ -66,15 +64,9 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
         </View>
       </View>
 
-      {/* FAB — orange */}
+      {/* FAB — solid orange */}
       <TouchableOpacity style={s.fab} onPress={onFabPress} activeOpacity={0.85}>
         <View style={s.fabInner}>
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, s.fabOverlay]} />
-          {/* Specular highlights */}
-          <View pointerEvents="none" style={s.fabShine} />
-          <View pointerEvents="none" style={s.fabShineSm} />
-          <View pointerEvents="none" style={s.fabBorder} />
           <Ionicons name={fabOpen ? 'close' : 'add'} size={32} color="#FFFFFF" />
         </View>
       </TouchableOpacity>
@@ -87,28 +79,24 @@ export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
   useEffect(() => { fetchInsightsData(); }, []);
-  const { profile } = useProfile();
-  const effectiveProfile = profile ?? MOCK_PROFILE;
 
   return (
-    <HealthProvider profile={effectiveProfile}>
-      <TabBarVisibilityProvider>
-        <Tabs
-          tabBar={(props) => (
-            <CustomTabBar
-              {...props}
-              fabOpen={sheetOpen}
-              onFabPress={() => setSheetOpen((v) => !v)}
-            />
-          )}
-          screenOptions={{ headerShown: false }}>
-          <Tabs.Screen name="index" />
-          <Tabs.Screen name="log" />
-          <Tabs.Screen name="explore" />
-        </Tabs>
-        <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
-      </TabBarVisibilityProvider>
-    </HealthProvider>
+    <TabBarVisibilityProvider>
+      <Tabs
+        tabBar={(props) => (
+          <CustomTabBar
+            {...props}
+            fabOpen={sheetOpen}
+            onFabPress={() => setSheetOpen((v) => !v)}
+          />
+        )}
+        screenOptions={{ headerShown: false }}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="log" />
+        <Tabs.Screen name="explore" />
+      </Tabs>
+      <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </TabBarVisibilityProvider>
   );
 }
 
@@ -137,11 +125,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // FAB — orange
-  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.55, shadowRadius: 18, elevation: 10, marginBottom: 2 },
-  fabInner: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  fabOverlay: { borderRadius: 31, backgroundColor: 'rgba(232,131,26,0.70)' },
-  fabShine: { position: 'absolute', top: 9, left: 11, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,220,190,0.25)' },
-  fabShineSm: { position: 'absolute', top: 20, left: 20, width: 9, height: 9, borderRadius: 4.5, backgroundColor: 'rgba(255,255,255,0.15)' },
-  fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,220,185,0.50)', borderLeftColor: 'rgba(255,210,170,0.30)', borderRightColor: 'rgba(0,0,0,0.15)', borderBottomColor: 'rgba(0,0,0,0.25)' },
+  // FAB — solid orange
+  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10, marginBottom: 2 },
+  fabInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
 });

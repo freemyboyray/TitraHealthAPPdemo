@@ -82,10 +82,10 @@ export default function HealthSyncScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#141210' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34 },
-  subtitle: { fontSize: 15, color: '#9A9490', marginBottom: 32, lineHeight: 22 },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   illustration: {
     flex: 1,
     alignItems: 'center',
@@ -107,11 +107,13 @@ const s = StyleSheet.create({
   healthLabel: {
     fontSize: 20,
     fontWeight: '700',
+    fontFamily: 'Helvetica Neue',
     color: '#FFFFFF',
   },
   healthDesc: {
     fontSize: 15,
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
@@ -123,7 +125,8 @@ const s = StyleSheet.create({
   },
   skipText: {
     fontSize: 15,
-    color: '#9A9490',
+    fontFamily: 'Helvetica Neue',
+    color: 'rgba(255,255,255,0.45)',
     fontWeight: '500',
   },
 });

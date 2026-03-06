@@ -1,6 +1,8 @@
 import React from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 
+const FF = 'Helvetica Neue';
+
 type Props = {
   label: string;
   selected: boolean;
@@ -32,16 +34,16 @@ const s = StyleSheet.create({
   pill: {
     height: 56,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: '#252219',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     paddingHorizontal: 18,
     marginBottom: 10,
   },
   pillSelected: {
-    backgroundColor: 'rgba(232,131,26,0.15)',
-    borderColor: '#E8831A',
+    backgroundColor: 'rgba(255,116,42,0.12)',
+    borderColor: '#FF742A',
   },
   inner: {
     flexDirection: 'row',
@@ -57,16 +59,18 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: FF,
   },
   labelSelected: {
-    color: '#E8831A',
+    color: '#FF742A',
   },
   subtitle: {
     fontSize: 13,
-    color: '#9A9490',
+    color: 'rgba(255,255,255,0.45)',
     marginTop: 1,
+    fontFamily: FF,
   },
   subtitleSelected: {
-    color: 'rgba(232,131,26,0.65)',
+    color: 'rgba(255,116,42,0.65)',
   },
 });

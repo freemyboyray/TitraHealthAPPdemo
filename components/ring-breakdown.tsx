@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const ORANGE = '#E8831A';
+const ORANGE = '#FF742A';
 
 type BreakdownRow = { label: string; actual: number; max: number };
 
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1E1B17',
+    backgroundColor: '#111111',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
