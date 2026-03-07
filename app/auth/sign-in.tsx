@@ -262,26 +262,27 @@ export default function SignInScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Demo divider */}
-              <View style={s.demoDividerRow}>
-                <View style={s.dividerLine} />
-                <Text style={s.dividerText}>demo</Text>
-                <View style={s.dividerLine} />
-              </View>
-
-              {/* Demo login button */}
-              <TouchableOpacity
-                style={s.demoBtn}
-                onPress={handleDemoLogin}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="flask-outline" size={17} color={TERRACOTTA} />
-                <Text style={s.demoBtnText}>Try Demo (no account needed)</Text>
-              </TouchableOpacity>
-
             </View>
           </View>
         </View>
+
+        {/* Demo login — outside the card so it's always visible */}
+        <View style={s.demoWrap}>
+          <View style={s.demoDividerRow}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>no account?</Text>
+            <View style={s.dividerLine} />
+          </View>
+          <TouchableOpacity
+            style={s.demoBtn}
+            onPress={handleDemoLogin}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="flask-outline" size={18} color={TERRACOTTA} />
+            <Text style={s.demoBtnText}>Try Demo — no account needed</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -347,13 +348,14 @@ const s = StyleSheet.create({
   linkText: { fontSize: 14, color: MUTED },
   linkBold: { color: TERRACOTTA, fontWeight: '700' },
 
-  // Demo
-  demoDividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 2 },
+  // Demo (outside card)
+  demoWrap: { marginTop: 24, paddingHorizontal: 4 },
+  demoDividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   demoBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 48, borderRadius: 14, marginTop: 12,
-    borderWidth: 1.5, borderColor: 'rgba(196,120,75,0.35)',
-    backgroundColor: 'rgba(196,120,75,0.08)',
+    height: 52, borderRadius: 16,
+    borderWidth: 1.5, borderColor: 'rgba(196,120,75,0.40)',
+    backgroundColor: 'rgba(196,120,75,0.10)',
   },
-  demoBtnText: { fontSize: 14, fontWeight: '600', color: TERRACOTTA },
+  demoBtnText: { fontSize: 15, fontWeight: '600', color: TERRACOTTA },
 });
