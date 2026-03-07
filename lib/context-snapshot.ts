@@ -18,6 +18,7 @@ type SnapshotInput = {
   profile: ProfileRow | null;
   userName: string | null;
   score: { total: number; medication: number; nutrition: number; activity: number };
+  focalPoint?: { label: string; value: string };
 };
 
 export function buildContextSnapshot(data: SnapshotInput): string {
@@ -63,8 +64,13 @@ export function buildContextSnapshot(data: SnapshotInput): string {
     (se) => Date.now() - new Date(se.logged_at).getTime() < 7 * 86400000,
   );
 
+  // ── Focal point block ─────────────────────────────────────────────────────
+  const focalBlock = data.focalPoint
+    ? `\nCURRENT FOCUS:\n- ${data.focalPoint.label}: ${data.focalPoint.value}\n`
+    : '';
+
   // ── Build snapshot string ─────────────────────────────────────────────────
-  return `
+  return `${focalBlock}
 USER CONTEXT (as of ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}):
 - Name: ${data.userName ?? 'User'}
 - Medication: ${data.profile?.medication_type ?? 'GLP-1'} ${lastInj?.dose_mg ? `${lastInj.dose_mg}mg` : ''}

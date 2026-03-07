@@ -4,11 +4,12 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,8 +20,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useHealthData } from '@/contexts/health-data';
-import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
+import { daysSinceInjection } from '@/constants/scoring';
 import { buildSystemPrompt, callOpenAI } from '@/lib/openai';
+import { supabase } from '@/lib/supabase';
 
 const BG = '#000000';
 const ORANGE = '#FF742A';
@@ -52,6 +54,24 @@ const READINESS_CHIPS = [
   'How do I hit my daily fiber target?',
   'Why should I log my injection?',
   'How does movement affect my score?',
+];
+
+const INSIGHT_CHIPS = [
+  'Tell me more about this',
+  'Give me a detailed action plan',
+  'What should I prioritize today?',
+  'How does this relate to my medication phase?',
+  'What progress should I expect?',
+  'How can I improve this metric?',
+];
+
+const METRIC_CHIPS = [
+  'How can I improve this?',
+  'Is this typical for my phase?',
+  'How does GLP-1 affect this?',
+  'What does this mean for my health?',
+  'Should I be concerned?',
+  'What trends should I watch?',
 ];
 
 const GENERIC_CHIPS = [
@@ -99,15 +119,33 @@ function AiOrb() {
 
 // ─── Message types ────────────────────────────────────────────────────────────
 
-type Message = { role: 'user' | 'assistant'; content: string };
+type Message = {
+  role: 'user' | 'assistant';
+  content: string;
+  contextLabel?: string;
+  contextValue?: string;
+};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AiChatScreen() {
   const insets = useSafeAreaInsets();
-  const { type } = useLocalSearchParams<{ type?: string }>();
+  const {
+    type,
+    contextLabel,
+    contextValue,
+    seedMessage,
+    chips: chipsParam,
+  } = useLocalSearchParams<{
+    type?: string;
+    contextLabel?: string;
+    contextValue?: string;
+    seedMessage?: string;
+    chips?: string;
+  }>();
+
   const isRecovery = type === 'recovery';
-  const hasType = type === 'recovery' || type === 'support';
+  const hasLegacyType = type === 'recovery' || type === 'support';
 
   const healthData = useHealthData();
   const { recoveryScore, supportScore, profile } = healthData;
@@ -123,29 +161,108 @@ export default function AiChatScreen() {
     return 'Shot Overdue';
   })();
 
-  const chipPool = hasType ? (isRecovery ? RECOVERY_CHIPS : READINESS_CHIPS) : GENERIC_CHIPS;
+  // ─── Context pill state ───────────────────────────────────────────────────
+  const [pillVisible, setPillVisible] = useState(!!contextLabel);
+
+  // ─── Chips ───────────────────────────────────────────────────────────────
+  let chipPool: string[] = GENERIC_CHIPS;
+  if (chipsParam) {
+    try {
+      const parsed = JSON.parse(chipsParam);
+      if (Array.isArray(parsed) && parsed.length > 0) chipPool = parsed;
+    } catch {}
+  } else if (type === 'insight') {
+    chipPool = INSIGHT_CHIPS;
+  } else if (type === 'metric') {
+    chipPool = METRIC_CHIPS;
+  } else if (type === 'focus') {
+    chipPool = INSIGHT_CHIPS;
+  } else if (isRecovery) {
+    chipPool = RECOVERY_CHIPS;
+  } else if (type === 'support') {
+    chipPool = READINESS_CHIPS;
+  }
+
   const [promptIndex, setPromptIndex] = useState(0);
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const seedSent = useRef(false);
 
   const maxPage = Math.floor((chipPool.length - 1) / 2);
   const currentPrompts = chipPool.slice(promptIndex * 2, promptIndex * 2 + 2);
   const handleRefresh = () => setPromptIndex(p => (p >= maxPage ? 0 : p + 1));
   const handlePromptPress = (p: string) => setInputText(p);
 
+  // ─── Load user for persistence ────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+  }, []);
+
+  // ─── Auto-send seedMessage once on mount ──────────────────────────────────
+  useEffect(() => {
+    if (seedMessage && !seedSent.current) {
+      seedSent.current = true;
+      sendMessage(seedMessage);
+    }
+  }, []);
+
+  // ─── Build system prompt ──────────────────────────────────────────────────
+  function makeSystemPrompt(): string {
+    const typeArg = hasLegacyType ? (isRecovery ? 'recovery' : 'support') : undefined;
+    const base = buildSystemPrompt(healthData, typeArg);
+
+    if (pillVisible && contextLabel) {
+      // Prepend a strong focal directive BEFORE the base prompt so it leads the model's attention
+      const focusBlock = [
+        `FOCUS DIRECTIVE (highest priority):`,
+        `The user is asking specifically about: ${contextLabel}${contextValue ? ` — current value: ${contextValue}` : ''}.`,
+        `Your response MUST:`,
+        `1. Directly address this specific metric/insight first — do not open with generic GLP-1 advice`,
+        `2. Explain what this specific value means for this user's GLP-1 journey`,
+        `3. Give 2–3 concrete, actionable steps tied directly to this metric`,
+        `4. Reference the actual value (${contextValue ?? contextLabel}) in your response`,
+        `Do NOT give a general health overview. Stay tightly focused on ${contextLabel}.`,
+        ``,
+      ].join('\n');
+      return focusBlock + base;
+    }
+    return base;
+  }
+
   async function sendMessage(userText: string) {
     if (!userText.trim() || loading) return;
-    const newMessages: Message[] = [...messages, { role: 'user', content: userText }];
+    // Snapshot the active context pill at send time so it's shown in the bubble
+    const activeLabel = pillVisible && contextLabel ? contextLabel : undefined;
+    const activeValue = pillVisible && contextValue ? contextValue : undefined;
+    const newMessages: Message[] = [...messages, {
+      role: 'user',
+      content: userText,
+      contextLabel: activeLabel,
+      contextValue: activeValue,
+    }];
     setMessages(newMessages);
     setInputText('');
     setLoading(true);
 
+    // Persist user message
+    if (userId) {
+      supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: userText }).then(() => {});
+    }
+
     try {
-      const systemPrompt = buildSystemPrompt(healthData, hasType ? (isRecovery ? 'recovery' : 'support') : undefined);
+      const systemPrompt = makeSystemPrompt();
       const response = await callOpenAI(newMessages, systemPrompt);
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+
+      // Persist assistant message
+      if (userId) {
+        supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
+      }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach AI. Check your connection and try again.' }]);
     } finally {
@@ -170,22 +287,14 @@ export default function AiChatScreen() {
           <View style={s.headerSpacer} />
         </View>
 
-        {/* Context strip — shown when navigated from a score detail screen */}
-        {hasType && (
-          <View style={s.contextStrip}>
-            <View style={s.contextDot} />
-            <Text style={s.contextText}>
-              {isRecovery ? 'RECOVERY' : 'READINESS'} · {score}/100 · {phaseLabel}
-            </Text>
-          </View>
-        )}
-
-        {messages.length === 0 ? (
+        {messages.length === 0 && !loading ? (
           /* Empty state: orb + greeting + chips */
           <>
             <View style={s.heroSection}>
               <AiOrb />
-              <Text style={s.greeting}>Good morning,{'\n'}How can I help?</Text>
+              <Text style={s.greeting}>
+                {contextLabel ? `About your\n${contextLabel}` : 'Good morning,\nHow can I help?'}
+              </Text>
               <Text style={s.subtitle}>Choose a prompt or write your own</Text>
             </View>
 
@@ -229,6 +338,17 @@ export default function AiChatScreen() {
                   </View>
                 )}
                 <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
+                  {msg.role === 'user' && msg.contextLabel && (
+                    <>
+                      <View style={s.bubbleContextTag}>
+                        <View style={s.bubbleContextDot} />
+                        <Text style={s.bubbleContextText} numberOfLines={1}>
+                          {msg.contextLabel}{msg.contextValue ? ` · ${msg.contextValue}` : ''}
+                        </Text>
+                      </View>
+                      <View style={s.bubbleContextDivider} />
+                    </>
+                  )}
                   <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
                     {msg.content}
                   </Text>
@@ -256,6 +376,18 @@ export default function AiChatScreen() {
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
               <GlassBorder r={24} />
               <View style={s.inputInner}>
+                {/* Context pill — lives inside the input card above the text field */}
+                {pillVisible && contextLabel && (
+                  <View style={s.inputPillRow}>
+                    <View style={s.inputPillDot} />
+                    <Text style={s.inputPillText} numberOfLines={1}>
+                      {contextLabel}{contextValue ? ` · ${contextValue}` : ''}
+                    </Text>
+                    <Pressable onPress={() => setPillVisible(false)} hitSlop={10} style={s.inputPillClose}>
+                      <Ionicons name="close" size={13} color="rgba(255,116,42,0.7)" />
+                    </Pressable>
+                  </View>
+                )}
                 <TextInput
                   style={s.textInput}
                   value={inputText}
@@ -330,31 +462,39 @@ const s = StyleSheet.create({
   },
   headerSpacer: { width: 40 },
 
-  // Context strip
-  contextStrip: {
+  // Context pill — embedded in input card
+  inputPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255,116,42,0.10)',
+    backgroundColor: 'rgba(255,116,42,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,116,42,0.30)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    borderColor: 'rgba(255,116,42,0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    marginBottom: 12,
-    gap: 6,
+    marginBottom: 10,
+    gap: 7,
   },
-  contextDot: {
+  inputPillDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: ORANGE,
+    flexShrink: 0,
   },
-  contextText: {
+  inputPillText: {
+    flex: 1,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: ORANGE,
-    letterSpacing: 0.8,
+    letterSpacing: 0.3,
+  },
+  inputPillClose: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 
   // Hero
@@ -520,6 +660,33 @@ const s = StyleSheet.create({
   bubbleTextAssistant: {
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '400',
+  },
+
+  // Context tag inside user bubble
+  bubbleContextTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  bubbleContextDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    flexShrink: 0,
+  },
+  bubbleContextText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.65)',
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  bubbleContextDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginBottom: 8,
   },
 
   // Input

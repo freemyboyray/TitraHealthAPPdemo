@@ -168,7 +168,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       onPress: handleAskAI,
     },
     {
-      label: 'SEARCH FOOD',
+      label: 'LOG MEALS',
       icon: <Ionicons name="search-outline" size={ICON_SIZE} color={ICON_COLOR} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food' as any), 300); },
     },

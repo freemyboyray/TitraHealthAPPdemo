@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
+import { supabase } from '@/lib/supabase';
 import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
@@ -51,7 +52,8 @@ type Action =
   | { type: 'LOG_PROTEIN'; grams: number }
   | { type: 'LOG_INJECTION' }
   | { type: 'LOG_STEPS'; steps: number }
-  | { type: 'CLEAR_ACTION' };
+  | { type: 'CLEAR_ACTION' }
+  | { type: 'FETCH_ACTUALS'; actuals: DailyActuals };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -106,6 +108,8 @@ function reducer(state: HealthState, action: Action): HealthState {
     }
     case 'CLEAR_ACTION':
       return { ...state, lastLogAction: null };
+    case 'FETCH_ACTUALS':
+      return recompute({ ...state, actuals: action.actuals, lastLogAction: null });
     default:
       return state;
   }
@@ -127,6 +131,29 @@ export function HealthProvider({
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
+
+  // Seed today's actuals from Supabase on mount
+  useEffect(() => {
+    async function fetchTodayActuals() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const [foodRes, actRes, injRes] = await Promise.all([
+        supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', todayStr),
+        supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
+        supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
+      ]);
+      const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
+      const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+      const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
+      const injectionLogged = (injRes.data ?? []).length > 0;
+      dispatch({
+        type: 'FETCH_ACTUALS',
+        actuals: { proteinG, fiberG, steps, waterMl: SEED_ACTUALS.waterMl, injectionLogged },
+      });
+    }
+    fetchTodayActuals();
+  }, []);
 
   // Auto-clear lastLogAction after 600ms
   useEffect(() => {

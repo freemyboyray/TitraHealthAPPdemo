@@ -452,7 +452,14 @@ export default function ScoreDetailScreen() {
             <Text style={s.navDate}>{todayLabel}</Text>
           </View>
           <Pressable
-            onPress={() => router.push(`/ai-chat?type=${type}`)}
+            onPress={() => {
+              const scoreLabel = isRecovery ? 'Recovery Score' : 'Readiness Score';
+              const scoreContext = `${score}/100 · ${phaseLabel}`;
+              const contextChips = isRecovery
+                ? ['Why is my score this level?', 'How does my phase affect this?', 'What can I do to improve?', 'Is this normal for peak phase?']
+                : ['How do I improve my readiness?', 'What should I prioritize today?', 'How does protein affect my score?', 'When should I log my injection?'];
+              router.push(`/ai-chat?type=${type}&contextLabel=${encodeURIComponent(scoreLabel)}&contextValue=${encodeURIComponent(scoreContext)}&chips=${encodeURIComponent(JSON.stringify(contextChips))}` as any);
+            }}
             style={s.chatBtn}
             hitSlop={12}
           >

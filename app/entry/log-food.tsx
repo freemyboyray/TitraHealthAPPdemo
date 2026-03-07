@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,17 +17,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callHaiku } from '../../lib/anthropic';
-import { searchUSDA, type FoodResult } from '../../lib/usda';
+import { searchUSDA, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { type MealType } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
+const BG = '#000000';
+const ORANGE = '#FF742A';
 const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
+const MUTED = 'rgba(255,255,255,0.45)';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 type Mode = 'search' | 'scan' | 'describe' | 'camera';
@@ -57,7 +56,6 @@ type DescribeItem = {
   servingG: string;
 };
 
-// Unified "pending food" type for the add-to-meal panel
 type PendingFood = {
   food_name: string;
   calories_per_100g: number;
@@ -66,6 +64,7 @@ type PendingFood = {
   fat_per_100g: number;
   fiber_per_100g: number;
   source: 'search_db' | 'manual' | 'barcode';
+  serving_options?: ServingOption[];
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,24 +92,33 @@ async function lookupBarcode(barcode: string): Promise<OFFProduct | null> {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function GlassBorder({ r = 16, topOnly = false }: { r?: number; topOnly?: boolean }) {
+function GlassBorder({ r = 16 }: { r?: number }) {
   return (
     <View
       pointerEvents="none"
       style={[
         StyleSheet.absoluteFillObject,
         {
-          borderRadius: topOnly ? 0 : r,
+          borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.65)',
-          borderLeftColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.42)',
-          borderRightColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.14)',
-          borderBottomColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.08)',
+          borderTopColor: 'rgba(255,255,255,0.13)',
+          borderLeftColor: 'rgba(255,255,255,0.08)',
+          borderRightColor: 'rgba(255,255,255,0.03)',
+          borderBottomColor: 'rgba(255,255,255,0.02)',
         },
       ]}
     />
   );
 }
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text style={sl.text}>{children}</Text>
+  );
+}
+const sl = StyleSheet.create({
+  text: { fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
+});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -143,16 +151,20 @@ export default function LogFoodScreen() {
   const [scanProduct, setScanProduct] = useState<OFFProduct | null>(null);
   const [scanNotFound, setScanNotFound] = useState(false);
   const scanLockRef = useRef(false);
+  const [scanServingG, setScanServingG] = useState('100');
 
   // ── Describe state ────────────────────────────────────────────────────────
   const [describeText, setDescribeText] = useState('');
   const [describeItems, setDescribeItems] = useState<DescribeItem[] | null>(null);
   const [describing, setDescribing] = useState(false);
   const [describeError, setDescribeError] = useState('');
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   // ── Add-to-meal panel ─────────────────────────────────────────────────────
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
   const [servingG, setServingG] = useState('100');
+  const [selectedServingIdx, setSelectedServingIdx] = useState(0);
+  const [showNutritionInfo, setShowNutritionInfo] = useState(false);
 
   // ── Tray UI ───────────────────────────────────────────────────────────────
   const [mealType, setMealType] = useState<MealType>('lunch');
@@ -176,6 +188,22 @@ export default function LogFoodScreen() {
     fetchCustomFoods();
   }, []);
 
+  // ── Mode switch helpers ───────────────────────────────────────────────────
+
+  async function switchToScan() {
+    if (!camPermission?.granted) await requestCamPermission();
+    setScanProduct(null);
+    setScanNotFound(false);
+    setScanned(false);
+    scanLockRef.current = false;
+    setMode('scan');
+  }
+
+  function switchMode(m: Mode) {
+    if (m === 'scan') { switchToScan(); return; }
+    setMode(m);
+  }
+
   // ── Search ────────────────────────────────────────────────────────────────
 
   function handleQueryChange(text: string) {
@@ -190,7 +218,7 @@ export default function LogFoodScreen() {
     }, 400);
   }
 
-  function handleSelectSearchResult(item: FoodResult) {
+  function openPendingFromResult(item: FoodResult) {
     setPendingFood({
       food_name: item.name + (item.brand ? ` (${item.brand})` : ''),
       calories_per_100g: item.calories,
@@ -199,11 +227,14 @@ export default function LogFoodScreen() {
       fat_per_100g: item.fat_g,
       fiber_per_100g: item.fiber_g,
       source: 'search_db',
+      serving_options: item.serving_options,
     });
-    setServingG('100');
+    setSelectedServingIdx(0);
+    const defaultG = item.serving_options?.[0]?.grams ?? 100;
+    setServingG(String(Math.round(defaultG)));
   }
 
-  function handleSelectRecent(item: RecentFood) {
+  function openPendingFromRecent(item: RecentFood) {
     setPendingFood({
       food_name: item.food_name,
       calories_per_100g: item.calories,
@@ -213,10 +244,11 @@ export default function LogFoodScreen() {
       fiber_per_100g: item.fiber_g,
       source: 'manual',
     });
+    setSelectedServingIdx(0);
     setServingG('100');
   }
 
-  function handleSelectCustomFood(item: typeof customFoods[0]) {
+  function openPendingFromCustom(item: typeof customFoods[0]) {
     setPendingFood({
       food_name: item.name + (item.brand ? ` (${item.brand})` : ''),
       calories_per_100g: item.calories_per_100g,
@@ -226,7 +258,13 @@ export default function LogFoodScreen() {
       fiber_per_100g: item.fiber_per_100g,
       source: 'manual',
     });
+    setSelectedServingIdx(0);
     setServingG(String(item.serving_size_g ?? 100));
+  }
+
+  function handleServingPillSelect(opt: ServingOption, idx: number) {
+    setSelectedServingIdx(idx);
+    setServingG(String(Math.round(opt.grams)));
   }
 
   function handleAddPendingToTray() {
@@ -240,21 +278,14 @@ export default function LogFoodScreen() {
       fat_g: parseFloat((pendingFood.fat_per_100g * g / 100).toFixed(1)),
       fiber_g: parseFloat((pendingFood.fiber_per_100g * g / 100).toFixed(1)),
       serving_g: g,
+      serving_description: pendingFood.serving_options?.[selectedServingIdx]?.label,
       source: pendingFood.source,
     });
     setPendingFood(null);
+    setShowNutritionInfo(false);
   }
 
   // ── Scan ──────────────────────────────────────────────────────────────────
-
-  async function handleSwitchToScan() {
-    if (!camPermission?.granted) await requestCamPermission();
-    setMode('scan');
-    setScanProduct(null);
-    setScanNotFound(false);
-    setScanned(false);
-    scanLockRef.current = false;
-  }
 
   async function handleBarcode({ data }: { data: string }) {
     if (scanLockRef.current) return;
@@ -267,6 +298,7 @@ export default function LogFoodScreen() {
     setScanFetching(false);
     if (result) {
       setScanProduct(result);
+      setScanServingG('100');
     } else {
       setScanNotFound(true);
     }
@@ -281,14 +313,14 @@ export default function LogFoodScreen() {
 
   function handleAddScanProduct() {
     if (!scanProduct) return;
-    const g = 100;
+    const g = parseFloat(scanServingG) || 100;
     addToTray({
       food_name: scanProduct.name + (scanProduct.brand ? ` (${scanProduct.brand})` : ''),
-      calories: scanProduct.calories,
-      protein_g: scanProduct.protein_g,
-      carbs_g: scanProduct.carbs_g,
-      fat_g: scanProduct.fat_g,
-      fiber_g: scanProduct.fiber_g,
+      calories: Math.round(scanProduct.calories * g / 100),
+      protein_g: parseFloat((scanProduct.protein_g * g / 100).toFixed(1)),
+      carbs_g: parseFloat((scanProduct.carbs_g * g / 100).toFixed(1)),
+      fat_g: parseFloat((scanProduct.fat_g * g / 100).toFixed(1)),
+      fiber_g: parseFloat((scanProduct.fiber_g * g / 100).toFixed(1)),
       serving_g: g,
       source: 'barcode',
     });
@@ -302,6 +334,7 @@ export default function LogFoodScreen() {
     setDescribing(true);
     setDescribeError('');
     setDescribeItems(null);
+    setCheckedItems(new Set());
     try {
       const raw = await callHaiku(PARSE_SYSTEM, [
         { type: 'text', text: `User input: "${describeText}"` },
@@ -324,6 +357,8 @@ export default function LogFoodScreen() {
         }),
       );
       setDescribeItems(withResults);
+      // default: all checked
+      setCheckedItems(new Set(withResults.map((_, i) => i)));
     } catch {
       setDescribeError("Couldn't parse — try being more specific.");
     } finally {
@@ -331,13 +366,23 @@ export default function LogFoodScreen() {
     }
   }
 
+  function toggleCheck(idx: number) {
+    setCheckedItems((prev) => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
+  }
+
   function updateDescribeItem(idx: number, patch: Partial<DescribeItem>) {
     setDescribeItems((prev) => prev ? prev.map((it, i) => i === idx ? { ...it, ...patch } : it) : prev);
   }
 
-  function handleAddAllDescribed() {
+  function handleAddChecked() {
     if (!describeItems) return;
-    for (const item of describeItems) {
+    for (const idx of Array.from(checkedItems)) {
+      const item = describeItems[idx];
+      if (!item) continue;
       const food = item.results[item.selectedIdx];
       if (!food) continue;
       const g = parseFloat(item.servingG) || item.estimated_g;
@@ -354,6 +399,7 @@ export default function LogFoodScreen() {
     }
     setDescribeItems(null);
     setDescribeText('');
+    setCheckedItems(new Set());
   }
 
   // ── Tray actions ──────────────────────────────────────────────────────────
@@ -368,10 +414,6 @@ export default function LogFoodScreen() {
     await saveAsMeal(saveMealName.trim());
     setShowSaveInput(false);
     setSaveMealName('');
-  }
-
-  function handleLoadSavedMeal(meal: SavedMeal) {
-    loadSavedMeal(meal);
   }
 
   // ── Custom food ───────────────────────────────────────────────────────────
@@ -397,7 +439,7 @@ export default function LogFoodScreen() {
 
   const trayTotal = {
     calories: trayItems.reduce((s, it) => s + it.calories, 0),
-    protein_g: trayItems.reduce((s, it) => s + it.protein_g, 0),
+    protein_g: parseFloat(trayItems.reduce((s, it) => s + it.protein_g, 0).toFixed(1)),
   };
 
   const filteredCustomFoods = customFoods.filter((cf) =>
@@ -408,6 +450,21 @@ export default function LogFoodScreen() {
 
   // ─────────────────────────────────────────────────────────────────────────
 
+  const MODE_ICONS: Record<Mode, string> = {
+    search: 'search-outline',
+    scan: 'barcode-outline',
+    describe: 'create-outline',
+    camera: 'camera-outline',
+  };
+  const MODE_LABELS: Record<Mode, string> = {
+    search: 'Search',
+    scan: 'Scan',
+    describe: 'Describe',
+    camera: 'Camera',
+  };
+
+  const trayFooterHeight = trayItems.length > 0 ? (showSaveInput ? 260 : 200) : 0;
+
   return (
     <KeyboardAvoidingView
       style={[s.root, { paddingTop: insets.top }]}
@@ -416,632 +473,727 @@ export default function LogFoodScreen() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
-          <View style={s.backBtnOverlay} />
-          <GlassBorder />
-          <Ionicons name="chevron-back" size={20} color={DARK} />
+          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.10)' }]} />
+          <GlassBorder r={22} />
+          <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Log Food</Text>
-        {trayItems.length > 0 ? (
-          <View style={s.trayBadge}>
-            <Text style={s.trayBadgeText}>{trayItems.length}</Text>
-          </View>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
-      </View>
 
-      {/* ── Mode tabs ──────────────────────────────────────────────────────── */}
-      <View style={s.modeTabs}>
-        {(['search', 'scan', 'describe', 'camera'] as Mode[]).map((m) => (
-          <TouchableOpacity
-            key={m}
-            onPress={() => m === 'scan' ? handleSwitchToScan() : setMode(m)}
-            style={[s.modeTab, mode === m && s.modeTabActive]}
-            activeOpacity={0.75}
-          >
-            <Ionicons
-              name={
-                m === 'search' ? 'search-outline' :
-                m === 'scan' ? 'barcode-outline' :
-                m === 'describe' ? 'chatbubble-ellipses-outline' :
-                'camera-outline'
-              }
-              size={16}
-              color={mode === m ? WHITE : MUTED}
-            />
-            <Text style={[s.modeTabText, mode === m && s.modeTabTextActive]}>
-              {m.charAt(0).toUpperCase() + m.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <Text style={s.headerTitle}>LOG MEALS</Text>
+
+        {/* Mode pills */}
+        <View style={s.modePills}>
+          {(['search', 'scan', 'describe', 'camera'] as Mode[]).map((m) => (
+            <TouchableOpacity
+              key={m}
+              onPress={() => switchMode(m)}
+              style={[s.modePill, mode === m && s.modePillActive]}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={MODE_ICONS[m] as any}
+                size={15}
+                color={mode === m ? WHITE : 'rgba(255,255,255,0.4)'}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {/* ── Content area ───────────────────────────────────────────────────── */}
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          s.scroll,
-          { paddingBottom: trayItems.length > 0 ? 200 + insets.bottom : 16 + insets.bottom },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── SEARCH MODE ────────────────────────────────────────────────── */}
-        {mode === 'search' && (
-          <>
-            {/* Search bar */}
-            <View style={s.searchBarWrapper}>
-              <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={s.searchBarOverlay} />
-              <GlassBorder />
-              <Ionicons name="search-outline" size={18} color={MUTED} style={{ marginRight: 10 }} />
-              <TextInput
-                style={s.searchInput}
-                placeholder="Search foods…"
-                placeholderTextColor={MUTED}
-                value={query}
-                onChangeText={handleQueryChange}
-                returnKeyType="search"
-                autoCorrect={false}
-                autoCapitalize="none"
+
+      {/* SCAN MODE — full body camera */}
+      {mode === 'scan' ? (
+        <View style={{ flex: 1 }}>
+          {camPermission?.granted ? (
+            <View style={{ flex: 1 }}>
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                facing="back"
+                onBarcodeScanned={scanned ? undefined : handleBarcode}
               />
-              {!!query && (
-                <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); }}>
-                  <Ionicons name="close-circle" size={17} color={MUTED} />
-                </TouchableOpacity>
+              {/* Barcode frame overlay */}
+              <View style={s.barcodeFrame} pointerEvents="none">
+                <View style={s.barcodeCornerTL} />
+                <View style={s.barcodeCornerTR} />
+                <View style={s.barcodeCornerBL} />
+                <View style={s.barcodeCornerBR} />
+              </View>
+              {!scanned && (
+                <View style={s.scanHintWrap} pointerEvents="none">
+                  <Text style={s.scanHint}>Point at a barcode</Text>
+                </View>
+              )}
+              {scanFetching && (
+                <View style={[StyleSheet.absoluteFillObject, s.scanLoadingOverlay]}>
+                  <ActivityIndicator size="large" color={ORANGE} />
+                  <Text style={s.scanLoadingText}>Looking up product…</Text>
+                </View>
               )}
             </View>
+          ) : (
+            <View style={s.centered}>
+              <Ionicons name="barcode-outline" size={60} color={ORANGE} />
+              <Text style={s.permTitle}>Camera Access Needed</Text>
+              <Text style={s.permDesc}>Allow camera access to scan barcodes.</Text>
+              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8}>
+                <Text style={s.permBtnText}>Allow Camera</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-            {/* Custom foods (filtered) */}
-            {filteredCustomFoods.length > 0 && (
-              <>
-                <Text style={s.sectionLabel}>CUSTOM</Text>
-                {filteredCustomFoods.map((cf) => (
-                  <TouchableOpacity
-                    key={cf.id}
-                    style={s.resultCard}
-                    onPress={() => handleSelectCustomFood(cf)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={s.resultLeft}>
-                      <View style={s.customBadgeRow}>
-                        <View style={s.customBadge}><Text style={s.customBadgeText}>Custom</Text></View>
-                        <Text style={s.resultName} numberOfLines={1}>{cf.name}</Text>
-                      </View>
-                      {!!cf.brand && <Text style={s.resultBrand}>{cf.brand}</Text>}
-                      <Text style={s.per100g}>per 100 g</Text>
+          {/* Scan product panel */}
+          {(scanProduct || scanNotFound) && (
+            <View style={[s.scanPanel, { paddingBottom: insets.bottom + 16 }]}>
+              <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+              <GlassBorder r={0} />
+              {scanProduct ? (
+                <View style={{ padding: 20 }}>
+                  <Text style={s.scanProductName} numberOfLines={2}>{scanProduct.name}</Text>
+                  {!!scanProduct.brand && <Text style={s.scanProductBrand}>{scanProduct.brand}</Text>}
+                  <View style={s.macroRow}>
+                    <Text style={s.macroPill}>{Math.round(scanProduct.calories * (parseFloat(scanServingG) || 100) / 100)} kcal</Text>
+                    <Text style={s.macroPill}>{(scanProduct.protein_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g P</Text>
+                    <Text style={s.macroPill}>{(scanProduct.carbs_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g C</Text>
+                    <Text style={s.macroPill}>{(scanProduct.fat_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g F</Text>
+                  </View>
+                  <View style={s.scanServingRow}>
+                    <Text style={s.servingLabel}>Amount</Text>
+                    <View style={s.servingInputWrap}>
+                      <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
+                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+                      <GlassBorder />
+                      <TextInput
+                        style={s.servingInput}
+                        value={scanServingG}
+                        onChangeText={setScanServingG}
+                        keyboardType="numeric"
+                        selectTextOnFocus
+                      />
                     </View>
-                    <View style={s.resultRight}>
-                      <Text style={s.resultCalories}>{cf.calories_per_100g} kcal</Text>
-                      <Text style={s.resultMacros}>
-                        {cf.protein_per_100g}p · {cf.carbs_per_100g}c · {cf.fat_per_100g}f
-                      </Text>
-                    </View>
+                    <Text style={s.servingUnit}>g</Text>
+                  </View>
+                  <View style={s.scanBtns}>
+                    <TouchableOpacity style={s.scanSecBtn} onPress={handleScanAgain} activeOpacity={0.8}>
+                      <Text style={s.scanSecBtnText}>Scan Again</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.scanPrimBtn} onPress={handleAddScanProduct} activeOpacity={0.85}>
+                      <Text style={s.scanPrimBtnText}>Add to Meal</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Ionicons name="alert-circle-outline" size={36} color={ORANGE} style={{ marginBottom: 8 }} />
+                  <Text style={s.scanProductName}>Product Not Found</Text>
+                  <Text style={{ color: MUTED, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+                    This barcode wasn't in the database. Try searching manually.
+                  </Text>
+                  <TouchableOpacity style={s.scanPrimBtn} onPress={handleScanAgain} activeOpacity={0.8}>
+                    <Text style={s.scanPrimBtnText}>Scan Again</Text>
                   </TouchableOpacity>
-                ))}
-              </>
-            )}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            s.scroll,
+            { paddingBottom: trayFooterHeight + insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── SEARCH MODE ──────────────────────────────────────────────── */}
+          {mode === 'search' && (
+            <>
+              {/* Search bar */}
+              <View style={s.searchBarWrapper}>
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, s.searchBarOverlay]} />
+                <GlassBorder r={16} />
+                <Ionicons name="search-outline" size={18} color={MUTED} style={{ marginRight: 10 }} />
+                <TextInput
+                  style={s.searchInput}
+                  placeholder="Search foods, restaurants…"
+                  placeholderTextColor={MUTED}
+                  value={query}
+                  onChangeText={handleQueryChange}
+                  returnKeyType="search"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {!!query && (
+                  <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={17} color={MUTED} />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-            {/* Search results (USDA) */}
-            {query.trim() ? (
-              <>
-                {searching ? (
+              {/* Recent Items */}
+              {!query.trim() && recentFoods.length > 0 && (
+                <>
+                  <SectionLabel>RECENT ITEMS</SectionLabel>
+                  {recentFoods.slice(0, 8).map((item) => (
+                    <TouchableOpacity
+                      key={item.food_name}
+                      style={s.resultRow}
+                      onPress={() => openPendingFromRecent(item)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={s.resultLeft}>
+                        <Text style={s.resultName} numberOfLines={1}>{item.food_name}</Text>
+                        <Text style={s.resultSub}>{item.log_count}× logged</Text>
+                      </View>
+                      <View style={s.resultRight}>
+                        <Text style={s.resultCal}>{item.calories} kcal</Text>
+                        <TouchableOpacity
+                          onPress={() => toggleFavorite(item.food_name)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons
+                            name={item.is_favorite ? 'star' : 'star-outline'}
+                            size={16}
+                            color={item.is_favorite ? ORANGE : 'rgba(255,255,255,0.25)'}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Custom Recipes */}
+              {!query.trim() && customFoods.length > 0 && (
+                <>
+                  <SectionLabel>CUSTOM RECIPES</SectionLabel>
+                  {customFoods.slice(0, 5).map((cf) => (
+                    <TouchableOpacity
+                      key={cf.id}
+                      style={s.resultRow}
+                      onPress={() => openPendingFromCustom(cf)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={s.resultLeft}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={s.customBadge}><Text style={s.customBadgeText}>Custom</Text></View>
+                          <Text style={s.resultName} numberOfLines={1}>{cf.name}</Text>
+                        </View>
+                        {!!cf.brand && <Text style={s.resultSub}>{cf.brand}</Text>}
+                      </View>
+                      <View style={s.resultRight}>
+                        <Text style={s.resultCal}>{cf.calories_per_100g} kcal</Text>
+                        <Ionicons name="chevron-forward" size={14} color={MUTED} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Saved Meals */}
+              {!query.trim() && savedMeals.length > 0 && (
+                <>
+                  <SectionLabel>SAVED MEALS</SectionLabel>
+                  {savedMeals.slice(0, 5).map((meal) => (
+                    <TouchableOpacity
+                      key={meal.id}
+                      style={s.resultRow}
+                      onPress={() => loadSavedMeal(meal)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={s.resultLeft}>
+                        <Text style={s.resultName} numberOfLines={1}>{meal.name}</Text>
+                        <Text style={s.resultSub}>{meal.items.length} items</Text>
+                      </View>
+                      <View style={s.resultRight}>
+                        <Text style={s.resultCal}>{meal.total_calories} kcal</Text>
+                        <Ionicons name="play-circle-outline" size={18} color={ORANGE} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* Custom foods matching query */}
+              {!!query.trim() && filteredCustomFoods.length > 0 && (
+                <>
+                  <SectionLabel>CUSTOM</SectionLabel>
+                  {filteredCustomFoods.map((cf) => (
+                    <TouchableOpacity
+                      key={cf.id}
+                      style={s.resultRow}
+                      onPress={() => openPendingFromCustom(cf)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={s.resultLeft}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={s.customBadge}><Text style={s.customBadgeText}>Custom</Text></View>
+                          <Text style={s.resultName} numberOfLines={1}>{cf.name}</Text>
+                        </View>
+                        {!!cf.brand && <Text style={s.resultSub}>{cf.brand}</Text>}
+                      </View>
+                      <View style={s.resultRight}>
+                        <Text style={s.resultCal}>{cf.calories_per_100g} kcal</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              {/* USDA search results */}
+              {!!query.trim() && (
+                searching ? (
                   <View style={s.centered}>
-                    <ActivityIndicator size="large" color={TERRACOTTA} />
+                    <ActivityIndicator size="large" color={ORANGE} />
                   </View>
                 ) : searchResults.length > 0 ? (
                   <>
-                    <Text style={s.sectionLabel}>RESULTS</Text>
+                    <SectionLabel>SEARCH RESULTS</SectionLabel>
                     {searchResults.map((item) => (
                       <TouchableOpacity
                         key={item.fdcId}
-                        style={s.resultCard}
-                        onPress={() => handleSelectSearchResult(item)}
+                        style={s.resultRow}
+                        onPress={() => openPendingFromResult(item)}
                         activeOpacity={0.75}
                       >
                         <View style={s.resultLeft}>
                           <Text style={s.resultName} numberOfLines={2}>{item.name}</Text>
-                          {!!item.brand && <Text style={s.resultBrand}>{item.brand}</Text>}
-                          <Text style={s.per100g}>per 100 g</Text>
+                          {!!item.brand && <Text style={s.resultSub}>{item.brand}</Text>}
                         </View>
                         <View style={s.resultRight}>
-                          <Text style={s.resultCalories}>{item.calories} kcal</Text>
-                          <Text style={s.resultMacros}>
-                            {item.protein_g}p · {item.carbs_g}c · {item.fat_g}f
-                          </Text>
+                          <Text style={s.resultCal}>{item.calories} kcal</Text>
+                          <Text style={s.resultPer}>/ 100g</Text>
                         </View>
                       </TouchableOpacity>
                     ))}
                     <TouchableOpacity style={s.createFoodBtn} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
-                      <Ionicons name="add-circle-outline" size={16} color={TERRACOTTA} />
+                      <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
                       <Text style={s.createFoodText}>Create Custom Food</Text>
                     </TouchableOpacity>
                   </>
                 ) : filteredCustomFoods.length === 0 ? (
                   <View style={s.centered}>
-                    <Text style={s.emptyText}>No results found</Text>
+                    <Text style={s.emptyText}>No results — try a different name</Text>
                     <TouchableOpacity style={[s.createFoodBtn, { marginTop: 12 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
-                      <Ionicons name="add-circle-outline" size={16} color={TERRACOTTA} />
+                      <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
                       <Text style={s.createFoodText}>Create Custom Food</Text>
                     </TouchableOpacity>
                   </View>
-                ) : null}
-              </>
-            ) : (
-              <>
-                {/* Recent foods */}
-                {recentFoods.length > 0 && (
-                  <>
-                    <Text style={s.sectionLabel}>RECENT</Text>
-                    {recentFoods.map((item) => (
-                      <TouchableOpacity
-                        key={item.food_name}
-                        style={s.resultCard}
-                        onPress={() => handleSelectRecent(item)}
-                        activeOpacity={0.75}
-                      >
-                        <View style={s.resultLeft}>
-                          <Text style={s.resultName} numberOfLines={2}>{item.food_name}</Text>
-                          <Text style={s.per100g}>{item.log_count}× logged · per 100 g</Text>
-                        </View>
-                        <View style={s.resultRight}>
-                          <Text style={s.resultCalories}>{item.calories} kcal</Text>
-                          <TouchableOpacity
-                            onPress={() => toggleFavorite(item.food_name)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Ionicons
-                              name={item.is_favorite ? 'star' : 'star-outline'}
-                              size={18}
-                              color={item.is_favorite ? TERRACOTTA : MUTED}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </>
-                )}
+                ) : null
+              )}
+            </>
+          )}
 
-                {/* Saved meals */}
-                {savedMeals.length > 0 && (
-                  <>
-                    <Text style={s.sectionLabel}>SAVED MEALS</Text>
-                    {savedMeals.map((meal) => (
-                      <View key={meal.id} style={s.savedMealCard}>
-                        <View style={s.savedMealLeft}>
-                          <Text style={s.savedMealName}>{meal.name}</Text>
-                          <Text style={s.savedMealMacros}>
-                            {Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein · {meal.items.length} item{meal.items.length !== 1 ? 's' : ''}
-                          </Text>
-                        </View>
-                        <View style={s.savedMealActions}>
-                          <TouchableOpacity
-                            style={s.loadMealBtn}
-                            onPress={() => handleLoadSavedMeal(meal)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={s.loadMealBtnText}>Load</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => deleteSavedMeal(meal.id)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Ionicons name="trash-outline" size={16} color={MUTED} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
-                  </>
-                )}
-
-                {recentFoods.length === 0 && savedMeals.length === 0 && filteredCustomFoods.length === 0 && (
-                  <View style={s.centered}>
-                    <Ionicons name="nutrition-outline" size={48} color={MUTED} />
-                    <Text style={[s.emptyText, { marginTop: 12 }]}>Search or scan to add foods</Text>
-                  </View>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {/* ── SCAN MODE ──────────────────────────────────────────────────── */}
-        {mode === 'scan' && (
-          <>
-            {!camPermission?.granted ? (
-              <View style={s.centered}>
-                <Ionicons name="camera-outline" size={56} color={MUTED} />
-                <Text style={[s.emptyText, { marginTop: 12, marginBottom: 20 }]}>Camera access needed</Text>
-                <TouchableOpacity style={s.primaryBtn} onPress={requestCamPermission} activeOpacity={0.85}>
-                  <Text style={s.primaryBtnText}>Allow Camera</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                {/* Inline camera */}
-                <View style={s.cameraWrapper}>
-                  <CameraView
-                    style={StyleSheet.absoluteFillObject}
-                    barcodeScannerEnabled={!scanned}
-                    onBarcodeScanned={scanned ? undefined : handleBarcode}
-                  />
-                  {/* Viewfinder */}
-                  {!scanProduct && !scanNotFound && (
-                    <View style={s.viewfinderBox}>
-                      <View style={[s.corner, s.cTL]} />
-                      <View style={[s.corner, s.cTR]} />
-                      <View style={[s.corner, s.cBL]} />
-                      <View style={[s.corner, s.cBR]} />
-                    </View>
-                  )}
-                  {scanFetching && (
-                    <View style={s.scanOverlay}>
-                      <ActivityIndicator size="large" color={WHITE} />
-                    </View>
-                  )}
-                </View>
-
-                {/* Product found */}
-                {scanProduct && (
-                  <View style={s.scanResultCard}>
-                    <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-                    <View style={s.cardOverlay} />
+          {/* ── DESCRIBE MODE ────────────────────────────────────────────── */}
+          {mode === 'describe' && (
+            <>
+              {!describeItems ? (
+                <>
+                  <View style={s.describeCard}>
+                    <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
                     <GlassBorder r={20} />
-                    <View style={s.cardContent}>
-                      <Text style={s.scanProductName} numberOfLines={2}>{scanProduct.name}</Text>
-                      {!!scanProduct.brand && <Text style={s.scanProductBrand}>{scanProduct.brand}</Text>}
-                      <Text style={s.scanMacros}>
-                        {scanProduct.calories} kcal · {scanProduct.protein_g}g P · {scanProduct.carbs_g}g C · {scanProduct.fat_g}g F
+                    <View style={{ padding: 18 }}>
+                      <Text style={sl.text}>DESCRIBE YOUR MEAL</Text>
+                      <TextInput
+                        style={s.describeInput}
+                        placeholder={'e.g. "Big Mac and large fries" or "chicken stir fry with rice"'}
+                        placeholderTextColor={MUTED}
+                        value={describeText}
+                        onChangeText={setDescribeText}
+                        multiline
+                        textAlignVertical="top"
+                        autoFocus
+                      />
+                    </View>
+                  </View>
+                  {!!describeError && (
+                    <View style={s.errorRow}>
+                      <Ionicons name="alert-circle-outline" size={15} color={ORANGE} />
+                      <Text style={s.errorText}>{describeError}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[s.describeAddBtn, (!describeText.trim() || describing) && { opacity: 0.4 }]}
+                    onPress={handleParse}
+                    disabled={!describeText.trim() || describing}
+                    activeOpacity={0.85}
+                  >
+                    {describing ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <ActivityIndicator color={WHITE} size="small" />
+                        <Text style={s.describeAddBtnText}>Analyzing…</Text>
+                      </View>
+                    ) : (
+                      <Text style={s.describeAddBtnText}>Add</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={[sl.text, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
+                  {describeItems.map((item, idx) => (
+                    <View key={idx} style={s.describeItemCard}>
+                      <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+                      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+                      <GlassBorder r={18} />
+                      <View style={{ padding: 14 }}>
+                        <View style={s.describeItemHeader}>
+                          <TouchableOpacity
+                            onPress={() => toggleCheck(idx)}
+                            style={[s.checkbox, checkedItems.has(idx) && s.checkboxChecked]}
+                            activeOpacity={0.75}
+                          >
+                            {checkedItems.has(idx) && <Ionicons name="checkmark" size={14} color={WHITE} />}
+                          </TouchableOpacity>
+                          <Text style={s.describeItemName}>{item.item}</Text>
+                        </View>
+                        {item.results.length > 0 && item.results[item.selectedIdx] && (() => {
+                          const g2 = parseFloat(item.servingG) || item.estimated_g;
+                          const f = item.results[item.selectedIdx];
+                          return (
+                            <View style={[s.macroRow, { marginTop: 8 }]}>
+                              <Text style={s.macroPill}>{Math.round(f.calories * g2 / 100)} kcal</Text>
+                              <Text style={s.macroPill}>{(f.protein_g * g2 / 100).toFixed(1)}g P</Text>
+                              <Text style={s.macroPill}>{item.servingG}g</Text>
+                            </View>
+                          );
+                        })()}
+                        {item.results.length === 0 && (
+                          <Text style={{ color: MUTED, fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>No USDA match</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                    <TouchableOpacity
+                      style={s.describeRetryBtn}
+                      onPress={() => { setDescribeItems(null); setCheckedItems(new Set()); }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={s.describeRetryText}>Try Again</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.describeAddBtn, { flex: 1, marginTop: 0 }, checkedItems.size === 0 && { opacity: 0.4 }]}
+                      onPress={handleAddChecked}
+                      disabled={checkedItems.size === 0}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.describeAddBtnText}>
+                        Add to Meal ({checkedItems.size})
                       </Text>
-                      <Text style={s.per100g}>per 100 g</Text>
-                      <View style={s.rowGap12}>
-                        <TouchableOpacity style={s.secondaryBtn} onPress={handleScanAgain} activeOpacity={0.8}>
-                          <Text style={s.secondaryBtnText}>Scan Again</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={s.primaryBtn} onPress={handleAddScanProduct} activeOpacity={0.85}>
-                          <Text style={s.primaryBtnText}>Add to Meal</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    </TouchableOpacity>
                   </View>
-                )}
+                </>
+              )}
+            </>
+          )}
 
-                {/* Not found */}
-                {scanNotFound && (
-                  <View style={s.scanResultCard}>
-                    <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-                    <View style={s.cardOverlay} />
-                    <GlassBorder r={20} />
-                    <View style={s.cardContent}>
-                      <Ionicons name="alert-circle-outline" size={32} color={TERRACOTTA} style={{ marginBottom: 8 }} />
-                      <Text style={s.scanProductName}>Product Not Found</Text>
-                      <Text style={s.scanProductBrand}>This barcode isn't in Open Food Facts.</Text>
-                      <TouchableOpacity style={s.secondaryBtn} onPress={handleScanAgain} activeOpacity={0.8}>
-                        <Text style={s.secondaryBtnText}>Scan Again</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                {!scanProduct && !scanNotFound && !scanFetching && (
-                  <Text style={s.scanHint}>Point camera at a barcode</Text>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {/* ── DESCRIBE MODE ──────────────────────────────────────────────── */}
-        {mode === 'describe' && (
-          <>
-            <View style={s.describeCard}>
-              <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={s.cardOverlay} />
-              <GlassBorder r={20} />
-              <View style={s.cardContent}>
-                <Text style={s.sectionLabelSmall}>DESCRIBE YOUR MEAL</Text>
-                <TextInput
-                  style={s.textArea}
-                  placeholder={`e.g. "two scrambled eggs with whole wheat toast and avocado"`}
-                  placeholderTextColor={MUTED}
-                  value={describeText}
-                  onChangeText={setDescribeText}
-                  multiline
-                  textAlignVertical="top"
-                />
-                {!!describeError && (
-                  <Text style={s.errorText}>{describeError}</Text>
-                )}
-                <TouchableOpacity
-                  style={[s.primaryBtn, (!describeText.trim() || describing) && s.primaryBtnDisabled]}
-                  onPress={handleParse}
-                  activeOpacity={0.85}
-                  disabled={!describeText.trim() || describing}
-                >
-                  {describing ? (
-                    <View style={s.rowGap8}>
-                      <ActivityIndicator color={WHITE} size="small" />
-                      <Text style={s.primaryBtnText}>Analyzing…</Text>
-                    </View>
-                  ) : (
-                    <Text style={s.primaryBtnText}>Parse with AI</Text>
-                  )}
-                </TouchableOpacity>
+          {/* ── CAMERA MODE ──────────────────────────────────────────────── */}
+          {mode === 'camera' && (
+            <View style={s.cameraModeWrap}>
+              <View style={s.cameraIconWrap}>
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,116,42,0.12)' }]} />
+                <Ionicons name="camera-outline" size={56} color={ORANGE} />
               </View>
-            </View>
-
-            {describeItems && describeItems.map((item, idx) => (
-              <View key={idx} style={s.describeItemCard}>
-                <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-                <View style={s.cardOverlay} />
-                <GlassBorder r={20} />
-                <View style={s.cardContent}>
-                  <Text style={s.itemName}>{item.item}</Text>
-                  {item.results.length === 0 ? (
-                    <Text style={s.noMatch}>No USDA match — will skip</Text>
-                  ) : (
-                    <>
-                      {item.results.slice(0, 3).map((r, ri) => (
-                        <TouchableOpacity
-                          key={r.fdcId}
-                          onPress={() => updateDescribeItem(idx, { selectedIdx: ri })}
-                          style={[s.matchRow, item.selectedIdx === ri && s.matchRowActive]}
-                          activeOpacity={0.75}
-                        >
-                          <View style={[s.radio, item.selectedIdx === ri && s.radioActive]}>
-                            {item.selectedIdx === ri && <View style={s.radioDot} />}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.matchName} numberOfLines={1}>{r.name}</Text>
-                            {!!r.brand && <Text style={s.matchBrand}>{r.brand}</Text>}
-                          </View>
-                          <Text style={s.matchCal}>{r.calories} kcal/100g</Text>
-                        </TouchableOpacity>
-                      ))}
-                      <View style={s.servingRow}>
-                        <Text style={s.servingLabel}>Amount</Text>
-                        <View style={s.servingInputWrap}>
-                          <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
-                          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.35)' }]} />
-                          <GlassBorder />
-                          <TextInput
-                            style={s.servingInput}
-                            value={item.servingG}
-                            onChangeText={(v) => updateDescribeItem(idx, { servingG: v })}
-                            keyboardType="numeric"
-                            selectTextOnFocus
-                          />
-                        </View>
-                        <Text style={s.servingUnit}>g</Text>
-                      </View>
-                      {item.results[item.selectedIdx] && (() => {
-                        const f = item.results[item.selectedIdx];
-                        const gv = parseFloat(item.servingG) || 100;
-                        return (
-                          <View style={s.macroRow}>
-                            <Text style={s.macroPill}>{Math.round(f.calories * gv / 100)} kcal</Text>
-                            <Text style={s.macroPill}>{(f.protein_g * gv / 100).toFixed(1)}g P</Text>
-                            <Text style={s.macroPill}>{(f.carbs_g * gv / 100).toFixed(1)}g C</Text>
-                            <Text style={s.macroPill}>{(f.fat_g * gv / 100).toFixed(1)}g F</Text>
-                          </View>
-                        );
-                      })()}
-                    </>
-                  )}
-                </View>
-              </View>
-            ))}
-
-            {describeItems && (
-              <TouchableOpacity style={s.primaryBtn} onPress={handleAddAllDescribed} activeOpacity={0.85}>
-                <Text style={s.primaryBtnText}>Add All to Meal</Text>
+              <Text style={s.cameraTitle}>Photo Food Log</Text>
+              <Text style={s.cameraDesc}>Take a photo of your meal and AI will identify foods and estimate portions.</Text>
+              <TouchableOpacity
+                style={s.cameraBtn}
+                onPress={() => router.push('/entry/capture-food' as any)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="camera" size={20} color={WHITE} style={{ marginRight: 10 }} />
+                <Text style={s.cameraBtnText}>Open Camera</Text>
               </TouchableOpacity>
-            )}
-          </>
-        )}
-
-        {/* ── CAMERA MODE ────────────────────────────────────────────────── */}
-        {mode === 'camera' && (
-          <View style={s.cameraModeCentered}>
-            <View style={s.cameraIconWrap}>
-              <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.3)' }]} />
-              <Ionicons name="camera-outline" size={52} color={TERRACOTTA} />
             </View>
-            <Text style={s.cameraModeTitle}>AI Photo Log</Text>
-            <Text style={s.cameraModeDesc}>
-              Take a photo of your meal. AI will identify foods and estimate portions.
-            </Text>
-            <TouchableOpacity
-              style={s.primaryBtn}
-              onPress={() => router.push('/entry/capture-food' as any)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="camera" size={18} color={WHITE} style={{ marginRight: 8 }} />
-              <Text style={s.primaryBtnText}>Open Camera</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* ── Add-to-meal overlay panel ───────────────────────────────────── */}
-      {pendingFood && (
-        <View style={[s.addPanel, { paddingBottom: insets.bottom + 16 }]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
-          <View style={s.panelOverlay} />
-          <GlassBorder topOnly />
-          <TouchableOpacity
-            style={s.dismissBtn}
-            onPress={() => setPendingFood(null)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="close" size={20} color={MUTED} />
-          </TouchableOpacity>
-          <Text style={s.panelName} numberOfLines={2}>{pendingFood.food_name}</Text>
-          <View style={s.servingRow}>
-            <Text style={s.servingLabel}>Serving size</Text>
-            <View style={s.servingInputWrap}>
-              <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.35)' }]} />
-              <GlassBorder />
-              <TextInput
-                style={s.servingInput}
-                value={servingG}
-                onChangeText={setServingG}
-                keyboardType="numeric"
-                selectTextOnFocus
-              />
-            </View>
-            <Text style={s.servingUnit}>g</Text>
-          </View>
-          <View style={s.macroRow}>
-            {[
-              { label: 'Calories', val: Math.round(pendingFood.calories_per_100g * g / 100), unit: ' kcal' },
-              { label: 'Protein', val: (pendingFood.protein_per_100g * g / 100).toFixed(1), unit: 'g' },
-              { label: 'Carbs', val: (pendingFood.carbs_per_100g * g / 100).toFixed(1), unit: 'g' },
-              { label: 'Fat', val: (pendingFood.fat_per_100g * g / 100).toFixed(1), unit: 'g' },
-            ].map(({ label, val, unit }) => (
-              <View key={label} style={s.macroPillLarge}>
-                <Text style={s.macroPillLargeVal}>{val}<Text style={s.macroPillLargeUnit}>{unit}</Text></Text>
-                <Text style={s.macroPillLargeLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
-          <TouchableOpacity style={s.primaryBtn} onPress={handleAddPendingToTray} activeOpacity={0.85}>
-            <Text style={s.primaryBtnText}>Add to Meal</Text>
-          </TouchableOpacity>
-        </View>
+          )}
+        </ScrollView>
       )}
 
-      {/* ── Tray footer ─────────────────────────────────────────────────── */}
-      {trayItems.length > 0 && !pendingFood && (
+      {/* ── Tray Footer ────────────────────────────────────────────────────── */}
+      {trayItems.length > 0 && (
         <View style={[s.trayFooter, { paddingBottom: insets.bottom + 8 }]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
-          <View style={s.panelOverlay} />
-          <GlassBorder topOnly />
+          <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]} />
+          <GlassBorder r={0} />
 
-          {/* Meal type */}
-          <View style={s.mealTypeRow}>
-            {MEAL_TYPES.map((mt) => (
-              <TouchableOpacity
-                key={mt}
-                onPress={() => setMealType(mt)}
-                style={[s.mealChip, mealType === mt && s.mealChipActive]}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.mealChipText, mealType === mt && s.mealChipTextActive]}>
-                  {mt.charAt(0).toUpperCase() + mt.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <View style={{ padding: 16 }}>
+            {/* Meal type selector */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.mealTypeRow}>
+              {MEAL_TYPES.map((mt) => (
+                <TouchableOpacity
+                  key={mt}
+                  onPress={() => setMealType(mt)}
+                  style={[s.mealTypePill, mealType === mt && s.mealTypePillActive]}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.mealTypePillText, mealType === mt && s.mealTypePillTextActive]}>
+                    {mt.charAt(0).toUpperCase() + mt.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-          {/* Tray items */}
-          <ScrollView
-            style={{ maxHeight: 100 }}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-          >
+            {/* Divider */}
+            <View style={s.trayDivider} />
+
+            {/* Tray items */}
             {trayItems.map((item) => (
-              <View key={item.id} style={s.trayItem}>
+              <View key={item.id} style={s.trayItemRow}>
                 <Text style={s.trayItemName} numberOfLines={1}>{item.food_name}</Text>
                 <Text style={s.trayItemCal}>{item.calories} kcal</Text>
-                <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Ionicons name="close" size={15} color={MUTED} />
+                <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={16} color="rgba(255,255,255,0.4)" />
                 </TouchableOpacity>
               </View>
             ))}
-          </ScrollView>
 
-          {/* Total + actions */}
-          <View style={s.trayTotal}>
-            <Text style={s.trayTotalText}>
-              {trayItems.length} item{trayItems.length !== 1 ? 's' : ''} · {Math.round(trayTotal.calories)} kcal · {trayTotal.protein_g.toFixed(0)}g P
-            </Text>
-            <TouchableOpacity onPress={clearTray}>
-              <Text style={s.trayTotalClear}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Save as meal input */}
-          {showSaveInput ? (
-            <View style={s.saveRow}>
-              <TextInput
-                style={s.saveInput}
-                placeholder="Meal name…"
-                placeholderTextColor={MUTED}
-                value={saveMealName}
-                onChangeText={setSaveMealName}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleSaveAsMeal}
-              />
-              <TouchableOpacity style={s.saveConfirmBtn} onPress={handleSaveAsMeal} activeOpacity={0.8}>
-                <Text style={s.saveConfirmText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowSaveInput(false)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={18} color={MUTED} />
-              </TouchableOpacity>
+            {/* Totals */}
+            <View style={s.trayTotals}>
+              <Text style={s.trayTotalText}>Total: {trayTotal.calories} kcal</Text>
+              <Text style={s.trayTotalSep}>·</Text>
+              <Text style={s.trayTotalText}>{trayTotal.protein_g}g protein</Text>
             </View>
-          ) : (
+
+            <View style={s.trayDivider} />
+
+            {/* Save as Recipe input */}
+            {showSaveInput && (
+              <View style={s.saveInputRow}>
+                <TextInput
+                  style={s.saveInput}
+                  placeholder="Recipe name…"
+                  placeholderTextColor={MUTED}
+                  value={saveMealName}
+                  onChangeText={setSaveMealName}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveAsMeal}
+                />
+                <TouchableOpacity onPress={handleSaveAsMeal} style={s.saveInputBtn} activeOpacity={0.8}>
+                  <Text style={s.saveInputBtnText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowSaveInput(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={18} color={MUTED} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Actions */}
             <View style={s.trayActions}>
-              {trayItems.length >= 2 && (
-                <TouchableOpacity style={s.saveAsMealBtn} onPress={() => setShowSaveInput(true)} activeOpacity={0.8}>
-                  <Text style={s.saveAsMealText}>Save as Meal</Text>
+              {trayItems.length >= 2 && !showSaveInput && (
+                <TouchableOpacity style={s.traySaveBtn} onPress={() => setShowSaveInput(true)} activeOpacity={0.8}>
+                  <Text style={s.traySaveBtnText}>Save as Recipe</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[s.logMealBtn, { flex: trayItems.length >= 2 ? 1 : undefined, alignSelf: trayItems.length < 2 ? 'stretch' : undefined }]}
+                style={[s.trayLogBtn, loading && { opacity: 0.7 }]}
                 onPress={handleLogMeal}
-                activeOpacity={0.85}
                 disabled={loading}
+                activeOpacity={0.85}
               >
                 {loading ? (
                   <ActivityIndicator color={WHITE} size="small" />
                 ) : (
-                  <Text style={s.logMealBtnText}>Log Meal</Text>
+                  <Text style={s.trayLogBtnText}>Log Meal →</Text>
                 )}
               </TouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
       )}
 
-      {/* ── Custom food modal ───────────────────────────────────────────── */}
-      <Modal visible={showCustomModal} transparent animationType="slide" onRequestClose={() => setShowCustomModal(false)}>
-        <View style={s.modalBackdrop}>
-          <View style={[s.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.55)', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]} />
-            <GlassBorder r={24} />
-            <View style={s.modalContent}>
-              <Text style={s.modalTitle}>Create Custom Food</Text>
-              <TextInput style={s.modalInput} placeholder="Food name *" placeholderTextColor={MUTED} value={cfName} onChangeText={setCfName} />
-              <TextInput style={s.modalInput} placeholder="Brand (optional)" placeholderTextColor={MUTED} value={cfBrand} onChangeText={setCfBrand} />
-              <View style={s.modalRow}>
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Calories" placeholderTextColor={MUTED} value={cfCal} onChangeText={setCfCal} keyboardType="decimal-pad" />
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Protein g" placeholderTextColor={MUTED} value={cfProtein} onChangeText={setCfProtein} keyboardType="decimal-pad" />
-              </View>
-              <View style={s.modalRow}>
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Carbs g" placeholderTextColor={MUTED} value={cfCarbs} onChangeText={setCfCarbs} keyboardType="decimal-pad" />
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Fat g" placeholderTextColor={MUTED} value={cfFat} onChangeText={setCfFat} keyboardType="decimal-pad" />
-              </View>
-              <View style={s.modalRow}>
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Fiber g" placeholderTextColor={MUTED} value={cfFiber} onChangeText={setCfFiber} keyboardType="decimal-pad" />
-                <TextInput style={[s.modalInput, { flex: 1 }]} placeholder="Serving g" placeholderTextColor={MUTED} value={cfServing} onChangeText={setCfServing} keyboardType="decimal-pad" />
-              </View>
-              <Text style={s.modalNote}>All values are per 100 g unless serving size set</Text>
-              <View style={s.modalRow}>
-                <TouchableOpacity style={[s.secondaryBtn, { flex: 1 }]} onPress={() => setShowCustomModal(false)} activeOpacity={0.8}>
-                  <Text style={s.secondaryBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.primaryBtn, { flex: 1 }, !cfName.trim() && s.primaryBtnDisabled]} onPress={handleSaveCustomFood} activeOpacity={0.85} disabled={!cfName.trim()}>
-                  <Text style={s.primaryBtnText}>Save</Text>
-                </TouchableOpacity>
+      {/* ── Add-to-meal overlay ─────────────────────────────────────────────── */}
+      <Modal
+        visible={!!pendingFood}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPendingFood(null)}
+      >
+        <View style={s.overlayContainer}>
+          <TouchableOpacity style={s.overlayBackdrop} onPress={() => setPendingFood(null)} activeOpacity={1} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={[s.overlaySheet, { paddingBottom: insets.bottom + 16 }]}>
+              <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+              <GlassBorder r={0} />
+
+              <View style={{ padding: 20 }}>
+                <View style={s.overlayHandle} />
+
+                {pendingFood && (
+                  <>
+                    {/* Food name + info button */}
+                    <View style={s.overlayTitleRow}>
+                      <Text style={[s.overlayFoodName, { flex: 1, marginBottom: 0 }]} numberOfLines={2}>
+                        {pendingFood.food_name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setShowNutritionInfo((v) => !v)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={s.infoIconBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={showNutritionInfo ? 'close-circle' : 'information-circle-outline'}
+                          size={22}
+                          color={showNutritionInfo ? ORANGE : MUTED}
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Inline italic macros */}
+                    <Text style={s.macroInlineText}>
+                      {Math.round(pendingFood.calories_per_100g * g / 100)} calories
+                      {'  ·  '}{(pendingFood.protein_per_100g * g / 100).toFixed(1)}g protein
+                      {'  ·  '}{(pendingFood.carbs_per_100g * g / 100).toFixed(1)}g carbs
+                      {'  ·  '}{(pendingFood.fat_per_100g * g / 100).toFixed(1)}g fat
+                    </Text>
+
+                    {/* Nutrition label panel */}
+                    {showNutritionInfo && (
+                      <View style={s.nutritionLabel}>
+                        <Text style={s.nutritionTitle}>Nutrition Facts</Text>
+                        <Text style={s.nutritionServing}>
+                          Per {
+                            selectedServingIdx >= 0 && pendingFood.serving_options?.[selectedServingIdx]
+                              ? pendingFood.serving_options[selectedServingIdx].label
+                              : `${g}g`
+                          }
+                        </Text>
+                        <View style={s.nutritionDividerThick} />
+                        <View style={s.nutritionRow}>
+                          <Text style={s.nutritionLabelBold}>Calories</Text>
+                          <Text style={s.nutritionValueBold}>{Math.round(pendingFood.calories_per_100g * g / 100)}</Text>
+                        </View>
+                        <View style={s.nutritionDivider} />
+                        <View style={s.nutritionRow}>
+                          <Text style={s.nutritionLabelText}>Total Fat</Text>
+                          <Text style={s.nutritionValueText}>{(pendingFood.fat_per_100g * g / 100).toFixed(1)}g</Text>
+                        </View>
+                        <View style={s.nutritionRow}>
+                          <Text style={s.nutritionLabelText}>Total Carbohydrate</Text>
+                          <Text style={s.nutritionValueText}>{(pendingFood.carbs_per_100g * g / 100).toFixed(1)}g</Text>
+                        </View>
+                        <View style={[s.nutritionRow, { paddingLeft: 14 }]}>
+                          <Text style={[s.nutritionLabelText, { color: MUTED }]}>Dietary Fiber</Text>
+                          <Text style={[s.nutritionValueText, { color: MUTED }]}>{(pendingFood.fiber_per_100g * g / 100).toFixed(1)}g</Text>
+                        </View>
+                        <View style={s.nutritionRow}>
+                          <Text style={s.nutritionLabelText}>Protein</Text>
+                          <Text style={s.nutritionValueText}>{(pendingFood.protein_per_100g * g / 100).toFixed(1)}g</Text>
+                        </View>
+                        <View style={s.nutritionDivider} />
+                        <Text style={s.nutritionFootnote}>Values are per 100g unless a serving is selected above.</Text>
+                      </View>
+                    )}
+
+                    {/* Serving size */}
+                    <Text style={[sl.text, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
+
+                    {/* Serving option pills */}
+                    {pendingFood.serving_options && pendingFood.serving_options.length > 0 && (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 14 }}>
+                        {pendingFood.serving_options.map((opt, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            onPress={() => handleServingPillSelect(opt, idx)}
+                            style={[s.servingPill, selectedServingIdx === idx && s.servingPillActive]}
+                            activeOpacity={0.75}
+                          >
+                            <Text style={[s.servingPillText, selectedServingIdx === idx && s.servingPillTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+
+                    {/* Custom grams */}
+                    <View style={s.servingRow}>
+                      <Text style={s.servingLabel}>Custom</Text>
+                      <View style={s.servingInputWrap}>
+                        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+                        <GlassBorder />
+                        <TextInput
+                          style={s.servingInput}
+                          value={servingG}
+                          onChangeText={(v) => { setServingG(v); setSelectedServingIdx(-1); }}
+                          keyboardType="numeric"
+                          selectTextOnFocus
+                        />
+                      </View>
+                      <Text style={s.servingUnit}>g</Text>
+                    </View>
+
+                    <TouchableOpacity style={s.overlayAddBtn} onPress={handleAddPendingToTray} activeOpacity={0.85}>
+                      <Text style={s.overlayAddBtnText}>Add to Meal</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* ── Custom Food Modal ───────────────────────────────────────────────── */}
+      <Modal
+        visible={showCustomModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCustomModal(false)}
+      >
+        <View style={s.overlayContainer}>
+          <TouchableOpacity style={s.overlayBackdrop} onPress={() => setShowCustomModal(false)} activeOpacity={1} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={[s.overlaySheet, { paddingBottom: insets.bottom + 16 }]}>
+              <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+              <GlassBorder r={0} />
+              <View style={{ padding: 20 }}>
+                <View style={s.overlayHandle} />
+                <Text style={s.overlayFoodName}>Create Custom Food</Text>
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  {[
+                    { val: cfName, set: setCfName, ph: 'Name *', kb: 'default' as const },
+                    { val: cfBrand, set: setCfBrand, ph: 'Brand (optional)', kb: 'default' as const },
+                    { val: cfCal, set: setCfCal, ph: 'Calories / 100g', kb: 'numeric' as const },
+                    { val: cfProtein, set: setCfProtein, ph: 'Protein g / 100g', kb: 'numeric' as const },
+                    { val: cfCarbs, set: setCfCarbs, ph: 'Carbs g / 100g', kb: 'numeric' as const },
+                    { val: cfFat, set: setCfFat, ph: 'Fat g / 100g', kb: 'numeric' as const },
+                    { val: cfFiber, set: setCfFiber, ph: 'Fiber g / 100g', kb: 'numeric' as const },
+                    { val: cfServing, set: setCfServing, ph: 'Serving size (g)', kb: 'numeric' as const },
+                  ].map(({ val, set, ph, kb }) => (
+                    <TextInput
+                      key={ph}
+                      style={s.cfInput}
+                      placeholder={ph}
+                      placeholderTextColor={MUTED}
+                      value={val}
+                      onChangeText={set}
+                      keyboardType={kb}
+                    />
+                  ))}
+                  <TouchableOpacity
+                    style={[s.overlayAddBtn, !cfName.trim() && { opacity: 0.5 }]}
+                    onPress={handleSaveCustomFood}
+                    disabled={!cfName.trim()}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={s.overlayAddBtnText}>Save Food</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -1052,175 +1204,437 @@ export default function LogFoodScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
 
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    color: WHITE,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  modePills: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  modePill: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modePillActive: {
+    backgroundColor: ORANGE,
+  },
+
+  // Scroll
+  scroll: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 10,
+    gap: 2,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  backBtnOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.35)', borderRadius: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: DARK },
-  trayBadge: { width: 40, height: 24, borderRadius: 12, backgroundColor: TERRACOTTA, alignItems: 'center', justifyContent: 'center' },
-  trayBadgeText: { fontSize: 12, fontWeight: '800', color: WHITE },
 
-  modeTabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 },
-  modeTab: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    height: 36, borderRadius: 10, backgroundColor: 'rgba(28,15,9,0.07)',
-  },
-  modeTabActive: { backgroundColor: TERRACOTTA },
-  modeTabText: { fontSize: 11, fontWeight: '700', color: MUTED },
-  modeTabTextActive: { color: WHITE },
-
-  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 10 },
-
+  // Search bar
   searchBarWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    height: 50, borderRadius: 14, overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
     paddingHorizontal: 14,
-    shadowColor: DARK, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4,
+    height: 48,
+    backgroundColor: '#111111',
+    marginBottom: 16,
   },
-  searchBarOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.35)' },
-  searchInput: { flex: 1, fontSize: 15, color: DARK, paddingVertical: 0 },
-
-  sectionLabel: { fontSize: 10, fontWeight: '800', color: TERRACOTTA, letterSpacing: 2, marginTop: 4 },
-  sectionLabelSmall: { fontSize: 10, fontWeight: '800', color: TERRACOTTA, letterSpacing: 2, marginBottom: 10 },
-
-  resultCard: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 14, padding: 12,
-    shadowColor: DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
+  searchBarOverlay: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  resultLeft: { flex: 1, paddingRight: 10 },
-  resultRight: { alignItems: 'flex-end', gap: 4 },
-  resultName: { fontSize: 14, fontWeight: '600', color: DARK, lineHeight: 19, marginBottom: 2 },
-  resultBrand: { fontSize: 11, color: MUTED, marginBottom: 2 },
-  per100g: { fontSize: 10, color: MUTED, fontStyle: 'italic' },
-  resultCalories: { fontSize: 15, fontWeight: '700', color: TERRACOTTA },
-  resultMacros: { fontSize: 11, color: MUTED },
-
-  customBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  customBadge: { backgroundColor: 'rgba(196,120,75,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  customBadgeText: { fontSize: 9, fontWeight: '800', color: TERRACOTTA, letterSpacing: 0.5 },
-
-  createFoodBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, alignSelf: 'center' },
-  createFoodText: { fontSize: 13, fontWeight: '600', color: TERRACOTTA },
-
-  savedMealCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 14, padding: 12,
-    shadowColor: DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: WHITE,
+    fontWeight: '500',
   },
-  savedMealLeft: { flex: 1 },
-  savedMealName: { fontSize: 15, fontWeight: '700', color: DARK, marginBottom: 3 },
-  savedMealMacros: { fontSize: 12, color: MUTED },
-  savedMealActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadMealBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: TERRACOTTA },
-  loadMealBtnText: { fontSize: 13, fontWeight: '700', color: WHITE },
 
-  centered: { alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  // Result rows
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  resultLeft: { flex: 1, marginRight: 10 },
+  resultRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  resultName: { fontSize: 14, fontWeight: '600', color: WHITE, marginBottom: 2 },
+  resultSub: { fontSize: 11, color: MUTED },
+  resultCal: { fontSize: 13, fontWeight: '700', color: WHITE },
+  resultPer: { fontSize: 10, color: MUTED },
+
+  // Custom badge
+  customBadge: {
+    backgroundColor: 'rgba(255,116,42,0.2)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  customBadgeText: { fontSize: 9, fontWeight: '800', color: ORANGE, letterSpacing: 0.5 },
+
+  // Create food
+  createFoodBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  createFoodText: { fontSize: 13, color: ORANGE, fontWeight: '600' },
   emptyText: { fontSize: 14, color: MUTED, textAlign: 'center' },
 
-  // Scan
-  cameraWrapper: { height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#000' },
-  viewfinderBox: { position: 'absolute', top: '30%', left: '15%', width: '70%', height: '35%' },
-  corner: { position: 'absolute', width: 24, height: 24, borderColor: TERRACOTTA, borderWidth: 3 },
-  cTL: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 4 },
-  cTR: { top: 0, right: 0, borderBottomWidth: 0, borderLeftWidth: 0, borderTopRightRadius: 4 },
-  cBL: { bottom: 0, left: 0, borderTopWidth: 0, borderRightWidth: 0, borderBottomLeftRadius: 4 },
-  cBR: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth: 0, borderBottomRightRadius: 4 },
-  scanOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  scanHint: { textAlign: 'center', fontSize: 13, color: MUTED, paddingTop: 8 },
-  scanResultCard: { borderRadius: 20, overflow: 'hidden', shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 6 },
-  cardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.35)' },
-  cardContent: { padding: 16, gap: 6 },
-  scanProductName: { fontSize: 17, fontWeight: '700', color: DARK },
-  scanProductBrand: { fontSize: 12, color: MUTED },
-  scanMacros: { fontSize: 13, color: DARK, fontWeight: '500' },
-
-  // Describe
-  describeCard: { borderRadius: 20, overflow: 'hidden', shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 6 },
-  textArea: { fontSize: 15, color: DARK, minHeight: 90, lineHeight: 22, marginBottom: 12 },
-  errorText: { fontSize: 12, color: TERRACOTTA, marginBottom: 8 },
-  describeItemCard: { borderRadius: 20, overflow: 'hidden', shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 6 },
-  itemName: { fontSize: 15, fontWeight: '700', color: DARK, marginBottom: 8 },
-  noMatch: { fontSize: 13, color: MUTED, fontStyle: 'italic' },
-  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 8, borderRadius: 10, marginBottom: 3, backgroundColor: 'rgba(28,15,9,0.04)' },
-  matchRowActive: { backgroundColor: 'rgba(196,120,75,0.12)' },
-  radio: { width: 17, height: 17, borderRadius: 9, borderWidth: 2, borderColor: MUTED, alignItems: 'center', justifyContent: 'center' },
-  radioActive: { borderColor: TERRACOTTA },
-  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: TERRACOTTA },
-  matchName: { fontSize: 13, fontWeight: '600', color: DARK },
-  matchBrand: { fontSize: 11, color: MUTED },
-  matchCal: { fontSize: 12, color: MUTED },
-  servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 6 },
-  servingLabel: { fontSize: 13, color: DARK, fontWeight: '500', marginRight: 10 },
-  servingInputWrap: { width: 72, height: 34, borderRadius: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  servingInput: { width: 72, textAlign: 'center', fontSize: 14, fontWeight: '600', color: DARK },
-  servingUnit: { fontSize: 13, color: MUTED },
-  macroRow: { flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
-  macroPill: { backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9, fontSize: 12, fontWeight: '600', color: DARK },
+  // Describe mode
+  describeCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#111111',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  describeInput: {
+    fontSize: 15,
+    color: WHITE,
+    minHeight: 90,
+    lineHeight: 22,
+  },
+  describeAddBtn: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    shadowColor: ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  describeAddBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
+  describeItemCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#111111',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  describeItemHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  describeItemName: { flex: 1, fontSize: 14, fontWeight: '600', color: WHITE },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: ORANGE, borderColor: ORANGE },
+  describeRetryBtn: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  describeRetryText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  errorText: { fontSize: 13, color: ORANGE },
 
   // Camera mode
-  cameraModeCentered: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 24 },
-  cameraIconWrap: { width: 96, height: 96, borderRadius: 40, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 18, shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
-  cameraModeTitle: { fontSize: 22, fontWeight: '800', color: DARK, marginBottom: 8 },
-  cameraModeDesc: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  cameraModeWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  cameraIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 40,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  cameraTitle: { fontSize: 22, fontWeight: '800', color: WHITE, marginBottom: 10, textAlign: 'center' },
+  cameraDesc: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  cameraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 54,
+    paddingHorizontal: 28,
+    borderRadius: 27,
+    backgroundColor: ORANGE,
+    shadowColor: ORANGE,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  cameraBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
 
-  // Add to meal panel
-  addPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 18, paddingTop: 18, overflow: 'hidden' },
-  panelOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.35)' },
-  dismissBtn: { position: 'absolute', top: 14, right: 18, zIndex: 10 },
-  panelName: { fontSize: 17, fontWeight: '700', color: DARK, marginBottom: 10, paddingRight: 32 },
-  macroPillLarge: { flex: 1, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
-  macroPillLargeVal: { fontSize: 14, fontWeight: '700', color: DARK },
-  macroPillLargeUnit: { fontSize: 10, fontWeight: '400', color: MUTED },
-  macroPillLargeLabel: { fontSize: 10, color: MUTED, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.3 },
+  // Scan mode
+  barcodeFrame: {
+    position: 'absolute',
+    top: '30%',
+    left: '10%',
+    right: '10%',
+    height: '20%',
+  },
+  barcodeCornerTL: { position: 'absolute', top: 0, left: 0, width: 24, height: 24, borderTopWidth: 3, borderLeftWidth: 3, borderColor: WHITE, borderTopLeftRadius: 6 },
+  barcodeCornerTR: { position: 'absolute', top: 0, right: 0, width: 24, height: 24, borderTopWidth: 3, borderRightWidth: 3, borderColor: WHITE, borderTopRightRadius: 6 },
+  barcodeCornerBL: { position: 'absolute', bottom: 0, left: 0, width: 24, height: 24, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: WHITE, borderBottomLeftRadius: 6 },
+  barcodeCornerBR: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderBottomWidth: 3, borderRightWidth: 3, borderColor: WHITE, borderBottomRightRadius: 6 },
+  scanHintWrap: { position: 'absolute', top: '55%', left: 0, right: 0, alignItems: 'center' },
+  scanHint: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600', letterSpacing: 0.5 },
+  scanLoadingOverlay: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  scanLoadingText: { color: WHITE, fontSize: 14, fontWeight: '600', marginTop: 12 },
+  scanPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  scanProductName: { fontSize: 16, fontWeight: '700', color: WHITE, marginBottom: 4 },
+  scanProductBrand: { fontSize: 12, color: MUTED, marginBottom: 10 },
+  scanServingRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
+  scanBtns: { flexDirection: 'row', gap: 10 },
+  scanSecBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
+  scanSecBtnText: { fontSize: 14, fontWeight: '600', color: WHITE },
+  scanPrimBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  scanPrimBtnText: { fontSize: 14, fontWeight: '700', color: WHITE },
 
   // Tray footer
-  trayFooter: { overflow: 'hidden', paddingHorizontal: 16, paddingTop: 12 },
-  mealTypeRow: { flexDirection: 'row', gap: 6, marginBottom: 8 },
-  mealChip: { flex: 1, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(28,15,9,0.07)' },
-  mealChipActive: { backgroundColor: TERRACOTTA },
-  mealChipText: { fontSize: 12, fontWeight: '600', color: MUTED },
-  mealChipTextActive: { color: WHITE },
-  trayItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  trayItemName: { flex: 1, fontSize: 13, fontWeight: '500', color: DARK },
-  trayItemCal: { fontSize: 12, color: MUTED, marginRight: 10 },
-  trayTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, borderTopWidth: 1, borderTopColor: 'rgba(28,15,9,0.08)', marginTop: 4 },
-  trayTotalText: { fontSize: 12, fontWeight: '700', color: DARK },
-  trayTotalClear: { fontSize: 12, color: MUTED, textDecorationLine: 'underline' },
-  trayActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  saveAsMealBtn: { height: 46, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1.5, borderColor: TERRACOTTA, alignItems: 'center', justifyContent: 'center' },
-  saveAsMealText: { fontSize: 14, fontWeight: '700', color: TERRACOTTA },
-  logMealBtn: { height: 46, borderRadius: 14, backgroundColor: TERRACOTTA, alignItems: 'center', justifyContent: 'center', shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 5 },
-  logMealBtnText: { fontSize: 15, fontWeight: '800', color: WHITE },
-  saveRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  saveInput: { flex: 1, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.6)', paddingHorizontal: 12, fontSize: 14, color: DARK, borderWidth: 1, borderColor: 'rgba(28,15,9,0.1)' },
-  saveConfirmBtn: { height: 42, paddingHorizontal: 16, borderRadius: 12, backgroundColor: TERRACOTTA, alignItems: 'center', justifyContent: 'center' },
-  saveConfirmText: { fontSize: 14, fontWeight: '700', color: WHITE },
+  trayFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  mealTypeRow: { flexDirection: 'row', gap: 8, paddingBottom: 2 },
+  mealTypePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  mealTypePillActive: { backgroundColor: ORANGE },
+  mealTypePillText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.45)' },
+  mealTypePillTextActive: { color: WHITE },
+  trayDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 10 },
+  trayItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 8 },
+  trayItemName: { flex: 1, fontSize: 13, color: WHITE, fontWeight: '500' },
+  trayItemCal: { fontSize: 12, color: MUTED, fontWeight: '600' },
+  trayTotals: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  trayTotalText: { fontSize: 12, fontWeight: '700', color: ORANGE },
+  trayTotalSep: { fontSize: 12, color: MUTED },
+  trayActions: { flexDirection: 'row', gap: 10 },
+  traySaveBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  traySaveBtnText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  trayLogBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  trayLogBtnText: { fontSize: 15, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
+  saveInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  saveInput: {
+    flex: 1, height: 40, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12, fontSize: 14, color: WHITE,
+  },
+  saveInputBtn: {
+    paddingHorizontal: 14, height: 40, borderRadius: 10,
+    backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+  },
+  saveInputBtnText: { fontSize: 13, fontWeight: '700', color: WHITE },
 
-  // Shared
-  primaryBtn: { height: 50, borderRadius: 14, backgroundColor: TERRACOTTA, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 5 },
-  primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { fontSize: 15, fontWeight: '800', color: WHITE, letterSpacing: 0.2 },
-  secondaryBtn: { height: 50, borderRadius: 14, backgroundColor: 'rgba(28,15,9,0.08)', alignItems: 'center', justifyContent: 'center' },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: DARK },
-  rowGap8: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rowGap12: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  // Add-to-meal overlay
+  overlayContainer: { flex: 1, justifyContent: 'flex-end' },
+  overlayBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  overlaySheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  overlayHandle: { width: 44, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  overlayTitleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
+  overlayFoodName: { fontSize: 17, fontWeight: '700', color: WHITE, marginBottom: 14, lineHeight: 22 },
+  infoIconBtn: { paddingTop: 2 },
+  macroInlineText: {
+    fontSize: 13,
+    color: MUTED,
+    fontStyle: 'italic',
+    lineHeight: 19,
+    marginBottom: 2,
+  },
 
-  // Custom food modal
-  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  modalContent: { padding: 20, gap: 10 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: DARK, marginBottom: 4 },
-  modalInput: { height: 46, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.7)', paddingHorizontal: 14, fontSize: 14, color: DARK, borderWidth: 1, borderColor: 'rgba(28,15,9,0.1)' },
-  modalRow: { flexDirection: 'row', gap: 10 },
-  modalNote: { fontSize: 11, color: MUTED, textAlign: 'center' },
+  // Nutrition label
+  nutritionLabel: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  nutritionTitle: { fontSize: 18, fontWeight: '900', color: WHITE, letterSpacing: -0.5, marginBottom: 2 },
+  nutritionServing: { fontSize: 12, color: MUTED, marginBottom: 8 },
+  nutritionDividerThick: { height: 8, backgroundColor: 'rgba(255,255,255,0.25)', marginVertical: 8, borderRadius: 2 },
+  nutritionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.10)', marginVertical: 5 },
+  nutritionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  nutritionLabelBold: { fontSize: 15, fontWeight: '800', color: WHITE },
+  nutritionValueBold: { fontSize: 15, fontWeight: '800', color: WHITE },
+  nutritionLabelText: { fontSize: 13, fontWeight: '500', color: WHITE },
+  nutritionValueText: { fontSize: 13, fontWeight: '600', color: WHITE },
+  nutritionFootnote: { fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 8, fontStyle: 'italic' },
+
+  // Serving size pills
+  servingPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  servingPillActive: { backgroundColor: ORANGE },
+  servingPillText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  servingPillTextActive: { color: WHITE },
+
+  // Shared: serving row
+  servingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  servingLabel: { fontSize: 13, color: WHITE, fontWeight: '500', marginRight: 10 },
+  servingInputWrap: {
+    width: 80, height: 40, borderRadius: 12,
+    overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 8,
+  },
+  servingInput: { width: 80, textAlign: 'center', fontSize: 16, fontWeight: '700', color: WHITE },
+  servingUnit: { fontSize: 13, color: MUTED },
+
+  // Shared: macros
+  macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  macroPill: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    color: WHITE,
+  },
+
+  overlayAddBtn: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  overlayAddBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
+
+  // Custom food inputs
+  cfInput: {
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: WHITE,
+    marginBottom: 10,
+  },
+
+  // Camera permissions
+  permTitle: { fontSize: 18, fontWeight: '700', color: WHITE, marginTop: 14, marginBottom: 8, textAlign: 'center' },
+  permDesc: { fontSize: 13, color: MUTED, textAlign: 'center', marginBottom: 20 },
+  permBtn: {
+    height: 48,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    backgroundColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permBtnText: { fontSize: 15, fontWeight: '700', color: WHITE },
 });

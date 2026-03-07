@@ -17,16 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callHaiku } from '../../lib/anthropic';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
-import { type MealType } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
+const BG = '#000000';
+const ORANGE = '#FF742A';
 const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MUTED = 'rgba(255,255,255,0.45)';
 
 const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
 Return ONLY a valid JSON array, no other text:
@@ -54,10 +51,10 @@ function GlassBorder({ r = 16 }: { r?: number }) {
         {
           borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.65)',
-          borderLeftColor: 'rgba(255,255,255,0.42)',
-          borderRightColor: 'rgba(255,255,255,0.14)',
-          borderBottomColor: 'rgba(255,255,255,0.08)',
+          borderTopColor: 'rgba(255,255,255,0.13)',
+          borderLeftColor: 'rgba(255,255,255,0.08)',
+          borderRightColor: 'rgba(255,255,255,0.03)',
+          borderBottomColor: 'rgba(255,255,255,0.02)',
         },
       ]}
     />
@@ -68,7 +65,7 @@ function GlassCard({ children, style }: { children: React.ReactNode; style?: any
   return (
     <View style={[s.cardShadow, style]}>
       <View style={s.cardClip}>
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
         <GlassBorder r={20} />
         <View style={s.cardContent}>{children}</View>
@@ -85,7 +82,6 @@ export default function DescribeFoodScreen() {
   const { addToTray } = useMealTrayStore();
 
   const [text, setText] = useState('');
-  const [mealType, setMealType] = useState<MealType>('lunch');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
   const [items, setItems] = useState<ParsedItem[] | null>(null);
@@ -104,7 +100,6 @@ export default function DescribeFoodScreen() {
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty result');
 
-      // search USDA for each item in parallel
       const withResults = await Promise.all(
         parsed.map(async (p) => {
           const results = await searchUSDA(p.item);
@@ -158,10 +153,10 @@ export default function DescribeFoodScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={DARK} />
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
           </View>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Describe Food</Text>
@@ -174,25 +169,6 @@ export default function DescribeFoodScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Meal type chips */}
-        <GlassCard>
-          <Text style={s.sectionLabel}>MEAL TYPE</Text>
-          <View style={s.chipRow}>
-            {MEAL_TYPES.map((mt) => (
-              <TouchableOpacity
-                key={mt}
-                onPress={() => setMealType(mt)}
-                style={[s.chip, mealType === mt && s.chipActive]}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.chipText, mealType === mt && s.chipTextActive]}>
-                  {mt.charAt(0).toUpperCase() + mt.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </GlassCard>
-
         {/* Text input */}
         {!items && (
           <GlassCard>
@@ -214,7 +190,7 @@ export default function DescribeFoodScreen() {
         {/* Parse error */}
         {!!parseError && (
           <View style={s.errorRow}>
-            <Ionicons name="alert-circle-outline" size={16} color={TERRACOTTA} />
+            <Ionicons name="alert-circle-outline" size={16} color={ORANGE} />
             <Text style={s.errorText}>{parseError}</Text>
           </View>
         )}
@@ -222,19 +198,12 @@ export default function DescribeFoodScreen() {
         {/* Parsed items */}
         {items && items.map((item, idx) => (
           <GlassCard key={idx}>
-            <View style={s.itemHeader}>
-              <Text style={s.itemRawName}>{item.item}</Text>
-              <TouchableOpacity
-                onPress={() => updateItem(idx, { item: item.item })}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              />
-            </View>
+            <Text style={s.itemRawName}>{item.item}</Text>
 
             {item.results.length === 0 ? (
               <Text style={s.noMatch}>No USDA match — will skip</Text>
             ) : (
               <>
-                {/* Top 3 matches picker */}
                 {item.results.slice(0, 3).map((r, ri) => (
                   <TouchableOpacity
                     key={r.fdcId}
@@ -257,8 +226,8 @@ export default function DescribeFoodScreen() {
                 <View style={s.servingRow}>
                   <Text style={s.servingLabel}>Amount</Text>
                   <View style={s.servingInputWrap}>
-                    <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.35)' }]} />
+                    <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
                     <GlassBorder />
                     <TextInput
                       style={s.servingInput}
@@ -325,7 +294,7 @@ export default function DescribeFoodScreen() {
                 <Text style={s.primaryBtnText}>Analyzing…</Text>
               </View>
             ) : (
-              <Text style={s.primaryBtnText}>Parse & Log</Text>
+              <Text style={s.primaryBtnText}>Parse & Add</Text>
             )}
           </TouchableOpacity>
         )}
@@ -347,9 +316,9 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   backShadow: {
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -361,16 +330,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backOverlay: {
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
+  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: DARK,
+    color: WHITE,
     letterSpacing: -0.3,
   },
 
@@ -378,40 +344,27 @@ const s = StyleSheet.create({
 
   cardShadow: {
     borderRadius: 20,
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8,
   },
-  cardClip: { borderRadius: 20, overflow: 'hidden' },
-  cardOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.35)' },
+  cardClip: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111' },
+  cardOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' },
   cardContent: { padding: 18 },
 
   sectionLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: TERRACOTTA,
+    color: ORANGE,
     letterSpacing: 2,
     marginBottom: 12,
   },
 
-  chipRow: { flexDirection: 'row', gap: 8 },
-  chip: {
-    flex: 1,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(28,15,9,0.06)',
-  },
-  chipActive: { backgroundColor: TERRACOTTA },
-  chipText: { fontSize: 13, fontWeight: '600', color: MUTED },
-  chipTextActive: { color: WHITE },
-
   textArea: {
     fontSize: 15,
-    color: DARK,
+    color: WHITE,
     minHeight: 90,
     lineHeight: 22,
   },
@@ -422,10 +375,9 @@ const s = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 4,
   },
-  errorText: { fontSize: 13, color: TERRACOTTA },
+  errorText: { fontSize: 13, color: ORANGE },
 
-  itemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  itemRawName: { flex: 1, fontSize: 15, fontWeight: '700', color: DARK },
+  itemRawName: { fontSize: 15, fontWeight: '700', color: WHITE, marginBottom: 10 },
 
   noMatch: { fontSize: 13, color: MUTED, fontStyle: 'italic' },
 
@@ -437,88 +389,51 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginBottom: 4,
-    backgroundColor: 'rgba(28,15,9,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  matchRowActive: { backgroundColor: 'rgba(196,120,75,0.12)' },
+  matchRowActive: { backgroundColor: 'rgba(255,116,42,0.15)' },
   matchRadio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: MUTED,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 2, borderColor: MUTED,
+    alignItems: 'center', justifyContent: 'center',
   },
-  matchRadioActive: { borderColor: TERRACOTTA },
-  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: TERRACOTTA },
-  matchName: { fontSize: 13, fontWeight: '600', color: DARK },
+  matchRadioActive: { borderColor: ORANGE },
+  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
+  matchName: { fontSize: 13, fontWeight: '600', color: WHITE },
   matchBrand: { fontSize: 11, color: MUTED },
   matchCal: { fontSize: 12, color: MUTED },
 
-  servingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  servingLabel: { fontSize: 13, color: DARK, fontWeight: '500', marginRight: 10 },
+  servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
+  servingLabel: { fontSize: 13, color: WHITE, fontWeight: '500', marginRight: 10 },
   servingInputWrap: {
-    width: 72,
-    height: 36,
-    borderRadius: 10,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
+    width: 72, height: 36, borderRadius: 10,
+    overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6,
   },
-  servingInput: {
-    width: 72,
-    textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '600',
-    color: DARK,
-  },
+  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: WHITE },
   servingUnit: { fontSize: 13, color: MUTED },
 
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   macroPill: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    fontSize: 12,
-    fontWeight: '600',
-    color: DARK,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10,
+    fontSize: 12, fontWeight: '600', color: WHITE,
   },
 
   retryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 8,
   },
   retryText: { fontSize: 13, color: MUTED },
 
   btnWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 20, paddingTop: 12,
   },
   primaryBtn: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: TERRACOTTA,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: TERRACOTTA,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 8,
+    height: 56, borderRadius: 28, backgroundColor: ORANGE,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   primaryBtnDisabled: { opacity: 0.5 },
   primaryBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },

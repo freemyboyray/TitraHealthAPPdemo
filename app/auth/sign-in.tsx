@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
@@ -99,10 +100,18 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      // NOTE: Requires Google provider enabled in Supabase dashboard
-      // and redirect URI configured in Google Cloud Console.
-      const { makeRedirectUri } = await import('expo-auth-session');
-      const redirectUri = makeRedirectUri();
+      // Check for placeholder Supabase config (OAuth won't work)
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+      if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseKey || supabaseKey.includes('placeholder')) {
+        setError('Supabase not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env');
+        setGoogleLoading(false);
+        return;
+      }
+
+      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
+      // Log so you can add this exact URL to Supabase Auth → URL Configuration → Redirect URLs
+      console.log('[Google Sign-In] Redirect URI:', redirectUri);
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -133,9 +142,17 @@ export default function SignInScreen() {
             }
           }
         }
+      } else if (result.type === 'dismiss') {
+        // User closed the browser — no error
       }
-    } catch {
-      setError('Google sign-in is not configured. Use email/password below.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      let hint = `Google sign-in failed: ${msg}`;
+      if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {
+        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
+        hint = `Redirect URI mismatch. Add this to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`;
+      }
+      setError(hint);
     }
 
     setGoogleLoading(false);

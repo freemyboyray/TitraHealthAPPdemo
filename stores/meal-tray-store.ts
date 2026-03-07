@@ -15,6 +15,7 @@ export type TrayItem = {
   fiber_g: number;
   serving_g: number;
   source: FoodSource;
+  serving_description?: string;
   barcode?: string;
   raw_ai_response?: object;
 };

@@ -24,11 +24,10 @@ import { useUserStore } from '../../stores/user-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
+const BG = '#000000';
+const ORANGE = '#FF742A';
 const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
+const MUTED = 'rgba(255,255,255,0.45)';
 
 const SUGGESTION_PROMPTS = [
   'How am I doing this week?',
@@ -62,10 +61,10 @@ function GlassBorder({ r = 16, topOnly = false }: { r?: number; topOnly?: boolea
         {
           borderRadius: topOnly ? 0 : r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.65)',
-          borderLeftColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.42)',
-          borderRightColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.14)',
-          borderBottomColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.08)',
+          borderTopColor: 'rgba(255,255,255,0.13)',
+          borderLeftColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.08)',
+          borderRightColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.03)',
+          borderBottomColor: topOnly ? 'transparent' : 'rgba(255,255,255,0.02)',
         },
       ]}
     />
@@ -76,7 +75,7 @@ function TypingIndicator() {
   return (
     <View style={s.typingRow}>
       <View style={s.assistantBubble}>
-        <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
         <View style={s.assistantOverlay} />
         <GlassBorder r={18} />
         <Text style={s.typingDots}>• • •</Text>
@@ -160,23 +159,13 @@ export default function AskAIScreen() {
     setMessages((prev) => [...prev, userMsg]);
     setTyping(true);
 
-    // Persist user message
     if (userId) {
-      supabase.from('chat_messages').insert({
-        user_id: userId,
-        role: 'user',
-        content: text,
-      }).then(() => {});
+      supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: text }).then(() => {});
     }
 
     try {
-      // Build context: last 10 pairs (20 messages)
       const allMsgs = [...messages, userMsg];
-      const contextMsgs = allMsgs.slice(-20).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
+      const contextMsgs = allMsgs.slice(-20).map((m) => ({ role: m.role, content: m.content }));
       const systemPrompt = buildSystemPrompt(userName, contextSnapshot);
       const reply = await callHaikuChat(systemPrompt, contextMsgs);
 
@@ -188,25 +177,44 @@ export default function AskAIScreen() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Persist assistant message
       if (userId) {
-        supabase.from('chat_messages').insert({
-          user_id: userId,
-          role: 'assistant',
-          content: reply,
-        }).then(() => {});
+        supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
       }
     } catch {
-      const errMsg: Message = {
+      setMessages((prev) => [...prev, {
         id: `local-err-${Date.now()}`,
         role: 'assistant',
         content: "I'm having trouble connecting right now. Please try again in a moment.",
         created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
+      }]);
     } finally {
       setTyping(false);
     }
+  }
+
+  function sendSuggestion(prompt: string) {
+    const userMsg: Message = {
+      id: `local-${Date.now()}`,
+      role: 'user',
+      content: prompt,
+      created_at: new Date().toISOString(),
+    };
+    setMessages([userMsg]);
+    setTyping(true);
+    if (userId) {
+      supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: prompt }).then(() => {});
+    }
+    const systemPrompt = buildSystemPrompt(userName, contextSnapshot);
+    callHaikuChat(systemPrompt, [{ role: 'user', content: prompt }])
+      .then((reply) => {
+        const aMsg: Message = { id: `local-${Date.now()}-a`, role: 'assistant', content: reply, created_at: new Date().toISOString() };
+        setMessages((prev) => [...prev, aMsg]);
+        if (userId) supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
+      })
+      .catch(() => {
+        setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: "I'm having trouble connecting. Please try again.", created_at: new Date().toISOString() }]);
+      })
+      .finally(() => setTyping(false));
   }
 
   function renderMessage({ item }: { item: Message }) {
@@ -219,7 +227,7 @@ export default function AskAIScreen() {
           </View>
         ) : (
           <View style={s.assistantBubble}>
-            <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={s.assistantOverlay} />
             <GlassBorder r={18} />
             <Text style={s.assistantText}>{item.content}</Text>
@@ -239,10 +247,10 @@ export default function AskAIScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={76} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={DARK} />
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
           </View>
         </TouchableOpacity>
 
@@ -263,7 +271,7 @@ export default function AskAIScreen() {
       {/* Messages */}
       {loadingHistory ? (
         <View style={s.loadingCenter}>
-          <ActivityIndicator size="large" color={TERRACOTTA} />
+          <ActivityIndicator size="large" color={ORANGE} />
         </View>
       ) : (
         <FlatList
@@ -271,10 +279,7 @@ export default function AskAIScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
-          contentContainerStyle={[
-            s.listContent,
-            { paddingBottom: 16 },
-          ]}
+          contentContainerStyle={[s.listContent, { paddingBottom: 16 }]}
           ListEmptyComponent={
             <View style={s.emptyState}>
               <Ionicons name="chatbubbles-outline" size={56} color={MUTED} />
@@ -293,35 +298,7 @@ export default function AskAIScreen() {
                   <TouchableOpacity
                     key={prompt}
                     style={s.chip}
-                    onPress={() => {
-                      setInput(prompt);
-                      // Auto-send suggestion
-                      setTimeout(() => {
-                        setInput('');
-                        const userMsg: Message = {
-                          id: `local-${Date.now()}`,
-                          role: 'user',
-                          content: prompt,
-                          created_at: new Date().toISOString(),
-                        };
-                        setMessages([userMsg]);
-                        setTyping(true);
-                        if (userId) {
-                          supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: prompt }).then(() => {});
-                        }
-                        const systemPrompt = buildSystemPrompt(userName, contextSnapshot);
-                        callHaikuChat(systemPrompt, [{ role: 'user', content: prompt }])
-                          .then((reply) => {
-                            const aMsg: Message = { id: `local-${Date.now()}-a`, role: 'assistant', content: reply, created_at: new Date().toISOString() };
-                            setMessages((prev) => [...prev, aMsg]);
-                            if (userId) supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
-                          })
-                          .catch(() => {
-                            setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: "I'm having trouble connecting. Please try again.", created_at: new Date().toISOString() }]);
-                          })
-                          .finally(() => setTyping(false));
-                      }, 50);
-                    }}
+                    onPress={() => sendSuggestion(prompt)}
                     activeOpacity={0.75}
                   >
                     <Text style={s.chipText}>{prompt}</Text>
@@ -337,13 +314,13 @@ export default function AskAIScreen() {
 
       {/* Input bar */}
       <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
         <View style={s.inputBarOverlay} />
         <GlassBorder topOnly />
 
         <View style={s.inputRow}>
           <View style={s.inputWrapper}>
-            <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={s.inputWrapperOverlay} />
             <GlassBorder r={22} />
             <TextInput
@@ -379,7 +356,7 @@ export default function AskAIScreen() {
           onPress={() => setShowDisclaimer(false)}
         >
           <View style={s.disclaimerCard}>
-            <BlurView intensity={85} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={s.disclaimerOverlay} />
             <GlassBorder r={24} />
             <View style={s.disclaimerContent}>
@@ -415,9 +392,9 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   backShadow: {
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -429,9 +406,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.35)' },
+  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: DARK, letterSpacing: -0.3 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: -0.3 },
   headerSubtitle: { fontSize: 11, color: MUTED, fontWeight: '500', letterSpacing: 0.5 },
   infoBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
@@ -445,14 +422,14 @@ const s = StyleSheet.create({
 
   userBubble: {
     maxWidth: '80%',
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     borderRadius: 20,
     borderBottomRightRadius: 4,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -465,17 +442,17 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     overflow: 'hidden',
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
   },
   assistantOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  assistantText: { fontSize: 15, color: DARK, lineHeight: 21 },
+  assistantText: { fontSize: 15, color: WHITE, lineHeight: 21 },
 
   typingRow: { alignItems: 'flex-start', marginBottom: 10 },
   typingDots: { fontSize: 18, color: MUTED, letterSpacing: 4 },
@@ -488,7 +465,7 @@ const s = StyleSheet.create({
   },
   inputBarOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   inputWrapper: {
@@ -501,23 +478,23 @@ const s = StyleSheet.create({
   },
   inputWrapperOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   textInput: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: DARK,
+    color: WHITE,
     lineHeight: 20,
   },
   sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -527,7 +504,7 @@ const s = StyleSheet.create({
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: DARK, marginTop: 16, marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: WHITE, marginTop: 16, marginBottom: 8 },
   emptyDesc: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 
   // Suggestion chips
@@ -536,16 +513,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: 'rgba(196,120,75,0.12)',
+    backgroundColor: 'rgba(255,116,42,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(196,120,75,0.25)',
+    borderColor: 'rgba(255,116,42,0.25)',
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: TERRACOTTA },
+  chipText: { fontSize: 13, fontWeight: '600', color: ORANGE },
 
   // Disclaimer
   disclaimerBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
@@ -554,23 +531,23 @@ const s = StyleSheet.create({
     width: '85%',
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.5,
     shadowRadius: 32,
     elevation: 12,
   },
   disclaimerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   disclaimerContent: { padding: 24 },
-  disclaimerTitle: { fontSize: 18, fontWeight: '800', color: DARK, marginBottom: 12 },
-  disclaimerBody: { fontSize: 14, color: DARK, lineHeight: 22, marginBottom: 20 },
+  disclaimerTitle: { fontSize: 18, fontWeight: '800', color: WHITE, marginBottom: 12 },
+  disclaimerBody: { fontSize: 14, color: MUTED, lineHeight: 22, marginBottom: 20 },
   disclaimerBtn: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
   },

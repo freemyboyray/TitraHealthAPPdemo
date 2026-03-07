@@ -18,16 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callGPT4oMiniVision } from '../../lib/openai';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
-import { type MealType } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
+const BG = '#000000';
+const ORANGE = '#FF742A';
 const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MUTED = 'rgba(255,255,255,0.45)';
 
 const VISION_SYSTEM = `You are a food logging assistant. Identify ALL food items visible in this photo.
 For each, estimate the portion size in grams based on visual context (plate size, utensils, etc).
@@ -58,10 +55,10 @@ function GlassBorder({ r = 16 }: { r?: number }) {
         {
           borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.65)',
-          borderLeftColor: 'rgba(255,255,255,0.42)',
-          borderRightColor: 'rgba(255,255,255,0.14)',
-          borderBottomColor: 'rgba(255,255,255,0.08)',
+          borderTopColor: 'rgba(255,255,255,0.13)',
+          borderLeftColor: 'rgba(255,255,255,0.08)',
+          borderRightColor: 'rgba(255,255,255,0.03)',
+          borderBottomColor: 'rgba(255,255,255,0.02)',
         },
       ]}
     />
@@ -72,7 +69,7 @@ function GlassCard({ children, style }: { children: React.ReactNode; style?: any
   return (
     <View style={[s.cardShadow, style]}>
       <View style={s.cardClip}>
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
         <GlassBorder r={20} />
         <View style={s.cardContent}>{children}</View>
@@ -93,7 +90,6 @@ export default function CaptureFoodScreen() {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<ParsedItem[]>([]);
-  const [mealType, setMealType] = useState<MealType>('lunch');
   const cameraRef = useRef<CameraView>(null);
 
   async function handleTakePhoto() {
@@ -194,7 +190,6 @@ export default function CaptureFoodScreen() {
     return (
       <View style={s.root}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="back" />
-        {/* Top bar */}
         <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity
             onPress={() => setPhase('intro')}
@@ -207,8 +202,6 @@ export default function CaptureFoodScreen() {
           <Text style={s.camTitle}>Take Photo</Text>
           <View style={{ width: 40 }} />
         </View>
-
-        {/* Shutter */}
         <View style={[s.shutterWrapper, { paddingBottom: insets.bottom + 30 }]}>
           <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
             <View style={s.shutterInner} />
@@ -244,8 +237,8 @@ export default function CaptureFoodScreen() {
     return (
       <View style={s.root}>
         <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }]}>
-          <ActivityIndicator size="large" color={TERRACOTTA} />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' }]}>
+          <ActivityIndicator size="large" color={ORANGE} />
           <Text style={{ color: WHITE, fontSize: 15, fontWeight: '600', marginTop: 14, letterSpacing: 0.3 }}>
             Identifying food items…
           </Text>
@@ -259,9 +252,9 @@ export default function CaptureFoodScreen() {
     return (
       <View style={[s.root, s.centered, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={[s.backBtnLight, { position: 'absolute', top: insets.top + 12, left: 20 }]}>
-          <Ionicons name="chevron-back" size={22} color={DARK} />
+          <Ionicons name="chevron-back" size={22} color={WHITE} />
         </TouchableOpacity>
-        <Ionicons name="alert-circle-outline" size={56} color={TERRACOTTA} />
+        <Ionicons name="alert-circle-outline" size={56} color={ORANGE} />
         <Text style={s.errTitle}>Couldn't Identify</Text>
         <Text style={s.errDesc}>AI couldn't identify food in this photo. Try describing it instead.</Text>
         <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
@@ -270,10 +263,10 @@ export default function CaptureFoodScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={s.errPrimBtn}
-            onPress={() => router.replace('/entry/describe-food' as any)}
+            onPress={() => router.back()}
             activeOpacity={0.85}
           >
-            <Text style={s.errPrimBtnText}>Describe Instead</Text>
+            <Text style={s.errPrimBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -287,10 +280,10 @@ export default function CaptureFoodScreen() {
         <View style={s.header}>
           <TouchableOpacity onPress={() => setPhase('intro')} style={s.backShadow} activeOpacity={0.75}>
             <View style={s.backClip}>
-              <BlurView intensity={76} tint="light" style={StyleSheet.absoluteFillObject} />
+              <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
               <GlassBorder r={20} />
-              <Ionicons name="chevron-back" size={22} color={DARK} />
+              <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
             </View>
           </TouchableOpacity>
           <Text style={s.headerTitle}>Confirm Items</Text>
@@ -302,25 +295,6 @@ export default function CaptureFoodScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Meal type */}
-          <GlassCard>
-            <Text style={s.sectionLabel}>MEAL TYPE</Text>
-            <View style={s.chipRow}>
-              {MEAL_TYPES.map((mt) => (
-                <TouchableOpacity
-                  key={mt}
-                  onPress={() => setMealType(mt)}
-                  style={[s.chip, mealType === mt && s.chipActive]}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[s.chipText, mealType === mt && s.chipTextActive]}>
-                    {mt.charAt(0).toUpperCase() + mt.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </GlassCard>
-
           {items.map((item, idx) => (
             <GlassCard key={idx}>
               <Text style={s.itemName}>{item.item}</Text>
@@ -349,8 +323,8 @@ export default function CaptureFoodScreen() {
                   <View style={s.servingRow}>
                     <Text style={s.servingLabel}>Amount</Text>
                     <View style={s.servingInputWrap}>
-                      <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
-                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.35)' }]} />
+                      <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFillObject} />
+                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
                       <GlassBorder />
                       <TextInput
                         style={s.servingInput}
@@ -400,10 +374,10 @@ export default function CaptureFoodScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={DARK} />
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
           </View>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Capture Food</Text>
@@ -412,9 +386,9 @@ export default function CaptureFoodScreen() {
 
       <View style={s.introCentered}>
         <View style={s.introIconWrapper}>
-          <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 40 }]} />
-          <Ionicons name="camera-outline" size={56} color={TERRACOTTA} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,116,42,0.15)', borderRadius: 40 }]} />
+          <Ionicons name="camera-outline" size={56} color={ORANGE} />
         </View>
         <Text style={s.introTitle}>Photo Food Log</Text>
         <Text style={s.introDesc}>
@@ -427,7 +401,7 @@ export default function CaptureFoodScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={s.introSecBtn} onPress={handlePickLibrary} activeOpacity={0.8}>
-          <Ionicons name="images-outline" size={20} color={DARK} style={{ marginRight: 10 }} />
+          <Ionicons name="images-outline" size={20} color="rgba(255,255,255,0.6)" style={{ marginRight: 10 }} />
           <Text style={s.introSecBtnText}>Choose from Library</Text>
         </TouchableOpacity>
       </View>
@@ -449,9 +423,9 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   backShadow: {
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -463,13 +437,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.35)' },
+  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: DARK,
+    color: WHITE,
     letterSpacing: -0.3,
   },
 
@@ -477,24 +451,17 @@ const s = StyleSheet.create({
 
   cardShadow: {
     borderRadius: 20,
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8,
   },
-  cardClip: { borderRadius: 20, overflow: 'hidden' },
-  cardOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.35)' },
+  cardClip: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111' },
+  cardOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' },
   cardContent: { padding: 18 },
 
-  sectionLabel: { fontSize: 10, fontWeight: '800', color: TERRACOTTA, letterSpacing: 2, marginBottom: 12 },
-  chipRow: { flexDirection: 'row', gap: 8 },
-  chip: { flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(28,15,9,0.06)' },
-  chipActive: { backgroundColor: TERRACOTTA },
-  chipText: { fontSize: 13, fontWeight: '600', color: MUTED },
-  chipTextActive: { color: WHITE },
-
-  itemName: { fontSize: 15, fontWeight: '700', color: DARK, marginBottom: 10 },
+  itemName: { fontSize: 15, fontWeight: '700', color: WHITE, marginBottom: 10 },
   noMatch: { fontSize: 13, color: MUTED, fontStyle: 'italic' },
 
   matchRow: {
@@ -505,33 +472,33 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginBottom: 4,
-    backgroundColor: 'rgba(28,15,9,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  matchRowActive: { backgroundColor: 'rgba(196,120,75,0.12)' },
+  matchRowActive: { backgroundColor: 'rgba(255,116,42,0.15)' },
   matchRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: MUTED, alignItems: 'center', justifyContent: 'center' },
-  matchRadioActive: { borderColor: TERRACOTTA },
-  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: TERRACOTTA },
-  matchName: { fontSize: 13, fontWeight: '600', color: DARK },
+  matchRadioActive: { borderColor: ORANGE },
+  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
+  matchName: { fontSize: 13, fontWeight: '600', color: WHITE },
   matchBrand: { fontSize: 11, color: MUTED },
   matchCal: { fontSize: 12, color: MUTED },
 
   servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  servingLabel: { fontSize: 13, color: DARK, fontWeight: '500', marginRight: 10 },
+  servingLabel: { fontSize: 13, color: WHITE, fontWeight: '500', marginRight: 10 },
   servingInputWrap: { width: 72, height: 36, borderRadius: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: DARK },
+  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: WHITE },
   servingUnit: { fontSize: 13, color: MUTED },
 
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
-  macroPill: { backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, fontSize: 12, fontWeight: '600', color: DARK },
+  macroPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, fontSize: 12, fontWeight: '600', color: WHITE },
 
   btnWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 12 },
   primaryBtnFull: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,
@@ -541,17 +508,13 @@ const s = StyleSheet.create({
 
   // Camera phase
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
-  circleBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
+  circleBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
   camTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: -0.3 },
   shutterWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' },
   shutterBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    borderColor: WHITE,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 80, height: 80, borderRadius: 40,
+    borderWidth: 4, borderColor: WHITE,
+    alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: WHITE },
@@ -560,71 +523,43 @@ const s = StyleSheet.create({
   previewOverlay: { paddingHorizontal: 20 },
   previewBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, alignItems: 'center' },
   analyzeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    paddingHorizontal: 32,
-    borderRadius: 28,
-    backgroundColor: TERRACOTTA,
-    shadowColor: TERRACOTTA,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 8,
+    flexDirection: 'row', alignItems: 'center',
+    height: 56, paddingHorizontal: 32, borderRadius: 28,
+    backgroundColor: ORANGE,
+    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   analyzeBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
 
   // Error phase
-  backBtnLight: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(28,15,9,0.08)' },
-  errTitle: { fontSize: 20, fontWeight: '700', color: DARK, marginTop: 14, marginBottom: 8 },
+  backBtnLight: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
+  errTitle: { fontSize: 20, fontWeight: '700', color: WHITE, marginTop: 14, marginBottom: 8 },
   errDesc: { fontSize: 14, color: MUTED, textAlign: 'center', paddingHorizontal: 32, marginBottom: 24, lineHeight: 20 },
-  errSecBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: 'rgba(28,15,9,0.08)', alignItems: 'center', justifyContent: 'center' },
-  errSecBtnText: { fontSize: 15, fontWeight: '600', color: DARK },
-  errPrimBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: TERRACOTTA, alignItems: 'center', justifyContent: 'center' },
+  errSecBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  errSecBtnText: { fontSize: 15, fontWeight: '600', color: WHITE },
+  errPrimBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
   errPrimBtnText: { fontSize: 15, fontWeight: '700', color: WHITE },
 
   // Intro phase
   introCentered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   introIconWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginBottom: 20,
-    shadowColor: DARK,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+    width: 100, height: 100, borderRadius: 40,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden', marginBottom: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8,
   },
-  introTitle: { fontSize: 24, fontWeight: '800', color: DARK, marginBottom: 10, textAlign: 'center' },
+  introTitle: { fontSize: 24, fontWeight: '800', color: WHITE, marginBottom: 10, textAlign: 'center' },
   introDesc: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 32 },
   introBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: TERRACOTTA,
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: TERRACOTTA,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 8,
+    flexDirection: 'row', alignItems: 'center',
+    width: '100%', height: 56, borderRadius: 28,
+    backgroundColor: ORANGE, justifyContent: 'center', marginBottom: 12,
+    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   introBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
   introSecBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    height: 52,
-    borderRadius: 28,
-    backgroundColor: 'rgba(28,15,9,0.08)',
-    justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center',
+    width: '100%', height: 52, borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center',
   },
-  introSecBtnText: { fontSize: 15, fontWeight: '600', color: DARK },
+  introSecBtnText: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
 });

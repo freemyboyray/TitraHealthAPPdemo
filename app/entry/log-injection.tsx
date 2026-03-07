@@ -18,9 +18,9 @@ import { useLogStore } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
-const BG = '#F0EAE4';
+const ORANGE = '#FF742A';
+const WHITE = '#FFFFFF';
+const BG = '#000000';
 
 const MEDICATIONS = ['Ozempic', 'Wegovy', 'Mounjaro', 'Zepbound', 'Saxenda', 'Victoza'];
 const DOSES = ['0.25mg', '0.5mg', '1mg', '1.7mg', '2mg', '2.4mg'];
@@ -63,10 +63,10 @@ function GlassBorder({ r = 20 }: { r?: number }) {
         {
           borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.65)',
-          borderLeftColor: 'rgba(255,255,255,0.42)',
-          borderRightColor: 'rgba(255,255,255,0.14)',
-          borderBottomColor: 'rgba(255,255,255,0.08)',
+          borderTopColor: 'rgba(255,255,255,0.13)',
+          borderLeftColor: 'rgba(255,255,255,0.08)',
+          borderRightColor: 'rgba(255,255,255,0.03)',
+          borderBottomColor: 'rgba(255,255,255,0.02)',
         },
       ]}
     />
@@ -75,8 +75,8 @@ function GlassBorder({ r = 20 }: { r?: number }) {
 
 function SectionLabel({ text }: { text: string }) {
   return (
-    <View style={s.badge}>
-      <Text style={s.badgeText}>{text}</Text>
+    <View style={{ alignSelf: 'flex-start', marginBottom: 14 }}>
+      <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 2 }}>{text}</Text>
     </View>
   );
 }
@@ -85,7 +85,7 @@ function GlassCard({ children }: { children: React.ReactNode }) {
   return (
     <View style={s.cardShadow}>
       <View style={s.cardClip}>
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
         <GlassBorder r={20} />
         <View style={s.cardContent}>{children}</View>
@@ -116,6 +116,8 @@ export default function LogInjectionScreen() {
       undefined,
       site,
       notes.trim() || undefined,
+      medication,
+      batchNumber.trim() || undefined,
     );
     router.back();
   }
@@ -130,10 +132,10 @@ export default function LogInjectionScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.75} style={s.backShadow}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={76} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={DARK} />
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
           </View>
         </TouchableOpacity>
 
@@ -234,7 +236,7 @@ export default function LogInjectionScreen() {
 
           {/* Rotate suggestion */}
           <View style={s.rotateRow}>
-            <Ionicons name="sync-outline" size={14} color={TERRACOTTA} style={s.rotateIcon} />
+            <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
             <Text style={s.rotateLabel}>ROTATE TO </Text>
             <Text style={s.rotateValue}>{nextSite}</Text>
           </View>
@@ -245,7 +247,7 @@ export default function LogInjectionScreen() {
           <TextInput
             style={s.textInput}
             placeholder="Batch # (optional)"
-            placeholderTextColor="rgba(28,15,9,0.35)"
+            placeholderTextColor="rgba(255,255,255,0.25)"
             value={batchNumber}
             onChangeText={setBatchNumber}
             maxLength={30}
@@ -255,7 +257,7 @@ export default function LogInjectionScreen() {
           <TextInput
             style={[s.textInput, s.notesInput]}
             placeholder="Add a note… (optional)"
-            placeholderTextColor="rgba(28,15,9,0.35)"
+            placeholderTextColor="rgba(255,255,255,0.25)"
             value={notes}
             onChangeText={setNotes}
             maxLength={200}
@@ -299,15 +301,15 @@ const siteStyles = StyleSheet.create({
     alignItems: 'center',
   },
   siteBtnActive: {
-    backgroundColor: TERRACOTTA,
-    shadowColor: TERRACOTTA,
+    backgroundColor: ORANGE,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.38,
     shadowRadius: 10,
     elevation: 5,
   },
   siteBtnInactive: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   siteBtnText: {
     fontSize: 13,
@@ -318,7 +320,7 @@ const siteStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   siteBtnTextInactive: {
-    color: DARK,
+    color: 'rgba(255,255,255,0.55)',
   },
 });
 
@@ -337,9 +339,9 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   backShadow: {
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -353,14 +355,14 @@ const s = StyleSheet.create({
   },
   backOverlay: {
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: DARK,
+    color: WHITE,
     letterSpacing: -0.3,
   },
   headerSpacer: {
@@ -372,7 +374,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(28,15,9,0.45)',
+    color: 'rgba(255,255,255,0.35)',
     letterSpacing: 3.5,
     marginTop: 6,
     marginBottom: 18,
@@ -388,38 +390,23 @@ const s = StyleSheet.create({
   // Glass card
   cardShadow: {
     borderRadius: 20,
-    shadowColor: DARK,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8,
   },
   cardClip: {
     borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: '#111111',
   },
   cardOverlay: {
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   cardContent: {
     padding: 18,
-  },
-
-  // Badge
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: TERRACOTTA,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginBottom: 14,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 2,
   },
 
   // Chips
@@ -434,10 +421,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   chipActive: {
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
   },
   chipInactive: {
-    backgroundColor: 'rgba(28,15,9,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   chipText: {
     fontSize: 14,
@@ -447,7 +434,7 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   chipTextInactive: {
-    color: 'rgba(28,15,9,0.55)',
+    color: 'rgba(255,255,255,0.45)',
   },
 
   // Site grid
@@ -470,20 +457,20 @@ const s = StyleSheet.create({
   rotateLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(28,15,9,0.45)',
+    color: 'rgba(255,255,255,0.35)',
     letterSpacing: 1.5,
   },
   rotateValue: {
     fontSize: 11,
     fontWeight: '700',
-    color: TERRACOTTA,
+    color: ORANGE,
     letterSpacing: 1,
   },
 
   // Text inputs
   textInput: {
     fontSize: 15,
-    color: DARK,
+    color: WHITE,
     fontWeight: '500',
     paddingVertical: 6,
     minHeight: 36,
@@ -494,7 +481,7 @@ const s = StyleSheet.create({
   },
   inputDivider: {
     height: 1,
-    backgroundColor: 'rgba(28,15,9,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginVertical: 10,
   },
 
@@ -511,10 +498,10 @@ const s = StyleSheet.create({
   saveBtn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,

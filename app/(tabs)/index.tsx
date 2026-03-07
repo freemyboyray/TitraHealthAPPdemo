@@ -47,14 +47,44 @@ type HealthMetric = {
   rangeLabel: string;
 };
 
-const HEALTH_DATA: HealthMetric[] = [
-  { id: 'rrr',   label: 'Resp. Rate', value: '16',    unit: 'bpm', status: 'normal',   iconSet: 'MaterialIcons', iconName: 'air',           rangeLabel: 'Normal' },
-  { id: 'rhr',   label: 'Resting HR', value: '58',    unit: 'bpm', status: 'good',     iconSet: 'Ionicons',      iconName: 'heart-outline',  rangeLabel: 'Optimal' },
-  { id: 'hrv',   label: 'HRV',        value: '45',    unit: 'ms',  status: 'good',     iconSet: 'MaterialIcons', iconName: 'show-chart',    rangeLabel: 'Strong' },
-  { id: 'spo2',  label: 'SpO₂',       value: '98',    unit: '%',   status: 'normal',   iconSet: 'MaterialIcons', iconName: 'bloodtype',     rangeLabel: 'Normal' },
-  { id: 'temp',  label: 'Temp',        value: '98.4', unit: '°F',  status: 'normal',   iconSet: 'MaterialIcons', iconName: 'thermostat',    rangeLabel: 'Normal' },
-  { id: 'sleep', label: 'Sleep',       value: '7h 23m', unit: '',  status: 'low',      iconSet: 'Ionicons',      iconName: 'moon-outline',  rangeLabel: 'Below Goal' },
-];
+function hmRhrStatus(bpm: number): HMStatus {
+  if (bpm < 55) return 'good';
+  if (bpm < 70) return 'normal';
+  return 'elevated';
+}
+function hmRhrLabel(bpm: number): string {
+  if (bpm < 55) return 'Optimal';
+  if (bpm < 70) return 'Normal';
+  return 'Elevated';
+}
+function hmHrvStatus(ms: number): HMStatus {
+  if (ms >= 50) return 'good';
+  if (ms >= 30) return 'normal';
+  return 'low';
+}
+function hmHrvLabel(ms: number): string {
+  if (ms >= 50) return 'Strong';
+  if (ms >= 30) return 'Normal';
+  return 'Low';
+}
+function hmSpo2Status(pct: number): HMStatus {
+  if (pct >= 97) return 'good';
+  if (pct >= 94) return 'normal';
+  return 'low';
+}
+function hmSleepStatus(min: number): HMStatus {
+  if (min >= 420) return 'good';
+  if (min >= 360) return 'normal';
+  return 'low';
+}
+function hmSleepLabel(min: number): string {
+  if (min >= 420) return 'On Target';
+  if (min >= 360) return 'Normal';
+  return 'Below Goal';
+}
+function fmtSleep(min: number): string {
+  return `${Math.floor(min / 60)}h ${min % 60}m`;
+}
 
 const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
   good:     { bg: 'rgba(39,174,96,0.15)',   text: '#27AE60' },
@@ -71,6 +101,11 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
     ? <Ionicons name={metric.iconName as any} size={20} color={ORANGE} />
     : <MaterialIcons name={metric.iconName as any} size={20} color={ORANGE} />;
 
+  const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
+  const handleAskAI = () => {
+    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(metric.label)}&contextValue=${encodeURIComponent(contextValue)}&chips=${encodeURIComponent(JSON.stringify(['How can I improve this?', `Is this normal for my phase?`, `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']))}` as any);
+  };
+
   return (
     <View style={[s.hmWrap, glassShadow]}>
       <View style={[s.hmBody, { borderRadius: 20, backgroundColor: '#000000' }]}>
@@ -86,6 +121,10 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
             {metric.value}
             {metric.unit ? <Text style={s.hmUnit}> {metric.unit}</Text> : null}
           </Text>
+          <Pressable style={s.hmAiBtn} onPress={handleAskAI} hitSlop={6}>
+            <Ionicons name="chatbubble-outline" size={13} color="rgba(255,116,42,0.55)" />
+            <Text style={s.hmAiBtnText}>Ask AI</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -681,11 +720,14 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {/* Timeline items */}
+              {/* Timeline items — tap any to open AI chat with context */}
               {(focuses ?? []).map((item, index) => {
                 const isLast = index === (focuses ?? []).length - 1;
+                const handleFocusPress = () => {
+                  router.push(`/ai-chat?type=focus&contextLabel=${encodeURIComponent(item.label)}&contextValue=${encodeURIComponent(item.subtitle)}&chips=${encodeURIComponent(JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']))}` as any);
+                };
                 return (
-                  <View key={item.id} style={s.focusTimelineItem}>
+                  <Pressable key={item.id} style={s.focusTimelineItem} onPress={handleFocusPress}>
                     {/* Left: indicator + connector */}
                     <View style={s.focusIndicatorCol}>
                       <StatusIndicator status={item.status} />
@@ -701,7 +743,7 @@ export default function HomeScreen() {
                         <Text style={s.badgeText}>{item.badge}</Text>
                       </View>
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -726,17 +768,25 @@ export default function HomeScreen() {
                   </>
                 ) : aiInsights ? (
                   aiInsights.map((text, i) => (
-                    <View key={i} style={s.bulletRow}>
+                    <Pressable
+                      key={i}
+                      style={s.bulletRow}
+                      onPress={() => router.push(`/ai-chat?contextLabel=${encodeURIComponent('Insight')}&contextValue=${encodeURIComponent(text.slice(0, 60))}&seedMessage=${encodeURIComponent(text)}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']))}` as any)}
+                    >
                       <View style={[s.bullet, { backgroundColor: ORANGE }]} />
                       <Text style={s.bulletText}>{text}</Text>
-                    </View>
+                    </Pressable>
                   ))
                 ) : (
                   staticInsights.map((b, i) => (
-                    <View key={i} style={s.bulletRow}>
+                    <Pressable
+                      key={i}
+                      style={s.bulletRow}
+                      onPress={() => router.push(`/ai-chat?contextLabel=${encodeURIComponent('Insight')}&contextValue=${encodeURIComponent(b.text.slice(0, 60))}&seedMessage=${encodeURIComponent(b.text)}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']))}` as any)}
+                    >
                       <View style={[s.bullet, { backgroundColor: ORANGE }]} />
                       <Text style={s.bulletText}>{b.text}</Text>
-                    </View>
+                    </Pressable>
                   ))
                 )}
                 <Text style={s.insightsFooter}>
@@ -749,7 +799,36 @@ export default function HomeScreen() {
           {/* ── Health Monitor ── */}
           <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Monitor</Text>
           <View style={s.hmGrid}>
-            {HEALTH_DATA.map(m => <HealthMonitorCard key={m.id} metric={m} />)}
+            {((): HealthMetric[] => [
+              {
+                id: 'rrr', label: 'Resp. Rate', value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : '16',
+                unit: 'bpm', status: 'normal', iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: 'Normal',
+              },
+              {
+                id: 'rhr', label: 'Resting HR', value: String(wearable.restingHR), unit: 'bpm',
+                status: hmRhrStatus(wearable.restingHR), iconSet: 'Ionicons', iconName: 'heart-outline',
+                rangeLabel: hmRhrLabel(wearable.restingHR),
+              },
+              {
+                id: 'hrv', label: 'HRV', value: String(wearable.hrvMs), unit: 'ms',
+                status: hmHrvStatus(wearable.hrvMs), iconSet: 'MaterialIcons', iconName: 'show-chart',
+                rangeLabel: hmHrvLabel(wearable.hrvMs),
+              },
+              {
+                id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct), unit: '%',
+                status: hmSpo2Status(wearable.spo2Pct), iconSet: 'MaterialIcons', iconName: 'bloodtype',
+                rangeLabel: 'Normal',
+              },
+              {
+                id: 'temp', label: 'Temp', value: '98.4', unit: '°F', status: 'normal',
+                iconSet: 'MaterialIcons', iconName: 'thermostat', rangeLabel: 'Normal',
+              },
+              {
+                id: 'sleep', label: 'Sleep', value: fmtSleep(wearable.sleepMinutes), unit: '',
+                status: hmSleepStatus(wearable.sleepMinutes), iconSet: 'Ionicons', iconName: 'moon-outline',
+                rangeLabel: hmSleepLabel(wearable.sleepMinutes),
+              },
+            ])().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
           </View>
 
         </ScrollView>
@@ -906,6 +985,8 @@ const s = StyleSheet.create({
   hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   hmUnit: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.45)', letterSpacing: 0, fontFamily: 'Helvetica Neue' },
   hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
+  hmAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 8 },
+  hmAiBtnText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,116,42,0.55)', fontFamily: 'Helvetica Neue' },
 });
 
 const cal = StyleSheet.create({
