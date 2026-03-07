@@ -7,13 +7,13 @@ import { useUserStore } from '@/stores/user-store';
 
 export default function Index() {
   const { isLoading, profile } = useProfile();
-  const { session, sessionLoaded } = useUserStore();
+  const { session, sessionLoaded, demoMode } = useUserStore();
   const router = useRouter();
 
   useEffect(() => {
     if (!sessionLoaded) return;
-    // Auth gate: no session → sign-in (keeps your auth flow intact)
-    if (!session) {
+    // Auth gate: no session and not in demo mode → sign-in
+    if (!session && !demoMode) {
       router.replace('/auth/sign-in');
       return;
     }

@@ -47,13 +47,19 @@ function GlassBorder({ r = 16 }: { r?: number }) {
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { setSession, loadProfile } = useUserStore();
+  const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleDemoLogin() {
+    setDemoMode(true);
+    setSessionLoaded(true);
+    router.replace('/(tabs)');
+  }
 
   async function handleSignIn() {
     const trimmedEmail = email.trim();
@@ -256,6 +262,23 @@ export default function SignInScreen() {
                 </Text>
               </TouchableOpacity>
 
+              {/* Demo divider */}
+              <View style={s.demoDividerRow}>
+                <View style={s.dividerLine} />
+                <Text style={s.dividerText}>demo</Text>
+                <View style={s.dividerLine} />
+              </View>
+
+              {/* Demo login button */}
+              <TouchableOpacity
+                style={s.demoBtn}
+                onPress={handleDemoLogin}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="flask-outline" size={17} color={TERRACOTTA} />
+                <Text style={s.demoBtnText}>Try Demo (no account needed)</Text>
+              </TouchableOpacity>
+
             </View>
           </View>
         </View>
@@ -323,4 +346,14 @@ const s = StyleSheet.create({
   linkBtn: { marginTop: 18, alignItems: 'center' },
   linkText: { fontSize: 14, color: MUTED },
   linkBold: { color: TERRACOTTA, fontWeight: '700' },
+
+  // Demo
+  demoDividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 2 },
+  demoBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 48, borderRadius: 14, marginTop: 12,
+    borderWidth: 1.5, borderColor: 'rgba(196,120,75,0.35)',
+    backgroundColor: 'rgba(196,120,75,0.08)',
+  },
+  demoBtnText: { fontSize: 14, fontWeight: '600', color: TERRACOTTA },
 });

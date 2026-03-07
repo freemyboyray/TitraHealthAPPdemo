@@ -6,9 +6,11 @@ import type { ProfileRow } from './log-store';
 type UserStore = {
   session: Session | null;
   sessionLoaded: boolean;
+  demoMode: boolean;
   profile: ProfileRow | null;
   setSession: (s: Session | null) => void;
   setSessionLoaded: (v: boolean) => void;
+  setDemoMode: (v: boolean) => void;
   loadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -16,10 +18,12 @@ type UserStore = {
 export const useUserStore = create<UserStore>((set) => ({
   session: null,
   sessionLoaded: false,
+  demoMode: false,
   profile: null,
 
   setSession: (session) => set({ session }),
   setSessionLoaded: (sessionLoaded) => set({ sessionLoaded }),
+  setDemoMode: (demoMode) => set({ demoMode }),
 
   loadProfile: async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -49,6 +53,6 @@ export const useUserStore = create<UserStore>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ session: null, profile: null, sessionLoaded: true });
+    set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 }));
