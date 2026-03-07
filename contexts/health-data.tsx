@@ -4,11 +4,14 @@ import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
   DailyTargets,
+  FocusItem,
   WearableData,
   computeGlp1Support,
   computeRecovery,
   daysSinceInjection,
+  generateFocuses,
   getDailyTargets,
+  getShotPhase,
 } from '@/constants/scoring';
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
@@ -39,6 +42,7 @@ type HealthState = {
   targets: DailyTargets;
   recoveryScore: number;
   supportScore: number;
+  focuses: FocusItem[];
   lastLogAction: LogAction;
 };
 
@@ -53,9 +57,11 @@ type Action =
 
 function buildInitialState(profile: FullUserProfile): HealthState {
   const daysSinceShot = daysSinceInjection(profile.lastInjectionDate);
-  const recoveryScore = computeRecovery(SEED_WEARABLE);
+  const phase = getShotPhase(daysSinceShot);
+  const recoveryScore = computeRecovery(SEED_WEARABLE, phase);
   const targets = getDailyTargets(profile, daysSinceShot);
   const supportScore = computeGlp1Support(SEED_ACTUALS, targets);
+  const focuses = generateFocuses(SEED_ACTUALS, targets, SEED_WEARABLE, daysSinceShot);
   return {
     profile,
     wearable: SEED_WEARABLE,
@@ -63,15 +69,19 @@ function buildInitialState(profile: FullUserProfile): HealthState {
     targets,
     recoveryScore,
     supportScore,
+    focuses,
     lastLogAction: null,
   };
 }
 
 function recompute(state: HealthState): HealthState {
   const daysSinceShot = daysSinceInjection(state.profile.lastInjectionDate);
+  const phase = getShotPhase(daysSinceShot);
+  const recoveryScore = computeRecovery(state.wearable, phase);
   const targets = getDailyTargets(state.profile, daysSinceShot);
   const supportScore = computeGlp1Support(state.actuals, targets);
-  return { ...state, targets, supportScore };
+  const focuses = generateFocuses(state.actuals, targets, state.wearable, daysSinceShot);
+  return { ...state, targets, recoveryScore, supportScore, focuses };
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────

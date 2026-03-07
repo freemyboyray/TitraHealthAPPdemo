@@ -2,7 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -104,16 +104,18 @@ function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
   const OUTER_R = 200, INNER_R = 148, SW = 38;
   const outerCirc = 2 * Math.PI * OUTER_R;
   const innerCirc = 2 * Math.PI * INNER_R;
+  const outerQuart = outerCirc / 4;
+  const innerQuart = innerCirc / 4;
 
-  const outerOffset = useSharedValue(outerCirc);
-  const innerOffset = useSharedValue(innerCirc);
+  const outerOffset = useSharedValue(outerQuart);
+  const innerOffset = useSharedValue(innerQuart);
 
   useEffect(() => {
-    outerOffset.value = withTiming(outerCirc * (1 - recoveryScore / 100), {
+    outerOffset.value = withTiming(outerQuart * (1 - recoveryScore / 100), {
       duration: 1200,
       easing: Easing.out(Easing.cubic),
     });
-    innerOffset.value = withTiming(innerCirc * (1 - supportScore / 100), {
+    innerOffset.value = withTiming(innerQuart * (1 - supportScore / 100), {
       duration: 1200,
       easing: Easing.out(Easing.cubic),
     });
@@ -129,13 +131,13 @@ function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
       <AnimatedCircle
         cx={cx} cy={cy} r={OUTER_R} fill="none"
         stroke="#FF742A" strokeWidth={SW} strokeLinecap="round"
-        strokeDasharray={outerCirc} animatedProps={outerProps}
+        strokeDasharray={outerQuart} animatedProps={outerProps}
         rotation="-90" origin={`${cx}, ${cy}`}
       />
       <AnimatedCircle
         cx={cx} cy={cy} r={INNER_R} fill="none"
         stroke="#FFFFFF" strokeWidth={SW} strokeLinecap="round"
-        strokeDasharray={innerCirc} animatedProps={innerProps}
+        strokeDasharray={innerQuart} animatedProps={innerProps}
         rotation="-90" origin={`${cx}, ${cy}`}
       />
     </Svg>
@@ -246,15 +248,255 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
 }
 
 
+// ─── Rings Explainer Modal ────────────────────────────────────────────────────
+
+const FF = 'Helvetica Neue';
+
+function RingsExplainerModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+      <View style={em.overlay}>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <View style={em.sheet}>
+          <View style={em.handle} />
+
+          {/* Header */}
+          <View style={em.header}>
+            <Text style={em.title}>How Your Rings Work</Text>
+            <Pressable onPress={onClose} style={em.closeBtn} hitSlop={10}>
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={em.scrollContent}>
+
+            {/* Recovery Ring */}
+            <View style={em.section}>
+              <View style={em.sectionHeader}>
+                <View style={[em.dot, { backgroundColor: '#FF742A' }]} />
+                <Text style={em.sectionTitle}>Recovery Ring (Orange)</Text>
+              </View>
+              <View style={em.metricList}>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Sleep</Text>
+                  <Text style={em.metricDesc}>GLP-1 can disrupt sleep cycles — quality rest is critical for medication effectiveness and appetite regulation.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>HRV</Text>
+                  <Text style={em.metricDesc}>Heart rate variability reflects your nervous system's recovery. GLP-1 medications temporarily lower HRV near injection day — scores are phase-adjusted.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Resting HR</Text>
+                  <Text style={em.metricDesc}>A lower resting heart rate indicates good cardiovascular recovery. Peak phase (days 3–4) may cause a slight elevation due to medication activity.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>SpO₂</Text>
+                  <Text style={em.metricDesc}>Blood oxygen saturation above 95% ensures your muscles and brain are properly fueled during GLP-1-driven metabolic changes.</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={em.divider} />
+
+            {/* Readiness Ring */}
+            <View style={em.section}>
+              <View style={em.sectionHeader}>
+                <View style={[em.dot, { backgroundColor: '#FFFFFF' }]} />
+                <Text style={em.sectionTitle}>Readiness Ring (White)</Text>
+              </View>
+              <View style={em.metricList}>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Protein</Text>
+                  <Text style={em.metricDesc}>GLP-1 reduces appetite — hitting your protein target prevents muscle loss while your body composition changes.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Hydration</Text>
+                  <Text style={em.metricDesc}>Semaglutide and tirzepatide increase the risk of dehydration. Staying hydrated reduces nausea and supports kidney function.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Movement</Text>
+                  <Text style={em.metricDesc}>Daily steps amplify GLP-1's metabolic effect and offset the muscle loss risk from reduced calorie intake.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Fiber</Text>
+                  <Text style={em.metricDesc}>Fiber slows gastric emptying in sync with your medication and supports gut microbiome health for better outcomes.</Text>
+                </View>
+                <View style={em.metricRow}>
+                  <Text style={em.metricName}>Medication</Text>
+                  <Text style={em.metricDesc}>Logging your injection unlocks the full 15-point bonus and enables phase-aware scoring and coaching throughout your cycle.</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={em.divider} />
+
+            {/* Shot Phase Guide */}
+            <View style={em.section}>
+              <Text style={[em.sectionTitle, { marginBottom: 14 }]}>Shot Phase Guide</Text>
+              <View style={em.phaseList}>
+                <View style={em.phaseRow}>
+                  <Text style={em.phaseEmoji}>💉</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={em.phaseName}>Shot Day</Text>
+                    <Text style={em.phaseDesc}>Log your injection and focus on protein + hydration. Your body begins absorbing the dose in the first 12–24 hours.</Text>
+                  </View>
+                </View>
+                <View style={em.phaseRow}>
+                  <Text style={em.phaseEmoji}>⚡</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={em.phaseName}>Peak Phase (Days 3–4)</Text>
+                    <Text style={em.phaseDesc}>Medication is at peak blood concentration. Nausea is most common here — prioritize light meals, hydration, and gentle movement.</Text>
+                  </View>
+                </View>
+                <View style={em.phaseRow}>
+                  <Text style={em.phaseEmoji}>⚖️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={em.phaseName}>Balance Phase (Days 5–6)</Text>
+                    <Text style={em.phaseDesc}>Medication levels are stabilizing. Appetite usually improves — a good time to focus on hitting all nutrition targets.</Text>
+                  </View>
+                </View>
+                <View style={[em.phaseRow, { borderBottomWidth: 0 }]}>
+                  <Text style={em.phaseEmoji}>🔄</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={em.phaseName}>Reset Phase (Day 7)</Text>
+                    <Text style={em.phaseDesc}>Medication is tapering toward your next shot. Maintain consistency to keep momentum until the next cycle begins.</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={{ height: 8 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const em = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    maxHeight: '88%',
+    paddingBottom: 0,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    fontFamily: FF,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  section: { marginBottom: 4 },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: FF,
+  },
+  metricList: { gap: 12 },
+  metricRow: {
+    flexDirection: 'column',
+    gap: 2,
+  },
+  metricName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FF742A',
+    fontFamily: FF,
+  },
+  metricDesc: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 19,
+    fontFamily: FF,
+  },
+  divider: {
+    height: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 20,
+  },
+  phaseList: { gap: 0 },
+  phaseRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  phaseEmoji: { fontSize: 20, lineHeight: 26 },
+  phaseName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+    fontFamily: FF,
+  },
+  phaseDesc: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.50)',
+    lineHeight: 19,
+    fontFamily: FF,
+  },
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
-  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile } = useHealthData();
+  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = useHealthData();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
 
   const recovGrad = recoveryGradient(recoveryScore);
   const suppGrad  = supportGradient(supportScore);
@@ -290,15 +532,20 @@ export default function HomeScreen() {
           style={s.headerArea}
           onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
         >
-          <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
-            <Text style={s.dateTitle}>{dateLabel}</Text>
-            <Ionicons
-              name={calendarOpen ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#FFFFFF"
-              style={{ marginLeft: 6, marginTop: 2 }}
-            />
-          </Pressable>
+          <View style={s.headerTopRow}>
+            <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
+              <Text style={s.dateTitle}>{dateLabel}</Text>
+              <Ionicons
+                name={calendarOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#FFFFFF"
+                style={{ marginLeft: 6, marginTop: 2 }}
+              />
+            </Pressable>
+            <Pressable style={s.helpBtn} onPress={() => setShowHelp(true)} hitSlop={12}>
+              <Ionicons name="help-circle-outline" size={26} color="rgba(255,255,255,0.55)" />
+            </Pressable>
+          </View>
           <Text style={s.weekday}>{weekday}</Text>
           <Text style={[s.phaseLabel, phaseOverdue && { color: '#E53E3E' }]}>{phaseLabel}</Text>
           {isFuture && <Text style={s.futureNote}>No data yet — showing targets</Text>}
@@ -365,35 +612,27 @@ export default function HomeScreen() {
           {/* ── Today's Focuses ── */}
           <Text style={s.sectionTitle}>Today's Focuses</Text>
 
-          {[
-            {
-              icon: <MaterialIcons name="restaurant" size={22} color={ORANGE} />,
-              label: 'High Protein Meal',
-              badge: '+3% Score',
-            },
-            {
-              icon: <MaterialIcons name="trending-up" size={22} color={ORANGE} />,
-              label: '15 min Walk',
-              badge: '+2% Score',
-            },
-            {
-              icon: <Ionicons name="water-outline" size={22} color={ORANGE} />,
-              label: 'Hydration Goal',
-              badge: '+1% Score',
-            },
-          ].map((item) => (
-            <View key={item.label} style={[s.focusWrap, { marginBottom: 12 }]}>
-              <View style={[s.focusBody, { backgroundColor: '#000000' }]}>
-                <View style={s.focusRow}>
-                  {item.icon}
-                  <Text style={s.focusLabel}>{item.label}</Text>
-                  <View style={s.badge}>
-                    <Text style={s.badgeText}>{item.badge}</Text>
+          {(focuses ?? []).map((item) => {
+            const icon = item.iconSet === 'Ionicons'
+              ? <Ionicons name={item.iconName as any} size={22} color={ORANGE} />
+              : <MaterialIcons name={item.iconName as any} size={22} color={ORANGE} />;
+            return (
+              <View key={item.id} style={[s.focusWrap, { marginBottom: 12 }]}>
+                <View style={[s.focusBody, { backgroundColor: '#000000' }]}>
+                  <View style={s.focusRow}>
+                    {icon}
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                      <Text style={s.focusLabel}>{item.label}</Text>
+                      <Text style={s.focusSubtitle}>{item.subtitle}</Text>
+                    </View>
+                    <View style={s.badge}>
+                      <Text style={s.badgeText}>{item.badge}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
@@ -424,6 +663,9 @@ export default function HomeScreen() {
 
         </ScrollView>
 
+        {/* ── Rings Explainer Modal ── */}
+        {showHelp && <RingsExplainerModal onClose={() => setShowHelp(false)} />}
+
       </SafeAreaView>
     </View>
   );
@@ -436,7 +678,9 @@ const s = StyleSheet.create({
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-  dateTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  dateTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  helpBtn: { padding: 2 },
   dateTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   weekday: { fontSize: 13, fontWeight: '500', color: '#7A7570', marginBottom: 4, fontFamily: 'Helvetica Neue' },
   phaseLabel: { fontSize: 13, fontWeight: '600', color: '#9A9490', fontFamily: 'Helvetica Neue' },
@@ -537,7 +781,8 @@ const s = StyleSheet.create({
   focusBody: { borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
   focusRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   focusIconWrap: { marginRight: 14 },
-  focusLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginLeft: 14, fontFamily: 'Helvetica Neue' },
+  focusLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.5)', marginTop: 2, fontFamily: 'Helvetica Neue' },
   badge: {
     backgroundColor: 'rgba(50,168,82,0.12)',
     paddingHorizontal: 10, paddingVertical: 5,

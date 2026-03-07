@@ -243,7 +243,7 @@ export function ScoreRing({
       </GestureDetector>
 
       {/* Message below ring */}
-      <Text style={[styles.message, { color: gradientEnd }]}>{message}</Text>
+      {!!message && <Text style={[styles.message, { color: gradientEnd }]}>{message}</Text>}
     </View>
   );
 }

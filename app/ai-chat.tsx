@@ -1,10 +1,15 @@
+// NOTE: Set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env to enable AI chat.
+// Example: EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-...
+
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,9 +18,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useHealthData } from '@/contexts/health-data';
+import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
+
+// TODO: Uncomment and implement when adding API key support
+// import type { DailyActuals, DailyTargets, WearableData } from '@/constants/scoring';
+
 const BG = '#000000';
 const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
+
 const glassShadow = {
   shadowColor: '#000000',
   shadowOffset: { width: 0, height: 8 },
@@ -24,7 +36,27 @@ const glassShadow = {
   elevation: 8,
 };
 
-const PROMPT_POOL = [
+// ─── Type-aware prompt chips ──────────────────────────────────────────────────
+
+const RECOVERY_CHIPS = [
+  'Why is my HRV lower than usual?',
+  'What can I do to sleep better tonight?',
+  'Is my recovery score normal for peak phase?',
+  'How does GLP-1 affect my resting heart rate?',
+  'What causes low SpO₂ readings?',
+  'Tips to improve deep sleep quality',
+];
+
+const READINESS_CHIPS = [
+  'How much more protein should I eat?',
+  'Why is hydration so important on GLP-1?',
+  'What does my readiness score mean today?',
+  'How do I hit my daily fiber target?',
+  'Why should I log my injection?',
+  'How does movement affect my score?',
+];
+
+const GENERIC_CHIPS = [
   'Analyze my recent health trends',
   'Why might I be feeling nauseous?',
   'What should I eat today?',
@@ -32,6 +64,8 @@ const PROMPT_POOL = [
   'Tips to improve my HRV score',
   'Help me understand my sleep data',
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function GlassBorder({ r = 20 }: { r?: number }) {
   return (
@@ -65,20 +99,67 @@ function AiOrb() {
   );
 }
 
+// ─── Message types ────────────────────────────────────────────────────────────
+
+type Message = { role: 'user' | 'assistant'; content: string };
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function AiChatScreen() {
   const insets = useSafeAreaInsets();
+  const { type } = useLocalSearchParams<{ type?: string }>();
+  const isRecovery = type === 'recovery';
+  const hasType = type === 'recovery' || type === 'support';
+
+  const { recoveryScore, supportScore, profile } = useHealthData();
+  const score = isRecovery ? recoveryScore : supportScore;
+
+  const dayNum = daysSinceInjection(profile.lastInjectionDate);
+  const freq = profile.injectionFrequencyDays;
+  const phaseLabel = (() => {
+    if (dayNum === 1) return 'Shot Day';
+    if (dayNum <= 3) return `Shot Phase · Day ${dayNum}`;
+    if (dayNum < freq) return `Recovery Day ${dayNum}`;
+    if (dayNum === freq) return 'Shot Day Tomorrow';
+    return 'Shot Overdue';
+  })();
+
+  const chipPool = hasType ? (isRecovery ? RECOVERY_CHIPS : READINESS_CHIPS) : GENERIC_CHIPS;
   const [promptIndex, setPromptIndex] = useState(0);
   const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const currentPrompts = PROMPT_POOL.slice(promptIndex * 2, promptIndex * 2 + 2);
-  const handleRefresh = () => setPromptIndex(p => (p + 1) % 3);
+  const maxPage = Math.floor((chipPool.length - 1) / 2);
+  const currentPrompts = chipPool.slice(promptIndex * 2, promptIndex * 2 + 2);
+  const handleRefresh = () => setPromptIndex(p => (p >= maxPage ? 0 : p + 1));
   const handlePromptPress = (p: string) => setInputText(p);
+
+  async function sendMessage(userText: string) {
+    if (!userText.trim() || loading) return;
+    const newMessages: Message[] = [...messages, { role: 'user', content: userText }];
+    setMessages(newMessages);
+    setInputText('');
+    setLoading(true);
+
+    // TODO: Wire up API key before enabling. Add EXPO_PUBLIC_ANTHROPIC_API_KEY to .env
+    // and replace this stub with the real fetch call.
+    await new Promise(r => setTimeout(r, 800));
+    setMessages([...newMessages, {
+      role: 'assistant',
+      content: 'AI chat coming soon. Add your API key to enable responses.',
+    }]);
+    setLoading(false);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  }
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         {/* Header */}
         <View style={s.header}>
@@ -89,34 +170,83 @@ export default function AiChatScreen() {
           <View style={s.headerSpacer} />
         </View>
 
-        {/* Orb + Greeting */}
-        <View style={s.heroSection}>
-          <AiOrb />
-          <Text style={s.greeting}>Good morning,{'\n'}How can I help?</Text>
-          <Text style={s.subtitle}>Choose a prompt or write your own</Text>
-        </View>
+        {/* Context strip — shown when navigated from a score detail screen */}
+        {hasType && (
+          <View style={s.contextStrip}>
+            <View style={s.contextDot} />
+            <Text style={s.contextText}>
+              {isRecovery ? 'RECOVERY' : 'READINESS'} · {score}/100 · {phaseLabel}
+            </Text>
+          </View>
+        )}
 
-        {/* Prompt chips */}
-        <View style={s.chipsRow}>
-          {currentPrompts.map((p) => (
-            <TouchableOpacity key={p} style={s.chipShadow} activeOpacity={0.75} onPress={() => handlePromptPress(p)}>
-              <View style={s.chip}>
-                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
-                <GlassBorder r={16} />
-                <Text style={s.chipText}>{p}</Text>
-              </View>
+        {messages.length === 0 ? (
+          /* Empty state: orb + greeting + chips */
+          <>
+            <View style={s.heroSection}>
+              <AiOrb />
+              <Text style={s.greeting}>Good morning,{'\n'}How can I help?</Text>
+              <Text style={s.subtitle}>Choose a prompt or write your own</Text>
+            </View>
+
+            <View style={s.chipsRow}>
+              {currentPrompts.map((p) => (
+                <TouchableOpacity key={p} style={s.chipShadow} activeOpacity={0.75} onPress={() => handlePromptPress(p)}>
+                  <View style={s.chip}>
+                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
+                    <GlassBorder r={16} />
+                    <Text style={s.chipText}>{p}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={s.refreshRow} onPress={handleRefresh} activeOpacity={0.7}>
+              <Ionicons name="refresh-outline" size={16} color={ORANGE} />
+              <Text style={s.refreshText}>Refresh prompts</Text>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Refresh prompts */}
-        <TouchableOpacity style={s.refreshRow} onPress={handleRefresh} activeOpacity={0.7}>
-          <Ionicons name="refresh-outline" size={16} color={ORANGE} />
-          <Text style={s.refreshText}>Refresh prompts</Text>
-        </TouchableOpacity>
-
-        <View style={{ flex: 1 }} />
+            <View style={{ flex: 1 }} />
+          </>
+        ) : (
+          /* Chat history */
+          <ScrollView
+            ref={scrollRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={s.chatContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          >
+            {messages.map((msg, i) => (
+              <View
+                key={i}
+                style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}
+              >
+                {msg.role === 'assistant' && (
+                  <View style={s.bubbleAvatarWrap}>
+                    <View style={s.bubbleAvatar} />
+                  </View>
+                )}
+                <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
+                  <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
+                    {msg.content}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            {loading && (
+              <View style={[s.bubbleRow, s.bubbleRowAssistant]}>
+                <View style={s.bubbleAvatarWrap}>
+                  <View style={s.bubbleAvatar} />
+                </View>
+                <View style={[s.bubble, s.bubbleAssistant, s.bubbleLoading]}>
+                  <ActivityIndicator size="small" color={ORANGE} />
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        )}
 
         {/* Input card */}
         <View style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4 }]}>
@@ -133,6 +263,8 @@ export default function AiChatScreen() {
                   placeholder="Ask anything about your health…"
                   placeholderTextColor="rgba(255,255,255,0.25)"
                   multiline
+                  returnKeyType="send"
+                  onSubmitEditing={() => sendMessage(inputText)}
                 />
                 <View style={s.inputBottomRow}>
                   <View style={s.modePill}>
@@ -145,6 +277,17 @@ export default function AiChatScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
                       <MaterialIcons name="attach-file" size={22} color="rgba(255,255,255,0.45)" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={inputText.trim().length > 0 ? 0.7 : 1}
+                      style={[s.iconBtn, s.sendBtn, inputText.trim().length > 0 && s.sendBtnActive]}
+                      onPress={() => sendMessage(inputText)}
+                    >
+                      <Ionicons
+                        name="arrow-up"
+                        size={18}
+                        color={inputText.trim().length > 0 ? '#000000' : 'rgba(255,255,255,0.25)'}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -187,11 +330,38 @@ const s = StyleSheet.create({
   },
   headerSpacer: { width: 40 },
 
+  // Context strip
+  contextStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,116,42,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.30)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 12,
+    gap: 6,
+  },
+  contextDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: ORANGE,
+  },
+  contextText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: ORANGE,
+    letterSpacing: 0.8,
+  },
+
   // Hero
   heroSection: {
     alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 28,
+    paddingTop: 12,
+    paddingBottom: 24,
     paddingHorizontal: 24,
   },
   orbShadow: {
@@ -291,6 +461,67 @@ const s = StyleSheet.create({
     color: ORANGE,
   },
 
+  // Chat bubbles
+  chatContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 10,
+  },
+  bubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  bubbleRowUser: {
+    justifyContent: 'flex-end',
+  },
+  bubbleRowAssistant: {
+    justifyContent: 'flex-start',
+  },
+  bubbleAvatarWrap: {
+    marginBottom: 2,
+  },
+  bubbleAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: ORANGE,
+    opacity: 0.85,
+  },
+  bubble: {
+    maxWidth: '78%',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  bubbleUser: {
+    backgroundColor: ORANGE,
+    borderBottomRightRadius: 4,
+  },
+  bubbleAssistant: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderBottomLeftRadius: 4,
+  },
+  bubbleLoading: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  bubbleText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bubbleTextUser: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  bubbleTextAssistant: {
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '400',
+  },
+
   // Input
   inputWrapper: {
     paddingHorizontal: 16,
@@ -338,10 +569,22 @@ const s = StyleSheet.create({
   },
   inputIcons: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   iconBtn: {
     padding: 4,
+  },
+  sendBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  sendBtnActive: {
+    backgroundColor: ORANGE,
   },
   disclaimer: {
     fontSize: 11,
