@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -488,6 +488,49 @@ const em = StyleSheet.create({
   },
 });
 
+// ─── Focus Timeline Sub-components ───────────────────────────────────────────
+
+function PulsingDot() {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(withTiming(1.3, { duration: 700 }), withTiming(1, { duration: 700 })),
+      -1,
+      false,
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return <Animated.View style={[s.pulsingDot, animStyle]} />;
+}
+
+function StatusIndicator({ status }: { status: 'completed' | 'active' | 'pending' }) {
+  if (status === 'completed') {
+    return (
+      <View style={s.indicatorFilled}>
+        <Ionicons name="checkmark" size={14} color="#FFF" />
+      </View>
+    );
+  }
+  if (status === 'active') {
+    return (
+      <View style={s.indicatorActive}>
+        <PulsingDot />
+      </View>
+    );
+  }
+  return <View style={s.indicatorEmpty} />;
+}
+
+function TimelineLine({ status }: { status: 'completed' | 'active' | 'pending' }) {
+  if (status === 'completed') {
+    return <View style={[s.timelineLine, { backgroundColor: ORANGE }]} />;
+  }
+  if (status === 'active') {
+    return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: ORANGE }]} />;
+  }
+  return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: 'rgba(255,255,255,0.15)' }]} />;
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -628,29 +671,41 @@ export default function HomeScreen() {
           </View>
 
           {/* ── Today's Focuses ── */}
-          <Text style={s.sectionTitle}>Today's Focuses</Text>
-
-          {(focuses ?? []).map((item) => {
-            const icon = item.iconSet === 'Ionicons'
-              ? <Ionicons name={item.iconName as any} size={22} color={ORANGE} />
-              : <MaterialIcons name={item.iconName as any} size={22} color={ORANGE} />;
-            return (
-              <View key={item.id} style={[s.focusWrap, { marginBottom: 12 }]}>
-                <View style={[s.focusBody, { backgroundColor: '#000000' }]}>
-                  <View style={s.focusRow}>
-                    {icon}
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                      <Text style={s.focusLabel}>{item.label}</Text>
-                      <Text style={s.focusSubtitle}>{item.subtitle}</Text>
-                    </View>
-                    <View style={s.badge}>
-                      <Text style={s.badgeText}>{item.badge}</Text>
-                    </View>
-                  </View>
+          <View style={s.focusCard}>
+            <View style={s.focusCardInner}>
+              {/* Header */}
+              <View style={s.focusCardHeader}>
+                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Today's Focuses</Text>
+                <View style={s.focusCountBadge}>
+                  <Text style={s.focusCountText}>{(focuses ?? []).length} Tasks</Text>
                 </View>
               </View>
-            );
-          })}
+
+              {/* Timeline items */}
+              {(focuses ?? []).map((item, index) => {
+                const isLast = index === (focuses ?? []).length - 1;
+                return (
+                  <View key={item.id} style={s.focusTimelineItem}>
+                    {/* Left: indicator + connector */}
+                    <View style={s.focusIndicatorCol}>
+                      <StatusIndicator status={item.status} />
+                      {!isLast && <TimelineLine status={item.status} />}
+                    </View>
+                    {/* Right: label + subtitle + badge */}
+                    <View style={[s.focusContent, !isLast && s.focusContentSpaced]}>
+                      <Text style={[s.focusLabel, item.status === 'pending' && s.focusLabelMuted]}>
+                        {item.label}
+                      </Text>
+                      <Text style={s.focusSubtitle}>{item.subtitle}</Text>
+                      <View style={s.badge}>
+                        <Text style={s.badgeText}>{item.badge}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
@@ -812,17 +867,29 @@ const s = StyleSheet.create({
   // Section title
   sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
 
-  // Focus cards
-  focusWrap: { borderRadius: 20, ...glassShadow },
-  focusBody: { borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
-  focusRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  focusIconWrap: { marginRight: 14 },
+  // Focus timeline card
+  focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
+  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)', padding: 22 },
+  focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
+  focusCountBadge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  focusCountText: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.45)', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
+  focusTimelineItem: { flexDirection: 'row', alignItems: 'flex-start' },
+  focusIndicatorCol: { width: 24, alignItems: 'center', marginRight: 16 },
+  focusContent: { flex: 1 },
+  focusContentSpaced: { paddingBottom: 28 },
   focusLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.5)', marginTop: 2, fontFamily: 'Helvetica Neue' },
+  focusLabelMuted: { color: 'rgba(255,255,255,0.45)' },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.45)', marginTop: 3, lineHeight: 17, fontFamily: 'Helvetica Neue' },
+  indicatorFilled: { width: 24, height: 24, borderRadius: 12, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  indicatorActive: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
+  pulsingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
+  timelineLine: { position: 'absolute', top: 28, bottom: 0, left: 11, width: 2 },
   badge: {
     backgroundColor: 'rgba(50,168,82,0.12)',
     paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(50,168,82,0.25)',
+    alignSelf: 'flex-start', marginTop: 6,
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
 

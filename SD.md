@@ -664,7 +664,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Complete | Reusable dark-glass border primitive |
 | Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven; quarter-arc rings; AI insights; help button |
 | `RingsExplainerModal` | inline in `app/(tabs)/index.tsx` | ✅ Built | "How Your Rings Work" slide-up modal |
-| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 9 items; LOG INJECTION + DESCRIBE FOOD AI wired |
+| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 9 items; each navigates to dedicated entry screen; DESCRIBE FOOD AI parser inline; activity inline form removed |
 | Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | All 3 tabs; dynamic AI insight cards |
 | AI Chat | `app/ai-chat.tsx` | ✅ Built | GPT-4o-mini; full health context; type-aware chips |
 | Score Detail | `app/score-detail.tsx` | ✅ Built | Per-metric breakdown; AI coach note; phase banner |
@@ -694,7 +694,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **SCAN FOOD** — barcode scanner → USDA lookup → log
 - [x] **SEARCH FOOD** — USDA FoodData Central text search → log
 - [x] **LOG INJECTION** — dedicated entry screen with dose, date, site, notes
-- [x] **LOG ACTIVITY** — activity type, duration, steps entry
+- [x] **LOG ACTIVITY** — dark-glass screen with SVG semi-circle arc gauges (PanResponder drag) for Intensity (1–10) and Duration (0–120 min); summary cards (Est. Calories, Duration); workout type picker sheet; dispatches `LOG_STEPS`; arc gauge replaces old inline text form
 - [x] **LOG WEIGHT** — weight entry with unit toggle
 - [x] **SIDE EFFECTS LOGGING** — entry screen with type + severity
 - [x] Insights screen — all 3 tabs (Medication, Lifestyle, Progress) with mock data + AI cards

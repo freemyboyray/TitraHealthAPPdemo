@@ -412,6 +412,7 @@ export type FocusItem = {
   label: string;
   subtitle: string;
   badge: string;
+  status: 'completed' | 'active' | 'pending';
   iconName: string;
   iconSet: 'MaterialIcons' | 'Ionicons';
 };
@@ -434,6 +435,32 @@ const PHASE_WEIGHTS: Record<ShotPhase, Partial<Record<FocusCategory, number>>> =
   reset:   { protein: 1.3, activity: 1.3, hydration: 1.2, sleep: 1.1 },
 };
 
+// ─── Focus Status Helpers ─────────────────────────────────────────────────────
+
+function pctStatus(actual: number, target: number): 'completed' | 'active' | 'pending' {
+  const pct = actual / target;
+  if (pct >= 1) return 'completed';
+  if (pct >= 0.1) return 'active';
+  return 'pending';
+}
+
+function computeFocusStatus(
+  category: FocusCategory,
+  actuals: DailyActuals,
+  targets: DailyTargets,
+  wearable: WearableData,
+): 'completed' | 'active' | 'pending' {
+  switch (category) {
+    case 'injection': return actuals.injectionLogged ? 'completed' : 'pending';
+    case 'hydration': return pctStatus(actuals.waterMl, targets.waterMl);
+    case 'protein':   return pctStatus(actuals.proteinG, targets.proteinG);
+    case 'fiber':     return pctStatus(actuals.fiberG, targets.fiberG);
+    case 'activity':  return pctStatus(actuals.steps, targets.steps);
+    case 'sleep':     return pctStatus(wearable.sleepMinutes, 420);
+    default:          return 'active';
+  }
+}
+
 // ─── Focus Item Builder ───────────────────────────────────────────────────────
 
 function buildFocusItem(
@@ -443,6 +470,7 @@ function buildFocusItem(
   wearable: WearableData,
   phase: ShotPhase,
 ): FocusItem {
+  const status = computeFocusStatus(category, actuals, targets, wearable);
   const phaseNote = phase === 'peak' ? ' · Peak GLP-1 day' : '';
 
   switch (category) {
@@ -451,6 +479,7 @@ function buildFocusItem(
         id: 'injection', label: 'Log Your Injection',
         subtitle: 'Keep your shot cycle accurate',
         badge: '+15 pts', iconName: 'colorize', iconSet: 'MaterialIcons',
+        status,
       };
     case 'hydration': {
       const pct = Math.round(actuals.waterMl / targets.waterMl * 100);
@@ -462,6 +491,7 @@ function buildFocusItem(
         subtitle: `${pct}% of daily target${phase === 'peak' ? ' · Electrolytes critical today' : phaseNote}`,
         badge: pts > 0 ? `+${pts} pts` : 'On Track',
         iconName: 'water-outline', iconSet: 'Ionicons',
+        status,
       };
     }
     case 'protein': {
@@ -474,6 +504,7 @@ function buildFocusItem(
         subtitle: `Preserves lean muscle on GLP-1${tip}`,
         badge: pts > 0 ? `+${pts} pts` : 'Complete',
         iconName: 'restaurant', iconSet: 'MaterialIcons',
+        status,
       };
     }
     case 'fiber': {
@@ -485,6 +516,7 @@ function buildFocusItem(
         subtitle: `Supports digestion · ${targets.fiberG}g daily target`,
         badge: pts > 0 ? `+${pts} pts` : 'Complete',
         iconName: 'eco', iconSet: 'MaterialIcons',
+        status,
       };
     }
     case 'activity': {
@@ -496,6 +528,7 @@ function buildFocusItem(
         subtitle: `${actuals.steps.toLocaleString()} of ${targets.steps.toLocaleString()} steps today`,
         badge: pts > 0 ? `+${pts} pts` : 'Goal Met',
         iconName: 'directions-walk', iconSet: 'MaterialIcons',
+        status,
       };
     }
     case 'sleep': {
@@ -506,6 +539,7 @@ function buildFocusItem(
         subtitle: `Last night: ${hrs}h · Aim for 7–9h${phaseNote}`,
         badge: 'Sleep Focus',
         iconName: 'moon-outline', iconSet: 'Ionicons',
+        status,
       };
     }
     case 'recovery': {
@@ -516,6 +550,7 @@ function buildFocusItem(
         subtitle: `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${Math.round(recovery)}`,
         badge: 'Recovery',
         iconName: 'favorite-border', iconSet: 'MaterialIcons',
+        status,
       };
     }
     case 'rest':
@@ -525,6 +560,7 @@ function buildFocusItem(
         subtitle: 'Peak GLP-1 day — light movement only',
         badge: 'Phase Rest',
         iconName: 'self-improvement', iconSet: 'MaterialIcons',
+        status,
       };
   }
 }

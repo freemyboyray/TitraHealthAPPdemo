@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { WaterLogSheet } from '@/components/water-log-sheet';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
@@ -26,7 +27,7 @@ const DARK = '#FFFFFF';
 const ICON_SIZE = 24;
 const ICON_COLOR = '#FFFFFF';
 
-type EntryType = 'weight' | 'water' | 'activity' | 'food' | null;
+type EntryType = 'water' | 'food' | null;
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 
@@ -34,13 +35,11 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { dispatch, profile } = useHealthData();
-  const { addWeightLog, addInjectionLog, addActivityLog, addFoodLog } = useLogStore();
+  const { addFoodLog } = useLogStore();
 
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
-  const [weightInput, setWeightInput] = useState('');
+  const [waterLogVisible, setWaterLogVisible] = useState(false);
   const [waterInput, setWaterInput] = useState('');
-  const [activityType, setActivityType] = useState('');
-  const [activityDuration, setActivityDuration] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodCalories, setFoodCalories] = useState('');
   const [foodProtein, setFoodProtein] = useState('');
@@ -56,10 +55,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   const resetForm = () => {
-    setWeightInput('');
     setWaterInput('');
-    setActivityType('');
-    setActivityDuration('');
     setFoodName('');
     setFoodCalories('');
     setFoodProtein('');
@@ -81,19 +77,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   const handleLogInjection = () => {
-    dispatch({ type: 'LOG_INJECTION' });
-    const today = new Date().toISOString().split('T')[0];
-    addInjectionLog(profile.doseMg, today);
     closeSheet();
-  };
-
-  const handleConfirmWeight = () => {
-    const val = parseFloat(weightInput);
-    if (isNaN(val) || val <= 0) return;
-    const lbs = isMetric ? val * 2.20462 : val;
-    addWeightLog(lbs);
-    resetForm();
-    closeSheet();
+    router.push('/entry/log-injection');
   };
 
   const handleConfirmWater = () => {
@@ -101,16 +86,6 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     if (isNaN(val) || val <= 0) return;
     const ml = isMetric ? val : val * 29.5735;
     dispatch({ type: 'LOG_WATER', ml: Math.round(ml) });
-    resetForm();
-    closeSheet();
-  };
-
-  const handleConfirmActivity = () => {
-    const minutes = parseInt(activityDuration, 10);
-    if (!activityType.trim() || isNaN(minutes) || minutes <= 0) return;
-    addActivityLog(activityType.trim(), minutes, 'moderate');
-    const steps = Math.round(minutes * 90);
-    dispatch({ type: 'LOG_STEPS', steps });
     resetForm();
     closeSheet();
   };
@@ -200,17 +175,20 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'LOG WEIGHT',
       icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => setActiveEntry('weight'),
+      onPress: () => { closeSheet(); router.push('/entry/log-weight'); },
     },
     {
       label: 'LOG WATER',
       icon: <Ionicons name="water-outline" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => setActiveEntry('water'),
+      onPress: () => {
+        closeSheet();
+        setTimeout(() => setWaterLogVisible(true), 300);
+      },
     },
     {
       label: 'LOG ACTIVITY',
       icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => setActiveEntry('activity'),
+      onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
     },
   ];
 
@@ -221,24 +199,6 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     onConfirm: () => void;
     content: React.ReactNode;
   }> = {
-    weight: {
-      title: 'Log Weight',
-      onConfirm: handleConfirmWeight,
-      content: (
-        <View style={f.fieldRow}>
-          <TextInput
-            style={f.input}
-            value={weightInput}
-            onChangeText={setWeightInput}
-            placeholder={isMetric ? 'e.g. 88.5' : 'e.g. 195'}
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            keyboardType="decimal-pad"
-            autoFocus
-          />
-          <Text style={f.unit}>{isMetric ? 'kg' : 'lbs'}</Text>
-        </View>
-      ),
-    },
     water: {
       title: 'Log Water',
       onConfirm: handleConfirmWater,
@@ -255,33 +215,6 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
           />
           <Text style={f.unit}>{isMetric ? 'ml' : 'oz'}</Text>
         </View>
-      ),
-    },
-    activity: {
-      title: 'Log Activity',
-      onConfirm: handleConfirmActivity,
-      content: (
-        <>
-          <TextInput
-            style={[f.input, { marginBottom: 10 }]}
-            value={activityType}
-            onChangeText={setActivityType}
-            placeholder="Exercise type (e.g. Walking)"
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            autoFocus
-          />
-          <View style={f.fieldRow}>
-            <TextInput
-              style={f.input}
-              value={activityDuration}
-              onChangeText={setActivityDuration}
-              placeholder="30"
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              keyboardType="number-pad"
-            />
-            <Text style={f.unit}>min</Text>
-          </View>
-        </>
       ),
     },
     food: {
@@ -366,6 +299,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={closeSheet}>
       <View style={s.container}>
 
@@ -461,6 +395,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
       </View>
     </Modal>
+
+    <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
+    </>
   );
 }
 

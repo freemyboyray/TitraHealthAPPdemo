@@ -12,6 +12,7 @@ export default function EntryLayout() {
       <Stack.Screen name="scan-food" />
       <Stack.Screen name="capture-food" />
       <Stack.Screen name="ask-ai" />
+      <Stack.Screen name="customize-side-effects" />
     </Stack>
   );
 }
