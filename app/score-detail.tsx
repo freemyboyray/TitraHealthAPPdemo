@@ -1,11 +1,12 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScoreRing } from '@/components/score-ring';
 import { useHealthData } from '@/contexts/health-data';
+import { generateCoachNote } from '@/lib/openai';
 import {
   daysSinceInjection,
   GLP1_COACH_NOTE,
@@ -283,7 +284,20 @@ export default function ScoreDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const isRecovery = type === 'recovery';
 
-  const { recoveryScore, supportScore, wearable, actuals, targets, profile } = useHealthData();
+  const healthData = useHealthData();
+  const { recoveryScore, supportScore, wearable, actuals, targets, profile } = healthData;
+
+  const [aiCoachNote, setAiCoachNote] = useState<string | null>(null);
+  const [coachNoteLoading, setCoachNoteLoading] = useState(true);
+
+  useEffect(() => {
+    const noteType = isRecovery ? 'recovery' : 'support';
+    setCoachNoteLoading(true);
+    generateCoachNote(noteType, healthData)
+      .then(note => setAiCoachNote(note))
+      .catch(() => setAiCoachNote(null))
+      .finally(() => setCoachNoteLoading(false));
+  }, [type]);
 
   const score     = isRecovery ? recoveryScore : supportScore;
   // Fixed brand identity colors — Recovery=orange, Readiness=white/silver (matches home screen rings)
@@ -293,7 +307,8 @@ export default function ScoreDetailScreen() {
   const accent    = isRecovery ? recoveryColor(score)    : supportColor(score);
   const message   = isRecovery ? recoveryMessage(score)  : supportMessage(score);
   const title     = isRecovery ? 'Recovery'              : 'GLP-1 Amplifier';
-  const coachNote = isRecovery ? RECOVERY_COACH_NOTE     : GLP1_COACH_NOTE;
+  const staticCoachNote = isRecovery ? RECOVERY_COACH_NOTE : GLP1_COACH_NOTE;
+  const coachNote = aiCoachNote ?? staticCoachNote;
 
   const dayNum     = daysSinceInjection(profile.lastInjectionDate);
   const freq       = profile.injectionFrequencyDays;
@@ -487,7 +502,17 @@ export default function ScoreDetailScreen() {
           <View style={[s.coachWrap, glassShadow]}>
             <View style={s.coachBody}>
               <View style={s.coachInner}>
-                <Text style={s.coachText}>{coachNote}</Text>
+                {coachNoteLoading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <ActivityIndicator size="small" color="#FF742A" />
+                    <View style={{ flex: 1, gap: 8 }}>
+                      <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '90%' }} />
+                      <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '75%' }} />
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={s.coachText}>{coachNote}</Text>
+                )}
               </View>
             </View>
           </View>

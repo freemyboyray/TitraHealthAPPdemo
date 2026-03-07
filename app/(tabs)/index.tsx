@@ -18,6 +18,7 @@ import {
   supportMessage,
 } from '@/constants/scoring';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { generateDynamicInsights } from '@/lib/openai';
 
 const ORANGE = '#FF742A';
 
@@ -491,17 +492,34 @@ const em = StyleSheet.create({
 
 export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
-  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = useHealthData();
+  const healthData = useHealthData();
+  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string[] | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const recovGrad = recoveryGradient(recoveryScore);
   const suppGrad  = supportGradient(supportScore);
 
-  const insights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
+  const staticInsights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled && aiInsights === null && !insightsLoading) {
+        setInsightsLoading(true);
+        generateDynamicInsights(healthData)
+          .then(results => { if (!cancelled) setAiInsights(results); })
+          .catch(() => { /* fall back to static */ })
+          .finally(() => { if (!cancelled) setInsightsLoading(false); });
+      }
+    }, 5000); // fallback: give up after 5s via the callOpenAI timeout
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
 
   const today   = new Date();
   const isToday = sameDay(selectedDate, today);
@@ -640,14 +658,32 @@ export default function HomeScreen() {
               <View style={{ padding: 20 }}>
                 <View style={s.insightsHead}>
                   <Text style={s.insightsTitle}>Insights</Text>
-                  <Text style={s.shotPhase}>{insights[0]?.phase ?? 'TODAY'}</Text>
+                  <Text style={s.shotPhase}>{aiInsights ? 'AI · TODAY' : (staticInsights[0]?.phase ?? 'TODAY')}</Text>
                 </View>
-                {insights.map((b, i) => (
-                  <View key={i} style={s.bulletRow}>
-                    <View style={[s.bullet, { backgroundColor: ORANGE }]} />
-                    <Text style={s.bulletText}>{b.text}</Text>
-                  </View>
-                ))}
+                {insightsLoading && !aiInsights ? (
+                  <>
+                    {[0.85, 0.70, 0.78].map((w, i) => (
+                      <View key={i} style={[s.bulletRow, { marginBottom: 14 }]}>
+                        <View style={[s.bullet, { backgroundColor: 'rgba(255,116,42,0.3)' }]} />
+                        <View style={{ height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.08)', flex: 1, maxWidth: `${w * 100}%` as any }} />
+                      </View>
+                    ))}
+                  </>
+                ) : aiInsights ? (
+                  aiInsights.map((text, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <View style={[s.bullet, { backgroundColor: ORANGE }]} />
+                      <Text style={s.bulletText}>{text}</Text>
+                    </View>
+                  ))
+                ) : (
+                  staticInsights.map((b, i) => (
+                    <View key={i} style={s.bulletRow}>
+                      <View style={[s.bullet, { backgroundColor: ORANGE }]} />
+                      <Text style={s.bulletText}>{b.text}</Text>
+                    </View>
+                  ))
+                )}
                 <Text style={s.insightsFooter}>
                   Based on your latest biometrics and medication phase.
                 </Text>

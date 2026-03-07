@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -19,7 +20,11 @@ export default function HealthSyncScreen() {
   const { updateDraft } = useProfile();
 
   const handleConnect = async () => {
-    if (Platform.OS === 'ios') {
+    // NitroModules (HealthKit) crash the app in Expo Go — skip the native call there.
+    // In a production EAS build this code path runs normally.
+    const isExpoGo = Constants.appOwnership === 'expo';
+
+    if (Platform.OS === 'ios' && !isExpoGo) {
       try {
         const HealthKit = require('@kingstinct/react-native-healthkit').default;
         const { HKQuantityTypeIdentifier } = require('@kingstinct/react-native-healthkit');
@@ -32,16 +37,13 @@ export default function HealthSyncScreen() {
           HKQuantityTypeIdentifier.bodyMass,
         ];
 
-        const authorized = await HealthKit.requestAuthorization(typesToRead, []);
-        if (authorized) {
-          updateDraft({ appleHealthEnabled: true });
-        }
+        await HealthKit.requestAuthorization(typesToRead, []);
       } catch {
-        updateDraft({ appleHealthEnabled: true });
+        // Permission denied or unavailable — still mark as enabled and continue
       }
-    } else {
-      updateDraft({ appleHealthEnabled: true });
     }
+
+    updateDraft({ appleHealthEnabled: true });
     router.push('/onboarding/start');
   };
 

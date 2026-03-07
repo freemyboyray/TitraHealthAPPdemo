@@ -1,5 +1,5 @@
-// NOTE: Set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env to enable AI chat.
-// Example: EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-...
+// NOTE: Set EXPO_PUBLIC_OPENAI_API_KEY in your .env to enable AI chat.
+// Example: EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-...
 
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -20,9 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useHealthData } from '@/contexts/health-data';
 import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
-
-// TODO: Uncomment and implement when adding API key support
-// import type { DailyActuals, DailyTargets, WearableData } from '@/constants/scoring';
+import { buildSystemPrompt, callOpenAI } from '@/lib/openai';
 
 const BG = '#000000';
 const ORANGE = '#FF742A';
@@ -111,7 +109,8 @@ export default function AiChatScreen() {
   const isRecovery = type === 'recovery';
   const hasType = type === 'recovery' || type === 'support';
 
-  const { recoveryScore, supportScore, profile } = useHealthData();
+  const healthData = useHealthData();
+  const { recoveryScore, supportScore, profile } = healthData;
   const score = isRecovery ? recoveryScore : supportScore;
 
   const dayNum = daysSinceInjection(profile.lastInjectionDate);
@@ -143,15 +142,16 @@ export default function AiChatScreen() {
     setInputText('');
     setLoading(true);
 
-    // TODO: Wire up API key before enabling. Add EXPO_PUBLIC_ANTHROPIC_API_KEY to .env
-    // and replace this stub with the real fetch call.
-    await new Promise(r => setTimeout(r, 800));
-    setMessages([...newMessages, {
-      role: 'assistant',
-      content: 'AI chat coming soon. Add your API key to enable responses.',
-    }]);
-    setLoading(false);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    try {
+      const systemPrompt = buildSystemPrompt(healthData, hasType ? (isRecovery ? 'recovery' : 'support') : undefined);
+      const response = await callOpenAI(newMessages, systemPrompt);
+      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach AI. Check your connection and try again.' }]);
+    } finally {
+      setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
   }
 
   return (

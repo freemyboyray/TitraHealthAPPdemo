@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
+import { parseFoodDescription, ParsedFood } from '@/lib/openai';
 
 const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
@@ -42,6 +44,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const [foodName, setFoodName] = useState('');
   const [foodCalories, setFoodCalories] = useState('');
   const [foodProtein, setFoodProtein] = useState('');
+  const [foodDescription, setFoodDescription] = useState('');
+  const [aiParsingState, setAiParsingState] = useState<'idle' | 'loading' | 'confirmed' | 'error'>('idle');
+  const [parsedFood, setParsedFood] = useState<ParsedFood | null>(null);
 
   const isMetric = profile?.unitSystem === 'metric';
 
@@ -58,6 +63,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     setFoodName('');
     setFoodCalories('');
     setFoodProtein('');
+    setFoodDescription('');
+    setAiParsingState('idle');
+    setParsedFood(null);
   };
 
   const handleBackFromForm = () => {
@@ -107,7 +115,36 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     closeSheet();
   };
 
+  const handleParseFood = async () => {
+    if (!foodDescription.trim()) return;
+    setAiParsingState('loading');
+    try {
+      const result = await parseFoodDescription(foodDescription, profile);
+      setParsedFood(result);
+      setAiParsingState('confirmed');
+    } catch {
+      setAiParsingState('error');
+    }
+  };
+
   const handleConfirmFood = () => {
+    if (parsedFood && aiParsingState === 'confirmed') {
+      addFoodLog({
+        food_name: parsedFood.name,
+        calories: parsedFood.calories,
+        protein_g: parsedFood.proteinG,
+        carbs_g: parsedFood.carbsG,
+        fat_g: parsedFood.fatG,
+        fiber_g: parsedFood.fiberG,
+        meal_type: 'snack',
+        source: 'manual',
+      });
+      if (parsedFood.proteinG > 0) dispatch({ type: 'LOG_PROTEIN', grams: parsedFood.proteinG });
+      resetForm();
+      closeSheet();
+      return;
+    }
+    // Manual fallback
     const cal = parseInt(foodCalories, 10) || 0;
     const protein = parseFloat(foodProtein) || 0;
     if (!foodName.trim()) return;
@@ -250,34 +287,79 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     food: {
       title: 'Describe Food',
       onConfirm: handleConfirmFood,
-      content: (
-        <>
-          <TextInput
-            style={[f.input, { marginBottom: 10 }]}
-            value={foodName}
-            onChangeText={setFoodName}
-            placeholder="Food name (e.g. Greek Yogurt)"
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            autoFocus
-          />
-          <View style={f.fieldRow}>
-            <TextInput
-              style={f.input}
-              value={foodCalories}
-              onChangeText={setFoodCalories}
-              placeholder="Calories"
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              keyboardType="number-pad"
-            />
-            <TextInput
-              style={[f.input, { marginLeft: 8 }]}
-              value={foodProtein}
-              onChangeText={setFoodProtein}
-              placeholder="Protein g"
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              keyboardType="decimal-pad"
-            />
+      content: aiParsingState === 'confirmed' && parsedFood ? (
+        /* Parsed result card */
+        <View style={f.parsedCard}>
+          <Text style={f.parsedName}>{parsedFood.name}</Text>
+          <Text style={f.parsedServing}>{parsedFood.servingSize}</Text>
+          <View style={f.parsedRow}>
+            <View style={f.parsedStat}><Text style={f.parsedStatVal}>{parsedFood.calories}</Text><Text style={f.parsedStatLabel}>cal</Text></View>
+            <View style={f.parsedStat}><Text style={f.parsedStatVal}>{parsedFood.proteinG}g</Text><Text style={f.parsedStatLabel}>protein</Text></View>
+            <View style={f.parsedStat}><Text style={f.parsedStatVal}>{parsedFood.carbsG}g</Text><Text style={f.parsedStatLabel}>carbs</Text></View>
+            <View style={f.parsedStat}><Text style={f.parsedStatVal}>{parsedFood.fatG}g</Text><Text style={f.parsedStatLabel}>fat</Text></View>
+            <View style={f.parsedStat}><Text style={f.parsedStatVal}>{parsedFood.fiberG}g</Text><Text style={f.parsedStatLabel}>fiber</Text></View>
           </View>
+          <View style={[f.confidenceBadge, { backgroundColor: parsedFood.confidence === 'high' ? 'rgba(43,148,80,0.15)' : 'rgba(243,156,18,0.15)' }]}>
+            <Text style={[f.confidenceText, { color: parsedFood.confidence === 'high' ? '#2B9450' : '#F39C12' }]}>
+              {parsedFood.confidence === 'high' ? 'High confidence' : parsedFood.confidence === 'medium' ? 'Medium confidence' : 'Low confidence — verify before adding'}
+            </Text>
+          </View>
+          <Text style={f.parsedEditHint} onPress={() => setAiParsingState('idle')}>Edit manually instead</Text>
+        </View>
+      ) : aiParsingState === 'loading' ? (
+        /* Loading state */
+        <View style={f.aiLoadingWrap}>
+          <ActivityIndicator size="large" color={ORANGE} />
+          <Text style={f.aiLoadingText}>Analyzing nutrition...</Text>
+        </View>
+      ) : (
+        /* Description input — initial or error state */
+        <>
+          {aiParsingState === 'error' && (
+            <Text style={f.aiErrorText}>Couldn't parse that — try being more specific, or enter manually below.</Text>
+          )}
+          <TextInput
+            style={[f.input, { marginBottom: 12, minHeight: 64 }]}
+            value={foodDescription}
+            onChangeText={setFoodDescription}
+            placeholder="Describe what you ate (e.g. 2 scrambled eggs with avocado toast)"
+            placeholderTextColor="rgba(255,255,255,0.25)"
+            multiline
+            autoFocus={aiParsingState !== 'error'}
+          />
+          <TouchableOpacity style={f.aiParseBtn} onPress={handleParseFood} activeOpacity={0.8}>
+            <Text style={f.aiParseBtnText}>Parse with AI</Text>
+          </TouchableOpacity>
+          {aiParsingState === 'error' && (
+            <>
+              <View style={f.orDivider}><View style={f.orLine} /><Text style={f.orText}>or enter manually</Text><View style={f.orLine} /></View>
+              <TextInput
+                style={[f.input, { marginBottom: 10 }]}
+                value={foodName}
+                onChangeText={setFoodName}
+                placeholder="Food name"
+                placeholderTextColor="rgba(255,255,255,0.25)"
+              />
+              <View style={f.fieldRow}>
+                <TextInput
+                  style={f.input}
+                  value={foodCalories}
+                  onChangeText={setFoodCalories}
+                  placeholder="Calories"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  keyboardType="number-pad"
+                />
+                <TextInput
+                  style={[f.input, { marginLeft: 8 }]}
+                  value={foodProtein}
+                  onChangeText={setFoodProtein}
+                  placeholder="Protein g"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </>
+          )}
         </>
       ),
     },
@@ -439,6 +521,120 @@ const f = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+    fontFamily: 'Helvetica Neue',
+  },
+
+  // AI parse button
+  aiParseBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,116,42,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  aiParseBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF742A',
+    fontFamily: 'Helvetica Neue',
+  },
+
+  // AI loading
+  aiLoadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 14,
+  },
+  aiLoadingText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.45)',
+    fontWeight: '500',
+    fontFamily: 'Helvetica Neue',
+  },
+  aiErrorText: {
+    fontSize: 13,
+    color: '#F39C12',
+    fontWeight: '500',
+    marginBottom: 12,
+    lineHeight: 19,
+    fontFamily: 'Helvetica Neue',
+  },
+
+  // Parsed result card
+  parsedCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    padding: 16,
+    marginBottom: 4,
+  },
+  parsedName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+    fontFamily: 'Helvetica Neue',
+  },
+  parsedServing: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.40)',
+    marginBottom: 14,
+    fontFamily: 'Helvetica Neue',
+  },
+  parsedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  parsedStat: { alignItems: 'center' },
+  parsedStatVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: 'Helvetica Neue',
+  },
+  parsedStatLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.40)',
+    fontWeight: '500',
+    fontFamily: 'Helvetica Neue',
+  },
+  confidenceBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  confidenceText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Helvetica Neue',
+  },
+  parsedEditHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.30)',
+    fontFamily: 'Helvetica Neue',
+    textDecorationLine: 'underline',
+  },
+
+  // Or divider
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+    gap: 10,
+  },
+  orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  orText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.30)',
+    fontWeight: '500',
     fontFamily: 'Helvetica Neue',
   },
 });

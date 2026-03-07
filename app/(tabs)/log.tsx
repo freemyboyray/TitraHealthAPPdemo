@@ -1,10 +1,12 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { useState } from 'react';
-import { LayoutAnimation, LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, LayoutAnimation, LayoutChangeEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { useHealthData } from '@/contexts/health-data';
+import { generateLogInsight } from '@/lib/openai';
 
 const ORANGE = '#FF742A';
 const DARK = '#FFFFFF';
@@ -92,9 +94,9 @@ function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: 
   );
 }
 
-// ─── AI Insights card ─────────────────────────────────────────────────────────
+// ─── Shared AI card renderer ──────────────────────────────────────────────────
 
-function AIInsightsCard() {
+function AIInsightsCardShell({ text, loading }: { text: string | null; loading: boolean }) {
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
@@ -104,15 +106,37 @@ function AIInsightsCard() {
             <MaterialIcons name="auto-awesome" size={16} color={ORANGE} />
             <Text style={s.aiLabel}>AI INSIGHTS</Text>
           </View>
-          <Text style={s.aiBody}>
-            You have a{' '}
-            <Text style={{ fontWeight: '700', color: DARK }}>protein and hydration deficit</Text>
-            {' '}today. Try to increase your intake to reach your daily goal.
-          </Text>
+          {loading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 }}>
+              <ActivityIndicator size="small" color={ORANGE} />
+              <View style={{ flex: 1, gap: 7 }}>
+                <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '88%' }} />
+                <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '65%' }} />
+              </View>
+            </View>
+          ) : (
+            <Text style={s.aiBody}>{text}</Text>
+          )}
         </View>
       </View>
     </View>
   );
+}
+
+// ─── AI Insights card ─────────────────────────────────────────────────────────
+
+function AIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }) {
+  const [text, setText] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    generateLogInsight('lifestyle', health)
+      .then(t => setText(t))
+      .catch(() => setText('You have a protein and hydration deficit today. Try to increase your intake to reach your daily goal.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return <AIInsightsCardShell text={text} loading={loading} />;
 }
 
 // ─── Metric card (Calories / Steps) ──────────────────────────────────────────
@@ -181,25 +205,18 @@ function DailyMetricCard({
 
 // ─── Med AI Insights card ─────────────────────────────────────────────────────
 
-function MedAIInsightsCard() {
-  return (
-    <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
-        <View style={s.aiAccent} />
-        <View style={s.aiContent}>
-          <View style={s.aiHeader}>
-            <MaterialIcons name="auto-awesome" size={16} color={ORANGE} />
-            <Text style={s.aiLabel}>AI INSIGHTS</Text>
-          </View>
-          <Text style={s.aiBody}>
-            Your medication levels are stable. Adherence is at{' '}
-            <Text style={{ fontWeight: '700', color: ORANGE }}>98%</Text>
-            {' '}this month. Your metabolic response is in the optimal range.
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
+function MedAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }) {
+  const [text, setText] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    generateLogInsight('medication', health)
+      .then(t => setText(t))
+      .catch(() => setText('Your medication levels are stable. Adherence is strong this month. Your metabolic response is in the optimal range.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return <AIInsightsCardShell text={text} loading={loading} />;
 }
 
 // ─── Medication Level Chart card ──────────────────────────────────────────────
@@ -408,25 +425,18 @@ const PROGRESS_LOGS: LogEntry[] = [
 
 // ─── Progress AI Insights card ────────────────────────────────────────────────
 
-function ProgAIInsightsCard() {
-  return (
-    <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
-        <View style={s.aiAccent} />
-        <View style={s.aiContent}>
-          <View style={s.aiHeader}>
-            <MaterialIcons name="auto-awesome" size={16} color={ORANGE} />
-            <Text style={s.aiLabel}>AI INSIGHTS</Text>
-          </View>
-          <Text style={s.aiBody}>
-            {"You're on track to reach your goal by "}
-            <Text style={{ fontWeight: '700', color: ORANGE }}>June 2026</Text>
-            {'. Your weight loss rate is steady and healthy.'}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
+function ProgAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }) {
+  const [text, setText] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    generateLogInsight('progress', health)
+      .then(t => setText(t))
+      .catch(() => setText("You're on track to reach your goal. Your weight loss rate is steady and healthy on GLP-1."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return <AIInsightsCardShell text={text} loading={loading} />;
 }
 
 // ─── Weight Journey chart card ────────────────────────────────────────────────
@@ -685,6 +695,7 @@ function ComingSoon({ title }: { title: string }) {
 
 export default function InsightsScreen() {
   const { onScroll } = useTabBarVisibility();
+  const health = useHealthData();
   const [activeTab, setActiveTab] = useState<Tab>('lifestyle');
 
   return (
@@ -711,7 +722,7 @@ export default function InsightsScreen() {
           {/* ── Lifestyle content ── */}
           {activeTab === 'lifestyle' && (
             <>
-              <AIInsightsCard />
+              <AIInsightsCard health={health} />
 
               <View style={s.metricsRow}>
                 <MetricCard value="1,840" label="Calories Burned" ringColor={ORANGE} />
@@ -743,7 +754,7 @@ export default function InsightsScreen() {
 
           {activeTab === 'medication' && (
             <>
-              <MedAIInsightsCard />
+              <MedAIInsightsCard health={health} />
               <MedLevelChartCard />
               <Text style={s.sectionTitle}>Injection Details</Text>
               <View style={s.dailyGrid}>
@@ -773,7 +784,7 @@ export default function InsightsScreen() {
           )}
           {activeTab === 'progress' && (
             <>
-              <ProgAIInsightsCard />
+              <ProgAIInsightsCard health={health} />
               <WeightChartCard />
               <View style={s.dailyGrid}>
                 <ProgressStatCard
