@@ -452,6 +452,112 @@ export type Database = {
           },
         ]
       }
+      user_custom_foods: {
+        Row: {
+          brand: string | null
+          calories_per_100g: number
+          carbs_per_100g: number
+          created_at: string | null
+          fat_per_100g: number
+          fiber_per_100g: number
+          id: string
+          name: string
+          protein_per_100g: number
+          serving_size_g: number | null
+          user_id: string
+        }
+        Insert: {
+          brand?: string | null
+          calories_per_100g?: number
+          carbs_per_100g?: number
+          created_at?: string | null
+          fat_per_100g?: number
+          fiber_per_100g?: number
+          id?: string
+          name: string
+          protein_per_100g?: number
+          serving_size_g?: number | null
+          user_id: string
+        }
+        Update: {
+          brand?: string | null
+          calories_per_100g?: number
+          carbs_per_100g?: number
+          created_at?: string | null
+          fat_per_100g?: number
+          fiber_per_100g?: number
+          id?: string
+          name?: string
+          protein_per_100g?: number
+          serving_size_g?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_custom_foods_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_food_preferences: {
+        Row: {
+          barcode: string | null
+          calories: number | null
+          carbs_g: number | null
+          fat_g: number | null
+          fiber_g: number | null
+          food_name: string
+          id: string
+          is_favorite: boolean | null
+          last_logged_at: string | null
+          log_count: number | null
+          protein_g: number | null
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          barcode?: string | null
+          calories?: number | null
+          carbs_g?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          food_name: string
+          id?: string
+          is_favorite?: boolean | null
+          last_logged_at?: string | null
+          log_count?: number | null
+          protein_g?: number | null
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          barcode?: string | null
+          calories?: number | null
+          carbs_g?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          food_name?: string
+          id?: string
+          is_favorite?: boolean | null
+          last_logged_at?: string | null
+          log_count?: number | null
+          protein_g?: number | null
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_food_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_goals: {
         Row: {
           active_calories_target: number
@@ -488,6 +594,94 @@ export type Database = {
             foreignKeyName: "user_goals_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_saved_meal_items: {
+        Row: {
+          calories: number
+          carbs_g: number | null
+          fat_g: number | null
+          fiber_g: number | null
+          food_name: string
+          id: string
+          protein_g: number | null
+          saved_meal_id: string
+          serving_g: number | null
+        }
+        Insert: {
+          calories?: number
+          carbs_g?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          food_name: string
+          id?: string
+          protein_g?: number | null
+          saved_meal_id: string
+          serving_g?: number | null
+        }
+        Update: {
+          calories?: number
+          carbs_g?: number | null
+          fat_g?: number | null
+          fiber_g?: number | null
+          food_name?: string
+          id?: string
+          protein_g?: number | null
+          saved_meal_id?: string
+          serving_g?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_saved_meal_items_saved_meal_id_fkey"
+            columns: ["saved_meal_id"]
+            isOneToOne: false
+            referencedRelation: "user_saved_meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_saved_meals: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          total_calories: number | null
+          total_carbs_g: number | null
+          total_fat_g: number | null
+          total_protein_g: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          total_calories?: number | null
+          total_carbs_g?: number | null
+          total_fat_g?: number | null
+          total_protein_g?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          total_calories?: number | null
+          total_carbs_g?: number | null
+          total_fat_g?: number | null
+          total_protein_g?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_saved_meals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
