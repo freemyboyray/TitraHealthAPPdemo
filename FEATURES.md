@@ -24,6 +24,8 @@ This document covers every significant feature category beyond the current build
 12. [Behavioral Science & Engagement Mechanics](#12-behavioral-science--engagement-mechanics)
 13. [Provider & Care Team Integration](#13-provider--care-team-integration)
 14. [React Native / Expo Package Ecosystem](#14-react-native--expo-package-ecosystem)
+15. [Oral GLP-1 Support](#15-oral-glp-1-support)
+16. [Drug Interaction & Safety Alerts](#16-drug-interaction--safety-alerts)
 
 ---
 
@@ -845,6 +847,55 @@ The "Insights" card and "Today's Focuses" list are generated from this context o
 
 ---
 
+### 10.5 Phase-Aware AI Persona
+
+Three distinct coaching modes keyed to injection phase — the AI system prompt context (built on `lib/context-snapshot.ts`) changes per phase:
+
+| Phase | Weeks | Coaching Focus |
+|---|---|---|
+| **Titration** | 1–16 | Side effect management, gradual food adjustment, expectation setting, dose normalizing |
+| **Steady State** | 16+ | Habit building, lean mass protection, behavioral anchoring, fitness progression |
+| **Maintenance / Transition** | Post-maintenance dose | Preparing for potential stop, behavioral habit independence, relapse prevention |
+
+The AI tone and suggestions shift automatically — no user configuration required.
+
+---
+
+### 10.6 Weekly Injection Day Briefing
+
+On injection day, Claude generates a 2-sentence personalized briefing incorporating current dose, estimated medication level, and the user's biggest lifestyle gap:
+
+> *"You're starting Week 12 at 1.0 mg. Your estimated medication level is at steady state — this week, protein intake is your biggest opportunity at 68% of your goal."*
+
+Delivered as a push notification + an expanded in-app card on the Home screen.
+
+---
+
+### 10.7 Phenomix / MyPhenome Response Score Integration
+
+Allow user to input their MyPhenome CTS-GRS (Cardiometabolic Type Score — Genetic Response Score) result, commercially available at ~400 clinics (AUC 0.76–0.84 for predicting semaglutide response, per *Cell Metabolism* 2025 / Mayo Clinic study).
+
+- **High responder band:** >15% body weight loss expected — progress charts show optimistic trajectory
+- **Average responder band:** 10–15% — standard trajectory
+- **Lower responder band:** <10% — app messaging emphasizes non-weight benefits (metabolic, cardiovascular) and behavioral habits to maximize response
+
+The score is user-entered (no API); stored in profile; adjusts expected weight loss range displayed in Progress tab.
+
+---
+
+### 10.8 Weight Stall Context Intelligence
+
+When a 2-week plateau is detected, the AI differentiates between stall types before surfacing a response — reducing alarm fatigue:
+
+| Stall Type | Condition | Response |
+|---|---|---|
+| **Escalation-step plateau** | Weight loss stalled at a dose transition | "This is expected — weight often stabilizes at each new dose before resuming" |
+| **Protein deficit stall** | Protein <70% of goal for 5+ days | "Low protein during weight loss increases lean mass loss — add 1–2 high-protein meals" |
+| **Activity decline stall** | Activity score declining for 2 weeks | "Reduced activity during a plateau is a common pattern — a short resistance session can restart progress" |
+| **True stall** | None of the above explain plateau | "Consider discussing dose escalation readiness with your prescriber" |
+
+---
+
 ## 11. Medication Management & Clinical Adherence
 
 ### 11.1 Dose Escalation Schedule Manager
@@ -901,6 +952,71 @@ Beyond simple logging, build a pattern-recognition layer:
 - Side effects by: Injection site (do certain sites cause more reactions?), dose level, time post-injection, food consumed before injection, hydration level
 - Insight: "Your nausea tends to be highest 18–24 hours after injection when you've eaten fewer than 60g of protein. Hitting protein goals may help reduce side effect severity."
 - Exportable side effect report for prescriber visits
+
+---
+
+### 11.5 Missed Dose Intelligence (Drug-Specific)
+
+Generic "missed dose" alerts are inadequate — each drug has distinct pharmacokinetics that dictate the correct recovery action:
+
+| Drug | Window to take missed dose | After window: action |
+|---|---|---|
+| Semaglutide (Ozempic / Wegovy) | Up to 5 days after scheduled date | Skip; resume on original day next week |
+| Tirzepatide (Mounjaro / Zepbound) | Up to 4 days (96h) after scheduled date | Skip; resume on original day next week |
+| Rybelsus (oral daily semaglutide) | Same calendar day only | Skip if past midday; resume tomorrow morning |
+
+**Implementation:**
+- Missed dose notification fires T+4h after the scheduled injection/dose time
+- In-app decision tree: "Did you miss your dose?" → branching instructions based on drug and days elapsed
+- Multi-week gap detector: if user has not logged for ≥4 consecutive weeks → mandatory advisory: *"Talk to your prescriber before resuming — re-titration may be needed at a lower dose"*
+- Log skipped doses as `status: 'skipped'` (not just absence) so adherence % is accurate
+
+---
+
+### 11.6 Day-Shift Assistant (Pharmacologically Correct)
+
+When a user wants to move their injection day (e.g., Sunday → Wednesday for a trip), the app calculates whether the shift is pharmacologically safe:
+
+- **Semaglutide:** Minimum 48 hours since last dose
+- **Tirzepatide:** Minimum 72 hours since last dose (never within 3 days)
+
+**UI:** Calendar picker → app shows "Safe to shift to [new day]" or "Earliest safe shift: [date]". Shift is recorded; future injection day updates accordingly.
+
+---
+
+### 11.7 PK-Based Medication Level Model
+
+Real-time estimated plasma drug level curve using validated pharmacokinetic parameters:
+
+| Parameter | Semaglutide | Tirzepatide |
+|---|---|---|
+| Half-life | ~7 days | ~5 days |
+| Time to steady state | ~4 weeks (4–5 half-lives) | ~4 weeks |
+| Accumulation ratio at steady state | ~2× | ~1.6× |
+| Tmax (peak after injection) | ~24–72h | ~24–48h |
+
+**Chart features:**
+- X-axis: days since therapy start; Y-axis: estimated % of steady-state level
+- "Approaching steady state" milestone badge at week 4
+- Missed dose impact visualization: level drop shown as a dip in the curve
+- Current level highlighted with a "You are here" marker
+
+This is the same concept as Shotsy's estimated levels chart — TitraHealth's version adds the missed dose visualization and steady state milestone framing.
+
+---
+
+### 11.8 Escalation Readiness Check
+
+Before the app suggests the next dose level (at the 4-week minimum threshold), it surfaces a readiness checklist:
+
+- [ ] Have GI side effects resolved or become manageable?
+- [ ] Have you been consistent with injections this month?
+- [ ] Has your prescriber approved the next dose level?
+
+**Logic:**
+- If side effect severity ≥3/10 in the last 7 days → recommend staying at current dose: *"The Wegovy label explicitly supports staying at your current dose if side effects are still bothersome"*
+- Soft-lock: the app does not offer the next dose until minimum 4 weeks; user can override with *"My prescriber changed my schedule"* confirmation
+- Full escalation history timeline available on the Profile screen
 
 ---
 
@@ -995,6 +1111,71 @@ GLP-1 research shows weight plateaus are common and expected. Users who quit dur
 
 ---
 
+### 12.6 Implementation Intentions
+
+At onboarding, prompt the user with structured if/then planning (validated by behavioral science to significantly improve medication adherence):
+
+> *"When will you inject? Where will you be? What will you do right afterward?"*
+
+The responses are saved as a personalized **Plan Card** displayed on the Home screen on injection day:
+
+> *"Your plan: Sunday, 9am, at home after morning coffee → inject right thigh → take a 10-minute walk"*
+
+This technique reduces decision friction on injection day and creates habit-anchoring context.
+
+---
+
+### 12.7 Motivation Mode Selector
+
+At onboarding and surfaced periodically (every 4–6 weeks), present a single-choice prompt:
+
+> *"What matters most to you right now?"*
+
+| Option | AI + Home Screen Adaptation |
+|---|---|
+| Weight loss | Caloric focus, weekly weight trend prominence |
+| Blood sugar control | Glucose logging prompts, carb tracking emphasis |
+| Energy & vitality | Sleep quality focus, activity score emphasis |
+| Joint pain relief | Low-impact activity suggestions, NSV tracking |
+| Sleep apnea | SpO2 trend display, sleep duration focus |
+| Confidence & mood | Mood tracking, NSV milestones, food noise trends |
+
+The AI coaching system prompt and home screen focus cards adapt accordingly. Motivation mode can be changed at any time from Profile settings.
+
+---
+
+### 12.8 Habit Stacking Suggestions
+
+Context-aware pairing suggestions shown during onboarding and after injection logging:
+
+- **Injection users:** *"Pair your Sunday injection with meal prep — fill your syringes while your food is in the oven"*
+- **Oral pill users (Rybelsus):** *"Take your pill before your morning alarm — place it on your nightstand with a small glass of water tonight so it's ready the moment you wake up"*
+- **Escalation step:** *"You just moved to a new dose — anchor it to a new ritual so the habit stays strong"*
+
+Habit stacking significantly improves medication adherence by eliminating the "what do I do next?" friction from the routine.
+
+---
+
+### 12.9 GLP-1 Calendar View & Export
+
+**Monthly calendar view:**
+- Past injections displayed with dose-level color coding (gradient from lightest to darkest dose)
+- Future scheduled injections
+- Escalation milestone markers (e.g., *"Week 4 — Escalation eligible"*)
+- Side effect severity heat-map overlay (day color intensity reflects logged severity)
+
+**iCal / Google Calendar export:**
+- Export injection schedule as a recurring calendar event (ICS format)
+- Export escalation milestone dates as standalone calendar events
+
+**Travel Mode:**
+- User indicates travel dates + destination timezone
+- App recalculates injection day/time relative to new timezone
+- Guidance: *"Your Sunday injection in PST becomes Saturday 10pm PST when traveling to EST — shift it?"*
+- Shows minimum spacing check before confirming shift
+
+---
+
 ## 13. Provider & Care Team Integration
 
 ### 13.1 Progress Report Generation
@@ -1032,6 +1213,30 @@ A separate web dashboard (not mobile) for prescribers or care coordinators to vi
 - Patients with declining Lifestyle Effectiveness Scores (at-risk alerts)
 
 **Technology:** Supabase + Next.js web dashboard; row-level security ensures provider can only see their patients; patient opt-in consent required.
+
+---
+
+### 13.4 Prescriber Notes Field
+
+After each appointment, the user logs prescriber guidance as structured data:
+- Dose change approved (new dose + date)
+- Re-titration plan (if returning from a break)
+- Special instructions or follow-up date
+- Free-text notes field
+
+All notes are searchable and displayed in chronological order in a dedicated "Appointments" section of the Profile screen.
+
+---
+
+### 13.5 Dose Change Log
+
+Every dose change is tracked with:
+- Date of change
+- Old dose → new dose
+- Reason: prescriber-directed / escalation schedule / re-titration / side effects / other
+- Associated prescriber note (linked from 13.4)
+
+Full dose history is displayed as a timeline on the Profile screen — enabling the user and provider to see the complete medication journey at a glance.
 
 ---
 
@@ -1148,6 +1353,160 @@ Complete package recommendations for all features in this document, organized by
 | `react-query devtools` | Inspect API cache state | Web-only during development |
 | `zustand devtools` | Inspect global state | |
 | `detox` | End-to-end testing for health data flows | |
+
+---
+
+## 15. Oral GLP-1 Support
+
+**Market context:** Rybelsus (oral semaglutide) is already FDA-approved and in active use. Orforglipron (Eli Lilly, once-daily oral GLP-1) is under FDA NDA review with a decision expected ~April 2026. Danuglipron (Pfizer) is in Phase 3. Daily-oral is a fundamentally different adherence problem than weekly injectables — and no existing app handles both modalities with clinical-grade intelligence.
+
+---
+
+### 15.1 Daily Oral Medication Mode
+
+**Supported medications:**
+| Drug | Doses | Fasting Required? |
+|---|---|---|
+| Rybelsus (oral semaglutide) | 3 mg / 7 mg / 14 mg | Yes — strict 30-minute fast after dose |
+| Orforglipron | 6–45 mg (escalation schedule) | No |
+| Danuglipron | TBD (Phase 3) | TBD |
+
+**UI paradigm:** Daily streak calendar replaces the weekly countdown ring used for injectable users. The home screen shows a 30-day pill adherence grid (green = taken, gray = missed, red = missed 2+ consecutive days).
+
+**Dual oral + injectable support:** Some users take oral semaglutide for T2D while also self-injecting for obesity. The app allows concurrent logging of both modalities with separate tracking widgets.
+
+**Onboarding:** New medication type picker — "Weekly Injection" vs. "Daily Pill" — shown at the medication step. Selecting "Daily Pill" routes to the oral-specific setup flow.
+
+---
+
+### 15.2 Rybelsus Critical-Timing Protocol
+
+Rybelsus has strict absorption requirements that determine whether *any* drug reaches the system (~1% oral bioavailability; the timing rules are pharmacologically non-negotiable, not arbitrary):
+
+**Morning protocol sequence:**
+1. **Smart wake alarm:** Fires within 5 minutes of the user's historical wake-up time (inferred from first phone unlock or HealthKit sleep-end time)
+2. **Dose reminder card:** Shows a visual diagram of exactly 120 mL water (not "4 oz" — a visual cup calibration) with the instruction to take the pill immediately
+3. **30-minute fasting countdown timer:** Starts the moment user taps "Dose taken" — displayed as:
+   - In-app countdown widget on the home screen
+   - iOS Live Activity on the lock screen (via `expo-activity-kit` or native Activity API)
+4. **Food log block:** During the 30-minute window, any attempt to log food shows an explanation banner: *"Rybelsus needs 30 minutes to absorb — food logging is paused until [time]"*
+5. **T+30 notification:** *"Your fasting window is complete — you can now eat and take other medications"*
+
+**Evening prep notification (night before):** *"Set up for Rybelsus success — place your pill and a small glass (120 mL) of water on your nightstand tonight"*
+
+---
+
+### 15.3 Orforglipron Mode
+
+Orforglipron has no meaningful food effect (~20% AUC reduction with food, not clinically significant per FDA review):
+
+- **Simple once-daily reminder** at user-chosen time (no fasting restrictions)
+- **Education card on setup:** *"Unlike Rybelsus, orforglipron can be taken with or without food — timing is flexible"*
+- **Auto-switch logic:** If a user changes medication from Rybelsus to orforglipron in Profile settings, the app automatically removes all fasting UI elements, countdowns, and food log blocks
+
+---
+
+### 15.4 Oral Adherence Score
+
+A 30-day adherence percentage displayed prominently on the Home screen and in the Progress tab:
+
+- **≥80%:** Green indicator — "Great consistency"
+- **60–79%:** Yellow — "Irregular timing reduces drug exposure — try the nightstand prep reminder"
+- **<60%:** Red — *"Oral GLP-1s work best with consistent daily dosing. Irregular timing or food co-ingestion can dramatically reduce the amount of drug that reaches your system."*
+
+The adherence score is also included in the provider progress report (§13.1).
+
+---
+
+### 15.5 Oral Bioavailability Education
+
+An in-app explainer card (surfaced once during onboarding, accessible anytime from the Education tab):
+
+**Key facts to communicate:**
+- Rybelsus oral bioavailability: ~1% vs. ~89% for subcutaneous injection
+- This is why Rybelsus 14 mg daily (~1 mg SC equivalent) requires strict dosing conditions
+- The 30-minute fasting rule is not arbitrary: food, coffee, and other beverages (except plain water) can reduce drug absorption by up to 75%
+- SALCAPROZATE SODIUM (SNAC) in Rybelsus tablets creates a temporary pH window in the stomach for absorption — anything that disrupts gastric pH disrupts absorption
+
+Framing: educational, not alarming — *"These rules exist because scientists engineered a clever workaround for oral peptide absorption. Following them means the drug actually reaches your bloodstream."*
+
+---
+
+### 15.6 Nightstand Preparation Card
+
+**Evening-before push notification** (fires at 9pm or user-configured bedtime minus 1 hour):
+
+> *"Tomorrow morning: Set up for Rybelsus success — place your pill blister pack and a small glass of plain water (about ½ cup) on your nightstand tonight. When you wake up, take it immediately before anything else."*
+
+This habit-stacking intervention (§12.8) is evidence-based: removing the friction of finding the pill in the morning is one of the highest-impact adherence interventions for oral medications.
+
+---
+
+## 16. Drug Interaction & Safety Alerts
+
+**Design principle:** Drug interactions are surfaced as educational alerts, not medical advice. All alerts include: *"Discuss with your prescriber at your next appointment"* and never instruct the user to change their medication independently.
+
+---
+
+### 16.1 Tirzepatide + Oral Contraceptive Alert (Highest Clinical Priority)
+
+**Clinical basis:** Published pharmacokinetic studies and the Mounjaro/Zepbound FDA prescribing label include an explicit warning that tirzepatide co-administration significantly reduces oral contraceptive exposure (ethinyl estradiol AUC reduced ~40%; norgestimate active metabolite AUC reduced ~29–51%). The clinical recommendation is to switch to non-oral contraception during initiation and for 4 weeks after each dose escalation step.
+
+**Implementation:**
+- **Onboarding question:** "Do you take birth control pills?" (Yes / No / Prefer not to say)
+- If Yes + tirzepatide: **RED alert card** — *"Tirzepatide may reduce the effectiveness of birth control pills during initiation and each dose increase. The FDA label recommends using non-oral contraception (patch, IUD, condom) during these periods. Please discuss with your prescriber."*
+- Alert resurfaces at every dose escalation step (§11.8 escalation check)
+- Alert is dismissible but remains accessible in the Safety section of the Education tab
+
+---
+
+### 16.2 Levothyroxine + Rybelsus Alert
+
+**Clinical basis:** Rybelsus co-administration increases levothyroxine exposure by approximately 33% (T4 AUC). This can cause over-replacement symptoms (palpitations, anxiety, weight loss) and warrants TSH monitoring.
+
+**Implementation:**
+- Onboarding medication list includes "Thyroid medication (levothyroxine/Synthroid)" as a checkbox
+- If checked + Rybelsus: yellow advisory card: *"Rybelsus may increase the amount of thyroid medication absorbed. Let your prescriber know so they can monitor your TSH levels."*
+
+---
+
+### 16.3 Insulin / Sulfonylurea Hypoglycemia Watch
+
+**Clinical basis:** GLP-1 RAs increase the hypoglycemia risk of concurrent insulin or sulfonylurea (glipizide, glimepiride, glyburide) therapy, particularly during dose escalation.
+
+**Implementation:**
+- Onboarding prompt: "Do you take insulin or a diabetes pill like glipizide or glimepiride?"
+- If Yes: recurring **Hypoglycemia Watch Mode** banner on the Home screen during escalation phases
+- Blood glucose logging prompt: *"Log your glucose readings during escalation — hypoglycemia risk is highest in the first 4 weeks at each new dose"*
+- Alert linked to a blood glucose logging shortcut (§2 CGM integration or manual entry)
+
+---
+
+### 16.4 Narrow-Therapeutic-Index Drug Monitor
+
+**Clinical basis:** GLP-1 RAs slow gastric emptying, which can alter the absorption rate (though not usually total bioavailability) of narrow-therapeutic-index (NTI) drugs. Some PBPK modeling (*Pharmacotherapy* 2025) suggests monitoring is prudent for drugs where small exposure changes are clinically meaningful.
+
+**Drugs to flag (user-entered, optional medication list):**
+- Warfarin (Coumadin) — INR monitoring recommendation
+- Cyclosporine / Tacrolimus — trough level monitoring
+- Digoxin — level monitoring
+- Levothyroxine (also covered in 16.2)
+
+**Implementation:**
+- Optional concurrent medication list in Profile
+- If NTI drug entered: soft advisory: *"GLP-1 medications can affect how quickly some medications are absorbed. Ask your prescriber if you need more frequent monitoring for [drug name]."*
+
+---
+
+### 16.5 Alcohol Interaction Card
+
+**Clinical basis:** GLP-1 RAs compound alcohol-induced nausea (additive effect on gastric motility and the vomiting center). Additionally, reduced gastric emptying delays alcohol absorption — users may feel less intoxicated initially, then experience a delayed peak effect.
+
+**Trigger:** Fired contextually after any alcohol entry in the food log.
+
+**Card content:**
+- *"Heads up: Alcohol and GLP-1 medications can both cause nausea, and the effects compound. Alcohol may also hit you harder or later than expected — drink slowly and eat before or with alcohol."*
+- Dismissible; frequency-capped to once per week to avoid alarm fatigue
 
 ---
 

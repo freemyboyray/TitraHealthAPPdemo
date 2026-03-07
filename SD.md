@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 7, 2026 (rev 3)
+**Last Updated:** March 7, 2026 (rev 4)
 
 ---
 
@@ -15,11 +15,15 @@
 5. [Design System](#5-design-system)
 6. [Screens](#6-screens)
    - [Splash Gate](#60-splash-gate)
+   - [Auth Flow](#601-auth-flow)
    - [Onboarding](#61-onboarding-flow-14-screens)
    - [Home](#62-home-screen)
+   - [Score Detail](#621-score-detail-screen)
    - [Insights](#63-insights-screen)
    - [Education](#64-education-screen)
-   - [Add Entry Sheet](#65-add-entry-sheet)
+   - [AI Chat](#65-ai-chat-screen)
+   - [Add Entry Sheet](#66-add-entry-sheet)
+   - [Entry Screens](#67-entry-screens)
 7. [Data Models](#7-data-models)
 8. [State Management](#8-state-management)
 9. [Component Inventory](#9-component-inventory)
@@ -66,11 +70,21 @@ Most GLP-1 apps focus on one dimension (food log *or* injection tracker *or* wei
 | Safe Area | react-native-safe-area-context | `~5.6.0` |
 | Platform Icons (iOS) | expo-symbols | `~1.0.8` |
 | Image Handling | expo-image | `~3.0.11` |
+| Camera + Image Picker | expo-camera + expo-image-picker | `~17.0.x` |
+| Web Browser | expo-web-browser | `~15.0.10` |
+| App Constants | expo-constants | `~18.0.13` |
 | Web Support | react-native-web | `~0.21.0` |
-| Local Persistence | @react-native-async-storage/async-storage | `^2.1.2` |
-| AI / LLM | OpenAI API (GPT-4o-mini) | REST via `lib/openai.ts` |
+| SVG | react-native-svg | `15.12.1` |
+| State Management | zustand | `^5.0.11` |
+| Backend / Auth | @supabase/supabase-js | `^2.98.0` |
+| Health Data (iOS) | @kingstinct/react-native-healthkit | `^13.2.3` |
+| Local Persistence | @react-native-async-storage/async-storage | `2.2.0` |
+| AI / LLM (primary) | OpenAI API (GPT-4o-mini) | REST via `lib/openai.ts` |
+| AI / LLM (secondary) | Anthropic API (Claude Haiku) | REST via `lib/anthropic.ts` |
+| Food Database | USDA FoodData Central | REST via `lib/usda.ts` |
 | Language | TypeScript | `~5.9.2` |
 | Linting | ESLint + eslint-config-expo | `^9.25.0` |
+| Metro Config | Custom `metro.config.js` | — |
 
 ### Icon Packs in Use
 
@@ -78,6 +92,17 @@ Most GLP-1 apps focus on one dimension (food log *or* injection tracker *or* wei
 - `MaterialIcons` — food, activity, AI, chart/fitness
 - `FontAwesome5` — syringe
 - `MaterialCommunityIcons` — scale/weight
+
+### Environment Variables
+
+All secret keys live in `.env` (gitignored). Each developer adds their own:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+EXPO_PUBLIC_OPENAI_API_KEY=
+EXPO_PUBLIC_ANTHROPIC_API_KEY=
+```
 
 ---
 
@@ -87,10 +112,26 @@ Most GLP-1 apps focus on one dimension (food log *or* injection tracker *or* wei
 TitraHealthAPPdemo/
 ├── app/
 │   ├── _layout.tsx              # Root Stack + GestureHandlerRootView + ProfileProvider
-│   ├── index.tsx                # Splash gate — redirects to /onboarding or /(tabs)
+│   │                            # + AppWithHealth (HealthProvider at root) + Supabase auth
+│   ├── index.tsx                # Splash gate — auth+session check → auth/onboarding/(tabs)
 │   ├── modal.tsx                # Generic modal screen
-│   ├── ai-chat.tsx              # AI Chat modal screen
-│   ├── score-detail.tsx         # Score drill-down screen (Recovery / GLP-1 Amplifier)
+│   ├── ai-chat.tsx              # AI Chat modal (GPT-4o-mini, full health context)
+│   ├── score-detail.tsx         # Score drill-down modal (Recovery / GLP-1 Amplifier)
+│   ├── auth/
+│   │   ├── _layout.tsx          # Stack navigator for auth screens
+│   │   ├── sign-in.tsx          # Email/password sign-in + OAuth
+│   │   └── sign-up.tsx          # Email/password registration
+│   ├── entry/
+│   │   ├── _layout.tsx          # Stack navigator for entry flows
+│   │   ├── log-injection.tsx    # Log a GLP-1 injection (dose, site, notes)
+│   │   ├── describe-food.tsx    # AI natural language food description entry
+│   │   ├── capture-food.tsx     # Photo food recognition (GPT-4o-mini vision)
+│   │   ├── scan-food.tsx        # Barcode scanner (expo-camera)
+│   │   ├── search-food.tsx      # USDA FoodData Central text search
+│   │   ├── ask-ai.tsx           # Standalone AI query entry screen
+│   │   ├── log-activity.tsx     # Log activity / steps
+│   │   ├── log-weight.tsx       # Log weight entry
+│   │   └── side-effects.tsx     # Log side effects entry
 │   ├── onboarding/
 │   │   ├── _layout.tsx          # Stack navigator (slide_from_right, no header)
 │   │   ├── index.tsx            # Step 1: GLP-1 journey stage
@@ -100,7 +141,7 @@ TitraHealthAPPdemo/
 │   │   ├── sex.tsx              # Step 5: Biological sex
 │   │   ├── birthday.tsx         # Step 6: Birthday (wheel picker)
 │   │   ├── body.tsx             # Step 7: Height + Weight (wheels, unit toggle)
-│   │   ├── health-sync.tsx      # Step 8: Apple Health (optional)
+│   │   ├── health-sync.tsx      # Step 8: Apple Health (optional, Expo Go guarded)
 │   │   ├── start.tsx            # Step 9: Starting weight + start date
 │   │   ├── goal-weight.tsx      # Step 10: Goal weight (horizontal ruler picker)
 │   │   ├── goal-speed.tsx       # Step 11: Weekly loss target (snap selector)
@@ -122,24 +163,40 @@ TitraHealthAPPdemo/
 │   │   ├── continue-button.tsx    # Full-width dark CTA pinned to bottom
 │   │   └── wheel-picker.tsx       # Snap-scroll FlatList wheel picker
 │   └── ui/
-│       ├── collapsible.tsx      # Expand/collapse section
-│       ├── icon-symbol.tsx      # Cross-platform icon bridge
-│       └── icon-symbol.ios.tsx  # iOS SF Symbols version
+│       ├── collapsible.tsx        # Expand/collapse section
+│       ├── glass-border.tsx       # Shared dark-glass border primitive (4-sided rgba values)
+│       ├── icon-symbol.tsx        # Cross-platform icon bridge
+│       └── icon-symbol.ios.tsx    # iOS SF Symbols version
 ├── contexts/
-│   ├── profile-context.tsx      # ProfileProvider — AsyncStorage load/save, draft, completeOnboarding
+│   ├── profile-context.tsx      # ProfileProvider — in-memory load/save, draft, completeOnboarding
 │   ├── health-data.tsx          # HealthProvider(profile) — useReducer scores + dispatch
 │   └── tab-bar-visibility.tsx   # Scroll-aware tab bar hide/show (Animated.spring)
 ├── constants/
 │   ├── user-profile.ts          # FullUserProfile type, ProfileDraft, BRAND_TO_GLP1_TYPE, helpers
 │   ├── mock-profile.ts          # MOCK_PROFILE (FullUserProfile shape, fallback when no onboarding)
-│   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights, breakdown data, coach notes
+│   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights,
+│   │                            # breakdown data, coach notes, phase logic, focus cards
 │   └── theme.ts                 # Color tokens + Font definitions
 ├── lib/
-│   └── openai.ts                # GPT-4o-mini client: buildSystemPrompt, callOpenAI, parseFoodDescription, generateDynamicInsights, generateCoachNote, generateLogInsight
+│   ├── supabase.ts              # Supabase client (MemoryStorageAdapter — no native AsyncStorage dep)
+│   ├── openai.ts                # GPT-4o-mini: buildSystemPrompt, callOpenAI, parseFoodDescription,
+│   │                            # generateDynamicInsights, generateCoachNote, generateLogInsight,
+│   │                            # callGPT4oMiniVision (vision/photo flow)
+│   ├── anthropic.ts             # Claude Haiku client: callHaiku(system, userContent[])
+│   ├── usda.ts                  # USDA FoodData Central REST client: searchFoods, getFoodDetails
+│   ├── context-snapshot.ts      # buildContextSnapshot() — natural language health summary for AI
+│   └── database.types.ts        # Auto-generated Supabase TypeScript types
+├── stores/                      # Zustand stores (all implemented)
+│   ├── log-store.ts             # All log types + Supabase CRUD + fetchInsightsData
+│   ├── insights-store.ts        # Score computation from real Supabase data
+│   ├── user-store.ts            # Auth state, session, profile row, signOut
+│   └── ui-store.ts              # Sheet open state, active tab, loading states
 ├── hooks/
 │   ├── use-color-scheme.ts
 │   ├── use-color-scheme.web.ts
 │   └── use-theme-color.ts
+├── metro.config.js              # Expo default + react-native-svg CommonJS redirect
+│                                # + .claude worktree blockList
 └── assets/
     └── images/
 ```
@@ -147,28 +204,45 @@ TitraHealthAPPdemo/
 ### Key Architectural Decisions
 
 - **File-based routing via Expo Router** — screens map directly to files under `app/`.
-- **ProfileProvider at root** — wraps everything in `_layout.tsx`. Loads `FullUserProfile` from AsyncStorage on mount. `profile === null` means onboarding not complete.
-- **Splash gate** — `app/index.tsx` checks `isLoading` + `profile` and redirects to `/onboarding` or `/(tabs)`. Fresh install always hits onboarding; returning users go straight to tabs.
-- **HealthProvider accepts profile prop** — `(tabs)/_layout.tsx` reads `useProfile()` and passes `profile ?? MOCK_PROFILE` to `HealthProvider`. All scoring is personalized from day one.
-- **GestureHandlerRootView at root** — wraps entire app in `_layout.tsx` so gesture-based components (sliders, drag handles) work everywhere.
+- **Supabase auth at root** — `_layout.tsx` wires `onAuthStateChange` and `getSession` into `useUserStore`. Anonymous sign-in is used as a fallback so every user always has a Supabase session.
+- **Auth gate in splash** — `app/index.tsx` checks `sessionLoaded` → if no session, redirects to `/auth/sign-in`; then checks `isLoading` + `profile` to route to `/onboarding` or `/(tabs)`.
+- **ProfileProvider at root with in-memory storage** — wraps everything in `_layout.tsx`. Profile is stored in a JS `Map` (not AsyncStorage) to avoid native module issues in dev client. Resets on cold restart; persistent storage should be added in production via a proper native rebuild.
+- **AppWithHealth at root** — `_layout.tsx` renders `<AppWithHealth>` (reads `useProfile()`, passes `profile ?? MOCK_PROFILE` to `HealthProvider`) around the full navigator tree. This replaces the previous pattern of `HealthProvider` living inside `(tabs)/_layout.tsx`.
+- **GestureHandlerRootView at root** — wraps entire app in `_layout.tsx` so gesture-based components work everywhere.
 - **AddEntrySheet rendered at tab layout level** — sibling of `<Tabs>`, overlays entire UI including nav bar.
 - **Scroll-aware tab bar** — `TabBarVisibilityProvider` exposes `onScroll` handler, `Animated.spring` slide.
-- **AsyncStorage key:** `@titrahealth_profile`
+- **Zustand stores over Context for logs** — `log-store.ts`, `insights-store.ts`, and `user-store.ts` use Zustand with Supabase as the backend. These replace the "planned" state from rev 3.
+- **Metro config** — `metro.config.js` redirects `react-native-svg` imports to its pre-compiled `lib/commonjs/` output (avoids TypeScript source resolution failures with Metro), and blocks `.claude/` worktree directories from being scanned.
 
 ---
 
 ## 4. Navigation Structure
 
 ```
-Root Stack (GestureHandlerRootView > ProfileProvider > ThemeProvider)
-├── index                         ← Splash gate (instant redirect)
+Root Stack (GestureHandlerRootView > ProfileProvider > AppWithHealth > ThemeProvider)
+├── index                         ← Splash gate (session check → auth or onboarding or tabs)
+├── auth/                         ← Auth Stack (sign-in, sign-up)
+│   ├── sign-in
+│   └── sign-up
 ├── onboarding/                   ← 14-screen Stack (slide_from_right)
 │   ├── index    (Step 1)
 │   ├── medication … side-effects (Steps 2–14)
+├── entry/                        ← Entry flow Stack (modal-style screens)
+│   ├── log-injection
+│   ├── describe-food
+│   ├── capture-food
+│   ├── scan-food
+│   ├── search-food
+│   ├── ask-ai
+│   ├── log-activity
+│   ├── log-weight
+│   └── side-effects
+├── score-detail                  ← Modal (Recovery / GLP-1 Amplifier drill-down)
+├── ai-chat                       ← Modal (GPT-4o-mini chat)
 └── (tabs)                        ← No header
     ├── index       [Home]
-    ├── log         [Insights]    ← Rename to insights.tsx pending
-    └── explore     [Education]   ← Rename to education.tsx pending
+    ├── log         [Insights]
+    └── explore     [Education]
 
 Overlays (rendered outside tab navigator):
 └── AddEntrySheet                 ← Modal, slide animation, transparent
@@ -178,8 +252,8 @@ Overlays (rendered outside tab navigator):
 
 The default React Navigation tab bar is replaced with `CustomTabBar`:
 
-1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 75, dark tint) with three tab icon buttons. Active tab renders a 46×46 orange circle (`#E8831A`) behind a white icon. Inactive icons use `#5A5754`.
-2. **FAB** — floating circular button, orange glass overlay (`rgba(232,131,26,0.70–0.92)`). Toggles `add` ↔ `close`. Opens/closes `AddEntrySheet`.
+1. **Glass Pill** — frosted glass capsule (`BlurView` intensity 85, dark tint) with three tab icon buttons. Active tab renders a 46×46 orange circle (`#FF742A`) behind a white icon. Inactive icons use `#5A5754`.
+2. **FAB** — solid orange (`#FF742A`) circular button. Toggles `add` ↔ `close`. Opens/closes `AddEntrySheet`.
 
 ### Scroll-Aware Behavior
 
@@ -223,8 +297,6 @@ Shadow: `shadowColor '#000000', offset {0,8}, opacity 0.08–0.12, radius 24, el
 
 ### Onboarding — Dark, consistent with main app
 
-Shares the same dark palette (no longer a separate "clean/clinical" aesthetic):
-
 | Token | Value |
 |---|---|
 | Background | `#141210` |
@@ -246,9 +318,25 @@ Shares the same dark palette (no longer a separate "clean/clinical" aesthetic):
 **File:** `app/index.tsx`
 **Status:** ✅ Built
 
-Checks `ProfileContext.isLoading` + `profile`. Shows brand wordmark while AsyncStorage loads (~instant), then redirects:
-- `profile === null` → `/onboarding`
-- `profile !== null` → `/(tabs)`
+Three-stage redirect gate on mount:
+
+1. Wait for `sessionLoaded` (Supabase auth resolved). If no session → `/auth/sign-in`.
+2. Wait for `isLoading` (profile context resolved).
+3. `profile === null` → `/onboarding`; `profile !== null` → `/(tabs)`.
+
+Shows brand wordmark (`titra`, dark background) with an orange `ActivityIndicator` while resolving.
+
+---
+
+### 6.0.1 Auth Flow
+
+**Files:** `app/auth/_layout.tsx`, `app/auth/sign-in.tsx`, `app/auth/sign-up.tsx`
+**Status:** ✅ Built
+
+- **sign-in.tsx** — email/password login via `supabase.auth.signInWithPassword`. OAuth placeholder. Navigates to `/(tabs)` on success.
+- **sign-up.tsx** — email/password registration via `supabase.auth.signUp`. Navigates to `/onboarding` on success.
+- Auth state is managed in `useUserStore` (session, profile row, signOut).
+- The root `_layout.tsx` calls `supabase.auth.onAuthStateChange` to keep `useUserStore` in sync across the session lifecycle.
 
 ---
 
@@ -257,9 +345,7 @@ Checks `ProfileContext.isLoading` + `profile`. Shows brand wordmark while AsyncS
 **Files:** `app/onboarding/index.tsx` … `side-effects.tsx`
 **Status:** ✅ Built
 
-All 14 screens use `ProfileContext.updateDraft()` to accumulate data. The final screen (`side-effects.tsx`) calls `completeOnboarding()` which computes derived metrics, saves the full `FullUserProfile` to AsyncStorage, sets `profile` in context, then navigates to `/(tabs)`.
-
-Each screen shares the same shell: white background, `SafeAreaView`, `<OnboardingHeader>` (step N / 14 + animated progress bar), title, subtitle, content, `<ContinueButton>` pinned to bottom.
+All 14 screens use `ProfileContext.updateDraft()` to accumulate data. The final screen (`side-effects.tsx`) calls `completeOnboarding()` which computes derived metrics, saves the full `FullUserProfile` (in-memory), sets `profile` in context, then navigates to `/(tabs)`.
 
 | Step | File | Input Collected |
 |---|---|---|
@@ -302,10 +388,10 @@ Vertically scrollable daily dashboard. Four sections:
 
 1. **Header** — date + day label (Shot Day / Recovery Day / etc.) + `?` help icon (top-right)
 2. **Score Card** — inline `DualRingArc` component: two concentric animated SVG arcs (Reanimated `withTiming`, 1200ms cubic ease-out) rendered as **quarter-circle (90°) arcs**. Outer ring = Recovery (0–100), inner ring = GLP-1 Amplifier (0–100). Tapping either ring navigates to `score-detail?type=recovery` or `score-detail?type=support`.
-3. **Insights Card** — 1–3 contextual insight bullets. On mount, calls `generateDynamicInsights()` (GPT-4o-mini, cached per day) and shows skeleton loading rows while waiting. Falls back silently to the static `generateInsights()` from `scoring.ts` on error or timeout.
-4. **Focus Cards** — data-driven from `HealthContext.focuses` (`FocusItem[]`). Each card shows an icon, label, **subtitle** (e.g. "120g of 185g protein today"), and a badge (e.g. "+12 pts"). Generated by `generateFocuses()` in `scoring.ts` using phase-weighted deficit scoring across 8 categories.
+3. **Insights Card** — 1–3 contextual insight bullets. On mount, calls `generateDynamicInsights()` (GPT-4o-mini, cached per day) with a 5-second delayed trigger and shows skeleton loading rows while waiting. Falls back silently to the static `generateInsights()` from `scoring.ts` on error.
+4. **Focus Cards** — data-driven from `HealthContext.focuses` (`FocusItem[]`). Each card shows an icon, label, subtitle, and a badge. Generated by `generateFocuses()` in `scoring.ts` using phase-weighted deficit scoring.
 
-**Rings Explainer Modal** — tapping the `?` button opens a `RingsExplainerModal` (native `Modal`, slide-up sheet) that explains both rings, all 9 scored metrics, and the 4-phase shot cycle guide.
+**Rings Explainer Modal** — tapping `?` opens a slide-up sheet explaining both rings, all 9 scored metrics, and the 4-phase shot cycle guide.
 
 ---
 
@@ -318,41 +404,21 @@ Dedicated full-screen drill-down for each score type, pushed from home via `rout
 
 **Structure:**
 - **Nav bar** — back chevron + title (Recovery / GLP-1 Amplifier) + today's date
-- **Hero ring** — large `ScoreRing` (180px, strokeWidth 14) with gradient colors and phase label (Shot Day, Recovery Day N, Shot Overdue, etc.)
-- **Score Breakdown** — per-metric `MetricCard` list:
-  - Recovery type: Sleep (h m), HRV (ms), Resting HR (bpm), SpO₂ (%)
-  - GLP-1 Amplifier type: Protein (g), Hydration (oz), Movement (steps), Fiber (g), Medication (logged ✓ / not logged)
-  - Each card shows pts earned / pts max, a labeled progress bar, and a coaching note
-- **Coach Note** — on mount calls `generateCoachNote(type, health)` (GPT-4o-mini, cached per day per type). Shows skeleton loading state while fetching; falls back to static `RECOVERY_COACH_NOTE` / `GLP1_COACH_NOTE` from `scoring.ts` on error.
-
-**New exports added to `constants/scoring.ts`:**
-- `recoveryBreakdown(wearable, phase?)` → `{ actual, max }[]` for 4–5 wearable rows (phase-adjusted HRV/RHR)
-- `supportBreakdown(actuals, targets)` → `{ actual, max }[]` for 5 lifestyle rows
-- `getRecoveryRowNotes(phase)` / `getGLP1RowNotes(phase)` — **phase-aware** per-row coaching functions (replace static `RECOVERY_ROW_NOTES` / `GLP1_ROW_NOTES` arrays)
-- `RECOVERY_COACH_NOTE` / `GLP1_COACH_NOTE` — full-paragraph coaching text
-- `daysSinceInjection` now accepts optional `refDate?: Date` for testability
-- `ShotPhase` type — `'shot' | 'peak' | 'balance' | 'reset'`
-- `getShotPhase(daysSinceShot)` — returns `ShotPhase`
-- `glp1HrvOffset(phase)` / `glp1RhrOffset(phase)` — medication-phase biometric offsets applied during scoring
-- `scoreRespRate(rpm)` — respiratory rate scoring (0–1); contributes 10 pts when `respRateRpm` is present
-- `FocusItem` type — `{ id, label, subtitle, badge, iconName, iconSet }`
-- `generateFocuses(actuals, targets, wearable, daysSinceShot)` → `FocusItem[]` — top-3 phase-weighted deficit focus cards
-
-**Score Detail additions:**
-- `PhaseInterpretationBanner` — orange contextual banner below the hero ring; text adapts to phase and score type
-- MetricCard **tier badges**: Optimal (green) / Fair (amber) / Low (red) based on percent achieved
-- Progress bar color now tier-based (green/amber/red) instead of fixed score ring color
+- **Hero ring** — large `ScoreRing` (180px, strokeWidth 14) with gradient colors and phase label
+- **Score Breakdown** — per-metric `MetricCard` list with pts earned / pts max, a progress bar (color tier-based: green ≥80%, amber ≥50%, red <50%), and a coaching note
+- **Phase Interpretation Banner** — orange contextual banner below hero ring; text adapts to phase + score type
+- **Coach Note** — on mount calls `generateCoachNote(type, health)` (GPT-4o-mini, cached per day per type). Shows skeleton loading state; falls back to static constants from `scoring.ts` on error.
 
 ---
 
 ### 6.3 Insights Screen
 
 **File:** `app/(tabs)/log.tsx` *(rename to `insights.tsx` pending)*
-**Status:** ✅ Built — all 3 tabs fully rendered; AI Insight cards are now dynamic
+**Status:** ✅ Built — all 3 tabs rendered; AI Insight cards are dynamic
 
 Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has cards + collapsible Recent Logs.
 
-**AI Insight Cards (dynamic):** Each tab's "AI INSIGHTS" card calls `generateLogInsight(tab, health)` on mount (GPT-4o-mini, cached per day per tab). Shows `ActivityIndicator` + skeleton bars while loading; falls back to a hardcoded static string on error. Health context (profile, scores, actuals, targets, shot phase) is injected into the system prompt so each insight is personalized.
+**AI Insight Cards (dynamic):** Each tab's "AI INSIGHTS" card calls `generateLogInsight(tab, health)` on mount (GPT-4o-mini, cached per day per tab). Shows `ActivityIndicator` + skeleton bars while loading; falls back to a hardcoded static string on error.
 
 ---
 
@@ -372,12 +438,9 @@ Modal screen. Accepts optional `?type=recovery|support` route param (navigated f
 
 **Features:**
 - **Context strip** — orange badge at top showing score + phase when launched from a score detail screen
-- **Type-aware prompt chips** — `RECOVERY_CHIPS`, `READINESS_CHIPS`, or `GENERIC_CHIPS` based on `type` param. Two chips shown at a time; refresh cycles through the pool.
-- **Chat interface** — full message history with user (orange) / assistant (dark) bubbles, `ActivityIndicator` loading state, auto-scroll to bottom
-- **Send button** — activates (orange fill) when input text is non-empty
-- **`sendMessage()`** — calls `callOpenAI(messages, systemPrompt)` with a full health context system prompt (profile, scores, biometrics, actuals vs targets, shot phase). Error shows a user-facing fallback message.
-- **System prompt** — built by `buildSystemPrompt(health, type?)` in `lib/openai.ts`; injects all user health data. Response guidelines: under 150 words, warm and evidence-based, no medical diagnoses.
-- **Environment:** `EXPO_PUBLIC_OPENAI_API_KEY` in `.env` (gitignored).
+- **Type-aware prompt chips** — `RECOVERY_CHIPS`, `READINESS_CHIPS`, or `GENERIC_CHIPS` based on `type` param
+- **Chat interface** — full message history with user (orange) / assistant (dark) bubbles, loading state, auto-scroll
+- **`sendMessage()`** — calls `callOpenAI(messages, systemPrompt)` with `buildSystemPrompt(health, type?)`. Error shows user-facing fallback.
 
 ---
 
@@ -386,23 +449,44 @@ Modal screen. Accepts optional `?type=recovery|support` route param (navigated f
 **File:** `components/add-entry-sheet.tsx`
 **Status:** ✅ Built — LOG INJECTION + DESCRIBE FOOD + LOG WEIGHT / WATER / ACTIVITY wired
 
-Bottom sheet modal triggered by FAB. 9-item grid.
+Bottom sheet modal triggered by FAB. 9-item grid. Each item navigates to its dedicated entry screen (via `router.push`) or opens an inline form.
 
-- **LOG INJECTION** — dispatches `LOG_INJECTION` to HealthContext; writes to log store with `doseMg`.
-- **DESCRIBE FOOD** — AI-powered natural language food parser:
-  1. User types a description (e.g. "2 scrambled eggs with avocado toast")
-  2. "Parse with AI" calls `parseFoodDescription(description, profile)` via GPT-4o-mini (`response_format: json_object`)
-  3. On success: shows a confirmation card with name, serving size, cal/protein/carbs/fat/fiber, and a confidence badge (high/medium/low)
-  4. "Confirm" logs the parsed food via `addFoodLog()` and dispatches `LOG_PROTEIN` to HealthContext
-  5. On error: falls back to a manual entry form (food name + calories + protein fields)
-  6. "Edit manually instead" link resets to idle state from the confirmation card
-- **LOG WEIGHT / WATER / ACTIVITY** — inline forms, wired to log store and HealthContext dispatch.
+- **LOG INJECTION** — navigates to `app/entry/log-injection.tsx`
+- **DESCRIBE FOOD** — AI-powered natural language parser:
+  1. User types description (e.g. "2 scrambled eggs with avocado toast")
+  2. "Parse with AI" calls `parseFoodDescription(description, profile)` (GPT-4o-mini `json_object` mode)
+  3. Confirmation card shows name, serving, cal/protein/carbs/fat/fiber, confidence badge
+  4. "Confirm" logs via `addFoodLog()` and dispatches `LOG_PROTEIN` to HealthContext
+  5. Error falls back to manual form; "Edit manually instead" resets from confirmation
+- **SCAN FOOD** — navigates to `app/entry/scan-food.tsx`
+- **SEARCH FOOD** — navigates to `app/entry/search-food.tsx`
+- **PHOTO** — navigates to `app/entry/capture-food.tsx`
+- **LOG WEIGHT / WATER / ACTIVITY** — inline forms wired to log store + HealthContext dispatch
+
+---
+
+### 6.7 Entry Screens
+
+**Directory:** `app/entry/`
+**Status:** ✅ Built (all screens)
+
+| Screen | File | Description |
+|---|---|---|
+| Log Injection | `log-injection.tsx` | Dose (pre-filled from profile), injection date, site rotation, notes. Saves via `useLogStore.addInjectionLog()` |
+| Describe Food | `describe-food.tsx` | Natural language food entry. Calls `parseFoodDescription()` → confirmation card → `addFoodLog()` |
+| Capture Food | `capture-food.tsx` | Camera view (`expo-camera`) or gallery pick (`expo-image-picker`). Base64 image → `callGPT4oMiniVision()` for food identification → parsed macros → `addFoodLog()` |
+| Scan Food | `scan-food.tsx` | Barcode scanner (`expo-camera` `CameraView`). Barcode → USDA lookup via `lib/usda.ts` → food result → `addFoodLog()` |
+| Search Food | `search-food.tsx` | Text search via `lib/usda.ts`. Shows results list → select → `addFoodLog()` |
+| Ask AI | `ask-ai.tsx` | Freeform AI query (opens AI chat modal with context) |
+| Log Activity | `log-activity.tsx` | Activity type, duration, steps. Saves via `useLogStore.addActivityLog()` |
+| Log Weight | `log-weight.tsx` | Current weight (lbs/kg with unit toggle). Saves via `useLogStore.addWeightLog()` |
+| Side Effects | `side-effects.tsx` | Side effect type + severity slider. Saves via `useLogStore.addSideEffectLog()` |
 
 ---
 
 ## 7. Data Models
 
-### FullUserProfile (implemented — persisted to AsyncStorage)
+### FullUserProfile (implemented — in-memory via ProfileContext)
 
 ```typescript
 // constants/user-profile.ts
@@ -436,7 +520,17 @@ export type FullUserProfile = {
 };
 ```
 
-`MOCK_PROFILE` in `constants/mock-profile.ts` satisfies `FullUserProfile` and is used as a fallback in `(tabs)/_layout.tsx` when `profile === null`.
+### Supabase Database Tables (implemented — via `lib/database.types.ts`)
+
+| Table | Key Columns | Used By |
+|---|---|---|
+| `profiles` | `id`, `full_name`, `medication_type`, `injection_frequency_days`, `start_weight_lbs`, `goal_weight_lbs`, `program_start_date` | `user-store.ts`, `log-store.ts`, `insights-store.ts` |
+| `user_goals` | `daily_calories_target`, `daily_protein_g_target`, `daily_fiber_g_target`, `daily_steps_target` | `log-store.ts`, `insights-store.ts` |
+| `injection_logs` | `dose_mg`, `injection_date`, `injection_time`, `site`, `notes` | `log-store.ts` |
+| `food_logs` | `name`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`, `serving_size`, `meal_type`, `source`, `logged_at` | `log-store.ts` |
+| `weight_logs` | `weight_lbs`, `weight_kg`, `logged_at`, `notes` | `log-store.ts` |
+| `activity_logs` | `activity_type`, `duration_min`, `steps`, `calories_burned`, `source`, `date` | `log-store.ts` |
+| `side_effect_logs` | `effect_type`, `severity`, `phase_at_log`, `notes`, `logged_at` | `log-store.ts` |
 
 ### Scoring Types (implemented)
 
@@ -450,47 +544,20 @@ type ShotPhase     = 'shot' | 'peak' | 'balance' | 'reset';
 type FocusItem     = { id: string; label: string; subtitle: string; badge: string; iconName: string; iconSet: 'Ionicons' | 'MaterialIcons' };
 ```
 
-### Scoring Formulas (implemented)
+### Insights Store Types (implemented — `stores/insights-store.ts`)
 
 ```typescript
-// Protein: weight-based + medication/dose multipliers
-let proteinG = profile.weightLbs * 0.8;
-if (glp1Type === 'tirzepatide') proteinG *= 1.1;
-if (doseMg >= 7.5) proteinG *= 1.15; else if (doseMg >= 5) proteinG *= 1.1;
-
-// Hydration: oz → ml
-let waterOz = profile.weightLbs * 0.6;
-if (glp1Type === 'semaglutide') waterOz *= 1.1;
-// same dose multipliers as protein
-if (sideEffects.includes('constipation')) waterOz *= 1.1;
-const waterMl = Math.round(waterOz * 29.5735);
-
-// Fiber
-let fiberG = sideEffects.includes('constipation') ? 35 : 30;
-if (daysSinceShot <= 3) fiberG += 5;
-
-// Steps: activity-level driven
-const steps = { sedentary: 6000, light: 8000, active: 10000, very_active: 12000 }[activityLevel];
-```
-
-### LogEntry (implemented — mock data only)
-
-```typescript
-type LogEntry = {
-  id: string; timestamp: string; title: string;
-  details: string; impact: string;
-  impactStatus: 'positive' | 'negative' | 'neutral';
-  icon: React.ReactElement;
+type ScoreBreakdown = {
+  total: number;       // weighted composite 0–100
+  medication: number;  // 30% weight
+  nutrition: number;   // 30% weight
+  activity: number;    // 25% weight
+  sideEffect: number;  // 15% weight (inverse — high side effects lower score)
 };
+
+type InjectionPhase = 'Shot Day' | 'Peak Phase' | 'Mid Phase' | 'Waning Phase' | 'Due Soon' | 'Overdue' | 'Unknown';
+type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string; badge: string };
 ```
-
-### Planned Schemas (not yet implemented)
-
-- `InjectionLog` — date, doseMg, site rotation, notes
-- `FoodEntry` — inputMethod, macros, serving
-- `DailyLog` — water, steps, activityMinutes, weightKg, foodEntries, sideEffects
-- `SideEffectEntry` — type, severity 1–5, notes
-- `EffectivenessScore` — score 0–100, breakdown by protein/hydration/exercise/recovery
 
 ---
 
@@ -500,7 +567,10 @@ type LogEntry = {
 
 | Layer | Mechanism | What It Holds |
 |---|---|---|
-| Profile | `ProfileContext` (AsyncStorage) | `FullUserProfile` persisted across sessions; `draft` accumulated during onboarding |
+| Profile | `ProfileContext` (in-memory Map) | `FullUserProfile`; `draft` accumulated during onboarding |
+| Auth | `useUserStore` (Zustand + Supabase) | Session, sessionLoaded flag, profile row, signOut |
+| Logs | `useLogStore` (Zustand + Supabase) | All daily log entries; CRUD actions; `fetchInsightsData` |
+| Insights | `insightsStore` (Zustand) | Computed `ScoreBreakdown`, injection phase, focuses from real data |
 | Health / Scores | `HealthContext` (useReducer) | Daily actuals, targets, wearable data, recovery + support scores |
 | Tab bar visibility | `TabBarVisibilityContext` | `Animated.Value` for scroll-driven show/hide |
 | UI (local) | `useState` | Sheet open, active tab, chart width |
@@ -512,9 +582,9 @@ type LogEntry = {
   profile: FullUserProfile | null;   // null = onboarding not complete
   draft: ProfileDraft;               // Partial<FullUserProfile> built during onboarding
   updateDraft(fields): void;         // merge fields into draft
-  completeOnboarding(): Promise<void>; // derive metrics, save to AsyncStorage, set profile
-  resetProfile(): Promise<void>;     // clear AsyncStorage + state (dev/testing)
-  isLoading: boolean;                // true while AsyncStorage.getItem is pending
+  completeOnboarding(): Promise<void>; // derive metrics, save in-memory, set profile
+  resetProfile(): Promise<void>;     // clear in-memory store + state
+  isLoading: boolean;                // always resolves quickly (no async native call)
 }
 ```
 
@@ -528,23 +598,46 @@ type LogEntry = {
   targets: DailyTargets;
   recoveryScore: number;    // 0–100; phase-adjusted via glp1HrvOffset / glp1RhrOffset
   supportScore: number;     // 0–100
-  focuses: FocusItem[];     // top-3 phase-weighted focus cards generated by generateFocuses()
+  focuses: FocusItem[];     // top-3 phase-weighted focus cards from generateFocuses()
   lastLogAction: 'water' | 'protein' | 'injection' | null;
   dispatch: Dispatch<Action>;
 }
 // Actions: LOG_WATER | LOG_PROTEIN | LOG_INJECTION | LOG_STEPS | CLEAR_ACTION
 ```
 
-### Planned State Architecture
+### useUserStore API (Zustand)
 
-**Recommendation: Zustand** for when real data logging is introduced.
-
+```typescript
+{
+  session: Session | null;
+  sessionLoaded: boolean;
+  profile: ProfileRow | null;        // Supabase profiles table row
+  setSession(s): void;
+  setSessionLoaded(v): void;
+  loadProfile(): Promise<void>;      // fetches/upserts profiles row from Supabase
+  signOut(): Promise<void>;
+}
 ```
-stores/
-├── userStore.ts         # Profile, preferences, auth state
-├── logStore.ts          # Daily entries (food, injections, water, weight)
-├── insightsStore.ts     # Computed metrics, score breakdown
-└── uiStore.ts           # Sheet open state, active tab, loading states
+
+### useLogStore API (Zustand)
+
+```typescript
+{
+  loading: boolean;
+  error: string | null;
+  weightLogs: WeightLog[];
+  injectionLogs: InjectionLog[];
+  foodLogs: FoodLog[];
+  activityLogs: ActivityLog[];
+  sideEffectLogs: SideEffectLog[];
+  userGoals: UserGoalsRow | null;
+  fetchInsightsData(): Promise<void>; // fetches all logs + goals from Supabase for current user
+  addWeightLog(entry): Promise<void>;
+  addInjectionLog(entry): Promise<void>;
+  addFoodLog(entry): Promise<void>;
+  addActivityLog(entry): Promise<void>;
+  addSideEffectLog(entry): Promise<void>;
+}
 ```
 
 ---
@@ -553,32 +646,34 @@ stores/
 
 | Component | File | Status | Notes |
 |---|---|---|---|
-| `CustomTabBar` | `app/(tabs)/_layout.tsx` | ✅ Complete | Glass pill + FAB + scroll-aware hide/show |
+| `CustomTabBar` | `app/(tabs)/_layout.tsx` | ✅ Complete | Glass pill + solid orange FAB + scroll-aware hide/show |
 | `TabBarVisibilityProvider` | `contexts/tab-bar-visibility.tsx` | ✅ Complete | Animated.spring scroll handler |
-| `ProfileProvider` | `contexts/profile-context.tsx` | ✅ Complete | AsyncStorage persistence, onboarding draft |
+| `ProfileProvider` | `contexts/profile-context.tsx` | ✅ Complete | In-memory persistence, onboarding draft |
 | `HealthProvider` | `contexts/health-data.tsx` | ✅ Complete | Accepts `profile` prop, useReducer scoring |
+| `AppWithHealth` | inline in `app/_layout.tsx` | ✅ Complete | Bridges ProfileContext → HealthProvider at root |
 | `OnboardingHeader` | `components/onboarding/onboarding-header.tsx` | ✅ Complete | Reanimated progress bar + back button |
 | `OptionPill` | `components/onboarding/option-pill.tsx` | ✅ Complete | Single/multi-select pill |
 | `ContinueButton` | `components/onboarding/continue-button.tsx` | ✅ Complete | Full-width dark CTA |
 | `WheelPicker` | `components/onboarding/wheel-picker.tsx` | ✅ Complete | Snap-scroll FlatList, opacity gradients |
 | Onboarding Screens 1–14 | `app/onboarding/*.tsx` | ✅ Complete | All 14 steps, back navigation, draft wiring |
-| Splash Gate | `app/index.tsx` | ✅ Complete | AsyncStorage gate, brand splash |
+| Auth Screens | `app/auth/sign-in.tsx`, `sign-up.tsx` | ✅ Complete | Supabase Auth email/password |
+| Entry Screens (9) | `app/entry/*.tsx` | ✅ Complete | All entry flows built |
+| Splash Gate | `app/index.tsx` | ✅ Complete | Session + profile gate, brand splash |
 | `ScoreRing` | `components/score-ring.tsx` | ✅ Complete | Animated SVG arc; message text conditionally rendered |
 | `RingBreakdown` | `components/ring-breakdown.tsx` | ✅ Complete | Tap-to-expand breakdown sheet |
-| Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven via HealthContext; quarter-arc rings; help button |
-| `RingsExplainerModal` | inline in `app/(tabs)/index.tsx` | ✅ Built | "How Your Rings Work" slide-up modal; metrics + phase guide |
-| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | LOG INJECTION wired; DESCRIBE FOOD AI parse flow (GPT-4o-mini → confirmation card → manual fallback) |
-| Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | All 3 tabs; AI Insight cards dynamic via GPT-4o-mini |
-| AI Chat | `app/ai-chat.tsx` | ✅ Built | Fully wired to GPT-4o-mini; full health context system prompt; type-aware chips |
-| `PhaseInterpretationBanner` | inline in `app/score-detail.tsx` | ✅ Built | Phase-aware orange contextual banner in score detail |
-| `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Extracted | Dark-mode border values; still inline-duplicated in entry screens |
-| `ScoreRings` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/score-rings.tsx` |
-| `InsightsCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
-| `FocusCard` | inline in `index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
+| `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Complete | Reusable dark-glass border primitive |
+| Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven; quarter-arc rings; AI insights; help button |
+| `RingsExplainerModal` | inline in `app/(tabs)/index.tsx` | ✅ Built | "How Your Rings Work" slide-up modal |
+| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 9 items; LOG INJECTION + DESCRIBE FOOD AI wired |
+| Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | All 3 tabs; dynamic AI insight cards |
+| AI Chat | `app/ai-chat.tsx` | ✅ Built | GPT-4o-mini; full health context; type-aware chips |
+| Score Detail | `app/score-detail.tsx` | ✅ Built | Per-metric breakdown; AI coach note; phase banner |
+| `PhaseInterpretationBanner` | inline in `app/score-detail.tsx` | ✅ Built | Phase-aware orange banner |
+| `DualRingArc` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/dual-ring-arc.tsx` |
+| `InsightsCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
+| `FocusCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
 | Education Screen | `app/(tabs)/explore.tsx` | ⬜ Boilerplate | Needs full build |
 | `BodyDiagram` | Not built | ⬜ Planned | Injection site rotation map |
-| `FoodLogForm` | Not built | ⬜ Planned | All input methods |
-| `InjectionLogForm` | Not built | ⬜ Planned | From AddEntrySheet |
 
 ---
 
@@ -587,74 +682,83 @@ stores/
 ### Completed
 
 - [x] App shell — root layout, routing, tab navigation
-- [x] Custom glass pill tab bar with FAB
+- [x] Custom glass pill tab bar with solid orange FAB
 - [x] Scroll-aware tab bar (auto-hide on scroll down, restore on scroll up)
 - [x] Home screen — personalized score rings + insights (data-driven via HealthContext)
 - [x] Score rings — animated SVG arcs, micro-interactions, breakdown sheets
-- [x] Add Entry Sheet — 9-item grid; LOG INJECTION + DESCRIBE FOOD wired
-- [x] Insights screen — all 3 tabs (Medication, Lifestyle, Progress) with mock data
-- [x] Collapsible Recent Logs card across all Insights tabs
+- [x] **DualRingArc** — concentric quarter-circle arcs (Reanimated); taps navigate to score-detail
+- [x] **Score Detail Screen** — per-metric breakdown cards; tier badges (Optimal/Fair/Low); phase banner; AI coach note
+- [x] Add Entry Sheet — 9-item grid; all items navigating to dedicated entry screens
+- [x] **DESCRIBE FOOD AI parser** — natural language → GPT-4o-mini → macros confirmation card → manual fallback
+- [x] **CAPTURE FOOD** — camera/gallery → GPT-4o-mini vision → food identification → log
+- [x] **SCAN FOOD** — barcode scanner → USDA lookup → log
+- [x] **SEARCH FOOD** — USDA FoodData Central text search → log
+- [x] **LOG INJECTION** — dedicated entry screen with dose, date, site, notes
+- [x] **LOG ACTIVITY** — activity type, duration, steps entry
+- [x] **LOG WEIGHT** — weight entry with unit toggle
+- [x] **SIDE EFFECTS LOGGING** — entry screen with type + severity
+- [x] Insights screen — all 3 tabs (Medication, Lifestyle, Progress) with mock data + AI cards
 - [x] **14-screen onboarding flow** — collects full metabolic profile
-- [x] **ProfileProvider** — AsyncStorage persistence, draft accumulation, `completeOnboarding`
-- [x] **Splash gate** — redirects new users to onboarding, returning users to tabs
+- [x] **ProfileProvider** — in-memory persistence, draft accumulation, `completeOnboarding`
+- [x] **Splash gate** — session + profile check; routes to auth / onboarding / tabs
+- [x] **Auth flow** — sign-in / sign-up screens wired to Supabase Auth
+- [x] **Supabase integration** — `lib/supabase.ts` (MemoryStorageAdapter); `useUserStore` (session); `useLogStore` (all CRUD); `lib/database.types.ts`
+- [x] **Zustand stores** — `log-store`, `insights-store`, `user-store` all implemented
 - [x] **FullUserProfile data model** — replaces old minimal UserProfile
 - [x] **Personalized scoring engine** — weight-based protein/hydration, activity-driven steps, dose/medication multipliers, side effect adjustments
-- [x] **GestureHandlerRootView** at root — fixes gesture-in-gesture crashes
-- [x] **Dark-first UI redesign** — unified dark palette (`#141210` bg, `#FF742A` orange accent, `#FFFFFF` text) across all 20+ files; BlurView tint `"dark"` throughout; orange circle active tab indicator; `constants/theme.ts` exports design tokens
-- [x] **Score Detail Screen** — dedicated drill-down for Recovery + GLP-1 Amplifier scores; per-metric breakdown cards with progress bars + pts earned; phase-aware labels; coach note; navigated from home via `expo-router` push
-- [x] **DualRingArc** on home screen — replaced separate `ScoreRing` + `RingBreakdown` pattern with inline concentric SVG arcs (Reanimated `withTiming`); ring taps navigate to score-detail; arcs now render as quarter-circle (90°) segments
-- [x] **Scoring engine expanded** — `ShotPhase` type; `getShotPhase()`; `glp1HrvOffset/RhrOffset(phase)` medication adjustments; `scoreRespRate()`; phase-aware `computeRecovery(wearable, phase?)`; `getRecoveryRowNotes(phase)` / `getGLP1RowNotes(phase)`; `FocusItem` type; `generateFocuses()` with phase-weighted deficit ranking
-- [x] **Data-driven Focus Cards** — home screen Focus section driven by `HealthContext.focuses` (`FocusItem[]`) with label, subtitle, and pts badge; phase-weighted scoring ranks top-3 gaps
-- [x] **Rings Explainer Modal** — `?` help button in home header opens "How Your Rings Work" slide-up modal explaining both rings, all scored metrics, and the 4-phase shot guide
-- [x] **Phase Interpretation Banner** — score detail screen shows an orange contextual banner (text adapts to phase + score type) below the hero ring
-- [x] **Tier-based metric cards** — MetricCard progress bar color and Optimal/Fair/Low status badge driven by percent-achieved thresholds (≥80% green, ≥50% amber, <50% red)
-- [x] **AI Chat upgrade** — full chat bubble UI with message history; type-aware prompt chips (recovery / readiness / generic); context strip showing score + phase; active send button
-- [x] **GPT-4o-mini integration** — `lib/openai.ts` shared client with `buildSystemPrompt` (full health context injection), `callOpenAI` (10s timeout, AbortController), `parseFoodDescription` (structured JSON), `generateDynamicInsights` (daily cached), `generateCoachNote` (daily cached per type), `generateLogInsight` (daily cached per tab)
-- [x] **AI Chat fully wired** — real GPT-4o-mini responses with personalized health system prompt; error fallback to user-facing message
-- [x] **DESCRIBE FOOD AI parser** — natural language → structured macros via GPT-4o-mini; confirmation card with cal/protein/carbs/fat/fiber + confidence badge; falls back to manual form on error
-- [x] **Dynamic home insights** — AI-generated insight bullets with skeleton loading; static fallback
-- [x] **Dynamic score detail coach note** — async AI note with skeleton loading; static constant fallback
-- [x] **Dynamic Insights screen AI cards** — all 3 tabs (Lifestyle/Medication/Progress) call GPT-4o-mini on mount; spinner + skeleton while loading; static string fallback
-- [x] **Onboarding health-sync Expo Go fix** — `Constants.appOwnership` guard prevents NitroModules crash when tapping "Connect Apple Health" in Expo Go
+- [x] **Dark-first UI redesign** — unified dark palette (`#141210` bg, `#FF742A` orange, `#FFFFFF` text)
+- [x] **Scoring engine expanded** — `ShotPhase`; `getShotPhase()`; medication-phase biometric offsets; `scoreRespRate()`; phase-aware row notes; `FocusItem`; `generateFocuses()`
+- [x] **Data-driven Focus Cards** — phase-weighted scoring ranks top-3 gaps
+- [x] **Rings Explainer Modal** — help button → "How Your Rings Work" slide-up
+- [x] **Phase Interpretation Banner** — score detail contextual orange banner
+- [x] **Tier-based metric cards** — color + badge driven by percent-achieved (≥80% green / ≥50% amber / <50% red)
+- [x] **GPT-4o-mini full integration** — `buildSystemPrompt`, `callOpenAI`, `parseFoodDescription`, `generateDynamicInsights`, `generateCoachNote`, `generateLogInsight`, `callGPT4oMiniVision` — all in `lib/openai.ts`
+- [x] **Dynamic home insights** — AI bullets with skeleton loading; static fallback
+- [x] **Dynamic score detail coach note** — AI note with skeleton; static fallback
+- [x] **Dynamic Insights screen AI cards** — all 3 tabs; spinner + skeleton; static fallback
+- [x] **AI Chat fully wired** — GPT-4o-mini responses with personalized health context; error fallback
+- [x] **Anthropic client** — `lib/anthropic.ts` (`callHaiku`) for secondary AI calls
+- [x] **USDA food database** — `lib/usda.ts` for barcode + text search food lookup
+- [x] **Context snapshot builder** — `lib/context-snapshot.ts` (`buildContextSnapshot`) builds natural language health summary for AI prompt injection
+- [x] **Onboarding health-sync Expo Go fix** — `Constants.appOwnership` guard prevents NitroModules crash
+- [x] **`@kingstinct/react-native-healthkit`** installed + configured in `app.json` (HealthKit entitlement + usage strings)
+- [x] **metro.config.js** — react-native-svg CommonJS redirect + `.claude` blockList
 
 ### In Progress / Partially Done
 
-- [ ] Home screen — wire focus cards to real profile data
-- [ ] Insights screen — wire real data to all cards (currently all hardcoded)
+- [ ] Insights screen — wire real data to all cards (currently mock/hardcoded)
+- [ ] Home screen — focus cards currently use HealthContext seed data; wire to live log store
 - [ ] Tab bar — rename `log` → `insights`, `explore` → `education`
-- [ ] Extract `GlassBorder` to shared component (currently duplicated in 3 files)
 
 ### Not Started
 
 - [ ] Education screen — content structure and articles
-- [ ] Food logging flow (describe, search, scan, photo, AI)
-- [ ] Injection logging form + site rotation logic
-- [ ] Weight logging (wire Add Entry sheet → store → Progress tab)
+- [ ] Apple Health live reads — wire `@kingstinct/react-native-healthkit` HRV/sleep/steps once permission granted (currently seed data in HealthContext)
+- [ ] Weight logging wired to Progress tab charts
 - [ ] Water / fiber / steps tracking (live, not seed data)
-- [ ] Side effects logging
-- [ ] Lifestyle Effectiveness Score computation engine
+- [ ] Barcode scanning result display refinement
 - [ ] Notification system (injection reminders, daily check-in, craving-day alerts)
-- [ ] Barcode scanning
-- [ ] Photo-based food recognition
-- [ ] Zustand store setup
-- [ ] Apple Health integration (live HRV/sleep/steps — currently seed data)
-- [ ] User account / cloud sync
+- [ ] Photo-based food recognition full pipeline polish
+- [ ] Supabase profile persistence (currently in-memory — needs native rebuild or SecureStore)
+- [ ] User account screen (settings, reset profile, sign out)
 
 ---
 
 ## 11. Planned Integrations
 
-| Integration | Purpose | Library / Service |
-|---|---|---|
-| Health data (steps, HRV, sleep) | Apple Health / Google Fit | `expo-health` (HealthKit) |
-| Barcode scanning | Food product lookup | `expo-camera` + Open Food Facts |
-| Food database | Nutritional info lookup | USDA FoodData Central or Nutritionix |
-| AI food description | ✅ Text parsing via GPT-4o-mini (`parseFoodDescription`) | `lib/openai.ts` — photo parsing still planned |
-| Charts | Weight trend, macro charts | `victory-native` or `react-native-gifted-charts` |
-| Push notifications | Injection reminders, craving-day alerts | `expo-notifications` |
-| Local persistence | ✅ Implemented for profile | `@react-native-async-storage/async-storage` |
-| Auth (future) | User accounts + cloud sync | Supabase Auth or Clerk |
-| Backend (future) | Data sync across devices | Supabase (Postgres + REST) or Firebase |
+| Integration | Purpose | Library / Service | Status |
+|---|---|---|---|
+| Health data (steps, HRV, sleep) | Apple Health live reads | `@kingstinct/react-native-healthkit` | ⚠️ Installed, not wired |
+| Barcode scanning | Food product lookup | `expo-camera` + USDA FoodData Central | ✅ Built |
+| Food database | Nutritional info lookup | USDA FoodData Central (`lib/usda.ts`) | ✅ Built |
+| AI food description | Text parsing via GPT-4o-mini | `lib/openai.ts` — `parseFoodDescription` | ✅ Built |
+| AI food photo | Photo analysis via GPT-4o-mini vision | `lib/openai.ts` — `callGPT4oMiniVision` | ✅ Built |
+| AI coaching | Dynamic insights, coach notes, log insights | `lib/openai.ts` | ✅ Built |
+| Secondary AI | Claude Haiku via Anthropic | `lib/anthropic.ts` | ✅ Built (not yet called from UI) |
+| Charts | Weight trend, macro charts | `victory-native` or `react-native-gifted-charts` | ⬜ Not started |
+| Push notifications | Injection reminders, craving-day alerts | `expo-notifications` | ⬜ Not started |
+| Auth | User accounts | Supabase Auth | ✅ Built |
+| Backend | Data sync across devices | Supabase (Postgres + REST) | ✅ Built |
 
 ---
 
@@ -663,20 +767,21 @@ stores/
 ### Design / UX
 
 - Should the Home screen show a different layout on injection day vs. recovery day?
-- What does the first-launch experience look like after onboarding completes? (empty state vs. seeded goals)
 - Should water intake use oz or mL — or follow the `unitSystem` from the profile?
 - Should `RecentLogsCard` entries be paginated once real data is wired?
 - Craving-day alerts: push notification or in-app banner?
+- Should there be an in-app Settings screen (unit toggle, reset profile, sign-out)?
 
 ### Technical
 
-- Decide on charting library (`victory-native` vs. `react-native-gifted-charts`) before wiring real weight data.
-- Extract `GlassBorder` into `components/ui/glass-border.tsx` — currently duplicated in 3 files.
-- Extract inline components from `index.tsx` (`ScoreRings`, `InsightsCard`, `FocusCard`).
-- Confirm Zustand vs. Context for log store before implementing food/injection logging.
-- Apple Health in `health-sync.tsx` is guarded for Expo Go via `Constants.appOwnership`. Real HealthKit authorization runs in EAS/production builds only. Live HRV/sleep/steps pull still uses seed data — wire `@kingstinct/react-native-healthkit` reads once Apple Health permission is granted.
+- **Profile persistence** — `ProfileContext` currently uses in-memory `Map`. Production builds should persist to `expo-secure-store` or Supabase `profiles` table (requires a native rebuild with proper module linking).
+- **AsyncStorage** — `@react-native-async-storage/async-storage` is listed in `package.json` but its native module is not available in the current dev client build. A full `expo run:ios` rebuild will restore native module availability and enable persistent storage options.
+- **react-native-svg codegen** — `metro.config.js` redirects to `lib/commonjs/` which bypasses Turbo Module codegen. SVG works via legacy bridge interop. A future `expo run:ios` rebuild (after adding `react-native-svg` to Expo's module system properly) will silence the "Codegen didn't run for RNSVG*" warnings.
+- **expo-camera / expo-image-picker** — installed as JS packages but native modules require an `expo run:ios` rebuild to activate the camera-dependent screens (`capture-food.tsx`, `scan-food.tsx`).
+- Extract inline components from `index.tsx` (`DualRingArc`, `InsightsCard`, `FocusCard`).
+- Decide on charting library before wiring real weight data.
+- `lib/anthropic.ts` is built but not yet called from any screen — wire to `ask-ai.tsx` or as an alternative AI backend.
 - `LayoutAnimation` on Android requires `UIManager.setLayoutAnimationEnabledExperimental(true)` in app entry point.
-- Two pre-existing TypeScript errors (non-blocking): duplicate `hmBody` key in `index.tsx` StyleSheet; `"nutrition"` icon name in `score-detail.tsx` not in strict `MaterialIcons` type.
 - OpenAI API key is stored in `.env` (`EXPO_PUBLIC_OPENAI_API_KEY`) and is gitignored. Each developer needs to add their own key.
 
 ### Product
@@ -689,4 +794,4 @@ stores/
 
 ---
 
-*This document reflects the state of the codebase as of March 7, 2026 (rev 3). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 7, 2026 (rev 4). It should be updated as features are built and decisions are made.*

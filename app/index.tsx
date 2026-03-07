@@ -3,19 +3,27 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useProfile } from '@/contexts/profile-context';
+import { useUserStore } from '@/stores/user-store';
 
 export default function Index() {
   const { isLoading, profile } = useProfile();
+  const { session, sessionLoaded } = useUserStore();
   const router = useRouter();
 
   useEffect(() => {
+    if (!sessionLoaded) return;
+    // Auth gate: no session → sign-in (keeps your auth flow intact)
+    if (!session) {
+      router.replace('/auth/sign-in');
+      return;
+    }
     if (isLoading) return;
     if (profile) {
       router.replace('/(tabs)');
     } else {
       router.replace('/onboarding');
     }
-  }, [isLoading, profile]);
+  }, [sessionLoaded, session, isLoading, profile]);
 
   return (
     <View style={s.container}>

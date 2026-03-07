@@ -300,3 +300,54 @@ export async function generateLogInsight(
   _cache.set(key, result);
   return result;
 }
+
+// ─── Vision (used by capture-food / scan-food screens) ────────────────────────
+
+/**
+ * Calls GPT-4o-mini with a base64-encoded image and a text prompt.
+ * Used for food photo analysis in the capture-food entry flow.
+ */
+export async function callGPT4oMiniVision(
+  systemPrompt: string,
+  imageBase64: string,
+  userText: string,
+  mediaType: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): Promise<string> {
+  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mediaType};base64,${imageBase64}`,
+                detail: 'low',
+              },
+            },
+            { type: 'text', text: userText },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI API error ${res.status}: ${err}`);
+  }
+  const json = await res.json();
+  return json.choices[0].message.content as string;
+}
