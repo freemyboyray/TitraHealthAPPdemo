@@ -1,4 +1,4 @@
-const USDA_KEY = 'DEMO_KEY';
+const USDA_KEY = process.env.EXPO_PUBLIC_USDA_API_KEY ?? 'DEMO_KEY';
 const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1';
 
 export type FoodResult = {

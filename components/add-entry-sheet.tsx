@@ -169,7 +169,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'DESCRIBE FOOD',
       icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => setActiveEntry('food'),
+      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
     },
     {
       label: 'LOG INJECTION',
@@ -179,12 +179,12 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'CAPTURE FOOD',
       icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => { closeSheet(); router.push('/entry/capture-food' as any); },
+      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); },
     },
     {
       label: 'SCAN FOOD',
       icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => { closeSheet(); router.push('/entry/scan-food' as any); },
+      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); },
     },
     {
       label: 'ASK AI',
@@ -195,7 +195,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'SEARCH FOOD',
       icon: <Ionicons name="search-outline" size={ICON_SIZE} color={ICON_COLOR} />,
-      onPress: () => { closeSheet(); router.push('/entry/search-food' as any); },
+      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food' as any), 300); },
     },
     {
       label: 'LOG WEIGHT',

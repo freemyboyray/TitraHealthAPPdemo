@@ -17,7 +17,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callGPT4oMiniVision } from '../../lib/openai';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
-import { useLogStore, type MealType } from '../../stores/log-store';
+import { useMealTrayStore } from '../../stores/meal-tray-store';
+import { type MealType } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -86,14 +87,13 @@ export default function CaptureFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [camPermission, requestCamPermission] = useCameraPermissions();
-  const { loading, addFoodLog } = useLogStore();
+  const { addToTray } = useMealTrayStore();
 
   const [phase, setPhase] = useState<Phase>('intro');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [items, setItems] = useState<ParsedItem[]>([]);
   const [mealType, setMealType] = useState<MealType>('lunch');
-  const [logging, setLogging] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   async function handleTakePhoto() {
@@ -169,29 +169,24 @@ export default function CaptureFoodScreen() {
     setItems((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
   }
 
-  async function handleLogAll() {
-    setLogging(true);
-    try {
-      for (const item of items) {
-        const food = item.results[item.selectedIdx];
-        if (!food) continue;
-        const g = parseFloat(item.servingG) || item.estimated_g;
-        await addFoodLog({
-          food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
-          calories: Math.round(food.calories * g / 100),
-          protein_g: parseFloat((food.protein_g * g / 100).toFixed(1)),
-          carbs_g: parseFloat((food.carbs_g * g / 100).toFixed(1)),
-          fat_g: parseFloat((food.fat_g * g / 100).toFixed(1)),
-          fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
-          meal_type: mealType,
-          source: 'photo_ai',
-          raw_ai_response: items.map((it) => ({ item: it.item, estimated_g: it.estimated_g })),
-        });
-      }
-      router.back();
-    } finally {
-      setLogging(false);
+  function handleLogAll() {
+    for (const item of items) {
+      const food = item.results[item.selectedIdx];
+      if (!food) continue;
+      const g = parseFloat(item.servingG) || item.estimated_g;
+      addToTray({
+        food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
+        calories: Math.round(food.calories * g / 100),
+        protein_g: parseFloat((food.protein_g * g / 100).toFixed(1)),
+        carbs_g: parseFloat((food.carbs_g * g / 100).toFixed(1)),
+        fat_g: parseFloat((food.fat_g * g / 100).toFixed(1)),
+        fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
+        serving_g: g,
+        source: 'photo_ai',
+        raw_ai_response: items.map((it) => ({ item: it.item, estimated_g: it.estimated_g })),
+      });
     }
+    router.back();
   }
 
   // ── Camera phase ───────────────────────────────────────────────────────────
@@ -391,13 +386,8 @@ export default function CaptureFoodScreen() {
             style={s.primaryBtnFull}
             onPress={handleLogAll}
             activeOpacity={0.85}
-            disabled={logging || loading}
           >
-            {logging || loading ? (
-              <ActivityIndicator color={WHITE} />
-            ) : (
-              <Text style={s.primaryBtnText}>Log {items.length} Item{items.length !== 1 ? 's' : ''}</Text>
-            )}
+            <Text style={s.primaryBtnText}>Add {items.length} Item{items.length !== 1 ? 's' : ''} to Meal</Text>
           </TouchableOpacity>
         </View>
       </View>

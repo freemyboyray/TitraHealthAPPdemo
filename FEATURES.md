@@ -1519,6 +1519,9 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 - `zustand` stores (userStore, logStore, insightsStore)
 - `expo-notifications` injection reminders + protein alerts
 - Dose escalation schedule manager
+- **Oral GLP-1 support** (§15 — market timing; orforglipron FDA decision ~Apr 2026)
+- **Drug interaction alerts** (§16 — safety-critical; tirzepatide + OCP alert is clinically urgent)
+- **Missed dose intelligence** (§11.5 — drug-specific pharmacology; no competitor does this)
 
 ### P1 — Core Differentiators (Next sprint cycle)
 - Nutritionix natural language + USDA FoodData food logging
@@ -1530,6 +1533,9 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 - Side effect pattern analysis
 - Supabase backend + auth
 - Food noise tracker (unique GLP-1 feature)
+- **PK-based medication level model** (§11.7 — Shotsy has this; must match and exceed)
+- **Phase-aware AI persona** (§10.5 — coaching message changes across titration / steady state / maintenance)
+- **Escalation readiness check** (§11.8 — checklist + side effect threshold delay logic)
 
 ### P2 — High Value Features
 - Oura Ring API
@@ -1544,6 +1550,12 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 - Claude conversational AI coach
 - Blood pressure tracking
 - Women's health module (menstrual cycle, PCOS)
+- **Phenomix / MyPhenome response score integration** (§10.7 — personalized expected outcomes from genetics)
+- **GLP-1 Calendar view + export** (§12.9 — dose color-coding, escalation milestones, iCal export, Travel Mode)
+- **Implementation intentions** (§12.6 — if/then habit planning; Plan Card on home screen)
+- **Motivation mode selector** (§12.7 — AI + home screen adapts to user priority)
+- **Day-shift assistant** (§11.6 — pharmacologically correct injection day recalculation)
+- **Prescriber notes + dose change log** (§13.4–13.5)
 
 ### P3 — Ecosystem Expansion
 - Dexcom official API partnership
@@ -1556,6 +1568,9 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 - Medication holiday mode
 - VO2 max trending
 - SpO2 sleep apnea improvement tracking
+- **Weekly injection day AI briefing** (§10.6)
+- **Weight stall context intelligence** (§10.8 — differentiate normal plateau from true stall)
+- **Home screen widgets** (iOS/Android — next injection countdown, protein progress, streak)
 
 ---
 

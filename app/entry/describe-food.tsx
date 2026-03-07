@@ -16,7 +16,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callHaiku } from '../../lib/anthropic';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
-import { useLogStore, type MealType } from '../../stores/log-store';
+import { useMealTrayStore } from '../../stores/meal-tray-store';
+import { type MealType } from '../../stores/log-store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,14 +82,13 @@ function GlassCard({ children, style }: { children: React.ReactNode; style?: any
 export default function DescribeFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { loading, addFoodLog } = useLogStore();
+  const { addToTray } = useMealTrayStore();
 
   const [text, setText] = useState('');
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
   const [items, setItems] = useState<ParsedItem[] | null>(null);
-  const [logging, setLogging] = useState(false);
 
   async function handleParse() {
     if (!text.trim()) return;
@@ -125,29 +125,24 @@ export default function DescribeFoodScreen() {
     }
   }
 
-  async function handleLogAll() {
+  function handleLogAll() {
     if (!items) return;
-    setLogging(true);
-    try {
-      for (const item of items) {
-        const food = item.results[item.selectedIdx];
-        if (!food) continue;
-        const g = parseFloat(item.servingG) || item.estimated_g;
-        await addFoodLog({
-          food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
-          calories: Math.round(food.calories * g / 100),
-          protein_g: parseFloat((food.protein_g * g / 100).toFixed(1)),
-          carbs_g: parseFloat((food.carbs_g * g / 100).toFixed(1)),
-          fat_g: parseFloat((food.fat_g * g / 100).toFixed(1)),
-          fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
-          meal_type: mealType,
-          source: 'manual',
-        });
-      }
-      router.back();
-    } finally {
-      setLogging(false);
+    for (const item of items) {
+      const food = item.results[item.selectedIdx];
+      if (!food) continue;
+      const g = parseFloat(item.servingG) || item.estimated_g;
+      addToTray({
+        food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
+        calories: Math.round(food.calories * g / 100),
+        protein_g: parseFloat((food.protein_g * g / 100).toFixed(1)),
+        carbs_g: parseFloat((food.carbs_g * g / 100).toFixed(1)),
+        fat_g: parseFloat((food.fat_g * g / 100).toFixed(1)),
+        fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
+        serving_g: g,
+        source: 'manual',
+      });
     }
+    router.back();
   }
 
   function updateItem(idx: number, patch: Partial<ParsedItem>) {
@@ -314,13 +309,8 @@ export default function DescribeFoodScreen() {
             style={s.primaryBtn}
             onPress={handleLogAll}
             activeOpacity={0.85}
-            disabled={logging || loading}
           >
-            {logging || loading ? (
-              <ActivityIndicator color={WHITE} />
-            ) : (
-              <Text style={s.primaryBtnText}>Log {items.length} Item{items.length !== 1 ? 's' : ''}</Text>
-            )}
+            <Text style={s.primaryBtnText}>Add {items.length} Item{items.length !== 1 ? 's' : ''} to Meal</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
