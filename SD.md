@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 7, 2026 (rev 4)
+**Last Updated:** March 9, 2026 (rev 5)
 
 ---
 
@@ -172,7 +172,11 @@ TitraHealthAPPdemo/
 │   ├── health-data.tsx          # HealthProvider(profile) — useReducer scores + dispatch
 │   └── tab-bar-visibility.tsx   # Scroll-aware tab bar hide/show (Animated.spring)
 ├── constants/
-│   ├── user-profile.ts          # FullUserProfile type, ProfileDraft, BRAND_TO_GLP1_TYPE, helpers
+│   ├── user-profile.ts          # FullUserProfile type, ProfileDraft, BRAND_TO_GLP1_TYPE,
+│   │                            # BRAND_TO_ROUTE, BRAND_DEFAULT_FREQ_DAYS, RouteOfAdministration
+│   ├── drug-pk.ts               # FDA-sourced PK parameters (DRUG_PK), Bateman-equation helpers,
+│   │                            # generatePkCurve (7-day), generateIntradayPkCurve (24h intraday),
+│   │                            # DRUG_HALF_LIFE_LABEL, DRUG_IS_ORAL, DRUG_DEFAULT_FREQ_DAYS
 │   ├── mock-profile.ts          # MOCK_PROFILE (FullUserProfile shape, fallback when no onboarding)
 │   ├── scoring.ts               # getDailyTargets, computeRecovery, computeGlp1Support, insights,
 │   │                            # breakdown data, coach notes, phase logic, focus cards
@@ -337,6 +341,7 @@ Shows brand wordmark (`titra`, dark background) with an orange `ActivityIndicato
 - **sign-up.tsx** — email/password registration via `supabase.auth.signUp`. Navigates to `/onboarding` on success.
 - Auth state is managed in `useUserStore` (session, profile row, signOut).
 - The root `_layout.tsx` calls `supabase.auth.onAuthStateChange` to keep `useUserStore` in sync across the session lifecycle.
+- **Visual polish (rev 5):** Terracotta accent updated from `#C4784B` → `#D67455`; `Helvetica Neue` applied as explicit `fontFamily` across all text styles; button style renamed to `primaryBtn` / `primaryBtnText`.
 
 ---
 
@@ -350,9 +355,9 @@ All 14 screens use `ProfileContext.updateDraft()` to accumulate data. The final 
 | Step | File | Input Collected |
 |---|---|---|
 | 1 | `index.tsx` | `glp1Status` (active / starting) |
-| 2 | `medication.tsx` | `medicationBrand`, `glp1Type` (auto-mapped) |
+| 2 | `medication.tsx` | `medicationBrand`, `glp1Type`, `routeOfAdministration`, `injectionFrequencyDays` (auto-populated from brand via `BRAND_TO_ROUTE` + `BRAND_DEFAULT_FREQ_DAYS`). Brands grouped into Weekly Injection / Daily Injection / Daily Oral Pill / Other sections with inline drug notes. |
 | 3 | `dose.tsx` | `doseMg` (preset or custom) |
-| 4 | `schedule.tsx` | `injectionFrequencyDays`, `lastInjectionDate` |
+| 4 | `schedule.tsx` | `injectionFrequencyDays` (locked to 1 for daily drugs; picker shown for weekly/biweekly injectables only). Dose noun adapts (pill / injection / shot). Oral semaglutide shows empty-stomach tip card. `lastInjectionDate` |
 | 5 | `sex.tsx` | `sex` |
 | 6 | `birthday.tsx` | `birthday` (wheel picker — Month / Day / Year columns) |
 | 7 | `body.tsx` | `unitSystem`, `heightFt/In/Cm`, `weightLbs/Kg` (imperial/metric toggle) |
@@ -414,11 +419,16 @@ Dedicated full-screen drill-down for each score type, pushed from home via `rout
 ### 6.3 Insights Screen
 
 **File:** `app/(tabs)/log.tsx` *(rename to `insights.tsx` pending)*
-**Status:** ✅ Built — all 3 tabs rendered; AI Insight cards are dynamic
+**Status:** ✅ Built — all 3 tabs rendered; AI Insight cards are dynamic; PK chart is drug-aware
 
 Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has cards + collapsible Recent Logs.
 
 **AI Insight Cards (dynamic):** Each tab's "AI INSIGHTS" card calls `generateLogInsight(tab, health)` on mount (GPT-4o-mini, cached per day per tab). Shows `ActivityIndicator` + skeleton bars while loading; falls back to a hardcoded static string on error.
+
+**Medication Level Chart (drug-aware):**
+- Weekly/biweekly injectables → `generatePkCurve()` — 7-day chart (6 days ago → today); x-axis = day labels; y-axis = normalized concentration
+- Daily drugs (liraglutide, oral_semaglutide, orforglipron) → `generateIntradayPkCurve()` — 7-point intraday chart (t=0.5h → 24h); x-axis = `INTRADAY_TIME_LABELS` (`['Dose', '+4h', …, '+24h']`)
+- Chart header shows drug class name + half-life label from `DRUG_HALF_LIFE_LABEL`
 
 ---
 
@@ -491,13 +501,28 @@ Bottom sheet modal triggered by FAB. 9-item grid. Each item navigates to its ded
 ```typescript
 // constants/user-profile.ts
 
+// Weekly SC injectables: zepbound | mounjaro | ozempic | wegovy | trulicity |
+//                        compounded_semaglutide | compounded_tirzepatide
+// Daily SC injectables:  saxenda | victoza | compounded_liraglutide
+// Daily oral pills:      rybelsus | oral_wegovy | orforglipron
+// Catch-all:             other
+type MedicationBrand = ...;
+
+// weekly injectable: semaglutide | tirzepatide | dulaglutide
+// daily injectable:  liraglutide
+// daily oral:        oral_semaglutide | orforglipron
+type Glp1Type = ...;
+
+type RouteOfAdministration = 'injection' | 'oral';
+
 export type FullUserProfile = {
   glp1Status: 'active' | 'starting';
-  medicationBrand: MedicationBrand;   // zepbound | mounjaro | ozempic | wegovy | trulicity | compounded_* | other
-  glp1Type: 'semaglutide' | 'tirzepatide' | 'dulaglutide';
+  medicationBrand: MedicationBrand;
+  glp1Type: Glp1Type;
+  routeOfAdministration: RouteOfAdministration;
   doseMg: number;
   injectionFrequencyDays: number;     // 1 | 7 | 14 | custom
-  lastInjectionDate: string;          // YYYY-MM-DD
+  lastInjectionDate: string;          // YYYY-MM-DD (also "last dose date" for oral drugs)
   sex: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   birthday: string;                   // YYYY-MM-DD
   age: number;                        // computed at completeOnboarding
@@ -519,6 +544,30 @@ export type FullUserProfile = {
   onboardingCompletedAt: string;      // ISO datetime
 };
 ```
+
+### Drug Pharmacokinetic Model (implemented — `constants/drug-pk.ts`)
+
+FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
+
+| Drug Class | Brands | t½ | Tmax | Route | Dosing |
+|---|---|---|---|---|---|
+| `semaglutide` | Ozempic, Wegovy, compounded | 168h | 56h | SC | Weekly |
+| `tirzepatide` | Mounjaro, Zepbound, compounded | 120h | 24h | SC | Weekly |
+| `dulaglutide` | Trulicity | 120h | 48h | SC | Weekly |
+| `liraglutide` | Saxenda, Victoza, compounded | 13h | 11h | SC | Daily |
+| `oral_semaglutide` | Rybelsus, oral Wegovy | 158h | ~1h | Oral | Daily |
+| `orforglipron` | Orforglipron (Eli Lilly) | 50h | 8h | Oral | Daily |
+
+**Key exports:**
+- `DRUG_PK` — `{ ka, ke }` rate constants per drug class
+- `DRUG_HALF_LIFE_LABEL` — human-readable half-life label per drug (shown in chart header)
+- `DRUG_IS_ORAL` / `DRUG_DEFAULT_FREQ_DAYS` — route and interval lookups
+- `generatePkCurve(daysSince, glp1Type, glp1Status, injFreqDays)` — 7 values (6 days ago → today); uses steady-state Bateman equation for `glp1Status = 'active'`
+- `generateIntradayPkCurve(glp1Type)` — 7 values sampled at t = 0.5h, 4h, 8h, 12h, 16h, 20h, 24h for daily drugs (always at steady state)
+- `pkConcentrationPct(tHours, drug, atSteadyState, intervalH)` — normalized 0–100% concentration at any time point
+- `INTRADAY_TIME_LABELS` — `['Dose', '+4h', '+8h', '+12h', '+16h', '+20h', '+24h']` for chart x-axis
+
+---
 
 ### Supabase Database Tables (implemented — via `lib/database.types.ts`)
 
@@ -604,6 +653,11 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 }
 // Actions: LOG_WATER | LOG_PROTEIN | LOG_INJECTION | LOG_STEPS | CLEAR_ACTION
 ```
+
+**HealthContext initialization changes (rev 5):**
+- Initial actuals are now all-zero (`ZERO_ACTUALS`) rather than pre-seeded with demo values
+- Water intake is persisted to `AsyncStorage` (key: `@titrahealth_water_YYYY-MM-DD`) and reloaded on mount; works even when unauthenticated
+- Wearable seed renamed to `STUB_WEARABLE` (placeholder until Apple Health is wired)
 
 ### useUserStore API (Zustand)
 
@@ -722,7 +776,17 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Context snapshot builder** — `lib/context-snapshot.ts` (`buildContextSnapshot`) builds natural language health summary for AI prompt injection
 - [x] **Onboarding health-sync Expo Go fix** — `Constants.appOwnership` guard prevents NitroModules crash
 - [x] **`@kingstinct/react-native-healthkit`** installed + configured in `app.json` (HealthKit entitlement + usage strings)
-- [x] **metro.config.js** — react-native-svg CommonJS redirect + `.claude` blockList
+- [x] **metro.config.js** — react-native-svg CommonJS redirect + `.claude` blockList + parent `node_modules` block + `nodeModulesPaths` / `watchFolders` scoped to project root
+- [x] **Extended drug coverage** — `MedicationBrand` expanded to include daily injectables (Saxenda, Victoza, compounded liraglutide) and oral GLP-1 pills (Rybelsus, oral Wegovy, Orforglipron)
+- [x] **FDA-sourced PK model** — `constants/drug-pk.ts`; Bateman-equation `pkConcentrationPct`; `generatePkCurve` (7-day weekly) + `generateIntradayPkCurve` (24h intraday); population-PK verified against NDA data for all 6 drug classes
+- [x] **`RouteOfAdministration` type** — `'injection' | 'oral'`; added to `FullUserProfile`; auto-populated via `BRAND_TO_ROUTE` on medication onboarding step
+- [x] **Medication onboarding grouped** — brands organized into Weekly Injection / Daily Injection / Daily Oral Pill / Other sections with inline drug notes
+- [x] **Smart schedule screen** — frequency auto-locked for daily drugs; dose noun adapts (pill / injection / shot); oral semaglutide empty-stomach tip card
+- [x] **Drug-aware PK chart in Insights** — weekly drugs → 7-day chart; daily drugs → intraday 24h chart with `INTRADAY_TIME_LABELS`; chart header shows drug name + half-life
+- [x] **Zero-initialized actuals** — `ZERO_ACTUALS` replaces pre-seeded demo data in `HealthContext`
+- [x] **Water persistence via AsyncStorage** — water intake keyed by date (`@titrahealth_water_YYYY-MM-DD`); loaded on mount; works unauthenticated
+- [x] **Auth screen polish** — terracotta `#D67455`, Helvetica Neue font, `primaryBtn` style rename, shadow/opacity tweaks
+- [x] **Arc gauge SVG fix** — `largeArc` hardcoded to `0` in `log-activity.tsx` to prevent rendering glitch at 50% threshold
 
 ### In Progress / Partially Done
 
@@ -794,4 +858,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 7, 2026 (rev 4). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 9, 2026 (rev 5). It should be updated as features are built and decisions are made.*
