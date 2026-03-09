@@ -10,6 +10,7 @@ import { AddEntrySheet } from '@/components/add-entry-sheet';
 
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useLogStore } from '@/stores/log-store';
+import { useHealthKitStore } from '@/stores/healthkit-store';
 
 const ORANGE = '#FF742A';
 
@@ -78,7 +79,11 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
 export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
-  useEffect(() => { fetchInsightsData(); }, []);
+  const requestHealthPermissions = useHealthKitStore(s => s.requestPermissions);
+  useEffect(() => {
+    fetchInsightsData();
+    requestHealthPermissions();
+  }, []);
 
   return (
     <TabBarVisibilityProvider>

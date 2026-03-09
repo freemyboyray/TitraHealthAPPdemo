@@ -56,7 +56,16 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function handleDemoLogin() {
+  async function handleDemoLogin() {
+    setLoading(true);
+    setError(null);
+    const { data, error: anonError } = await supabase.auth.signInAnonymously();
+    setLoading(false);
+    if (anonError || !data.session) {
+      setError('Demo login failed. Enable anonymous sign-ins in Supabase Auth settings.');
+      return;
+    }
+    setSession(data.session);
     setDemoMode(true);
     setSessionLoaded(true);
     router.replace('/(tabs)');
@@ -125,22 +134,55 @@ export default function SignInScreen() {
       }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      console.log('[Google Sign-In] Browser result type:', result.type);
       if (result.type === 'success' && result.url) {
-        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
-        if (exchangeErr) {
-          setError(exchangeErr.message);
-        } else {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            setSession(session);
-            await loadProfile();
-            const sbProfile = useUserStore.getState().profile;
-            if (sbProfile?.program_start_date) {
-              router.replace('/(tabs)');
-            } else {
-              router.replace('/onboarding');
-            }
+        console.log('[Google Sign-In] Redirect URL:', result.url);
+
+        // Implicit flow: Supabase returns tokens in the URL hash fragment
+        // e.g. exp://...#access_token=xxx&refresh_token=xxx&...
+        let session = null;
+        const hash = result.url.includes('#') ? result.url.split('#')[1] : '';
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          const { data: sd, error: sessionErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (sessionErr) {
+            console.log('[Google Sign-In] setSession error:', sessionErr.message);
+            setError(sessionErr.message);
+            setGoogleLoading(false);
+            return;
           }
+          session = sd.session;
+        } else {
+          // Fallback: code present — try PKCE exchange (works in EAS builds with WebCrypto)
+          console.log('[Google Sign-In] No hash tokens, trying code exchange...');
+          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
+          if (exchangeErr) {
+            console.log('[Google Sign-In] Exchange error:', exchangeErr.message);
+            setError(exchangeErr.message);
+            setGoogleLoading(false);
+            return;
+          }
+          const { data: { session: s } } = await supabase.auth.getSession();
+          session = s;
+        }
+
+        if (session) {
+          setSession(session);
+          await loadProfile();
+          const sbProfile = useUserStore.getState().profile;
+          if (sbProfile?.program_start_date) {
+            router.replace('/(tabs)');
+          } else {
+            router.replace('/onboarding');
+          }
+        } else {
+          setError('Sign in completed but no session was returned. Please try again.');
         }
       } else if (result.type === 'dismiss') {
         // User closed the browser — no error

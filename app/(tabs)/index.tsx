@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
+import { useHealthKitStore } from '@/stores/healthkit-store';
 import {
   daysSinceInjection,
   generateInsights,
@@ -17,6 +18,7 @@ import {
   supportGradient,
   supportMessage,
 } from '@/constants/scoring';
+import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { generateDynamicInsights } from '@/lib/openai';
 
@@ -576,6 +578,7 @@ export default function HomeScreen() {
   const { onScroll } = useTabBarVisibility();
   const healthData = useHealthData();
   const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
+  const hkStore = useHealthKitStore();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -583,6 +586,8 @@ export default function HomeScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+
+  useFocusEffect(useCallback(() => { hkStore.fetchAll(); }, []));
 
   const recovGrad = recoveryGradient(recoveryScore);
   const suppGrad  = supportGradient(supportScore);
@@ -799,36 +804,58 @@ export default function HomeScreen() {
           {/* ── Health Monitor ── */}
           <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Monitor</Text>
           <View style={s.hmGrid}>
-            {((): HealthMetric[] => [
-              {
-                id: 'rrr', label: 'Resp. Rate', value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : '16',
-                unit: 'bpm', status: 'normal', iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: 'Normal',
-              },
-              {
-                id: 'rhr', label: 'Resting HR', value: String(wearable.restingHR), unit: 'bpm',
-                status: hmRhrStatus(wearable.restingHR), iconSet: 'Ionicons', iconName: 'heart-outline',
-                rangeLabel: hmRhrLabel(wearable.restingHR),
-              },
-              {
-                id: 'hrv', label: 'HRV', value: String(wearable.hrvMs), unit: 'ms',
-                status: hmHrvStatus(wearable.hrvMs), iconSet: 'MaterialIcons', iconName: 'show-chart',
-                rangeLabel: hmHrvLabel(wearable.hrvMs),
-              },
-              {
-                id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct), unit: '%',
-                status: hmSpo2Status(wearable.spo2Pct), iconSet: 'MaterialIcons', iconName: 'bloodtype',
-                rangeLabel: 'Normal',
-              },
-              {
-                id: 'temp', label: 'Temp', value: '98.4', unit: '°F', status: 'normal',
-                iconSet: 'MaterialIcons', iconName: 'thermostat', rangeLabel: 'Normal',
-              },
-              {
-                id: 'sleep', label: 'Sleep', value: fmtSleep(wearable.sleepMinutes), unit: '',
-                status: hmSleepStatus(wearable.sleepMinutes), iconSet: 'Ionicons', iconName: 'moon-outline',
-                rangeLabel: hmSleepLabel(wearable.sleepMinutes),
-              },
-            ])().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
+            {((): HealthMetric[] => {
+              const hkRhr   = hkStore.restingHR;
+              const hkHrv   = hkStore.hrv;
+              const hkSleep = hkStore.sleepHours;
+              const rhrVal  = hkRhr   ?? wearable.restingHR;
+              const hrvVal  = hkHrv   ?? wearable.hrvMs;
+              const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : wearable.sleepMinutes;
+
+              const metrics: HealthMetric[] = [
+                {
+                  id: 'rrr', label: 'Resp. Rate',
+                  value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : '16',
+                  unit: 'bpm', status: 'normal', iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: 'Normal',
+                },
+                {
+                  id: 'rhr', label: 'Resting HR', value: String(rhrVal), unit: 'bpm',
+                  status: hmRhrStatus(rhrVal), iconSet: 'Ionicons', iconName: 'heart-outline',
+                  rangeLabel: hmRhrLabel(rhrVal) + (hkRhr != null ? ' ·  ' : ''),
+                },
+                {
+                  id: 'hrv', label: 'HRV', value: String(hrvVal), unit: 'ms',
+                  status: hmHrvStatus(hrvVal), iconSet: 'MaterialIcons', iconName: 'show-chart',
+                  rangeLabel: hmHrvLabel(hrvVal) + (hkHrv != null ? ' ·  ' : ''),
+                },
+                {
+                  id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct), unit: '%',
+                  status: hmSpo2Status(wearable.spo2Pct), iconSet: 'MaterialIcons', iconName: 'bloodtype',
+                  rangeLabel: 'Normal',
+                },
+                {
+                  id: 'temp', label: 'Temp', value: '98.4', unit: '°F', status: 'normal',
+                  iconSet: 'MaterialIcons', iconName: 'thermostat', rangeLabel: 'Normal',
+                },
+                {
+                  id: 'sleep', label: 'Sleep',
+                  value: fmtSleep(sleepMin),
+                  unit: '', status: hmSleepStatus(sleepMin), iconSet: 'Ionicons', iconName: 'moon-outline',
+                  rangeLabel: hmSleepLabel(sleepMin) + (hkSleep != null ? ' ·  ' : ''),
+                },
+              ];
+
+              if (hkStore.bloodGlucose != null) {
+                metrics.push({
+                  id: 'glucose', label: 'Blood Glucose', value: String(hkStore.bloodGlucose), unit: 'mg/dL',
+                  status: hkStore.bloodGlucose < 100 ? 'good' : hkStore.bloodGlucose < 125 ? 'normal' : 'elevated',
+                  iconSet: 'MaterialIcons', iconName: 'water-drop',
+                  rangeLabel: hkStore.bloodGlucose < 100 ? 'Normal' : hkStore.bloodGlucose < 125 ? 'Pre-range' : 'High',
+                });
+              }
+
+              return metrics;
+            })().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
           </View>
 
         </ScrollView>
@@ -975,7 +1002,7 @@ const s = StyleSheet.create({
   // Health Monitor grid
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
   hmWrap: { width: '47.5%', borderRadius: 20 },
-  hmBody: { overflow: 'hidden' },
+  hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
   hmInner: { padding: 16 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   hmIconWrap: { alignItems: 'center', justifyContent: 'center' },
@@ -984,7 +1011,6 @@ const s = StyleSheet.create({
   hmLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
   hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   hmUnit: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.45)', letterSpacing: 0, fontFamily: 'Helvetica Neue' },
-  hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
   hmAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 8 },
   hmAiBtnText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,116,42,0.55)', fontFamily: 'Helvetica Neue' },
 });

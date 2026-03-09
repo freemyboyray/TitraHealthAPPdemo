@@ -24,6 +24,8 @@ import {
 } from '../../constants/side-effects';
 import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
+import { VoiceButton } from '../../components/ui/voice-button';
+import { parseVoiceLog, type VoiceSideEffectsResult } from '../../lib/openai';
 
 const BG = '#000000';
 const ORANGE = '#FF742A';
@@ -140,8 +142,29 @@ export default function SideEffectsScreen() {
   const [activeIds, setActiveIds] = useState<string[]>([]);
   const [customDefs, setCustomDefs] = useState<CustomEffect[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
-  const [phase] = useState<PhaseType>('balance');
+  const [phase, setPhase] = useState<PhaseType>('balance');
   const [loading, setLoading] = useState(false);
+
+  async function handleVoiceTranscription(text: string) {
+    try {
+      const result = await parseVoiceLog('side_effects', text) as VoiceSideEffectsResult;
+      if (result.phase) setPhase(result.phase);
+      if (result.symptoms?.length) {
+        setValues(prev => {
+          const next = { ...prev };
+          for (const sym of result.symptoms) {
+            // find by dbType or id match
+            const found = SIDE_EFFECTS.find(e => e.id === sym || e.id.includes(sym));
+            const id = found?.id ?? sym;
+            next[id] = result.severity ?? 5;
+          }
+          return next;
+        });
+      }
+    } catch {
+      // ignore — user can adjust manually
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -219,16 +242,19 @@ export default function SideEffectsScreen() {
 
         <Text style={{ fontSize: 18, fontWeight: '800', color: DARK }}>Side Effects Log</Text>
 
-        <TouchableOpacity
-          style={s.headerBtn}
-          onPress={() => router.push('/entry/customize-side-effects' as any)}
-          activeOpacity={0.7}
-        >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
-          <GB r={20} />
-          <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.6)" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
+          <TouchableOpacity
+            style={s.headerBtn}
+            onPress={() => router.push('/entry/customize-side-effects' as any)}
+            activeOpacity={0.7}
+          >
+            <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+            <GB r={20} />
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView

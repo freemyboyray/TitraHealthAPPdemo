@@ -128,25 +128,32 @@ export const useLogStore = create<LogStore>((set) => ({
 
   addWeightLog: async (weight_lbs, notes) => {
     set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const { error } = await supabase
       .from('weight_logs')
-      .insert({ weight_lbs, notes: notes ?? null });
+      .insert({ user_id: user.id, weight_lbs, notes: notes ?? null });
     set({ loading: false, error: error?.message ?? null });
   },
 
   addSideEffectLog: async (effect_type, severity, phase_at_log, notes) => {
     set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const { error } = await supabase
       .from('side_effect_logs')
-      .insert({ effect_type, severity, phase_at_log, notes: notes ?? null });
+      .insert({ user_id: user.id, effect_type, severity, phase_at_log, notes: notes ?? null });
     set({ loading: false, error: error?.message ?? null });
   },
 
   addInjectionLog: async (dose_mg, injection_date, injection_time, site, notes, medication_name, batch_number) => {
     set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const { error } = await supabase
       .from('injection_logs')
       .insert({
+        user_id: user.id,
         dose_mg,
         injection_date,
         injection_time: injection_time ?? null,
@@ -160,10 +167,13 @@ export const useLogStore = create<LogStore>((set) => ({
 
   addActivityLog: async (exercise_type, duration_min, intensity) => {
     set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const today = new Date().toISOString().split('T')[0];
     const { error } = await supabase
       .from('activity_logs')
       .insert({
+        user_id: user.id,
         date: today,
         exercise_type,
         duration_min,
@@ -175,10 +185,13 @@ export const useLogStore = create<LogStore>((set) => ({
 
   addFoodLog: async (entry) => {
     set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const { error } = await supabase
       .from('food_logs')
       .insert({
         ...entry,
+        user_id: user.id,
         raw_ai_response: entry.raw_ai_response ?? null,
         barcode: entry.barcode ?? null,
       });

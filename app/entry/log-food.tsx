@@ -17,9 +17,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callHaiku } from '../../lib/anthropic';
-import { searchUSDA, type FoodResult, type ServingOption } from '../../lib/usda';
+import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { type MealType } from '../../stores/log-store';
+import { useHealthKitStore } from '../../stores/healthkit-store';
+import { VoiceButton } from '../../components/ui/voice-button';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -135,6 +137,7 @@ export default function LogFoodScreen() {
     customFoods, fetchCustomFoods, addCustomFood,
     loading,
   } = useMealTrayStore();
+  const hkStore = useHealthKitStore();
 
   // ── Mode ──────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<Mode>((modeParam as Mode) ?? 'search');
@@ -165,6 +168,7 @@ export default function LogFoodScreen() {
   const [servingG, setServingG] = useState('100');
   const [selectedServingIdx, setSelectedServingIdx] = useState(0);
   const [showNutritionInfo, setShowNutritionInfo] = useState(false);
+  const [detailLoading, setDetailLoading] = useState<number | null>(null);
 
   // ── Tray UI ───────────────────────────────────────────────────────────────
   const [mealType, setMealType] = useState<MealType>('lunch');
@@ -218,7 +222,8 @@ export default function LogFoodScreen() {
     }, 400);
   }
 
-  function openPendingFromResult(item: FoodResult) {
+  async function openPendingFromResult(item: FoodResult) {
+    // Show the panel immediately with search-result data, then enrich with full serving options
     setPendingFood({
       food_name: item.name + (item.brand ? ` (${item.brand})` : ''),
       calories_per_100g: item.calories,
@@ -230,8 +235,25 @@ export default function LogFoodScreen() {
       serving_options: item.serving_options,
     });
     setSelectedServingIdx(0);
-    const defaultG = item.serving_options?.[0]?.grams ?? 100;
-    setServingG(String(Math.round(defaultG)));
+    setServingG(String(Math.round(item.serving_options?.[0]?.grams ?? 100)));
+
+    // Lazy-load full serving options from FatSecret food.get.v4
+    setDetailLoading(item.fdcId);
+    const detail = await getFatSecretFood(item.fdcId);
+    setDetailLoading(null);
+    if (detail) {
+      setPendingFood((prev) => prev ? {
+        ...prev,
+        calories_per_100g: detail.calories,
+        protein_per_100g: detail.protein_g,
+        carbs_per_100g: detail.carbs_g,
+        fat_per_100g: detail.fat_g,
+        fiber_per_100g: detail.fiber_g,
+        serving_options: detail.serving_options,
+      } : prev);
+      const firstG = detail.serving_options?.[0]?.grams ?? 100;
+      setServingG(String(Math.round(firstG)));
+    }
   }
 
   function openPendingFromRecent(item: RecentFood) {
@@ -294,13 +316,30 @@ export default function LogFoodScreen() {
     setScanFetching(true);
     setScanNotFound(false);
     setScanProduct(null);
-    const result = await lookupBarcode(data);
-    setScanFetching(false);
-    if (result) {
-      setScanProduct(result);
+
+    // Try Open Food Facts first, then FatSecret as fallback
+    let offResult = await lookupBarcode(data);
+    if (offResult) {
+      setScanFetching(false);
+      setScanProduct(offResult);
       setScanServingG('100');
     } else {
-      setScanNotFound(true);
+      const fsResult = await lookupFatSecretBarcode(data);
+      setScanFetching(false);
+      if (fsResult) {
+        setScanProduct({
+          name: fsResult.name,
+          brand: fsResult.brand,
+          calories: fsResult.calories,
+          protein_g: fsResult.protein_g,
+          carbs_g: fsResult.carbs_g,
+          fat_g: fsResult.fat_g,
+          fiber_g: fsResult.fiber_g,
+        });
+        setScanServingG('100');
+      } else {
+        setScanNotFound(true);
+      }
     }
   }
 
@@ -405,7 +444,16 @@ export default function LogFoodScreen() {
   // ── Tray actions ──────────────────────────────────────────────────────────
 
   async function handleLogMeal() {
+    // Capture totals before clearing tray
+    const totals = {
+      protein: parseFloat(trayItems.reduce((s, it) => s + it.protein_g, 0).toFixed(1)),
+      calories: Math.round(trayItems.reduce((s, it) => s + it.calories, 0)),
+      carbs: parseFloat(trayItems.reduce((s, it) => s + it.carbs_g, 0).toFixed(1)),
+      fat: parseFloat(trayItems.reduce((s, it) => s + it.fat_g, 0).toFixed(1)),
+      fiber: parseFloat(trayItems.reduce((s, it) => s + it.fiber_g, 0).toFixed(1)),
+    };
     await logMeal(mealType);
+    hkStore.writeNutrition(totals);
     router.back();
   }
 
@@ -744,7 +792,7 @@ export default function LogFoodScreen() {
                 </>
               )}
 
-              {/* USDA search results */}
+              {/* Search results */}
               {!!query.trim() && (
                 searching ? (
                   <View style={s.centered}>
@@ -759,14 +807,21 @@ export default function LogFoodScreen() {
                         style={s.resultRow}
                         onPress={() => openPendingFromResult(item)}
                         activeOpacity={0.75}
+                        disabled={detailLoading !== null}
                       >
                         <View style={s.resultLeft}>
                           <Text style={s.resultName} numberOfLines={2}>{item.name}</Text>
                           {!!item.brand && <Text style={s.resultSub}>{item.brand}</Text>}
                         </View>
                         <View style={s.resultRight}>
-                          <Text style={s.resultCal}>{item.calories} kcal</Text>
-                          <Text style={s.resultPer}>/ 100g</Text>
+                          {detailLoading === item.fdcId ? (
+                            <ActivityIndicator size="small" color={ORANGE} />
+                          ) : (
+                            <>
+                              <Text style={s.resultCal}>{item.calories} kcal</Text>
+                              <Text style={s.resultPer}>/ 100g</Text>
+                            </>
+                          )}
                         </View>
                       </TouchableOpacity>
                     ))}
@@ -798,7 +853,10 @@ export default function LogFoodScreen() {
                     <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
                     <GlassBorder r={20} />
                     <View style={{ padding: 18 }}>
-                      <Text style={sl.text}>DESCRIBE YOUR MEAL</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={sl.text}>DESCRIBE YOUR MEAL</Text>
+                        <VoiceButton onTranscription={setDescribeText} size="sm" />
+                      </View>
                       <TextInput
                         style={s.describeInput}
                         placeholder={'e.g. "Big Mac and large fries" or "chicken stir fry with rice"'}
@@ -864,7 +922,7 @@ export default function LogFoodScreen() {
                           );
                         })()}
                         {item.results.length === 0 && (
-                          <Text style={{ color: MUTED, fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>No USDA match</Text>
+                          <Text style={{ color: MUTED, fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>No match found</Text>
                         )}
                       </View>
                     </View>
@@ -1097,8 +1155,13 @@ export default function LogFoodScreen() {
                     {/* Serving size */}
                     <Text style={[sl.text, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
 
-                    {/* Serving option pills */}
-                    {pendingFood.serving_options && pendingFood.serving_options.length > 0 && (
+                    {/* Serving option pills — spinner while fetching detail */}
+                    {detailLoading !== null ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <ActivityIndicator size="small" color={ORANGE} />
+                        <Text style={{ color: MUTED, fontSize: 12 }}>Loading serving sizes…</Text>
+                      </View>
+                    ) : pendingFood.serving_options && pendingFood.serving_options.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 14 }}>
                         {pendingFood.serving_options.map((opt, idx) => (
                           <TouchableOpacity

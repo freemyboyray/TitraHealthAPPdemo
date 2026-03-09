@@ -18,6 +18,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
+import { VoiceButton } from '@/components/ui/voice-button';
+import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
 
 const BG     = '#000000';
 const ORANGE = '#FF742A';
@@ -232,6 +234,24 @@ export default function LogActivityScreen() {
   const [intensity, setIntensity]           = useState(5);
   const [showTypePicker, setShowTypePicker] = useState(false);
 
+  async function handleVoiceTranscription(text: string) {
+    try {
+      const result = await parseVoiceLog('activity', text) as VoiceActivityResult;
+      if (result.exercise_type) {
+        const matched = WORKOUT_TYPES.find(
+          t => t.toLowerCase() === result.exercise_type.toLowerCase(),
+        );
+        setWorkoutType(matched ?? result.exercise_type);
+      }
+      if (result.duration_min) setDurationMin(Math.round(result.duration_min));
+      if (result.intensity) {
+        setIntensity(result.intensity === 'low' ? 2 : result.intensity === 'moderate' ? 5 : 9);
+      }
+    } catch {
+      // ignore — user can adjust manually
+    }
+  }
+
   const estCalories = Math.round(durationMin * (intensity / 10) * 8);
 
   const now = new Date();
@@ -262,7 +282,7 @@ export default function LogActivityScreen() {
           <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
         <Text style={s.title}>Log Activity</Text>
-        <View style={{ width: 44 }} />
+        <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
       </View>
 
       <ScrollView

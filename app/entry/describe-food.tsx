@@ -201,7 +201,7 @@ export default function DescribeFoodScreen() {
             <Text style={s.itemRawName}>{item.item}</Text>
 
             {item.results.length === 0 ? (
-              <Text style={s.noMatch}>No USDA match — will skip</Text>
+              <Text style={s.noMatch}>No match — will skip</Text>
             ) : (
               <>
                 {item.results.slice(0, 3).map((r, ri) => (

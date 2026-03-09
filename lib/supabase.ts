@@ -19,5 +19,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // implicit flow — PKCE requires WebCrypto which Expo Go doesn't support.
+    // Switch to pkce when using an EAS/production build.
+    flowType: 'implicit',
   },
 });

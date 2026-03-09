@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
+import { useHealthKitStore } from '../../stores/healthkit-store';
+import { VoiceButton } from '../../components/ui/voice-button';
+import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 
 const BG     = '#000000';
 const ORANGE = '#FF742A';
@@ -183,6 +186,7 @@ export default function LogWeightScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { loading, addWeightLog } = useLogStore();
+  const hkStore = useHealthKitStore();
 
   const [lbs, setLbs]   = useState(185.0);
   const [unit, setUnit] = useState<Unit>('lbs');
@@ -205,9 +209,22 @@ export default function LogWeightScreen() {
     // lbs state unchanged — disp auto-converts
   }
 
+  async function handleVoiceTranscription(text: string) {
+    try {
+      const result = await parseVoiceLog('weight', text) as VoiceWeightResult;
+      if (result.weight_lbs) {
+        setLbs(parseFloat(result.weight_lbs.toFixed(1)));
+        if (result.unit === 'kg') setUnit('kg');
+      }
+    } catch {
+      // ignore parse errors — user can still adjust manually
+    }
+  }
+
   async function handleLog() {
     if (loading) return;
     await addWeightLog(parseFloat(lbs.toFixed(1)));
+    hkStore.writeWeight(parseFloat(lbs.toFixed(1)));
     router.back();
   }
 
@@ -257,6 +274,7 @@ export default function LogWeightScreen() {
             <Text style={s.weightValue}>{disp.toFixed(1)}</Text>
             <Text style={s.weightUnit}>{unit}</Text>
           </View>
+          <VoiceButton onTranscription={handleVoiceTranscription} size="md" style={{ marginTop: 16 }} />
         </View>
 
         {/* Ruler */}

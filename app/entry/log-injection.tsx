@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
+import { VoiceButton } from '../../components/ui/voice-button';
+import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -106,6 +108,28 @@ export default function LogInjectionScreen() {
   const [site, setSite] = useState('Left Abdomen');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
+
+  async function handleVoiceTranscription(text: string) {
+    try {
+      const result = await parseVoiceLog('injection', text) as VoiceInjectionResult;
+      if (result.medication) {
+        const med = MEDICATIONS.find(m => m.toLowerCase() === result.medication.toLowerCase());
+        if (med) setMedication(med);
+      }
+      if (result.dose_mg != null) {
+        const doseStr = `${result.dose_mg}mg`;
+        if (DOSES.includes(doseStr)) setDose(doseStr);
+      }
+      if (result.site) {
+        const matched = SITES.find(s => s.toLowerCase().includes(result.site.toLowerCase()) || result.site.toLowerCase().includes(s.toLowerCase().split(' ').slice(-1)[0]));
+        if (matched) setSite(matched);
+      }
+      if (result.batch) setBatchNumber(result.batch);
+      if (result.notes) setNotes(result.notes);
+    } catch {
+      // ignore — user adjusts manually
+    }
+  }
 
   const nextSite = SITES[(SITES.indexOf(site) + 1) % SITES.length];
 
@@ -254,16 +278,19 @@ export default function LogInjectionScreen() {
             returnKeyType="next"
           />
           <View style={s.inputDivider} />
-          <TextInput
-            style={[s.textInput, s.notesInput]}
-            placeholder="Add a note… (optional)"
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            value={notes}
-            onChangeText={setNotes}
-            maxLength={200}
-            multiline
-            textAlignVertical="top"
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <TextInput
+              style={[s.textInput, s.notesInput, { flex: 1 }]}
+              placeholder="Add a note or speak to auto-fill…"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={200}
+              multiline
+              textAlignVertical="top"
+            />
+            <VoiceButton onTranscription={handleVoiceTranscription} size="sm" style={{ marginTop: 6 }} />
+          </View>
         </GlassCard>
       </ScrollView>
 

@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.anonymous.TitraHealthAPPdemo",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
-        "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health."
+        "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
+        "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
@@ -27,7 +28,21 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_BLOOD_GLUCOSE",
+        "android.permission.health.READ_NUTRITION",
+        "android.permission.health.READ_BODY_WEIGHT",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.WRITE_NUTRITION",
+        "android.permission.health.WRITE_BODY_WEIGHT",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -47,7 +62,8 @@
           }
         }
       ],
-      "@kingstinct/react-native-healthkit"
+      "@kingstinct/react-native-healthkit",
+      "react-native-health-connect"
     ],
     "experiments": {
       "typedRoutes": true,
