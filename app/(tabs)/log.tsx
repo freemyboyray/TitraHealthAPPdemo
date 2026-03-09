@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
 import { generateLogInsight } from '@/lib/openai';
+import { generatePkCurve, generateIntradayPkCurve, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog } from '@/stores/log-store';
 
 const ORANGE = '#FF742A';
@@ -66,15 +67,6 @@ function goalProgress(start: number, current: number, goal: number): number {
   return Math.max(0, Math.min(100, Math.round(((start - current) / (start - goal)) * 100)));
 }
 
-// GLP-1 PK curve: 7 values for last 7 days (index 0 = 6 days ago, 6 = today)
-function glp1PkData(daysSince: number): number[] {
-  const BASE: Record<number, number> = { 1: 35, 2: 62, 3: 82, 4: 88, 5: 72, 6: 56, 7: 42 };
-  return Array.from({ length: 7 }, (_, i) => {
-    const cycleDay = daysSince - (6 - i);
-    if (cycleDay < 1) return 20;
-    return BASE[Math.min(7, cycleDay)] ?? 20;
-  });
-}
 
 function last7DayLabels(): string[] {
   const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -379,10 +371,12 @@ function MedAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData
 
 const CHART_HEIGHT = 110;
 
-function MedLevelChartCard({ chartData, daysSince, dayLabels }: {
+function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyDrug }: {
   chartData: number[];
   daysSince: number;
   dayLabels: string[];
+  glp1Type: import('@/constants/user-profile').Glp1Type;
+  isDailyDrug: boolean;
 }) {
   const [chartWidth, setChartWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setChartWidth(e.nativeEvent.layout.width);
@@ -404,7 +398,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels }: {
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={s.chartMuted}>Medication Level in Body</Text>
+            <Text style={s.chartMuted}>{glp1Type.charAt(0).toUpperCase() + glp1Type.slice(1)} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
             <AskAIButton onPress={() => router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent('Medication Level')}&contextValue=${encodeURIComponent(`${levelLabel} · Last injection ${daysSinceLabel}`)}&chips=${encodeURIComponent(JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']))}` as any)} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 2, gap: 10 }}>
@@ -413,7 +407,9 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels }: {
               <Text style={s.inRangeText}>In Range</Text>
             </View>
           </View>
-          <Text style={[s.chartMuted, { marginBottom: 14 }]}>Since last injection: {daysSinceLabel}</Text>
+          <Text style={[s.chartMuted, { marginBottom: 14 }]}>
+            {isDailyDrug ? 'Intraday concentration profile' : `Since last injection: ${daysSinceLabel}`}
+          </Text>
 
           <View style={{ height: CHART_HEIGHT }} onLayout={onLayout}>
             {chartWidth > 0 && (
@@ -852,8 +848,16 @@ export default function InsightsScreen() {
   const nextInjLabel = lastInj
     ? nextInjectionLabel(lastInj.injection_date, profile?.injection_frequency_days ?? 7)
     : '—';
-  const medChartData = glp1PkData(lastDaysSince);
-  const medDayLabels = last7DayLabels();
+  const isDailyDrug = DRUG_DEFAULT_FREQ_DAYS[health.profile.glp1Type] === 1;
+  const medChartData = isDailyDrug
+    ? generateIntradayPkCurve(health.profile.glp1Type)
+    : generatePkCurve(
+        lastDaysSince,
+        health.profile.glp1Type,
+        health.profile.glp1Status,
+        health.profile.injectionFrequencyDays ?? 7,
+      );
+  const medDayLabels = isDailyDrug ? INTRADAY_TIME_LABELS : last7DayLabels();
   const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(injectionToEntry);
 
   // ── Progress data ──────────────────────────────────────────────────────────
@@ -965,6 +969,8 @@ export default function InsightsScreen() {
                 chartData={medChartData}
                 daysSince={lastDaysSince}
                 dayLabels={medDayLabels}
+                glp1Type={health.profile.glp1Type}
+                isDailyDrug={isDailyDrug}
               />
               <Text style={s.sectionTitle}>Injection Details</Text>
               <View style={s.dailyGrid}>

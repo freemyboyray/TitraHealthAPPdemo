@@ -37,6 +37,7 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     medicationBrand: 'other',
     unitSystem: 'imperial',
     glp1Type: row.medication_type ?? 'semaglutide',
+    routeOfAdministration: 'injection',
     doseMg: row.dose_mg ?? 0,
     injectionFrequencyDays: row.injection_frequency_days ?? 7,
     lastInjectionDate: '',

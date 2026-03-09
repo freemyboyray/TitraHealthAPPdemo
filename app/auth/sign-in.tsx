@@ -21,10 +21,11 @@ import { useUserStore } from '@/stores/user-store';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
-const MUTED = 'rgba(28,15,9,0.45)';
+const BG         = '#F0EAE4';
+const TERRACOTTA = '#D67455';
+const DARK       = '#1C0F09';
+const MUTED      = 'rgba(28,15,9,0.45)';
+const FONT       = 'Helvetica Neue';
 
 function GlassBorder({ r = 16 }: { r?: number }) {
   return (
@@ -35,9 +36,9 @@ function GlassBorder({ r = 16 }: { r?: number }) {
         {
           borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.80)',
-          borderLeftColor: 'rgba(255,255,255,0.55)',
-          borderRightColor: 'rgba(255,255,255,0.18)',
+          borderTopColor:    'rgba(255,255,255,0.80)',
+          borderLeftColor:   'rgba(255,255,255,0.55)',
+          borderRightColor:  'rgba(255,255,255,0.18)',
           borderBottomColor: 'rgba(255,255,255,0.10)',
         },
       ]}
@@ -50,11 +51,11 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail]               = useState('');
+  const [password, setPassword]         = useState('');
+  const [loading, setLoading]           = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]               = useState<string | null>(null);
 
   async function handleDemoLogin() {
     setLoading(true);
@@ -109,7 +110,6 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      // Check for placeholder Supabase config (OAuth won't work)
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
       const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
       if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseKey || supabaseKey.includes('placeholder')) {
@@ -119,7 +119,6 @@ export default function SignInScreen() {
       }
 
       const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
-      // Log so you can add this exact URL to Supabase Auth → URL Configuration → Redirect URLs
       console.log('[Google Sign-In] Redirect URI:', redirectUri);
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
@@ -184,8 +183,6 @@ export default function SignInScreen() {
         } else {
           setError('Sign in completed but no session was returned. Please try again.');
         }
-      } else if (result.type === 'dismiss') {
-        // User closed the browser — no error
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -297,7 +294,7 @@ export default function SignInScreen() {
 
               {/* Sign In button */}
               <TouchableOpacity
-                style={[s.signInBtn, loading && s.btnDisabled]}
+                style={[s.primaryBtn, loading && s.btnDisabled]}
                 onPress={handleSignIn}
                 activeOpacity={0.85}
                 disabled={loading}
@@ -305,7 +302,7 @@ export default function SignInScreen() {
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={s.signInBtnText}>Sign In</Text>
+                  <Text style={s.primaryBtnText}>Sign In</Text>
                 )}
               </TouchableOpacity>
 
@@ -325,7 +322,7 @@ export default function SignInScreen() {
           </View>
         </View>
 
-        {/* Demo login — outside the card so it's always visible */}
+        {/* Demo login — outside the card */}
         <View style={s.demoWrap}>
           <View style={s.demoDividerRow}>
             <View style={s.dividerLine} />
@@ -348,73 +345,72 @@ export default function SignInScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root:   { flex: 1, backgroundColor: BG },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 },
 
   // Logo
-  logoWrap: { alignItems: 'center', marginBottom: 32 },
+  logoWrap:    { alignItems: 'center', marginBottom: 32 },
   logoIcon: {
     width: 64, height: 64, borderRadius: 20, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
     shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8,
   },
   logoOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.45)' },
-  wordmark: { fontSize: 30, fontWeight: '800', color: DARK, letterSpacing: -0.8 },
-  tagline: { fontSize: 14, color: MUTED, fontWeight: '500', marginTop: 4 },
+  wordmark:    { fontSize: 30, fontWeight: '800', color: DARK, letterSpacing: -0.8, fontFamily: FONT },
+  tagline:     { fontSize: 14, color: MUTED, fontWeight: '500', marginTop: 4, fontFamily: FONT },
 
   // Card
   cardShadow: {
     borderRadius: 28,
-    shadowColor: DARK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 32, elevation: 10,
+    shadowColor: DARK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 10,
   },
-  card: { borderRadius: 28, overflow: 'hidden' },
-  cardOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.40)' },
+  card:        { borderRadius: 28, overflow: 'hidden' },
+  cardOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.35)' },
   cardContent: { padding: 24 },
 
   // Google button
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    height: 52, borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    shadowColor: DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+    height: 52, borderRadius: 14, backgroundColor: '#FFFFFF',
+    shadowColor: DARK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   },
-  googleBtnText: { fontSize: 15, fontWeight: '600', color: DARK },
+  googleBtnText: { fontSize: 15, fontWeight: '600', color: DARK, fontFamily: FONT },
 
   // Divider
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(28,15,9,0.12)' },
-  dividerText: { marginHorizontal: 12, fontSize: 13, color: MUTED, fontWeight: '500' },
+  dividerRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(28,15,9,0.10)' },
+  dividerText: { marginHorizontal: 12, fontSize: 13, color: MUTED, fontWeight: '500', fontFamily: FONT },
 
   // Inputs
-  inputWrap: { height: 52, borderRadius: 14, overflow: 'hidden', justifyContent: 'center' },
+  inputWrap:    { height: 52, borderRadius: 14, overflow: 'hidden', justifyContent: 'center' },
   inputOverlay: { borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.50)' },
-  input: { paddingHorizontal: 16, fontSize: 15, color: DARK, height: 52 },
+  input:        { paddingHorizontal: 16, fontSize: 15, color: DARK, height: 52, fontFamily: FONT },
 
   // Error
-  errorText: { color: '#E05252', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  errorText: { color: '#C0392B', fontSize: 13, marginTop: 10, textAlign: 'center', fontFamily: FONT },
 
-  // Sign In button
-  signInBtn: {
+  // Primary button
+  primaryBtn: {
     height: 52, borderRadius: 14, backgroundColor: TERRACOTTA,
     alignItems: 'center', justifyContent: 'center', marginTop: 18,
-    shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6,
+    shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.30, shadowRadius: 14, elevation: 6,
   },
-  btnDisabled: { opacity: 0.55 },
-  signInBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  btnDisabled:    { opacity: 0.55 },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', fontFamily: FONT },
 
   // Link
-  linkBtn: { marginTop: 18, alignItems: 'center' },
-  linkText: { fontSize: 14, color: MUTED },
-  linkBold: { color: TERRACOTTA, fontWeight: '700' },
+  linkBtn:  { marginTop: 18, alignItems: 'center' },
+  linkText: { fontSize: 14, color: MUTED, fontFamily: FONT },
+  linkBold: { color: TERRACOTTA, fontWeight: '700', fontFamily: FONT },
 
   // Demo (outside card)
-  demoWrap: { marginTop: 24, paddingHorizontal: 4 },
+  demoWrap:      { marginTop: 24, paddingHorizontal: 4 },
   demoDividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   demoBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 52, borderRadius: 16,
-    borderWidth: 1.5, borderColor: 'rgba(196,120,75,0.40)',
-    backgroundColor: 'rgba(196,120,75,0.10)',
+    borderWidth: 1.5, borderColor: 'rgba(214,116,85,0.35)',
+    backgroundColor: 'rgba(214,116,85,0.08)',
   },
-  demoBtnText: { fontSize: 15, fontWeight: '600', color: TERRACOTTA },
+  demoBtnText: { fontSize: 15, fontWeight: '600', color: TERRACOTTA, fontFamily: FONT },
 });

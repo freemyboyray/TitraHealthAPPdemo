@@ -3,6 +3,7 @@
 export type Glp1Status = 'active' | 'starting';
 
 export type MedicationBrand =
+  // ── Weekly SC injectables ─────────────────────────────────────────────────
   | 'zepbound'
   | 'mounjaro'
   | 'ozempic'
@@ -10,9 +11,27 @@ export type MedicationBrand =
   | 'trulicity'
   | 'compounded_semaglutide'
   | 'compounded_tirzepatide'
+  // ── Daily SC injectables ──────────────────────────────────────────────────
+  | 'saxenda'               // liraglutide 3 mg/day (weight loss)
+  | 'victoza'               // liraglutide 1.8 mg/day (T2D, off-label weight loss)
+  | 'compounded_liraglutide'
+  // ── Oral daily pills ──────────────────────────────────────────────────────
+  | 'rybelsus'              // oral semaglutide 3/7/14 mg (T2D approved)
+  | 'oral_wegovy'           // oral semaglutide 25 mg (obesity, FDA approved Dec 2025)
+  | 'orforglipron'          // Eli Lilly small-molecule GLP-1 (FDA decision ~Apr 2026)
+  // ── Catch-all ─────────────────────────────────────────────────────────────
   | 'other';
 
-export type Glp1Type = 'semaglutide' | 'tirzepatide' | 'dulaglutide';
+export type Glp1Type =
+  // Injectable — weekly
+  | 'semaglutide'
+  | 'tirzepatide'
+  | 'dulaglutide'
+  // Injectable — daily
+  | 'liraglutide'
+  // Oral — daily
+  | 'oral_semaglutide'
+  | 'orforglipron';
 export type Sex = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 export type ActivityLevel = 'sedentary' | 'light' | 'active' | 'very_active';
 export type SideEffect =
@@ -26,13 +45,16 @@ export type UnitSystem = 'imperial' | 'metric';
 
 // ─── Full User Profile ────────────────────────────────────────────────────────
 
+export type RouteOfAdministration = 'injection' | 'oral';
+
 export type FullUserProfile = {
   glp1Status: Glp1Status;
   medicationBrand: MedicationBrand;
   glp1Type: Glp1Type;
+  routeOfAdministration: RouteOfAdministration;
   doseMg: number;
   injectionFrequencyDays: number;   // 1 | 7 | 14 | custom
-  lastInjectionDate: string;        // YYYY-MM-DD
+  lastInjectionDate: string;        // YYYY-MM-DD (also used as "last dose date" for oral)
   sex: Sex;
   birthday: string;                 // YYYY-MM-DD
   age: number;                      // computed from birthday
@@ -59,14 +81,59 @@ export type ProfileDraft = Partial<FullUserProfile>;
 // ─── Medication Brand → GLP-1 Type Mapping ───────────────────────────────────
 
 export const BRAND_TO_GLP1_TYPE: Record<MedicationBrand, Glp1Type> = {
-  zepbound: 'tirzepatide',
-  mounjaro: 'tirzepatide',
-  ozempic: 'semaglutide',
-  wegovy: 'semaglutide',
-  trulicity: 'dulaglutide',
+  // Weekly injectable
+  zepbound:               'tirzepatide',
+  mounjaro:               'tirzepatide',
+  ozempic:                'semaglutide',
+  wegovy:                 'semaglutide',
+  trulicity:              'dulaglutide',
   compounded_semaglutide: 'semaglutide',
   compounded_tirzepatide: 'tirzepatide',
-  other: 'semaglutide',
+  // Daily injectable
+  saxenda:                'liraglutide',
+  victoza:                'liraglutide',
+  compounded_liraglutide: 'liraglutide',
+  // Oral daily
+  rybelsus:               'oral_semaglutide',
+  oral_wegovy:            'oral_semaglutide',
+  orforglipron:           'orforglipron',
+  // Catch-all
+  other:                  'semaglutide',
+};
+
+export const BRAND_TO_ROUTE: Record<MedicationBrand, RouteOfAdministration> = {
+  zepbound:               'injection',
+  mounjaro:               'injection',
+  ozempic:                'injection',
+  wegovy:                 'injection',
+  trulicity:              'injection',
+  compounded_semaglutide: 'injection',
+  compounded_tirzepatide: 'injection',
+  saxenda:                'injection',
+  victoza:                'injection',
+  compounded_liraglutide: 'injection',
+  rybelsus:               'oral',
+  oral_wegovy:            'oral',
+  orforglipron:           'oral',
+  other:                  'injection',
+};
+
+// Default dosing interval per brand (days). Used to pre-fill schedule screen.
+export const BRAND_DEFAULT_FREQ_DAYS: Record<MedicationBrand, number> = {
+  zepbound:               7,
+  mounjaro:               7,
+  ozempic:                7,
+  wegovy:                 7,
+  trulicity:              7,
+  compounded_semaglutide: 7,
+  compounded_tirzepatide: 7,
+  saxenda:                1,
+  victoza:                1,
+  compounded_liraglutide: 1,
+  rybelsus:               1,
+  oral_wegovy:            1,
+  orforglipron:           1,
+  other:                  7,
 };
 
 // ─── Derived Metric Helper ────────────────────────────────────────────────────

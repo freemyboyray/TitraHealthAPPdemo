@@ -7,6 +7,7 @@ export const MOCK_PROFILE: FullUserProfile = {
   glp1Status: 'active',
   medicationBrand: 'ozempic',
   glp1Type: 'semaglutide',
+  routeOfAdministration: 'injection',
   doseMg: 1.0,
   injectionFrequencyDays: 7,
   lastInjectionDate: (() => {

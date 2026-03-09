@@ -17,10 +17,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
-const MUTED = 'rgba(28,15,9,0.45)';
+const BG         = '#F0EAE4';
+const TERRACOTTA = '#D67455';
+const DARK       = '#1C0F09';
+const MUTED      = 'rgba(28,15,9,0.45)';
+const FONT       = 'Helvetica Neue';
 
 function GlassBorder({ r = 16 }: { r?: number }) {
   return (
@@ -31,9 +32,9 @@ function GlassBorder({ r = 16 }: { r?: number }) {
         {
           borderRadius: r,
           borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.80)',
-          borderLeftColor: 'rgba(255,255,255,0.55)',
-          borderRightColor: 'rgba(255,255,255,0.18)',
+          borderTopColor:    'rgba(255,255,255,0.80)',
+          borderLeftColor:   'rgba(255,255,255,0.55)',
+          borderRightColor:  'rgba(255,255,255,0.18)',
           borderBottomColor: 'rgba(255,255,255,0.10)',
         },
       ]}
@@ -46,15 +47,15 @@ export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const { setSession, loadProfile } = useUserStore();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
   async function handleSignUp() {
     const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
+    const trimmedName  = name.trim();
     if (!trimmedName || !trimmedEmail || !password) {
       setError('Please fill in all fields.');
       return;
@@ -70,9 +71,7 @@ export default function SignUpScreen() {
     const { data, error: err } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: {
-        data: { full_name: trimmedName },
-      },
+      options: { data: { full_name: trimmedName } },
     });
 
     if (err) {
@@ -81,20 +80,12 @@ export default function SignUpScreen() {
       return;
     }
 
-    // Some Supabase configs require email confirmation — session may be null
     if (data.session) {
       setSession(data.session);
-
-      // Insert profile row immediately
-      await supabase.from('profiles').upsert({
-        id: data.user!.id,
-        full_name: trimmedName,
-      });
-
+      await supabase.from('profiles').upsert({ id: data.user!.id, full_name: trimmedName });
       await loadProfile();
       router.replace('/onboarding');
     } else {
-      // Email confirmation required
       setError('Check your email for a confirmation link, then sign in.');
     }
 
@@ -195,7 +186,7 @@ export default function SignUpScreen() {
 
               {/* Create Account button */}
               <TouchableOpacity
-                style={[s.signInBtn, loading && s.btnDisabled]}
+                style={[s.primaryBtn, loading && s.btnDisabled]}
                 onPress={handleSignUp}
                 activeOpacity={0.85}
                 disabled={loading}
@@ -203,7 +194,7 @@ export default function SignUpScreen() {
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={s.signInBtnText}>Create Account</Text>
+                  <Text style={s.primaryBtnText}>Create Account</Text>
                 )}
               </TouchableOpacity>
 
@@ -228,50 +219,50 @@ export default function SignUpScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root:   { flex: 1, backgroundColor: BG },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 },
 
   backBtn: { position: 'absolute', top: 56, left: 24, zIndex: 10, padding: 8 },
 
   // Logo
-  logoWrap: { alignItems: 'center', marginBottom: 32 },
+  logoWrap:    { alignItems: 'center', marginBottom: 32 },
   logoIcon: {
     width: 64, height: 64, borderRadius: 20, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
     shadowColor: DARK, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8,
   },
   logoOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.45)' },
-  wordmark: { fontSize: 28, fontWeight: '800', color: DARK, letterSpacing: -0.8 },
-  tagline: { fontSize: 14, color: MUTED, fontWeight: '500', marginTop: 4 },
+  wordmark:    { fontSize: 28, fontWeight: '800', color: DARK, letterSpacing: -0.8, fontFamily: FONT },
+  tagline:     { fontSize: 14, color: MUTED, fontWeight: '500', marginTop: 4, fontFamily: FONT },
 
   // Card
   cardShadow: {
     borderRadius: 28,
-    shadowColor: DARK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 32, elevation: 10,
+    shadowColor: DARK, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 10,
   },
-  card: { borderRadius: 28, overflow: 'hidden' },
-  cardOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.40)' },
+  card:        { borderRadius: 28, overflow: 'hidden' },
+  cardOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.35)' },
   cardContent: { padding: 24 },
 
   // Inputs
-  inputWrap: { height: 52, borderRadius: 14, overflow: 'hidden', justifyContent: 'center' },
+  inputWrap:    { height: 52, borderRadius: 14, overflow: 'hidden', justifyContent: 'center' },
   inputOverlay: { borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.50)' },
-  input: { paddingHorizontal: 16, fontSize: 15, color: DARK, height: 52 },
+  input:        { paddingHorizontal: 16, fontSize: 15, color: DARK, height: 52, fontFamily: FONT },
 
   // Error
-  errorText: { color: '#E05252', fontSize: 13, marginTop: 10, textAlign: 'center' },
+  errorText: { color: '#C0392B', fontSize: 13, marginTop: 10, textAlign: 'center', fontFamily: FONT },
 
-  // Button
-  signInBtn: {
+  // Primary button
+  primaryBtn: {
     height: 52, borderRadius: 14, backgroundColor: TERRACOTTA,
     alignItems: 'center', justifyContent: 'center', marginTop: 18,
-    shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6,
+    shadowColor: TERRACOTTA, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.30, shadowRadius: 14, elevation: 6,
   },
-  btnDisabled: { opacity: 0.55 },
-  signInBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  btnDisabled:    { opacity: 0.55 },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', fontFamily: FONT },
 
   // Link
-  linkBtn: { marginTop: 18, alignItems: 'center' },
-  linkText: { fontSize: 14, color: MUTED },
-  linkBold: { color: TERRACOTTA, fontWeight: '700' },
+  linkBtn:  { marginTop: 18, alignItems: 'center' },
+  linkText: { fontSize: 14, color: MUTED, fontFamily: FONT },
+  linkBold: { color: TERRACOTTA, fontWeight: '700', fontFamily: FONT },
 });

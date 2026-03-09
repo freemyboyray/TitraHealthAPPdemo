@@ -100,7 +100,7 @@ function ArcGauge({ value, min, max, unit, labels, onChange }: ArcGaugeProps) {
   const angle = -Math.PI + progress * Math.PI;
   const tx = cx + R * Math.cos(angle);
   const ty = cy + R * Math.sin(angle);
-  const largeArc = progress > 0.5 ? 1 : 0;
+  const largeArc = 0;
   const bgPath = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
   const progPath = progress > 0.005
     ? `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${tx.toFixed(2)} ${ty.toFixed(2)}`

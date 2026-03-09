@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
 import { supabase } from '@/lib/supabase';
@@ -17,20 +18,25 @@ import {
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
-const SEED_WEARABLE: WearableData = {
+// TODO: Replace with Apple Health data when appleHealthEnabled === true
+const STUB_WEARABLE: WearableData = {
   sleepMinutes: 443,
   hrvMs: 45,
   restingHR: 58,
   spo2Pct: 98,
 };
 
-const SEED_ACTUALS: DailyActuals = {
-  proteinG: 62,
-  waterMl: 1100,
-  fiberG: 14,
-  steps: 3200,
+const ZERO_ACTUALS: DailyActuals = {
+  proteinG: 0,
+  waterMl: 0,
+  fiberG: 0,
+  steps: 0,
   injectionLogged: false,
 };
+
+function todayWaterKey(): string {
+  return `@titrahealth_water_${new Date().toISOString().slice(0, 10)}`;
+}
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
 
@@ -60,14 +66,14 @@ type Action =
 function buildInitialState(profile: FullUserProfile): HealthState {
   const daysSinceShot = daysSinceInjection(profile.lastInjectionDate);
   const phase = getShotPhase(daysSinceShot);
-  const recoveryScore = computeRecovery(SEED_WEARABLE, phase);
+  const recoveryScore = computeRecovery(STUB_WEARABLE, phase);
   const targets = getDailyTargets(profile, daysSinceShot);
-  const supportScore = computeGlp1Support(SEED_ACTUALS, targets);
-  const focuses = generateFocuses(SEED_ACTUALS, targets, SEED_WEARABLE, daysSinceShot);
+  const supportScore = computeGlp1Support(ZERO_ACTUALS, targets);
+  const focuses = generateFocuses(ZERO_ACTUALS, targets, STUB_WEARABLE, daysSinceShot);
   return {
     profile,
-    wearable: SEED_WEARABLE,
-    actuals: SEED_ACTUALS,
+    wearable: STUB_WEARABLE,
+    actuals: ZERO_ACTUALS,
     targets,
     recoveryScore,
     supportScore,
@@ -132,12 +138,24 @@ export function HealthProvider({
 }) {
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
 
-  // Seed today's actuals from Supabase on mount
+  // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   useEffect(() => {
     async function fetchTodayActuals() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const todayStr = new Date().toISOString().slice(0, 10);
+
+      // Load water from AsyncStorage (not in Supabase)
+      const storedWater = await AsyncStorage.getItem(todayWaterKey());
+      const waterMl = storedWater ? parseFloat(storedWater) : 0;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Unauthenticated: still apply any logged water
+        if (waterMl > 0) {
+          dispatch({ type: 'FETCH_ACTUALS', actuals: { ...ZERO_ACTUALS, waterMl } });
+        }
+        return;
+      }
+
       const [foodRes, actRes, injRes] = await Promise.all([
         supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', todayStr),
         supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
@@ -149,11 +167,16 @@ export function HealthProvider({
       const injectionLogged = (injRes.data ?? []).length > 0;
       dispatch({
         type: 'FETCH_ACTUALS',
-        actuals: { proteinG, fiberG, steps, waterMl: SEED_ACTUALS.waterMl, injectionLogged },
+        actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
       });
     }
     fetchTodayActuals();
   }, []);
+
+  // Persist water to AsyncStorage whenever it changes
+  useEffect(() => {
+    AsyncStorage.setItem(todayWaterKey(), String(state.actuals.waterMl));
+  }, [state.actuals.waterMl]);
 
   // Auto-clear lastLogAction after 600ms
   useEffect(() => {

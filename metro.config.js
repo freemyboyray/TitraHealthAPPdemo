@@ -3,10 +3,17 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Block .claude worktrees and other non-app dirs from being bundled
+// Prevent Metro from crawling parent directories and picking up
+// node_modules installed outside the project root (e.g. /Users/raywade/node_modules)
+config.resolver.nodeModulesPaths = [path.resolve(__dirname, 'node_modules')];
+config.watchFolders = [__dirname];
+
+// Block .claude worktrees, parent node_modules, and other non-app dirs from being bundled
+const parentNodeModules = path.resolve(__dirname, '..', 'node_modules');
 const blockList = [
   /\/\.claude\/.*/,
   /\/\.mcp\.json/,
+  new RegExp(`^${parentNodeModules.replace(/[/\\]/g, '[\\/\\\\]')}.*`),
 ];
 config.resolver.blockList = blockList;
 
