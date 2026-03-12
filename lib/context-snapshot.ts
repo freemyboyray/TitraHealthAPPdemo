@@ -19,6 +19,13 @@ type SnapshotInput = {
   userName: string | null;
   score: { total: number; medication: number; nutrition: number; activity: number };
   focalPoint?: { label: string; value: string };
+  // Extended personalization fields (all optional — backwards compatible)
+  escalationPhase?: { name: string; programWeek: number; weeklyFocus: string };
+  shotPhaseLabel?: string;          // e.g. "Peak Phase (Day 3)"
+  foodNoiseScore?: number | null;   // 0–20, last weekly FNQ
+  bmi?: number;
+  isPlasticityWindow?: boolean;
+  projection?: { projectedGoalDate: string; confidenceLevel: string; lossToDatePct: number };
 };
 
 export function buildContextSnapshot(data: SnapshotInput): string {
@@ -96,5 +103,16 @@ WEIGHT PROGRESS:
 LIFESTYLE SCORE TODAY: ${data.score.total}/100
   Medication adherence: ${data.score.medication}/100
   Nutrition: ${data.score.nutrition}/100
-  Activity: ${data.score.activity}/100`.trim();
+  Activity: ${data.score.activity}/100
+${data.escalationPhase ? `
+PROGRAM PHASE:
+- Escalation phase: ${data.escalationPhase.name} (Week ${data.escalationPhase.programWeek})
+- Injection cycle: ${data.shotPhaseLabel ?? 'unknown'}
+- Weekly focus: ${data.escalationPhase.weeklyFocus}
+- BMI: ${data.bmi != null ? data.bmi.toFixed(1) + (data.bmi < 25 ? ' (normal)' : data.bmi < 30 ? ' (overweight)' : data.bmi < 35 ? ' (obesity class I)' : data.bmi < 40 ? ' (obesity class II)' : ' (obesity class III)') : 'not set'}
+- Plasticity window: ${data.isPlasticityWindow ? 'YES — prime habit-building period' : 'no'}${data.foodNoiseScore != null ? `\n- Food noise (last check-in): ${data.foodNoiseScore}/20` : ''}` : ''}
+${data.projection ? `
+WEIGHT PROJECTION:
+- Lost to date: ${data.projection.lossToDatePct.toFixed(1)}% of body weight
+- Projected goal: ${data.projection.projectedGoalDate} (${data.projection.confidenceLevel})` : ''}`.trim();
 }

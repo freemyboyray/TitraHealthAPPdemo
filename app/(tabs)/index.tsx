@@ -2,7 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -17,12 +17,70 @@ import {
   recoveryMessage,
   supportGradient,
   supportMessage,
+  type ShotPhase,
+  type SideEffectIndex,
 } from '@/constants/scoring';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { generateDynamicInsights } from '@/lib/openai';
+import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
+import { ClinicalAlertCard, getDismissedFlags } from '@/components/clinical-alert-card';
+import { buildClinicalFlags } from '@/lib/clinical-alerts';
+import { usePersonalizationStore } from '@/stores/personalization-store';
+import type { PersonalizedPlan } from '@/lib/personalization';
+import { useLogStore } from '@/stores/log-store';
 
 const ORANGE = '#FF742A';
+const FF = 'Helvetica Neue';
+
+const MED_BRAND: Record<string, string> = {
+  semaglutide: 'Ozempic',
+  tirzepatide: 'Zepbound',
+  dulaglutide: 'Trulicity',
+};
+
+// ─── Medication Banner ────────────────────────────────────────────────────────
+
+function MedicationBanner({
+  glp1Type,
+  doseMg,
+  medicationName,
+  programWeek,
+  startDate,
+}: {
+  glp1Type: string;
+  doseMg: number;
+  medicationName?: string | null;
+  programWeek: number;
+  startDate: string;
+}) {
+  const displayName = medicationName ?? MED_BRAND[glp1Type] ?? glp1Type;
+  const dayCount = Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000) + 1);
+  return (
+    <View style={mb.row}>
+      <View style={mb.chip}>
+        <Text style={mb.chipText}>{displayName}  {doseMg} mg</Text>
+      </View>
+      <View style={mb.chip}>
+        <Text style={mb.chipText}>Week {programWeek}  ·  Day {dayCount}</Text>
+      </View>
+    </View>
+  );
+}
+
+const mb = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5,
+  },
+  chipText: {
+    fontSize: 12, fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: FF,
+  },
+});
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -133,10 +191,80 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   );
 }
 
+// ─── Phase Label Builder ──────────────────────────────────────────────────────
+
+function buildPhaseLabel(phase: ShotPhase, daysSinceShot: number, medType: string): string {
+  if (daysSinceShot === 0) return 'Shot Day · Injection logged';
+  if (daysSinceShot === 1) return 'Peak Phase · Day 2 since last shot';
+  if (daysSinceShot === 2) return 'Peak Phase · Day 3 since last shot';
+  if (daysSinceShot === 3) return 'Peak Phase · Day 4 since last shot';
+  if (daysSinceShot <= 5)  return `Balance Phase · Day ${daysSinceShot} since last shot`;
+  if (daysSinceShot === 6) return 'Reset Phase · Day 7 — Injection due tomorrow';
+  if (daysSinceShot >= 7)  return 'Injection Overdue — Consider logging your dose';
+  return 'Balance Phase';
+}
+
+function buildDynamicFocusHint(plan: PersonalizedPlan | null): string {
+  if (!plan) return '';
+  if (!plan.actuals.injectionLogged) return 'Log your injection to complete today\'s cycle';
+  const proteinPct = plan.targets.proteinG > 0 ? plan.actuals.proteinG / plan.targets.proteinG : 1;
+  if (proteinPct < 0.5) return 'Protein is well below target — prioritize it today to protect muscle';
+  if (proteinPct < 0.8) return 'You\'re partway to your protein target — keep going';
+  const stepsPct = plan.targets.steps > 0 ? plan.actuals.steps / plan.targets.steps : 1;
+  if (stepsPct < 0.4) return 'Movement is low today — even a short walk counts';
+  if (plan.sideEffectBurden > 60) return 'High side effect burden — focus on hydration and rest';
+  if (plan.adherenceScore >= 85) return 'Strong day — you\'re ahead on all fronts';
+  return 'Keep your current habits going — consistency is what drives results';
+}
+
+// ─── Side Effect Badge ────────────────────────────────────────────────────────
+
+function SideEffectBadge({ index }: { index: SideEffectIndex }) {
+  if (index.level === 'none') return null;
+
+  const badgeColor =
+    index.level === 'severe' ? '#E53E3E'
+    : index.level === 'moderate' ? '#E8960C'
+    : '#27AE60'; // mild + expected
+
+  const emoji =
+    index.level === 'severe' ? '🔴'
+    : index.level === 'moderate' ? '🟡'
+    : '🟢';
+
+  const symptomLabel = index.primarySymptom
+    ? index.primarySymptom.replace('_', ' ')
+    : null;
+
+  const label = index.level === 'severe'
+    ? `${emoji} Severe — Contact prescriber`
+    : symptomLabel
+    ? `${emoji} ${index.level.charAt(0).toUpperCase() + index.level.slice(1)} · ${symptomLabel.charAt(0).toUpperCase() + symptomLabel.slice(1)}${index.phaseNote ? ` — ${index.phaseNote}` : ''}`
+    : `${emoji} ${index.level.charAt(0).toUpperCase() + index.level.slice(1)}${index.phaseNote ? ` — ${index.phaseNote}` : ''}`;
+
+  return (
+    <View style={[seb.wrap, { borderColor: badgeColor + '55', backgroundColor: badgeColor + '18' }]}>
+      <Text style={[seb.text, { color: badgeColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+const seb = StyleSheet.create({
+  wrap: {
+    alignSelf: 'flex-start',
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 4,
+  },
+  text: { fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue' },
+});
+
 // ─── Dual Ring Arc ────────────────────────────────────────────────────────────
 
 type DualRingArcProps = {
-  recoveryScore: number;
+  recoveryScore: number | null;
   supportScore: number;
 };
 
@@ -153,7 +281,8 @@ function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
   const innerOffset = useSharedValue(innerQuart);
 
   useEffect(() => {
-    outerOffset.value = withTiming(outerQuart * (1 - recoveryScore / 100), {
+    // When recovery is null (no wearable data), keep outer ring at 0% fill (full dash offset = full circle = empty)
+    outerOffset.value = withTiming(recoveryScore != null ? outerQuart * (1 - recoveryScore / 100) : outerQuart, {
       duration: 1200,
       easing: Easing.out(Easing.cubic),
     });
@@ -292,8 +421,6 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
 
 // ─── Rings Explainer Modal ────────────────────────────────────────────────────
 
-const FF = 'Helvetica Neue';
-
 function RingsExplainerModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
@@ -316,7 +443,7 @@ function RingsExplainerModal({ onClose }: { onClose: () => void }) {
             <View style={em.section}>
               <View style={em.sectionHeader}>
                 <View style={[em.dot, { backgroundColor: '#FF742A' }]} />
-                <Text style={em.sectionTitle}>Recovery Ring (Orange)</Text>
+                <Text style={em.sectionTitle}>Readiness Ring (Orange)</Text>
               </View>
               <View style={em.metricList}>
                 <View style={em.metricRow}>
@@ -344,7 +471,7 @@ function RingsExplainerModal({ onClose }: { onClose: () => void }) {
             <View style={em.section}>
               <View style={em.sectionHeader}>
                 <View style={[em.dot, { backgroundColor: '#FFFFFF' }]} />
-                <Text style={em.sectionTitle}>Readiness Ring (White)</Text>
+                <Text style={em.sectionTitle}>Routine Ring (White)</Text>
               </View>
               <View style={em.metricList}>
                 <View style={em.metricRow}>
@@ -580,16 +707,44 @@ export default function HomeScreen() {
   const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
   const hkStore = useHealthKitStore();
 
+  const personalizationStore = usePersonalizationStore();
+  const logStore = useLogStore();
+  const plan = personalizationStore.plan;
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
 
-  useFocusEffect(useCallback(() => { hkStore.fetchAll(); }, []));
+  useFocusEffect(useCallback(() => {
+    hkStore.fetchAll();
+    personalizationStore.fetchAndRecompute();
+    getDismissedFlags().then(setDismissedFlags);
+  }, []));
 
-  const recovGrad = recoveryGradient(recoveryScore);
+  const foodNoiseLogs = (logStore.foodNoiseLogs ?? []) as { score: number; logged_at: string }[];
+
+  // Clinical flags
+  const clinicalFlags = plan
+    ? buildClinicalFlags({
+        programWeek:          plan.programWeek,
+        sideEffectLogs:       (logStore.sideEffectLogs ?? []) as any,
+        activityLevel:        (logStore.profile as any)?.activity_level ?? 'light',
+        proteinCompliancePct: plan.targets.proteinG > 0
+          ? Math.min(plan.actuals.proteinG / plan.targets.proteinG, 1)
+          : 0,
+        plateauDetected:      plan.weightProjection?.plateauRisk === 'detected',
+        hasSideEffectHairLoss: (logStore.sideEffectLogs ?? []).some(s => s.effect_type === 'hair_loss'),
+        daysSinceLastLog:     logStore.sideEffectLogs?.[0]
+          ? Math.floor((Date.now() - new Date(logStore.sideEffectLogs[0].logged_at).getTime()) / 86400000)
+          : 0,
+      }).filter(f => !dismissedFlags.includes(f.type))
+    : [];
+
+  const recovGrad = recoveryScore != null ? recoveryGradient(recoveryScore) : { start: 'rgba(255,116,42,0.2)', end: 'rgba(255,116,42,0.1)' };
   const suppGrad  = supportGradient(supportScore);
 
   const staticInsights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
@@ -619,13 +774,13 @@ export default function HomeScreen() {
 
   const dayNum = daysSinceInjection(profile.lastInjectionDate, selectedDate);
   const freq = profile.injectionFrequencyDays;
-  const phaseLabel = (() => {
-    if (dayNum === 1) return 'Shot Day';
-    if (dayNum <= 3) return `Shot Phase · Day ${dayNum}`;
-    if (dayNum < freq) return `Recovery · Day ${dayNum}`;
-    if (dayNum === freq) return 'Shot Day Tomorrow';
-    return 'Shot Overdue';
-  })();
+  const shotPhaseForLabel: ShotPhase =
+    dayNum <= 2 ? 'shot' : dayNum <= 4 ? 'peak' : dayNum <= 6 ? 'balance' : 'reset';
+  const phaseLabel = buildPhaseLabel(
+    shotPhaseForLabel,
+    dayNum - 1,
+    profile.glp1Type ?? 'semaglutide',
+  );
   const phaseOverdue = dayNum > freq;
 
   return (
@@ -652,7 +807,19 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <Text style={s.weekday}>{weekday}</Text>
-          <Text style={[s.phaseLabel, phaseOverdue && { color: '#E53E3E' }]}>{phaseLabel}</Text>
+          {plan && (
+            <MedicationBanner
+              glp1Type={profile.glp1Type ?? 'semaglutide'}
+              doseMg={profile.doseMg ?? 0}
+              medicationName={(logStore.injectionLogs[0] as any)?.medication_name ?? null}
+              programWeek={plan.programWeek}
+              startDate={profile.startDate ?? new Date().toISOString().split('T')[0]}
+            />
+          )}
+          <Text style={[s.phaseLabel, phaseOverdue && { color: '#E53E3E' }, { marginTop: 6 }]}>{phaseLabel}</Text>
+          {plan?.sideEffectIndex && plan.sideEffectIndex.level !== 'none' && (
+            <SideEffectBadge index={plan.sideEffectIndex} />
+          )}
           {isFuture && <Text style={s.futureNote}>No data yet — showing targets</Text>}
         </View>
 
@@ -687,25 +854,48 @@ export default function HomeScreen() {
                   <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=recovery')}>
                     <View style={s.infoLabelRow}>
                       <View style={[s.infoDot, { backgroundColor: '#FF742A' }]} />
-                      <Text style={s.infoLabel}>RECOVERY</Text>
+                      <Text style={s.infoLabel}>READINESS</Text>
                     </View>
                     <View style={s.infoScoreRow}>
-                      <Text style={s.infoScore}>{recoveryScore}</Text>
-                      <Text style={s.infoDenom}>/100</Text>
+                      {recoveryScore != null ? (
+                        <>
+                          <Text style={s.infoScore}>{recoveryScore}</Text>
+                          <Text style={s.infoDenom}>/100</Text>
+                        </>
+                      ) : (
+                        <Text style={[s.infoScore, { color: 'rgba(255,255,255,0.25)', fontSize: 36 }]}>—</Text>
+                      )}
                     </View>
+                    {recoveryScore == null && (
+                      <Text style={s.infoHint}>Connect Apple Health to unlock</Text>
+                    )}
                   </Pressable>
 
                   <View style={s.infoDiv} />
 
-                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=support')}>
+                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=routine')}>
                     <View style={s.infoLabelRow}>
                       <View style={[s.infoDot, { backgroundColor: '#FFFFFF' }]} />
-                      <Text style={s.infoLabel}>READINESS</Text>
+                      <Text style={s.infoLabel}>ROUTINE</Text>
                     </View>
                     <View style={s.infoScoreRow}>
-                      <Text style={s.infoScore}>{supportScore}</Text>
+                      <Text style={s.infoScore}>{plan?.adherenceScore ?? supportScore}</Text>
                       <Text style={s.infoDenom}>/100</Text>
                     </View>
+                    {(() => {
+                      const hasFoodData = (plan?.actuals.proteinG ?? 0) > 0;
+                      const hasActivityData = (plan?.actuals.steps ?? 0) > 0;
+                      if (!hasFoodData && !hasActivityData) {
+                        return <Text style={s.infoHint}>Log meals · Log activity for full score</Text>;
+                      }
+                      if (!hasFoodData) {
+                        return <Text style={s.infoHint}>Log meals to include protein</Text>;
+                      }
+                      if (!hasActivityData) {
+                        return <Text style={s.infoHint}>Log activity to include movement</Text>;
+                      }
+                      return null;
+                    })()}
                   </Pressable>
                 </View>
               </View>
@@ -713,6 +903,142 @@ export default function HomeScreen() {
 
             </View>
           </View>
+
+          {/* ── Phase Focus Hint ── */}
+          {plan && buildDynamicFocusHint(plan) !== '' && (
+            <View style={[s.phaseBanner, { marginBottom: 12 }]}>
+              <Text style={s.phaseFocus}>{buildDynamicFocusHint(plan)}</Text>
+            </View>
+          )}
+
+          {/* ── Weekly Check-Ins Carousel ── */}
+          {(() => {
+            const wc = plan?.weeklyCheckins;
+            const programDay = dayNum;
+
+            // Food Noise: raw 0–20 lower=better → normalized inverted to 0–100
+            const rawFoodNoise = wc?.foodNoise.score ?? null;
+            const foodNoiseDisplay = rawFoodNoise != null
+              ? Math.round((1 - rawFoodNoise / 20) * 100)
+              : null;
+            const foodNoiseLabel = rawFoodNoise != null
+              ? (rawFoodNoise <= 4 ? 'Minimal' : rawFoodNoise <= 9 ? 'Mild' : rawFoodNoise <= 14 ? 'Moderate' : 'High')
+              : '';
+
+            const energyMoodScore = wc?.energyMood.score ?? null;
+            const energyMoodLoggedAt = wc?.energyMood.loggedAt ?? null;
+            const energyMoodRaw = (logStore.weeklyCheckins?.['energy_mood']?.[0] as any)?.answers
+              ? Object.values((logStore.weeklyCheckins?.['energy_mood']?.[0] as any).answers as Record<string, number>).reduce((a: number, b: number) => a + b, 0)
+              : null;
+            const energyMoodLabel = energyMoodScore != null
+              ? (energyMoodScore >= 75 ? 'Strong' : energyMoodScore >= 50 ? 'Moderate' : energyMoodScore >= 25 ? 'Low' : 'Very Low')
+              : '';
+
+            const appetiteScore = wc?.appetite.score ?? null;
+            const appetiteLoggedAt = wc?.appetite.loggedAt ?? null;
+            const appetiteRaw = (logStore.weeklyCheckins?.['appetite']?.[0] as any)?.answers
+              ? Object.values((logStore.weeklyCheckins?.['appetite']?.[0] as any).answers as Record<string, number>).reduce((a: number, b: number) => a + b, 0)
+              : null;
+            const appetiteLabel = appetiteScore != null
+              ? (appetiteScore >= 75 ? 'Well Controlled' : appetiteScore >= 50 ? 'Moderate' : appetiteScore >= 25 ? 'Mild Control' : 'Low Control')
+              : '';
+
+            const CHECKIN_CONFIG = [
+              {
+                type: 'food_noise' as const,
+                label: 'Food Noise',
+                subtitle: 'Weekly  ·  GLP-1 response',
+                unlocksDay: 1,
+                route: '/entry/food-noise-survey',
+                lastScore: foodNoiseDisplay,
+                lastLoggedAt: wc?.foodNoise.loggedAt ?? null,
+                sparklineData: foodNoiseLogs.slice(0, 3).map(l => Math.round((1 - l.score / 20) * 100)).reverse(),
+                summaryRoute: `/entry/checkin-summary?type=food_noise&score=${foodNoiseDisplay ?? 0}&rawScore=${rawFoodNoise ?? 0}&label=${encodeURIComponent(foodNoiseLabel)}`,
+              },
+              {
+                type: 'energy_mood' as const,
+                label: 'Energy & Mood',
+                subtitle: 'Weekly  ·  Wellbeing',
+                unlocksDay: 8,
+                route: '/entry/energy-mood-survey',
+                lastScore: energyMoodScore,
+                lastLoggedAt: energyMoodLoggedAt,
+                sparklineData: (logStore.weeklyCheckins?.['energy_mood'] ?? []).slice(0, 3).map(l => l.score).reverse(),
+                summaryRoute: `/entry/checkin-summary?type=energy_mood&score=${energyMoodScore ?? 0}&rawScore=${energyMoodRaw ?? 0}&label=${encodeURIComponent(energyMoodLabel)}`,
+              },
+              {
+                type: 'appetite' as const,
+                label: 'Appetite & Satiety',
+                subtitle: 'Weekly  ·  GLP-1 response',
+                unlocksDay: 15,
+                route: '/entry/appetite-survey',
+                lastScore: appetiteScore,
+                lastLoggedAt: appetiteLoggedAt,
+                sparklineData: (logStore.weeklyCheckins?.['appetite'] ?? []).slice(0, 3).map(l => l.score).reverse(),
+                summaryRoute: `/entry/checkin-summary?type=appetite&score=${appetiteScore ?? 0}&rawScore=${appetiteRaw ?? 0}&label=${encodeURIComponent(appetiteLabel)}`,
+              },
+            ];
+
+            // Show card if programDay meets unlock threshold (0 = no injection logged yet → show all)
+            const unlockedCards = CHECKIN_CONFIG.filter(c => programDay === 0 || programDay >= c.unlocksDay);
+
+            function daysSinceDate(dateStr: string): number {
+              return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+            }
+
+            // Pending first, completed last
+            const sortedCards = [...unlockedCards].sort((a, b) => {
+              const aDone = a.lastLoggedAt != null && daysSinceDate(a.lastLoggedAt) <= 6;
+              const bDone = b.lastLoggedAt != null && daysSinceDate(b.lastLoggedAt) <= 6;
+              return Number(aDone) - Number(bDone);
+            });
+
+            const pendingCount = unlockedCards.filter(c =>
+              c.lastLoggedAt == null || daysSinceDate(c.lastLoggedAt) > 6,
+            ).length;
+
+            if (unlockedCards.length === 0) return null;
+
+            return (
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Weekly Check-Ins</Text>
+                  {pendingCount > 0 && (
+                    <View style={s.pendingBadge}>
+                      <Text style={s.pendingBadgeText}>{pendingCount} pending</Text>
+                    </View>
+                  )}
+                </View>
+                <FlatList
+                  data={sortedCards}
+                  keyExtractor={item => item.type}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingRight: 20 }}
+                  renderItem={({ item }) => (
+                    <WeeklyCheckinCard
+                      label={item.label}
+                      subtitle={item.subtitle}
+                      lastScore={item.lastScore}
+                      lastLoggedAt={item.lastLoggedAt}
+                      route={item.route}
+                      summaryRoute={item.summaryRoute}
+                      sparklineData={item.sparklineData}
+                    />
+                  )}
+                />
+              </View>
+            );
+          })()}
+
+          {/* ── Clinical Alerts (top 2) ── */}
+          {clinicalFlags.slice(0, 2).map(flag => (
+            <ClinicalAlertCard
+              key={flag.type}
+              flag={flag}
+              onDismiss={(type) => setDismissedFlags(prev => [...prev, type])}
+            />
+          ))}
 
           {/* ── Today's Focuses ── */}
           <View style={s.focusCard}>
@@ -808,14 +1134,14 @@ export default function HomeScreen() {
               const hkRhr   = hkStore.restingHR;
               const hkHrv   = hkStore.hrv;
               const hkSleep = hkStore.sleepHours;
-              const rhrVal  = hkRhr   ?? wearable.restingHR;
-              const hrvVal  = hkHrv   ?? wearable.hrvMs;
-              const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : wearable.sleepMinutes;
+              const rhrVal  = hkRhr   ?? wearable.restingHR ?? 62;
+              const hrvVal  = hkHrv   ?? wearable.hrvMs ?? 45;
+              const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : (wearable.sleepMinutes ?? 0);
 
               const metrics: HealthMetric[] = [
                 {
                   id: 'rrr', label: 'Resp. Rate',
-                  value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : '16',
+                  value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : (hkRhr != null || hkHrv != null ? '—' : '16'),
                   unit: 'bpm', status: 'normal', iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: 'Normal',
                 },
                 {
@@ -829,8 +1155,8 @@ export default function HomeScreen() {
                   rangeLabel: hmHrvLabel(hrvVal) + (hkHrv != null ? ' ·  ' : ''),
                 },
                 {
-                  id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct), unit: '%',
-                  status: hmSpo2Status(wearable.spo2Pct), iconSet: 'MaterialIcons', iconName: 'bloodtype',
+                  id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct ?? '—'), unit: wearable.spo2Pct != null ? '%' : '',
+                  status: hmSpo2Status(wearable.spo2Pct ?? 98), iconSet: 'MaterialIcons', iconName: 'bloodtype',
                   rangeLabel: 'Normal',
                 },
                 {
@@ -882,6 +1208,7 @@ const s = StyleSheet.create({
   weekday: { fontSize: 13, fontWeight: '500', color: '#7A7570', marginBottom: 4, fontFamily: 'Helvetica Neue' },
   phaseLabel: { fontSize: 13, fontWeight: '600', color: '#9A9490', fontFamily: 'Helvetica Neue' },
   futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Helvetica Neue' },
+  connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Helvetica Neue' },
 
   // Glass card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
@@ -947,6 +1274,7 @@ const s = StyleSheet.create({
   infoScore: { fontSize: 42, fontWeight: '700', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'Helvetica Neue' },
   infoDenom: { fontSize: 20, fontWeight: '400', color: 'rgba(255,255,255,0.55)', fontFamily: 'Helvetica Neue' },
   infoMsg: { fontSize: 10, fontWeight: '600', marginTop: 3, fontFamily: 'Helvetica Neue' },
+  infoHint: { fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3, fontFamily: 'Helvetica Neue', lineHeight: 14 },
   infoDiv: {
     height: 0.5,
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -972,6 +1300,13 @@ const s = StyleSheet.create({
 
   // Section title
   sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
+  pendingBadge: {
+    backgroundColor: 'rgba(255,116,42,0.15)',
+    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  pendingBadgeText: {
+    fontSize: 11, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
+  },
 
   // Focus timeline card
   focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
@@ -998,6 +1333,35 @@ const s = StyleSheet.create({
     alignSelf: 'flex-start', marginTop: 6,
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
+
+  // Escalation Phase Banner
+  phaseBanner: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,116,42,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.2)',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  phaseDisplayName: {
+    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
+  },
+  phaseWeek: {
+    fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8,
+    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'Helvetica Neue',
+  },
+  plasticityBadge: {
+    backgroundColor: 'rgba(255,116,42,0.2)', borderRadius: 8,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  plasticityText: {
+    fontSize: 9, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'Helvetica Neue',
+  },
+  phaseFocus: {
+    fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 17, fontFamily: 'Helvetica Neue',
+  },
 
   // Health Monitor grid
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },

@@ -27,6 +27,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
     { focused: <Ionicons name="home" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="home-outline" size={24} color="#5A5754" /> },
     { focused: <MaterialIcons name="menu" size={26} color="#FFFFFF" />, unfocused: <MaterialIcons name="menu" size={26} color="#5A5754" /> },
     { focused: <Ionicons name="document" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="document-outline" size={24} color="#5A5754" /> },
+    { focused: <Ionicons name="settings" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="settings-outline" size={24} color="#5A5754" /> },
   ];
 
   return (
@@ -99,6 +100,7 @@ export default function TabLayout() {
         <Tabs.Screen name="index" />
         <Tabs.Screen name="log" />
         <Tabs.Screen name="explore" />
+        <Tabs.Screen name="settings" />
       </Tabs>
       <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </TabBarVisibilityProvider>

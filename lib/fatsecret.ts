@@ -1,6 +1,10 @@
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
-const EDGE_FN = `${SUPABASE_URL}/functions/v1/fatsecret`;
+// Calls FatSecret directly from the app.
+// For production: move these behind a server with a static IP and keep them server-side.
+const CLIENT_ID = process.env.EXPO_PUBLIC_FATSECRET_CLIENT_ID ?? '';
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_FATSECRET_CLIENT_SECRET ?? '';
+
+const TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
+const FS_BASE = 'https://platform.fatsecret.com/rest/server.api';
 
 export type ServingOption = { label: string; grams: number };
 
@@ -18,17 +22,47 @@ export type FoodResult = {
   serving_options?: ServingOption[];
 };
 
-async function callEdge(params: string): Promise<unknown> {
-  const res = await fetch(`${EDGE_FN}?${params}`, {
-    headers: { apikey: SUPABASE_ANON_KEY },
+// ─── OAuth token (fetched fresh each call — 24h lifetime, fine at MVP scale) ──
+
+async function getToken(): Promise<string> {
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    scope: 'basic',
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
   });
-  if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!res.ok) throw new Error(`FatSecret token error: ${res.status}`);
+  const json = await res.json();
+  return json.access_token as string;
+}
+
+// ─── REST API call ─────────────────────────────────────────────────────────────
+
+async function callFS(token: string, params: Record<string, string>): Promise<unknown> {
+  const url = new URL(FS_BASE);
+  url.searchParams.set('format', 'json');
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) throw new Error(`FatSecret API error: ${res.status}`);
   return res.json();
 }
 
 // ─── Parse food_description string ────────────────────────────────────────────
 // Format: "Per 100g - Calories: 165kcal | Fat: 3.57g | Carbs: 0g | Prot: 31.02g"
-// Also handles: "Per serving - Calories: 165kcal | ..."
+
 function parseDescription(desc: string): { calories: number; fat_g: number; carbs_g: number; protein_g: number; fiber_g: number } {
   const num = (pattern: RegExp) => {
     const m = desc.match(pattern);
@@ -43,9 +77,9 @@ function parseDescription(desc: string): { calories: number; fat_g: number; carb
   };
 }
 
-// ─── Build serving options from FatSecret food.get.v4 servings ────────────────
+// ─── Build serving options from food.get.v4 servings ──────────────────────────
+
 function buildServingOptions(servings: any[]): { options: ServingOption[]; per100g: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number } | null } {
-  // Find a gram-based serving to derive per-100g values
   const gramServing = servings.find(
     (s) => s.metric_serving_unit === 'g' && parseFloat(s.metric_serving_amount) > 0,
   );
@@ -63,7 +97,6 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
     };
   }
 
-  // Build unique serving options from all gram-unit servings
   const seen = new Set<number>();
   const options: ServingOption[] = [];
 
@@ -75,11 +108,7 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
     options.push({ label: `${s.serving_description} (${grams}g)`, grams });
   }
 
-  // Always include 100g if not already present
-  if (!seen.has(100)) {
-    options.push({ label: '100g', grams: 100 });
-  }
-
+  if (!seen.has(100)) options.push({ label: '100g', grams: 100 });
   options.sort((a, b) => a.grams - b.grams);
   return { options, per100g };
 }
@@ -88,7 +117,14 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
 
 export async function searchFatSecret(query: string): Promise<FoodResult[]> {
   try {
-    const data = await callEdge(`action=search&q=${encodeURIComponent(query)}`) as any;
+    const token = await getToken();
+    const data = await callFS(token, {
+      method: 'foods.search',
+      search_expression: query,
+      max_results: '20',
+      page_number: '0',
+    }) as any;
+
     const foods = data?.foods?.food;
     if (!foods) return [];
 
@@ -111,7 +147,12 @@ export async function searchFatSecret(query: string): Promise<FoodResult[]> {
 
 export async function getFatSecretFood(foodId: number): Promise<FoodResult | null> {
   try {
-    const data = await callEdge(`action=food&id=${foodId}`) as any;
+    const token = await getToken();
+    const data = await callFS(token, {
+      method: 'food.get.v4',
+      food_id: String(foodId),
+    }) as any;
+
     const food = data?.food;
     if (!food) return null;
 
@@ -121,8 +162,6 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
       : [];
 
     const { options, per100g } = buildServingOptions(servings);
-
-    // Fallback: parse food_description if no gram-serving found
     const macros = per100g ?? parseDescription(food.food_description ?? '');
 
     return {
@@ -141,8 +180,19 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
 
 export async function lookupFatSecretBarcode(barcode: string): Promise<FoodResult | null> {
   try {
-    const data = await callEdge(`action=barcode&code=${encodeURIComponent(barcode)}`) as any;
-    if (data?.error) return null;
+    const token = await getToken();
+    const barcodeRes = await callFS(token, {
+      method: 'food.find_id_for_barcode',
+      barcode,
+    }) as any;
+
+    const foodId = barcodeRes?.food_id?.value;
+    if (!foodId) return null;
+
+    const data = await callFS(token, {
+      method: 'food.get.v4',
+      food_id: foodId,
+    }) as any;
 
     const food = data?.food;
     if (!food) return null;

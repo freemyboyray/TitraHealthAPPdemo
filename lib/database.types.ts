@@ -268,6 +268,56 @@ export type Database = {
           },
         ]
       }
+      food_noise_logs: {
+        Row: {
+          id: string
+          logged_at: string
+          phase_at_log: Database["public"]["Enums"]["phase_type"] | null
+          program_week: number | null
+          q1: number
+          q2: number
+          q3: number
+          q4: number
+          q5: number
+          score: number
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          logged_at?: string
+          phase_at_log?: Database["public"]["Enums"]["phase_type"] | null
+          program_week?: number | null
+          q1: number
+          q2: number
+          q3: number
+          q4: number
+          q5: number
+          score: number
+          user_id: string
+        }
+        Update: {
+          id?: string
+          logged_at?: string
+          phase_at_log?: Database["public"]["Enums"]["phase_type"] | null
+          program_week?: number | null
+          q1?: number
+          q2?: number
+          q3?: number
+          q4?: number
+          q5?: number
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_noise_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       injection_logs: {
         Row: {
           batch_number: string | null
@@ -358,31 +408,43 @@ export type Database = {
       }
       profiles: {
         Row: {
+          activity_level: string | null
+          apple_health_enabled: boolean | null
           avatar_url: string | null
+          craving_days: Json | null
           created_at: string
+          dismissed_flags: Json | null
           dob: string | null
           dose_mg: number | null
           full_name: string | null
           goal_weight_lbs: number | null
           height_inches: number | null
           id: string
+          initial_side_effects: Json | null
           injection_day_of_week: number | null
           injection_frequency_days: number
           injection_time: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           program_start_date: string | null
+          sex: string | null
           start_weight_lbs: number | null
+          target_weekly_loss_lbs: number | null
           updated_at: string
         }
         Insert: {
+          activity_level?: string | null
+          apple_health_enabled?: boolean | null
           avatar_url?: string | null
+          craving_days?: Json | null
           created_at?: string
+          dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null
           full_name?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
           id: string
+          initial_side_effects?: Json | null
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
@@ -390,18 +452,25 @@ export type Database = {
             | Database["public"]["Enums"]["medication_type"]
             | null
           program_start_date?: string | null
+          sex?: string | null
           start_weight_lbs?: number | null
+          target_weekly_loss_lbs?: number | null
           updated_at?: string
         }
         Update: {
+          activity_level?: string | null
+          apple_health_enabled?: boolean | null
           avatar_url?: string | null
+          craving_days?: Json | null
           created_at?: string
+          dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null
           full_name?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
           id?: string
+          initial_side_effects?: Json | null
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
@@ -409,7 +478,9 @@ export type Database = {
             | Database["public"]["Enums"]["medication_type"]
             | null
           program_start_date?: string | null
+          sex?: string | null
           start_weight_lbs?: number | null
+          target_weekly_loss_lbs?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -719,6 +790,47 @@ export type Database = {
           },
         ]
       }
+      weekly_checkins: {
+        Row: {
+          id: string
+          user_id: string
+          checkin_type: string
+          logged_at: string
+          score: number
+          answers: Json
+          program_week: number | null
+          phase_at_log: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          checkin_type: string
+          logged_at?: string
+          score: number
+          answers?: Json
+          program_week?: number | null
+          phase_at_log?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          checkin_type?: string
+          logged_at?: string
+          score?: number
+          answers?: Json
+          program_week?: number | null
+          phase_at_log?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_checkins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -750,6 +862,7 @@ export type Database = {
         | "injection_site"
         | "appetite_loss"
         | "other"
+        | "hair_loss"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -901,6 +1014,7 @@ export const Constants = {
         "injection_site",
         "appetite_loss",
         "other",
+        "hair_loss",
       ],
     },
   },

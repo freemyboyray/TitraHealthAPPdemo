@@ -101,9 +101,18 @@ function GlassCard({ children }: { children: React.ReactNode }) {
 export default function LogInjectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { loading, addInjectionLog } = useLogStore();
+  const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
 
-  const [medication, setMedication] = useState('Ozempic');
+  const MED_TYPE_DEFAULT: Record<string, string> = {
+    semaglutide: 'Ozempic',
+    tirzepatide: 'Mounjaro',
+    liraglutide: 'Saxenda',
+  };
+  const defaultMed = injectionLogs[0]?.medication_name
+    ?? (profile?.medication_type ? MED_TYPE_DEFAULT[profile.medication_type] : null)
+    ?? 'Ozempic';
+
+  const [medication, setMedication] = useState(defaultMed);
   const [dose, setDose] = useState('0.5mg');
   const [site, setSite] = useState('Left Abdomen');
   const [batchNumber, setBatchNumber] = useState('');
@@ -180,27 +189,20 @@ export default function LogInjectionScreen() {
         {/* ── Medication Card ── */}
         <GlassCard>
           <SectionLabel text="MEDICATION" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.chipRow}
-          >
-            {MEDICATIONS.map((med) => {
-              const active = med === medication;
-              return (
-                <TouchableOpacity
-                  key={med}
-                  onPress={() => setMedication(med)}
-                  activeOpacity={0.75}
-                  style={[s.chip, active ? s.chipActive : s.chipInactive]}
-                >
-                  <Text style={[s.chipText, active ? s.chipTextActive : s.chipTextInactive]}>
-                    {med}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={[s.chip, s.chipActive]}>
+              <Text style={[s.chipText, s.chipTextActive]}>{medication}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/settings')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textDecorationLine: 'underline' }}>
+                Doesn't match?
+              </Text>
+            </TouchableOpacity>
+          </View>
         </GlassCard>
 
         {/* ── Dose Card ── */}

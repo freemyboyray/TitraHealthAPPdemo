@@ -34,7 +34,7 @@ export const SIDE_EFFECTS: SideEffectDef[] = [
   { id: 'suppressed_appetite', label: 'Suppressed Appetite', category: 'appetite', defaultEnabled: true, dbType: 'appetite_loss' },
   // Physical
   { id: 'fatigue',          label: 'Fatigue',          category: 'physical', defaultEnabled: true,  dbType: 'fatigue' },
-  { id: 'hair_loss',        label: 'Hair Loss',        category: 'physical', defaultEnabled: true,  dbType: 'other' },
+  { id: 'hair_loss',        label: 'Hair Loss',        category: 'physical', defaultEnabled: true,  dbType: 'hair_loss' },
   { id: 'migraine',         label: 'Migraine',         category: 'physical', defaultEnabled: false, dbType: 'headache' },
   { id: 'muscle_loss',      label: 'Muscle Loss',      category: 'physical', defaultEnabled: false, dbType: 'other' },
   { id: 'loose_skin',       label: 'Loose Skin',       category: 'physical', defaultEnabled: false, dbType: 'other' },

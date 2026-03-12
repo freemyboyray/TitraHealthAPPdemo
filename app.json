@@ -14,7 +14,8 @@
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
         "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
-        "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice."
+        "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
+        "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true
@@ -63,7 +64,16 @@
         }
       ],
       "@kingstinct/react-native-healthkit",
-      "react-native-health-connect"
+      "react-native-health-connect",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF742A",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

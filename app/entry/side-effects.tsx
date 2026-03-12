@@ -337,6 +337,32 @@ export default function SideEffectsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Food Noise FNQ prompt (Sunday or Monday) */}
+        {[0, 1].includes(new Date().getDay()) && (
+          <View style={{ marginTop: 20, marginBottom: 8 }}>
+            <TouchableOpacity
+              style={{
+                borderRadius: 16,
+                backgroundColor: 'rgba(255,116,42,0.08)',
+                borderWidth: 1, borderColor: 'rgba(255,116,42,0.2)',
+                padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
+              }}
+              onPress={() => router.push('/entry/food-noise-survey' as any)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, marginBottom: 3 }}>
+                  Weekly Food Noise Check-In
+                </Text>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                  Track how much you're thinking about food this week · 2 min
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={16} color={ORANGE} />
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* CTA */}

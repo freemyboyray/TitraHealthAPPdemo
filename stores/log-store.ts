@@ -9,6 +9,8 @@ export type SideEffectLog = Database['public']['Tables']['side_effect_logs']['Ro
 export type InjectionLog = Database['public']['Tables']['injection_logs']['Row'];
 export type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 export type FoodLog = Database['public']['Tables']['food_logs']['Row'];
+export type FoodNoiseLog = Database['public']['Tables']['food_noise_logs']['Row'];
+export type WeeklyCheckinRow = Database['public']['Tables']['weekly_checkins']['Row'];
 
 export type SideEffectType = Database['public']['Enums']['side_effect_type'];
 export type PhaseType = Database['public']['Enums']['phase_type'];
@@ -30,6 +32,8 @@ type LogStore = {
   foodLogs: FoodLog[];
   activityLogs: ActivityLog[];
   sideEffectLogs: SideEffectLog[];
+  foodNoiseLogs: FoodNoiseLog[];
+  weeklyCheckins: Record<string, WeeklyCheckinRow[]>;
   profile: ProfileRow | null;
   userGoals: UserGoalsRow | null;
 
@@ -77,9 +81,30 @@ type LogStore = {
     barcode?: string;
     raw_ai_response?: object;
   }) => Promise<void>;
+
+  // Food Noise Questionnaire (FNQ)
+  addFoodNoiseLog: (params: {
+    score: number;
+    q1: number;
+    q2: number;
+    q3: number;
+    q4: number;
+    q5: number;
+    program_week?: number;
+    phase_at_log?: PhaseType;
+  }) => Promise<void>;
+
+  // Weekly Check-ins (energy_mood | appetite)
+  addWeeklyCheckin: (
+    type: 'energy_mood' | 'appetite',
+    answers: Record<string, number>,
+    score: number,
+    program_week?: number,
+  ) => Promise<void>;
+  fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite') => Promise<void>;
 };
 
-export const useLogStore = create<LogStore>((set) => ({
+export const useLogStore = create<LogStore>((set, get) => ({
   loading: false,
   error: null,
 
@@ -89,6 +114,8 @@ export const useLogStore = create<LogStore>((set) => ({
   foodLogs: [],
   activityLogs: [],
   sideEffectLogs: [],
+  foodNoiseLogs: [],
+  weeklyCheckins: {},
   profile: null,
   userGoals: null,
 
@@ -101,7 +128,7 @@ export const useLogStore = create<LogStore>((set) => ({
     const since90d = new Date(Date.now() - 90 * 86400000).toISOString();
     const since1y  = new Date(Date.now() - 365 * 86400000).toISOString();
 
-    const [w, inj, f, a, se, prof, goals] = await Promise.all([
+    const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp] = await Promise.all([
       supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
       supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
       supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
@@ -109,18 +136,26 @@ export const useLogStore = create<LogStore>((set) => ({
       supabase.from('side_effect_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(50),
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('user_goals').select('*').eq('user_id', uid).single(),
+      supabase.from('food_noise_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'energy_mood').order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'appetite').order('logged_at', { ascending: false }).limit(12),
     ]);
 
     set({
-      weightLogs:    w.data   ?? [],
-      injectionLogs: inj.data ?? [],
-      foodLogs:      f.data   ?? [],
-      activityLogs:  a.data   ?? [],
-      sideEffectLogs: se.data ?? [],
-      profile:       prof.data ?? null,
-      userGoals:     goals.data ?? null,
-      loading:       false,
-      error:         w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
+      weightLogs:     w.data   ?? [],
+      injectionLogs:  inj.data ?? [],
+      foodLogs:       f.data   ?? [],
+      activityLogs:   a.data   ?? [],
+      sideEffectLogs: se.data  ?? [],
+      foodNoiseLogs:  (fn.data ?? []) as FoodNoiseLog[],
+      weeklyCheckins: {
+        energy_mood: (wcEm.data ?? []) as WeeklyCheckinRow[],
+        appetite:    (wcAp.data ?? []) as WeeklyCheckinRow[],
+      },
+      profile:        prof.data ?? null,
+      userGoals:      goals.data ?? null,
+      loading:        false,
+      error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
     });
   },
 
@@ -133,6 +168,7 @@ export const useLogStore = create<LogStore>((set) => ({
     const { error } = await supabase
       .from('weight_logs')
       .insert({ user_id: user.id, weight_lbs, notes: notes ?? null });
+    if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
   },
 
@@ -143,6 +179,7 @@ export const useLogStore = create<LogStore>((set) => ({
     const { error } = await supabase
       .from('side_effect_logs')
       .insert({ user_id: user.id, effect_type, severity, phase_at_log, notes: notes ?? null });
+    if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
   },
 
@@ -162,6 +199,7 @@ export const useLogStore = create<LogStore>((set) => ({
         medication_name: medication_name ?? null,
         batch_number: batch_number ?? null,
       });
+    if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
   },
 
@@ -180,6 +218,7 @@ export const useLogStore = create<LogStore>((set) => ({
         intensity: intensity ?? null,
         source: 'manual',
       });
+    if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
   },
 
@@ -195,6 +234,70 @@ export const useLogStore = create<LogStore>((set) => ({
         raw_ai_response: entry.raw_ai_response ?? null,
         barcode: entry.barcode ?? null,
       });
+    if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
+  },
+
+  addFoodNoiseLog: async ({ score, q1, q2, q3, q4, q5, program_week, phase_at_log }) => {
+    set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+    const { error } = await supabase
+      .from('food_noise_logs')
+      .insert({
+        user_id: user.id,
+        score,
+        q1, q2, q3, q4, q5,
+        program_week: program_week ?? null,
+        phase_at_log: phase_at_log ?? null,
+      });
+    set({ loading: false, error: error?.message ?? null });
+  },
+
+  addWeeklyCheckin: async (type, answers, score, program_week) => {
+    set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+    const { error } = await supabase
+      .from('weekly_checkins' as any)
+      .insert({
+        user_id: user.id,
+        checkin_type: type,
+        score,
+        answers,
+        program_week: program_week ?? null,
+      });
+    if (!error) {
+      // Refresh this checkin type's data
+      const { data } = await supabase
+        .from('weekly_checkins' as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('checkin_type', type)
+        .order('logged_at', { ascending: false })
+        .limit(12);
+      set(state => ({
+        loading: false,
+        error: null,
+        weeklyCheckins: { ...state.weeklyCheckins, [type]: (data ?? []) as WeeklyCheckinRow[] },
+      }));
+    } else {
+      set({ loading: false, error: error.message });
+    }
+  },
+
+  fetchWeeklyCheckins: async (type) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('weekly_checkins' as any)
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('checkin_type', type)
+      .order('logged_at', { ascending: false })
+      .limit(12);
+    set(state => ({
+      weeklyCheckins: { ...state.weeklyCheckins, [type]: (data ?? []) as WeeklyCheckinRow[] },
+    }));
   },
 }));

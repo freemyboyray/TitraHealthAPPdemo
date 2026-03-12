@@ -1,9 +1,20 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { supabase } from '@/lib/supabase';
+
+type ArticleRow = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  category: string;
+  reading_time_minutes: number;
+  published_at: string;
+};
 
 const ORANGE = '#FF742A';
 const BG = '#000000';
@@ -201,8 +212,71 @@ function EducationCard({ section }: { section: Section }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+function ArticleCard({ article }: { article: ArticleRow }) {
+  const categoryColors: Record<string, string> = {
+    nutrition: '#27AE60', medication: '#FF742A', lifestyle: '#5B8BF5',
+    mindset: '#9B59B6', exercise: '#E8960C',
+  };
+  const chipColor = categoryColors[article.category] ?? ORANGE;
+
+  return (
+    <Pressable
+      style={[ac.wrap, glassShadow]}
+      onPress={() => router.push(`/articles/${article.id}` as any)}
+    >
+      <View style={ac.body}>
+        <View style={ac.inner}>
+          <View style={ac.topRow}>
+            <View style={[ac.chip, { backgroundColor: chipColor + '20', borderColor: chipColor + '55' }]}>
+              <Text style={[ac.chipText, { color: chipColor }]}>
+                {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
+              </Text>
+            </View>
+            <Text style={ac.readTime}>{article.reading_time_minutes} min read</Text>
+          </View>
+          <Text style={ac.title} numberOfLines={2}>{article.title}</Text>
+          {article.subtitle && (
+            <Text style={ac.subtitle} numberOfLines={2}>{article.subtitle}</Text>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+const ac = StyleSheet.create({
+  wrap: { borderRadius: 20, marginBottom: 12 },
+  body: {
+    borderRadius: 20, overflow: 'hidden',
+    backgroundColor: '#000000',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
+  },
+  inner: { padding: 18 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  chip: {
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
+  readTime: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: FF },
+  title: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22, marginBottom: 4, fontFamily: FF },
+  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.50)', lineHeight: 19, fontFamily: FF },
+});
+
 export default function EducationScreen() {
   const { onScroll } = useTabBarVisibility();
+  const [articles, setArticles] = useState<ArticleRow[]>([]);
+
+  useFocusEffect(useCallback(() => {
+    supabase
+      .from('articles')
+      .select('id, title, subtitle, category, reading_time_minutes, published_at')
+      .order('published_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data && data.length > 0) setArticles(data as ArticleRow[]);
+      });
+  }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
@@ -216,6 +290,17 @@ export default function EducationScreen() {
           {/* ── Header ── */}
           <Text style={s.headerTitle}>Education</Text>
           <Text style={s.headerSub}>Your guide to GLP-1 therapy</Text>
+
+          {/* ── From the Library (DB articles) ── */}
+          {articles.length > 0 && (
+            <>
+              <Text style={s.libraryLabel}>FROM THE LIBRARY</Text>
+              {articles.map(article => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
+              <View style={s.librarySeparator} />
+            </>
+          )}
 
           {SECTIONS.map((section) => (
             <EducationCard key={section.id} section={section} />
@@ -237,6 +322,15 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: FF },
   headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 28, fontFamily: FF },
   disclaimer: { fontSize: 11, color: 'rgba(255,255,255,0.30)', textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
+  libraryLabel: {
+    fontSize: 9, fontWeight: '700', color: '#FF742A',
+    letterSpacing: 1.5, textTransform: 'uppercase',
+    marginBottom: 14, fontFamily: FF,
+  },
+  librarySeparator: {
+    height: 1, backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 24, marginTop: 8,
+  },
 });
 
 const c = StyleSheet.create({

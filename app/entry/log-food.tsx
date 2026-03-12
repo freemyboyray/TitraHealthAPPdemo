@@ -92,6 +92,41 @@ async function lookupBarcode(barcode: string): Promise<OFFProduct | null> {
   }
 }
 
+// ─── AI macro estimation fallback ─────────────────────────────────────────────
+// Called when FatSecret returns no results (IP block, no match, etc.)
+
+const MACRO_ESTIMATE_SYSTEM = `You are a nutrition database. Return ONLY valid JSON for the exact food named, per 100g:
+{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number}
+Use standard nutritional values. No extra text, no markdown.`;
+
+async function estimateMacrosWithAI(foodName: string): Promise<FoodResult | null> {
+  try {
+    const raw = await callHaiku(MACRO_ESTIMATE_SYSTEM, [
+      { type: 'text', text: foodName },
+    ]);
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const m = JSON.parse(match[0]);
+    return {
+      fdcId: -1,
+      name: foodName,
+      brand: 'AI Estimate',
+      calories: Math.round(m.calories ?? 0),
+      protein_g: parseFloat((m.protein_g ?? 0).toFixed(1)),
+      carbs_g: parseFloat((m.carbs_g ?? 0).toFixed(1)),
+      fat_g: parseFloat((m.fat_g ?? 0).toFixed(1)),
+      fiber_g: parseFloat((m.fiber_g ?? 0).toFixed(1)),
+      serving_options: [
+        { label: '100g', grams: 100 },
+        { label: '150g', grams: 150 },
+        { label: '200g', grams: 200 },
+      ],
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function GlassBorder({ r = 16 }: { r?: number }) {
@@ -216,7 +251,11 @@ export default function LogFoodScreen() {
     if (!text.trim()) { setSearchResults([]); return; }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      const r = await searchUSDA(text);
+      let r = await searchUSDA(text);
+      if (r.length === 0) {
+        const aiResult = await estimateMacrosWithAI(text);
+        if (aiResult) r = [aiResult];
+      }
       setSearchResults(r);
       setSearching(false);
     }, 400);
@@ -237,7 +276,8 @@ export default function LogFoodScreen() {
     setSelectedServingIdx(0);
     setServingG(String(Math.round(item.serving_options?.[0]?.grams ?? 100)));
 
-    // Lazy-load full serving options from FatSecret food.get.v4
+    // Lazy-load full serving options from FatSecret food.get.v4 (skip for AI estimates)
+    if (item.fdcId === -1) return;
     setDetailLoading(item.fdcId);
     const detail = await getFatSecretFood(item.fdcId);
     setDetailLoading(null);
@@ -385,7 +425,11 @@ export default function LogFoodScreen() {
 
       const withResults = await Promise.all(
         parsed.map(async (p) => {
-          const results = await searchUSDA(p.item);
+          let results = await searchUSDA(p.item);
+          if (results.length === 0) {
+            const aiResult = await estimateMacrosWithAI(p.item);
+            if (aiResult) results = [aiResult];
+          }
           return {
             item: p.item,
             estimated_g: p.estimated_g,

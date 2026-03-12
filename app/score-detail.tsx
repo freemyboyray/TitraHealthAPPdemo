@@ -8,6 +8,7 @@ import { ScoreRing } from '@/components/score-ring';
 import { useHealthData } from '@/contexts/health-data';
 import { generateCoachNote } from '@/lib/openai';
 import {
+  adherenceBreakdown,
   daysSinceInjection,
   GLP1_COACH_NOTE,
   getGLP1RowNotes,
@@ -19,11 +20,11 @@ import {
   recoveryMessage,
   RECOVERY_COACH_NOTE,
   ShotPhase,
-  supportBreakdown,
   supportColor,
   supportGradient,
   supportMessage,
 } from '@/constants/scoring';
+import { usePersonalizationStore } from '@/stores/personalization-store';
 
 const FF = 'Helvetica Neue';
 
@@ -72,18 +73,18 @@ function getPhaseInterpretation(
 
     if (phase === 'peak') {
       return {
-        heading: `Recovery — ${phaseLabel}`,
+        heading: `Readiness — ${phaseLabel}`,
         body: `HRV and RHR are adjusted for expected GLP-1 effects. A score of ${score} during peak days (3–4) is equivalent to ~${score + 8} on a trough day. Focus on light movement and hydration.`,
       };
     }
     if (phase === 'shot') {
       return {
-        heading: `Recovery — ${phaseLabel}`,
+        heading: `Readiness — ${phaseLabel}`,
         body: `HRV and RHR are adjusted for early medication activity. Your body is beginning to process the dose — rest, hydrate, and eat adequate protein today.`,
       };
     }
     return {
-      heading: `Recovery — ${phaseLabel}`,
+      heading: `Readiness — ${phaseLabel}`,
       body: `No medication adjustment applied today. Your recovery score reflects your biometrics directly, without GLP-1 phase offsets.`,
     };
   }
@@ -282,10 +283,17 @@ const pf = StyleSheet.create({
 
 export default function ScoreDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
-  const isRecovery = type === 'recovery';
+  const isRecovery = type === 'recovery' || type === 'readiness';
 
   const healthData = useHealthData();
-  const { recoveryScore, supportScore, wearable, actuals, targets, profile } = healthData;
+  const { recoveryScore, supportScore, wearable, actuals: healthActuals, targets: healthTargets, profile } = healthData;
+  const plan = usePersonalizationStore(s => s.plan);
+  // Prefer plan actuals/targets (fresher, synced with log-store) over health-data context
+  const actuals = plan?.actuals ?? healthActuals;
+  const targets = plan?.targets ?? healthTargets;
+  // Use adherence score from personalization plan when available
+  const adherenceScore = plan?.adherenceScore ?? supportScore;
+  const sideEffectBurden = plan?.sideEffectBurden ?? 0;
 
   const [aiCoachNote, setAiCoachNote] = useState<string | null>(null);
   const [coachNoteLoading, setCoachNoteLoading] = useState(true);
@@ -299,14 +307,17 @@ export default function ScoreDetailScreen() {
       .finally(() => setCoachNoteLoading(false));
   }, [type]);
 
-  const score     = isRecovery ? recoveryScore : supportScore;
-  // Fixed brand identity colors — Recovery=orange, Readiness=white/silver (matches home screen rings)
+  const score     = isRecovery ? (recoveryScore ?? 0) : adherenceScore;
+  const hasRecoveryData = recoveryScore != null;
+  // Fixed brand identity colors — Recovery=orange, Adherence=white/silver (matches home screen rings)
   const grad      = isRecovery
     ? { start: '#D4601A', end: '#FF742A' }
     : { start: '#B0B0B0', end: '#FFFFFF' };
   const accent    = isRecovery ? recoveryColor(score)    : supportColor(score);
-  const message   = isRecovery ? recoveryMessage(score)  : supportMessage(score);
-  const title     = isRecovery ? 'Recovery'              : 'GLP-1 Amplifier';
+  const message   = isRecovery
+    ? (hasRecoveryData ? recoveryMessage(score) : 'No wearable data')
+    : supportMessage(score);
+  const title     = isRecovery ? 'Readiness'             : 'Routine';
   const staticCoachNote = isRecovery ? RECOVERY_COACH_NOTE : GLP1_COACH_NOTE;
   const coachNote = aiCoachNote ?? staticCoachNote;
 
@@ -333,108 +344,107 @@ export default function ScoreDetailScreen() {
   let cards: MetricCardProps[] = [];
 
   if (isRecovery) {
-    const rows = recoveryBreakdown(wearable, phase);
-    const h = Math.floor(wearable.sleepMinutes / 60);
-    const m = wearable.sleepMinutes % 60;
-    cards = [
-      {
-        icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={accent} />,
-        label: 'Sleep',
-        pts: rows[0].actual, maxPts: rows[0].max,
-        value: `${h}h ${m}m`,
-        pct: rows[0].actual / rows[0].max,
-        color: accent,
-        note: recoveryNotes[0],
-      },
-      {
-        icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color={accent} />,
-        label: 'HRV',
-        pts: rows[1].actual, maxPts: rows[1].max,
-        value: `${wearable.hrvMs} ms`,
-        pct: rows[1].actual / rows[1].max,
-        color: accent,
-        note: recoveryNotes[1],
-      },
-      {
-        icon: <Ionicons name="heart-outline" size={ICON_SIZE} color={accent} />,
-        label: 'Resting HR',
-        pts: rows[2].actual, maxPts: rows[2].max,
-        value: `${wearable.restingHR} bpm`,
-        pct: rows[2].actual / rows[2].max,
-        color: accent,
-        note: recoveryNotes[2],
-      },
-      {
-        icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color={accent} />,
-        label: 'SpO\u2082',
-        pts: rows[3].actual, maxPts: rows[3].max,
-        value: `${wearable.spo2Pct}%`,
-        pct: rows[3].actual / rows[3].max,
-        color: accent,
-        note: recoveryNotes[3],
-      },
-    ];
-    // Respiratory rate card — present when HealthKit supplies the value
-    if (rows.length > 4) {
-      cards.push({
-        icon: <MaterialIcons name="air" size={ICON_SIZE} color={accent} />,
-        label: 'Resp. Rate',
-        pts: rows[4].actual, maxPts: rows[4].max,
-        value: `${wearable.respRateRpm} rpm`,
-        pct: rows[4].actual / rows[4].max,
-        color: accent,
-        note: 'Normal resting respiratory rate is 12–20 bpm. Elevated rate can signal illness, stress, or altitude effects.',
-      });
+    if (!hasRecoveryData) {
+      // No wearable data — show suppressed state cards
+      const suppressedNote = 'Connect Apple Health in Settings to enable this metric.';
+      const rowDefs = [
+        { icon: <Ionicons name="moon-outline" size={ICON_SIZE} color="rgba(255,255,255,0.3)" />, label: 'Sleep', max: 40 },
+        { icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color="rgba(255,255,255,0.3)" />, label: 'HRV', max: 35 },
+        { icon: <Ionicons name="heart-outline" size={ICON_SIZE} color="rgba(255,255,255,0.3)" />, label: 'Resting HR', max: 15 },
+        { icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color="rgba(255,255,255,0.3)" />, label: 'SpO\u2082', max: 10 },
+      ];
+      cards = rowDefs.map(rd => ({
+        icon: rd.icon,
+        label: rd.label,
+        pts: 0,
+        maxPts: rd.max,
+        value: '—',
+        pct: 0,
+        color: 'rgba(255,255,255,0.3)',
+        note: suppressedNote,
+      }));
+    } else {
+      const rows = recoveryBreakdown(wearable, phase);
+      const h = Math.floor((wearable.sleepMinutes ?? 0) / 60);
+      const m = (wearable.sleepMinutes ?? 0) % 60;
+      cards = [
+        {
+          icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={rows[0].available ? accent : 'rgba(255,255,255,0.3)'} />,
+          label: 'Sleep',
+          pts: rows[0].actual, maxPts: rows[0].max,
+          value: rows[0].available ? `${h}h ${m}m` : '—',
+          pct: rows[0].available ? rows[0].actual / rows[0].max : 0,
+          color: rows[0].available ? accent : 'rgba(255,255,255,0.3)',
+          note: rows[0].available ? recoveryNotes[0] : 'Connect Apple Health to track sleep.',
+        },
+        {
+          icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color={rows[1].available ? accent : 'rgba(255,255,255,0.3)'} />,
+          label: 'HRV',
+          pts: rows[1].actual, maxPts: rows[1].max,
+          value: rows[1].available ? `${wearable.hrvMs} ms` : '—',
+          pct: rows[1].available ? rows[1].actual / rows[1].max : 0,
+          color: rows[1].available ? accent : 'rgba(255,255,255,0.3)',
+          note: rows[1].available ? recoveryNotes[1] : 'Connect Apple Health to track HRV.',
+        },
+        {
+          icon: <Ionicons name="heart-outline" size={ICON_SIZE} color={rows[2].available ? accent : 'rgba(255,255,255,0.3)'} />,
+          label: 'Resting HR',
+          pts: rows[2].actual, maxPts: rows[2].max,
+          value: rows[2].available ? `${wearable.restingHR} bpm` : '—',
+          pct: rows[2].available ? rows[2].actual / rows[2].max : 0,
+          color: rows[2].available ? accent : 'rgba(255,255,255,0.3)',
+          note: rows[2].available ? recoveryNotes[2] : 'Connect Apple Health to track resting heart rate.',
+        },
+        {
+          icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color={rows[3].available ? accent : 'rgba(255,255,255,0.3)'} />,
+          label: 'SpO\u2082',
+          pts: rows[3].actual, maxPts: rows[3].max,
+          value: rows[3].available ? `${wearable.spo2Pct}%` : '—',
+          pct: rows[3].available ? rows[3].actual / rows[3].max : 0,
+          color: rows[3].available ? accent : 'rgba(255,255,255,0.3)',
+          note: rows[3].available ? recoveryNotes[3] : 'Connect Apple Health to track blood oxygen.',
+        },
+      ];
     }
   } else {
-    const rows = supportBreakdown(actuals, targets);
-    const waterOz  = Math.round(actuals.waterMl / 29.57);
-    const targetOz = Math.round(targets.waterMl / 29.57);
+    // 4-pillar adherence breakdown: Medication(35) + SideEffects(25) + Protein(25) + Activity(15)
+    const rows = adherenceBreakdown(actuals, targets, sideEffectBurden);
     cards = [
-      {
-        icon: <MaterialIcons name="fitness-center" size={ICON_SIZE} color={accent} />,
-        label: 'Protein',
-        pts: rows[0].actual, maxPts: rows[0].max,
-        value: `${actuals.proteinG}g / ${targets.proteinG}g`,
-        pct: rows[0].actual / rows[0].max,
-        color: accent,
-        note: glp1Notes[0],
-      },
-      {
-        icon: <Ionicons name="water-outline" size={ICON_SIZE} color={accent} />,
-        label: 'Hydration',
-        pts: rows[1].actual, maxPts: rows[1].max,
-        value: `${waterOz}oz / ${targetOz}oz`,
-        pct: rows[1].actual / rows[1].max,
-        color: accent,
-        note: glp1Notes[1],
-      },
-      {
-        icon: <Ionicons name="walk-outline" size={ICON_SIZE} color={accent} />,
-        label: 'Movement',
-        pts: rows[2].actual, maxPts: rows[2].max,
-        value: `${actuals.steps.toLocaleString()} steps`,
-        pct: rows[2].actual / rows[2].max,
-        color: accent,
-        note: glp1Notes[2],
-      },
-      {
-        icon: <MaterialIcons name="nutrition" size={ICON_SIZE} color={accent} />,
-        label: 'Fiber',
-        pts: rows[3].actual, maxPts: rows[3].max,
-        value: `${actuals.fiberG}g / ${targets.fiberG}g`,
-        pct: rows[3].actual / rows[3].max,
-        color: accent,
-        note: glp1Notes[3],
-      },
       {
         icon: <FontAwesome5 name="syringe" size={ICON_SIZE - 2} color={accent} />,
         label: 'Medication',
-        pts: rows[4].actual, maxPts: rows[4].max,
-        value: actuals.injectionLogged ? 'Logged \u2713' : 'Not logged',
-        pct: rows[4].actual / rows[4].max,
+        pts: rows[0].actual, maxPts: rows[0].max,
+        value: actuals.injectionLogged ? 'Logged ✓' : 'Not logged',
+        pct: rows[0].actual / rows[0].max,
         color: accent,
-        note: 'Logging your injection unlocks the full 15-point medication bonus and enables phase-aware coaching.',
+        note: 'Logging your injection unlocks the full 35-point medication bonus and enables phase-aware coaching.',
+      },
+      {
+        icon: <Ionicons name="pulse-outline" size={ICON_SIZE} color={accent} />,
+        label: 'Side Effects',
+        pts: rows[1].actual, maxPts: rows[1].max,
+        value: `${sideEffectBurden}% burden`,
+        pct: rows[1].actual / rows[1].max,
+        color: accent,
+        note: 'Lower side effect burden means your body is tolerating the medication well. Phase-expected GI effects are discounted.',
+      },
+      {
+        icon: <MaterialIcons name="fitness-center" size={ICON_SIZE} color={rows[2].included ? accent : 'rgba(255,255,255,0.3)'} />,
+        label: 'Protein',
+        pts: rows[2].actual, maxPts: rows[2].max,
+        value: rows[2].included ? `${actuals.proteinG}g / ${targets.proteinG}g` : '—',
+        pct: rows[2].included ? rows[2].actual / rows[2].max : 0,
+        color: rows[2].included ? accent : 'rgba(255,255,255,0.3)',
+        note: rows[2].note ?? glp1Notes[0],
+      },
+      {
+        icon: <Ionicons name="walk-outline" size={ICON_SIZE} color={rows[3].included ? accent : 'rgba(255,255,255,0.3)'} />,
+        label: 'Movement',
+        pts: rows[3].actual, maxPts: rows[3].max,
+        value: rows[3].included ? `${actuals.steps.toLocaleString()} steps` : '—',
+        pct: rows[3].included ? rows[3].actual / rows[3].max : 0,
+        color: rows[3].included ? accent : 'rgba(255,255,255,0.3)',
+        note: rows[3].note ?? glp1Notes[2],
       },
     ];
   }
@@ -453,7 +463,7 @@ export default function ScoreDetailScreen() {
           </View>
           <Pressable
             onPress={() => {
-              const scoreLabel = isRecovery ? 'Recovery Score' : 'Readiness Score';
+              const scoreLabel = isRecovery ? 'Readiness Score' : 'Routine Score';
               const scoreContext = `${score}/100 · ${phaseLabel}`;
               const contextChips = isRecovery
                 ? ['Why is my score this level?', 'How does my phase affect this?', 'What can I do to improve?', 'Is this normal for peak phase?']
@@ -471,12 +481,12 @@ export default function ScoreDetailScreen() {
           {/* Hero ring */}
           <View style={s.hero}>
             <ScoreRing
-              score={score}
+              score={isRecovery && !hasRecoveryData ? 0 : score}
               size={180}
               strokeWidth={14}
-              gradientStart={grad.start}
-              gradientEnd={grad.end}
-              label={isRecovery ? 'RECOVERY' : 'GLP-1 AMP'}
+              gradientStart={isRecovery && !hasRecoveryData ? 'rgba(255,255,255,0.1)' : grad.start}
+              gradientEnd={isRecovery && !hasRecoveryData ? 'rgba(255,255,255,0.05)' : grad.end}
+              label={isRecovery ? 'READINESS' : 'ROUTINE'}
               message=""
               onTap={() => {}}
             />
@@ -487,8 +497,23 @@ export default function ScoreDetailScreen() {
             </View>
           </View>
 
-          {/* Phase interpretation banner */}
-          <PhaseInterpretationBanner isRecovery={isRecovery} phase={phase} score={score} />
+          {/* Phase interpretation banner — suppressed when no wearable data */}
+          {(!isRecovery || hasRecoveryData) && (
+            <PhaseInterpretationBanner isRecovery={isRecovery} phase={phase} score={score} />
+          )}
+          {isRecovery && !hasRecoveryData && (
+            <View style={[pb.wrap, { marginBottom: 20 }]}>
+              <View style={pb.body}>
+                <View style={pb.inner}>
+                  <Text style={pb.heading}>No Wearable Data</Text>
+                  <Text style={pb.bodyText}>
+                    Connect Apple Health in Settings to enable recovery scoring. Sleep, HRV, resting heart rate, and SpO₂ are required for an accurate recovery score.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
 
           {/* Section label */}
           <Text style={s.sectionLabel}>SCORE BREAKDOWN</Text>
@@ -497,6 +522,31 @@ export default function ScoreDetailScreen() {
           {cards.map((card) => (
             <MetricCard key={card.label} {...card} />
           ))}
+
+          {/* Fiber — informational only (not scored) */}
+          {!isRecovery && (
+            <View style={[c.wrap, glassShadow, { opacity: 0.75 }]}>
+              <View style={[c.body, { borderColor: 'rgba(255,255,255,0.1)' }]}>
+                <View style={c.inner}>
+                  <View style={c.topRow}>
+                    <View style={c.iconLabel}>
+                      <View style={c.iconWrap}>
+                        <MaterialIcons name="eco" size={ICON_SIZE} color="rgba(255,255,255,0.4)" />
+                      </View>
+                      <Text style={[c.label, { color: 'rgba(255,255,255,0.5)' }]}>Fiber (Informational)</Text>
+                    </View>
+                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: FF }}>NOT SCORED</Text>
+                  </View>
+                  <Text style={[c.value, { fontSize: 20, color: 'rgba(255,255,255,0.55)' }]}>
+                    {actuals.fiberG}g / {targets.fiberG}g
+                  </Text>
+                  <Text style={c.note}>
+                    Fiber is tracked but not scored. During shot/peak phases, high fiber worsens GI side effects — target is lowered automatically. During balance/reset phases, aim for 25–35g.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Today's Primary Focus */}
           <PrimaryFocusCard cards={cards} />
