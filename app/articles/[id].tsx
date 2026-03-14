@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 const FF = 'Helvetica Neue';
@@ -29,6 +31,9 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function ArticleDetailScreen() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,12 +60,12 @@ export default function ArticleDetailScreen() {
     : '';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }}>
         {/* Nav bar */}
         <View style={s.navBar}>
           <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={s.navTitle} numberOfLines={1}>Article</Text>
           <View style={{ width: 40 }} />
@@ -72,7 +77,7 @@ export default function ArticleDetailScreen() {
           </View>
         ) : !article ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, fontFamily: FF }}>
+            <Text style={{ color: colors.textMuted, fontSize: 15, fontFamily: FF }}>
               Article not found.
             </Text>
           </View>
@@ -136,73 +141,76 @@ export default function ArticleDetailScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  navTitle: {
-    fontSize: 17, fontWeight: '700', color: '#FFFFFF',
-    letterSpacing: -0.3, fontFamily: FF, flex: 1, textAlign: 'center',
-  },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    navBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    backBtn: {
+      width: 40, height: 40, borderRadius: 12,
+      backgroundColor: c.borderSubtle,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    navTitle: {
+      fontSize: 17, fontWeight: '700', color: c.textPrimary,
+      letterSpacing: -0.3, fontFamily: FF, flex: 1, textAlign: 'center',
+    },
 
-  content: { paddingHorizontal: 20, paddingBottom: 40 },
+    content: { paddingHorizontal: 20, paddingBottom: 40 },
 
-  metaRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginBottom: 16, flexWrap: 'wrap',
-  },
-  chip: {
-    borderRadius: 20, borderWidth: 1,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  chipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-  readTime: { fontSize: 12, color: 'rgba(255,255,255,0.40)', fontFamily: FF },
+    metaRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      marginBottom: 16, flexWrap: 'wrap',
+    },
+    chip: {
+      borderRadius: 20, borderWidth: 1,
+      paddingHorizontal: 10, paddingVertical: 4,
+    },
+    chipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
+    readTime: { fontSize: 12, color: w(0.40), fontFamily: FF },
 
-  title: {
-    fontSize: 28, fontWeight: '800', color: '#FFFFFF',
-    letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: FF,
-  },
-  subtitle: {
-    fontSize: 16, color: 'rgba(255,255,255,0.55)', lineHeight: 24,
-    fontWeight: '400', marginBottom: 8, fontFamily: FF,
-  },
-  divider: {
-    height: 1, backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: 20,
-  },
+    title: {
+      fontSize: 28, fontWeight: '800', color: c.textPrimary,
+      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: FF,
+    },
+    subtitle: {
+      fontSize: 16, color: w(0.55), lineHeight: 24,
+      fontWeight: '400', marginBottom: 8, fontFamily: FF,
+    },
+    divider: {
+      height: 1, backgroundColor: c.borderSubtle,
+      marginVertical: 20,
+    },
 
-  bodyH1: {
-    fontSize: 22, fontWeight: '800', color: '#FFFFFF',
-    letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: FF,
-  },
-  bodyH2: {
-    fontSize: 18, fontWeight: '700', color: '#FFFFFF',
-    letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: FF,
-  },
-  bodyH3: {
-    fontSize: 15, fontWeight: '700', color: ORANGE,
-    marginBottom: 6, marginTop: 14, fontFamily: FF,
-  },
-  bodyText: {
-    fontSize: 15, color: 'rgba(255,255,255,0.75)',
-    lineHeight: 24, marginBottom: 12, fontFamily: FF, flex: 1,
-  },
-  bulletRow: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    gap: 10, marginBottom: 10,
-  },
-  bulletDot: {
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: ORANGE, marginTop: 9, flexShrink: 0,
-  },
-});
+    bodyH1: {
+      fontSize: 22, fontWeight: '800', color: c.textPrimary,
+      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: FF,
+    },
+    bodyH2: {
+      fontSize: 18, fontWeight: '700', color: c.textPrimary,
+      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: FF,
+    },
+    bodyH3: {
+      fontSize: 15, fontWeight: '700', color: ORANGE,
+      marginBottom: 6, marginTop: 14, fontFamily: FF,
+    },
+    bodyText: {
+      fontSize: 15, color: w(0.75),
+      lineHeight: 24, marginBottom: 12, fontFamily: FF, flex: 1,
+    },
+    bulletRow: {
+      flexDirection: 'row', alignItems: 'flex-start',
+      gap: 10, marginBottom: 10,
+    },
+    bulletDot: {
+      width: 6, height: 6, borderRadius: 3,
+      backgroundColor: ORANGE, marginTop: 9, flexShrink: 0,
+    },
+  });
+};

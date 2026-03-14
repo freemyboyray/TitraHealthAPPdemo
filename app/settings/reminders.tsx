@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -16,11 +16,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { scheduleTestNotification } from '@/lib/notifications';
 import { type ReminderType, useRemindersStore } from '@/stores/reminders-store';
 
 const ORANGE = '#FF742A';
-const BG = '#000000';
 
 type ReminderRow = {
   type: ReminderType;
@@ -77,6 +78,9 @@ function formatTime(hhmm: string): string {
 type PickerTarget = { type: ReminderType; index: number; current: string } | null;
 
 export default function RemindersScreen() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const store = useRemindersStore();
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [pickerDate, setPickerDate] = useState<Date>(new Date());
@@ -112,7 +116,7 @@ export default function RemindersScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>REMINDERS</Text>
         <View style={{ width: 40 }} />
@@ -131,7 +135,7 @@ export default function RemindersScreen() {
                   value={config.enabled}
                   onValueChange={(v) => store.setEnabled(row.type, v)}
                   trackColor={{ false: '#333', true: ORANGE }}
-                  thumbColor="#FFFFFF"
+                  thumbColor={colors.textPrimary}
                   ios_backgroundColor="#333"
                 />
               </View>
@@ -185,7 +189,7 @@ export default function RemindersScreen() {
               display="spinner"
               onChange={(_, date) => date && setPickerDate(date)}
               style={s.picker}
-              textColor="#FFFFFF"
+              textColor={colors.textPrimary}
             />
           </View>
         </Modal>
@@ -207,74 +211,77 @@ export default function RemindersScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 16,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
+    },
+    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
 
-  scroll: { flex: 1 },
-  content: { padding: 16, gap: 12 },
+    scroll: { flex: 1 },
+    content: { padding: 16, gap: 12 },
 
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.13)',
-    borderLeftColor: 'rgba(255,255,255,0.08)',
-    borderRightColor: 'rgba(255,255,255,0.03)',
-    borderBottomColor: 'rgba(255,255,255,0.02)',
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
-  cardLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+    card: {
+      backgroundColor: c.glassOverlay,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderTopColor: w(0.13),
+      borderLeftColor: c.borderSubtle,
+      borderRightColor: w(0.03),
+      borderBottomColor: w(0.02),
+      overflow: 'hidden',
+    },
+    cardHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 14,
+    },
+    cardLabel: { color: c.textPrimary, fontSize: 15, fontWeight: '600' },
 
-  timeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-  slotLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 13 },
-  timeChip: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,116,42,0.12)',
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 20,
-  },
-  timeText: { color: ORANGE, fontSize: 13, fontWeight: '600' },
+    timeRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 10,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSubtle,
+    },
+    slotLabel: { color: w(0.5), fontSize: 13 },
+    timeChip: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: 'rgba(255,116,42,0.12)',
+      paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: 20,
+    },
+    timeText: { color: '#FF742A', fontSize: 13, fontWeight: '600' },
 
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 8 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginVertical: 8 },
 
-  testBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,116,42,0.12)',
-    borderRadius: 14, paddingVertical: 14,
-    borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)',
-  },
-  testBtnText: { color: ORANGE, fontSize: 15, fontWeight: '600' },
-  hint: { color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center', marginTop: 8 },
+    testBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(255,116,42,0.12)',
+      borderRadius: 14, paddingVertical: 14,
+      borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)',
+    },
+    testBtnText: { color: '#FF742A', fontSize: 15, fontWeight: '600' },
+    hint: { color: w(0.3), fontSize: 12, textAlign: 'center', marginTop: 8 },
 
-  // Picker modal
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  pickerSheet: {
-    backgroundColor: '#1A1A1A',
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 32,
-  },
-  pickerHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  pickerTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  pickerCancel: { color: 'rgba(255,255,255,0.5)', fontSize: 15 },
-  pickerDone: { color: ORANGE, fontSize: 15, fontWeight: '600' },
-  picker: { backgroundColor: '#1A1A1A' },
-});
+    // Picker modal
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    pickerSheet: {
+      backgroundColor: c.surface,
+      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      paddingBottom: 32,
+    },
+    pickerHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.1),
+    },
+    pickerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '600' },
+    pickerCancel: { color: w(0.5), fontSize: 15 },
+    pickerDone: { color: '#FF742A', fontSize: 15, fontWeight: '600' },
+    picker: { backgroundColor: c.surface },
+  });
+};

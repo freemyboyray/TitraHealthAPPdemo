@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -17,6 +17,8 @@ import Animated, {
 import { ClipPath, Defs, Path, Rect, Svg } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
@@ -41,6 +43,9 @@ const QUICK_PRESETS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const insets = useSafeAreaInsets();
   const { dispatch, targets } = useHealthData();
 
@@ -94,7 +99,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
           {/* Header */}
           <View style={s.header}>
             <TouchableOpacity onPress={onClose} style={s.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color="rgba(255,255,255,0.65)" />
+              <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
             </TouchableOpacity>
             <Text style={s.title}>Water Log</Text>
             <View style={{ width: 36 }} />
@@ -134,9 +139,9 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
                 {/* Cup outline */}
                 <Path
                   d={CUP_PATH}
-                  stroke="rgba(255,255,255,0.22)"
+                  stroke={colors.isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)'}
                   strokeWidth={2}
-                  fill="rgba(255,255,255,0.03)"
+                  fill={colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'}
                 />
               </Svg>
 
@@ -207,12 +212,14 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end' },
   backdrop:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
 
   sheet: {
-    backgroundColor: '#000000',
+    backgroundColor: c.bg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -229,7 +236,7 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: w(0.10),
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },
@@ -237,7 +244,7 @@ const s = StyleSheet.create({
   handle: {
     width: 44,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: c.ringTrack,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 18,
@@ -253,24 +260,24 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: -0.3,
     fontFamily: FF,
   },
 
   // Cup card
   cupCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: w(0.05),
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: c.borderSubtle,
     padding: 16,
     alignItems: 'center',
     marginBottom: 20,
@@ -285,13 +292,13 @@ const s = StyleSheet.create({
   cupLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
+    color: w(0.55),
     fontFamily: FF,
   },
   cupCounter: {
     fontSize: 22,
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.30)',
+    color: w(0.30),
     fontFamily: FF,
     letterSpacing: -0.5,
   },
@@ -316,7 +323,7 @@ const s = StyleSheet.create({
   cupOzNum: {
     fontSize: 52,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: -2,
     fontFamily: FF,
     textShadowColor: 'rgba(0,0,0,0.4)',
@@ -326,7 +333,7 @@ const s = StyleSheet.create({
   cupOzUnit: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: w(0.55),
     fontFamily: FF,
     marginTop: -4,
   },
@@ -343,16 +350,16 @@ const s = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: c.ringTrack,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepBtnText: {
     fontSize: 28,
     fontWeight: '300',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     lineHeight: 32,
     fontFamily: FF,
   },
@@ -386,7 +393,7 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.30)',
+    color: w(0.30),
     letterSpacing: 1.0,
     textTransform: 'uppercase',
     fontFamily: FF,
@@ -402,9 +409,9 @@ const s = StyleSheet.create({
     width: 76,
     height: 84,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: c.glassOverlay,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
+    borderColor: w(0.09),
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -432,8 +439,9 @@ const s = StyleSheet.create({
   updateBtnText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#FFFFFF', // on orange bg — stays white
     letterSpacing: 0.2,
     fontFamily: FF,
   },
-});
+  });
+};

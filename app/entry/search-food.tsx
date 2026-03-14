@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,14 +16,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useLogStore, MealType } from '../../stores/log-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#F0EAE4';
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
-const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
+const ORANGE = '#FF742A';
 
 // ─── GlassBorder ─────────────────────────────────────────────────────────────
 
@@ -48,7 +46,8 @@ function GlassBorder({ topOnly = false }: { topOnly?: boolean }) {
 
 // ─── MacroPill ────────────────────────────────────────────────────────────────
 
-function MacroPill({ label, value, unit }: { label: string; value: string | number; unit: string }) {
+function MacroPill({ label, value, unit, colors }: { label: string; value: string | number; unit: string; colors: AppColors }) {
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.macroPill}>
       <Text style={styles.macroPillValue}>
@@ -66,6 +65,8 @@ export default function SearchFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { loading, addFoodLog } = useLogStore();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodResult[]>([]);
@@ -152,7 +153,7 @@ export default function SearchFoodScreen() {
     if (searching) {
       return (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={TERRACOTTA} />
+          <ActivityIndicator size="large" color={ORANGE} />
         </View>
       );
     }
@@ -165,7 +166,7 @@ export default function SearchFoodScreen() {
     }
     return (
       <View style={styles.centered}>
-        <Ionicons name="search-outline" size={48} color={MUTED} />
+        <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
         <Text style={[styles.emptyText, { marginTop: 12 }]}>Search for a food to get started</Text>
       </View>
     );
@@ -182,10 +183,10 @@ export default function SearchFoodScreen() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={styles.backBtnOverlay} />
           <GlassBorder />
-          <Ionicons name="chevron-back" size={20} color={DARK} />
+          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Search Food</Text>
@@ -195,14 +196,14 @@ export default function SearchFoodScreen() {
 
       {/* ── Search bar ─────────────────────────────────────────────────────── */}
       <View style={styles.searchBarWrapper}>
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={styles.searchBarOverlay} />
         <GlassBorder />
-        <Ionicons name="search-outline" size={20} color={MUTED} style={styles.searchIcon} />
+        <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search foods…"
-          placeholderTextColor={MUTED}
+          placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={handleQueryChange}
           onSubmitEditing={() => doSearch(query)}
@@ -219,7 +220,7 @@ export default function SearchFoodScreen() {
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={18} color={MUTED} />
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -241,7 +242,7 @@ export default function SearchFoodScreen() {
       {/* ── Selected food panel ────────────────────────────────────────────── */}
       {selected && (
         <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={styles.panelOverlay} />
           <GlassBorder topOnly />
 
@@ -250,7 +251,7 @@ export default function SearchFoodScreen() {
             onPress={() => setSelected(null)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close" size={20} color={MUTED} />
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <Text style={styles.panelName} numberOfLines={2}>
@@ -263,7 +264,7 @@ export default function SearchFoodScreen() {
           <View style={styles.servingRow}>
             <Text style={styles.servingLabel}>Serving size</Text>
             <View style={styles.servingInputWrapper}>
-              <BlurView intensity={75} tint="light" style={StyleSheet.absoluteFillObject} />
+              <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
               <View style={styles.servingInputOverlay} />
               <GlassBorder />
               <TextInput
@@ -278,10 +279,10 @@ export default function SearchFoodScreen() {
           </View>
 
           <View style={styles.macroRow}>
-            <MacroPill label="Calories" value={Math.round(selected.calories * g / 100)} unit=" kcal" />
-            <MacroPill label="Protein" value={(selected.protein_g * g / 100).toFixed(1)} unit="g" />
-            <MacroPill label="Carbs" value={(selected.carbs_g * g / 100).toFixed(1)} unit="g" />
-            <MacroPill label="Fat" value={(selected.fat_g * g / 100).toFixed(1)} unit="g" />
+            <MacroPill label="Calories" value={Math.round(selected.calories * g / 100)} unit=" kcal" colors={colors} />
+            <MacroPill label="Protein" value={(selected.protein_g * g / 100).toFixed(1)} unit="g" colors={colors} />
+            <MacroPill label="Carbs" value={(selected.carbs_g * g / 100).toFixed(1)} unit="g" colors={colors} />
+            <MacroPill label="Fat" value={(selected.fat_g * g / 100).toFixed(1)} unit="g" colors={colors} />
           </View>
 
           <View style={styles.mealTypeRow}>
@@ -314,7 +315,7 @@ export default function SearchFoodScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={WHITE} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.logBtnText}>Log Food</Text>
             )}
@@ -327,10 +328,10 @@ export default function SearchFoodScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: c.bg,
   },
 
   // Header
@@ -352,13 +353,13 @@ const styles = StyleSheet.create({
   },
   backBtnOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: c.borderSubtle,
     borderRadius: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     letterSpacing: 0.3,
   },
 
@@ -372,7 +373,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     paddingHorizontal: 14,
-    shadowColor: DARK,
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
   },
   searchBarOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: c.borderSubtle,
   },
   searchIcon: {
     marginRight: 10,
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: DARK,
+    color: c.textPrimary,
     paddingVertical: 0,
   },
 
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: MUTED,
+    color: c.textSecondary,
     textAlign: 'center',
   },
 
@@ -413,8 +414,8 @@ const styles = StyleSheet.create({
   resultCard: {
     borderRadius: 16,
     marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    shadowColor: DARK,
+    backgroundColor: c.surface,
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
@@ -433,18 +434,18 @@ const styles = StyleSheet.create({
   resultName: {
     fontSize: 15,
     fontWeight: '600',
-    color: DARK,
+    color: c.textPrimary,
     lineHeight: 20,
     marginBottom: 2,
   },
   resultBrand: {
     fontSize: 12,
-    color: MUTED,
+    color: c.textSecondary,
     marginBottom: 4,
   },
   per100g: {
     fontSize: 11,
-    color: MUTED,
+    color: c.textSecondary,
     fontStyle: 'italic',
   },
   resultRight: {
@@ -453,12 +454,12 @@ const styles = StyleSheet.create({
   resultCalories: {
     fontSize: 16,
     fontWeight: '700',
-    color: TERRACOTTA,
+    color: ORANGE,
     marginBottom: 4,
   },
   resultMacros: {
     fontSize: 12,
-    color: MUTED,
+    color: c.textSecondary,
   },
 
   // Selected food panel
@@ -473,7 +474,7 @@ const styles = StyleSheet.create({
   },
   panelOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: c.glassOverlay,
   },
   dismissBtn: {
     position: 'absolute',
@@ -484,14 +485,14 @@ const styles = StyleSheet.create({
   panelName: {
     fontSize: 18,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     marginBottom: 2,
     paddingRight: 32,
     lineHeight: 24,
   },
   panelBrand: {
     fontSize: 13,
-    color: MUTED,
+    color: c.textSecondary,
     marginBottom: 14,
   },
 
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
   },
   servingLabel: {
     fontSize: 14,
-    color: DARK,
+    color: c.textPrimary,
     fontWeight: '500',
     marginRight: 12,
   },
@@ -518,18 +519,18 @@ const styles = StyleSheet.create({
   },
   servingInputOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: c.borderSubtle,
   },
   servingInput: {
     width: 80,
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
-    color: DARK,
+    color: c.textPrimary,
   },
   servingUnit: {
     fontSize: 14,
-    color: MUTED,
+    color: c.textSecondary,
   },
 
   // Macro pills
@@ -541,7 +542,7 @@ const styles = StyleSheet.create({
   },
   macroPill: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: c.borderSubtle,
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
@@ -549,16 +550,16 @@ const styles = StyleSheet.create({
   macroPillValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
   },
   macroPillUnit: {
     fontSize: 11,
     fontWeight: '400',
-    color: MUTED,
+    color: c.textSecondary,
   },
   macroPillLabel: {
     fontSize: 10,
-    color: MUTED,
+    color: c.textSecondary,
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -576,28 +577,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(28,15,9,0.06)',
+    backgroundColor: c.glassOverlay,
   },
   mealChipActive: {
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
   },
   mealChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: MUTED,
+    color: c.textSecondary,
   },
   mealChipTextActive: {
-    color: WHITE,
+    color: '#FFFFFF',
   },
 
   // Log button
   logBtn: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
@@ -606,7 +607,7 @@ const styles = StyleSheet.create({
   logBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: WHITE,
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
 });

@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
 
@@ -49,6 +52,9 @@ function SparkDot({ score, isLatest }: { score: number; isLatest: boolean }) {
  * Shows last score + 3-dot sparkline, or a "Check In" CTA if no score this week.
  */
 export function FoodNoiseCard({ logs }: Props) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const router = useRouter();
 
   if (!logs || logs.length === 0) {
@@ -58,8 +64,8 @@ export function FoodNoiseCard({ logs }: Props) {
         onPress={() => router.push('/entry/food-noise-survey' as any)}
         activeOpacity={0.8}
       >
-        <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+        <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
         <GlassBorder r={20} />
         <View style={s.inner}>
           <View style={s.leftRow}>
@@ -91,8 +97,8 @@ export function FoodNoiseCard({ logs }: Props) {
       onPress={() => router.push('/entry/food-noise-survey' as any)}
       activeOpacity={0.8}
     >
-      <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <GlassBorder r={20} />
       <View style={s.inner}>
         <View style={s.leftRow}>
@@ -122,11 +128,13 @@ export function FoodNoiseCard({ logs }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   wrap: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 20,
     elevation: 6,
@@ -145,8 +153,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,116,42,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 3 },
-  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  title: { fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
+  subtitle: { fontSize: 12, color: w(0.4) },
   labelBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start' },
   labelText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   ctaBtn: {
@@ -156,6 +164,7 @@ const s = StyleSheet.create({
   ctaText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
   rightCol: { alignItems: 'flex-end', gap: 2 },
   scoreText: { fontSize: 26, fontWeight: '800', lineHeight: 28 },
-  scoreDenom: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: -2 },
+  scoreDenom: { fontSize: 12, color: w(0.35), marginTop: -2 },
   sparkRow: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
-});
+  });
+};

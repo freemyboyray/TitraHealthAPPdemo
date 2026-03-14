@@ -1,11 +1,16 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
 import { useUserStore } from '@/stores/user-store';
 
 export default function Index() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const { isLoading, profile } = useProfile();
   const { session, sessionLoaded, demoMode } = useUserStore();
   const router = useRouter();
@@ -34,22 +39,22 @@ export default function Index() {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: c.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   wordmark: {
     fontSize: 48,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: -1.5,
   },
   tagline: {
     fontSize: 15,
-    color: '#9A9490',
+    color: c.textSecondary,
     marginTop: 8,
     letterSpacing: 0.5,
   },

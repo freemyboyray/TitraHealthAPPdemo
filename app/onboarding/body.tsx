@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
@@ -7,6 +7,8 @@ import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { WheelPicker } from '@/components/onboarding/wheel-picker';
 import { UnitSystem } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const FEET = Array.from({ length: 4 }, (_, i) => `${i + 4} ft`);
 const INCHES = Array.from({ length: 12 }, (_, i) => `${i} in`);
@@ -25,6 +27,8 @@ export default function BodyScreen() {
   const [halfIdx, setHalfIdx] = useState(0);
   const [cmIdx, setCmIdx] = useState(45);
   const [kgIdx, setKgIdx] = useState(42);
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleContinue = () => {
     if (unit === 'imperial') {
@@ -126,14 +130,14 @@ export default function BodyScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   toggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: c.glassOverlay,
     borderRadius: 12,
     padding: 3,
     marginBottom: 24,
@@ -151,7 +155,7 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
   },
   toggleTextActive: {
     color: '#FFFFFF',
@@ -162,7 +166,7 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,

@@ -1,9 +1,11 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { supabase } from '@/lib/supabase';
 
@@ -17,7 +19,6 @@ type ArticleRow = {
 };
 
 const ORANGE = '#FF742A';
-const BG = '#000000';
 const FF = 'Helvetica Neue';
 
 const glassShadow = {
@@ -161,6 +162,8 @@ const SECTIONS: Section[] = [
 
 function EducationCard({ section }: { section: Section }) {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
+  const { colors } = useAppTheme();
+  const c = useMemo(() => createCardStyles(colors), [colors]);
 
   const icon =
     section.iconSet === 'Ionicons'
@@ -192,7 +195,7 @@ function EducationCard({ section }: { section: Section }) {
                 <Ionicons
                   name={isOpen ? 'chevron-up' : 'chevron-down'}
                   size={16}
-                  color="rgba(255,255,255,0.35)"
+                  color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
                   style={{ marginLeft: 8, flexShrink: 0 }}
                 />
               </TouchableOpacity>
@@ -213,6 +216,8 @@ function EducationCard({ section }: { section: Section }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 function ArticleCard({ article }: { article: ArticleRow }) {
+  const { colors } = useAppTheme();
+  const ac = useMemo(() => createArticleCardStyles(colors), [colors]);
   const categoryColors: Record<string, string> = {
     nutrition: '#27AE60', medication: '#FF742A', lifestyle: '#5B8BF5',
     mindset: '#9B59B6', exercise: '#E8960C',
@@ -244,28 +249,33 @@ function ArticleCard({ article }: { article: ArticleRow }) {
   );
 }
 
-const ac = StyleSheet.create({
-  wrap: { borderRadius: 20, marginBottom: 12 },
-  body: {
-    borderRadius: 20, overflow: 'hidden',
-    backgroundColor: '#000000',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
-  },
-  inner: { padding: 18 },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  chip: {
-    borderRadius: 20, borderWidth: 1,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-  readTime: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: FF },
-  title: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', lineHeight: 22, marginBottom: 4, fontFamily: FF },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.50)', lineHeight: 19, fontFamily: FF },
-});
+const createArticleCardStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    wrap: { borderRadius: 20, marginBottom: 12 },
+    body: {
+      borderRadius: 20, overflow: 'hidden',
+      backgroundColor: c.bg,
+      borderWidth: 0.5, borderColor: c.border,
+    },
+    inner: { padding: 18 },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    chip: {
+      borderRadius: 20, borderWidth: 1,
+      paddingHorizontal: 8, paddingVertical: 3,
+    },
+    chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
+    readTime: { fontSize: 11, color: w(0.35), fontFamily: FF },
+    title: { fontSize: 16, fontWeight: '700', color: c.textPrimary, lineHeight: 22, marginBottom: 4, fontFamily: FF },
+    subtitle: { fontSize: 13, color: w(0.50), lineHeight: 19, fontFamily: FF },
+  });
+};
 
 export default function EducationScreen() {
   const { onScroll } = useTabBarVisibility();
   const [articles, setArticles] = useState<ArticleRow[]>([]);
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createScreenStyles(colors), [colors]);
 
   useFocusEffect(useCallback(() => {
     supabase
@@ -279,7 +289,7 @@ export default function EducationScreen() {
   }, []));
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -317,42 +327,48 @@ export default function EducationScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: FF },
-  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 28, fontFamily: FF },
-  disclaimer: { fontSize: 11, color: 'rgba(255,255,255,0.30)', textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
-  libraryLabel: {
-    fontSize: 9, fontWeight: '700', color: '#FF742A',
-    letterSpacing: 1.5, textTransform: 'uppercase',
-    marginBottom: 14, fontFamily: FF,
-  },
-  librarySeparator: {
-    height: 1, backgroundColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 24, marginTop: 8,
-  },
-});
+const createScreenStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: FF },
+    headerSub: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 28, fontFamily: FF },
+    disclaimer: { fontSize: 11, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
+    libraryLabel: {
+      fontSize: 9, fontWeight: '700', color: '#FF742A',
+      letterSpacing: 1.5, textTransform: 'uppercase',
+      marginBottom: 14, fontFamily: FF,
+    },
+    librarySeparator: {
+      height: 1, backgroundColor: c.borderSubtle,
+      marginBottom: 24, marginTop: 8,
+    },
+  });
+};
 
-const c = StyleSheet.create({
-  cardWrap: { borderRadius: 24, marginBottom: 16 },
-  cardBody: {
-    borderRadius: 24, overflow: 'hidden',
-    backgroundColor: '#000000',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
-  iconWrap: { marginRight: 12 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flex: 1, letterSpacing: -0.3, fontFamily: FF },
-  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 18 },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  itemQ: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1, lineHeight: 20, fontFamily: FF },
-  itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
-  itemA: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 22, fontWeight: '400', fontFamily: FF },
-  itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
-});
+const createCardStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    cardWrap: { borderRadius: 24, marginBottom: 16 },
+    cardBody: {
+      borderRadius: 24, overflow: 'hidden',
+      backgroundColor: c.bg,
+      borderWidth: 0.5, borderColor: c.border,
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
+    iconWrap: { marginRight: 12 },
+    cardTitle: { fontSize: 16, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: FF },
+    divider: { height: 1, backgroundColor: c.borderSubtle, marginHorizontal: 18 },
+    itemHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+    },
+    itemQ: { fontSize: 14, fontWeight: '600', color: c.textPrimary, flex: 1, lineHeight: 20, fontFamily: FF },
+    itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
+    itemA: { fontSize: 14, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
+    itemDivider: { height: 1, backgroundColor: w(0.06), marginHorizontal: 18 },
+  });
+};

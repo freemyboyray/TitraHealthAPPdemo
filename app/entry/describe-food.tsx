@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,13 +17,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callHaiku } from '../../lib/anthropic';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#000000';
 const ORANGE = '#FF742A';
-const WHITE = '#FFFFFF';
-const MUTED = 'rgba(255,255,255,0.45)';
 
 const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
 Return ONLY a valid JSON array, no other text:
@@ -61,11 +60,12 @@ function GlassBorder({ r = 16 }: { r?: number }) {
   );
 }
 
-function GlassCard({ children, style }: { children: React.ReactNode; style?: any }) {
+function GlassCard({ children, style, colors }: { children: React.ReactNode; style?: any; colors: AppColors }) {
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[s.cardShadow, style]}>
       <View style={s.cardClip}>
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
         <GlassBorder r={20} />
         <View style={s.cardContent}>{children}</View>
@@ -80,6 +80,8 @@ export default function DescribeFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addToTray } = useMealTrayStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
@@ -153,10 +155,10 @@ export default function DescribeFoodScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
           <View style={s.backClip}>
-            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Describe Food</Text>
@@ -171,12 +173,12 @@ export default function DescribeFoodScreen() {
       >
         {/* Text input */}
         {!items && (
-          <GlassCard>
+          <GlassCard colors={colors}>
             <Text style={s.sectionLabel}>WHAT DID YOU EAT?</Text>
             <TextInput
               style={s.textArea}
               placeholder={'e.g. "two scrambled eggs and whole wheat toast with butter"'}
-              placeholderTextColor={MUTED}
+              placeholderTextColor={colors.textSecondary}
               value={text}
               onChangeText={setText}
               multiline
@@ -197,7 +199,7 @@ export default function DescribeFoodScreen() {
 
         {/* Parsed items */}
         {items && items.map((item, idx) => (
-          <GlassCard key={idx}>
+          <GlassCard key={idx} colors={colors}>
             <Text style={s.itemRawName}>{item.item}</Text>
 
             {item.results.length === 0 ? (
@@ -226,8 +228,8 @@ export default function DescribeFoodScreen() {
                 <View style={s.servingRow}>
                   <Text style={s.servingLabel}>Amount</Text>
                   <View style={s.servingInputWrap}>
-                    <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFillObject} />
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+                    <BlurView intensity={70} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.borderSubtle }]} />
                     <GlassBorder />
                     <TextInput
                       style={s.servingInput}
@@ -265,7 +267,7 @@ export default function DescribeFoodScreen() {
             style={s.retryRow}
             activeOpacity={0.7}
           >
-            <Ionicons name="refresh-outline" size={15} color={MUTED} />
+            <Ionicons name="refresh-outline" size={15} color={colors.textSecondary} />
             <Text style={s.retryText}>Try different description</Text>
           </TouchableOpacity>
         )}
@@ -290,7 +292,7 @@ export default function DescribeFoodScreen() {
           >
             {parsing ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <ActivityIndicator color={WHITE} size="small" />
+                <ActivityIndicator color={colors.textPrimary} size="small" />
                 <Text style={s.primaryBtnText}>Analyzing…</Text>
               </View>
             ) : (
@@ -305,8 +307,10 @@ export default function DescribeFoodScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
 
   header: {
     flexDirection: 'row',
@@ -316,7 +320,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   backShadow: {
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -330,13 +334,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
+  backOverlay: { borderRadius: 20, backgroundColor: w(0.12) },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: WHITE,
+    color: c.textPrimary,
     letterSpacing: -0.3,
   },
 
@@ -344,14 +348,14 @@ const s = StyleSheet.create({
 
   cardShadow: {
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8,
   },
-  cardClip: { borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111' },
-  cardOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' },
+  cardClip: { borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface },
+  cardOverlay: { borderRadius: 20, backgroundColor: c.borderSubtle },
   cardContent: { padding: 18 },
 
   sectionLabel: {
@@ -364,7 +368,7 @@ const s = StyleSheet.create({
 
   textArea: {
     fontSize: 15,
-    color: WHITE,
+    color: c.textPrimary,
     minHeight: 90,
     lineHeight: 22,
   },
@@ -377,9 +381,9 @@ const s = StyleSheet.create({
   },
   errorText: { fontSize: 13, color: ORANGE },
 
-  itemRawName: { fontSize: 15, fontWeight: '700', color: WHITE, marginBottom: 10 },
+  itemRawName: { fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
 
-  noMatch: { fontSize: 13, color: MUTED, fontStyle: 'italic' },
+  noMatch: { fontSize: 13, color: c.textSecondary, fontStyle: 'italic' },
 
   matchRow: {
     flexDirection: 'row',
@@ -389,41 +393,41 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginBottom: 4,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: c.glassOverlay,
   },
   matchRowActive: { backgroundColor: 'rgba(255,116,42,0.15)' },
   matchRadio: {
     width: 18, height: 18, borderRadius: 9,
-    borderWidth: 2, borderColor: MUTED,
+    borderWidth: 2, borderColor: c.textSecondary,
     alignItems: 'center', justifyContent: 'center',
   },
   matchRadioActive: { borderColor: ORANGE },
   matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
-  matchName: { fontSize: 13, fontWeight: '600', color: WHITE },
-  matchBrand: { fontSize: 11, color: MUTED },
-  matchCal: { fontSize: 12, color: MUTED },
+  matchName: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  matchBrand: { fontSize: 11, color: c.textSecondary },
+  matchCal: { fontSize: 12, color: c.textSecondary },
 
   servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  servingLabel: { fontSize: 13, color: WHITE, fontWeight: '500', marginRight: 10 },
+  servingLabel: { fontSize: 13, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
   servingInputWrap: {
     width: 72, height: 36, borderRadius: 10,
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6,
   },
-  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: WHITE },
-  servingUnit: { fontSize: 13, color: MUTED },
+  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  servingUnit: { fontSize: 13, color: c.textSecondary },
 
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   macroPill: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: c.glassOverlay,
     borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10,
-    fontSize: 12, fontWeight: '600', color: WHITE,
+    fontSize: 12, fontWeight: '600', color: c.textPrimary,
   },
 
   retryRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 8,
   },
-  retryText: { fontSize: 13, color: MUTED },
+  retryText: { fontSize: 13, color: c.textSecondary },
 
   btnWrapper: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -436,5 +440,6 @@ const s = StyleSheet.create({
     shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.3 },
-});
+  primaryBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  });
+};

@@ -18,7 +18,8 @@
         "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging."
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.Sign-in-with-Apple": "Default"
       }
     },
     "android": {
@@ -65,6 +66,7 @@
       ],
       "@kingstinct/react-native-healthkit",
       "react-native-health-connect",
+      "expo-apple-authentication",
       "@react-native-community/datetimepicker",
       [
         "expo-notifications",

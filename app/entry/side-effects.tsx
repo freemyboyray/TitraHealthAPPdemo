@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -26,20 +26,12 @@ import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceSideEffectsResult } from '../../lib/openai';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG = '#000000';
 const ORANGE = '#FF742A';
 const GREEN = '#5DB87B';
-const DARK = '#FFFFFF';
 const THUMB_R = 11;
-
-const SHADOW = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 } as const,
-  shadowOpacity: 0.12,
-  shadowRadius: 24,
-  elevation: 8,
-};
 
 function GB({ r = 24 }: { r?: number }) {
   return (
@@ -60,6 +52,7 @@ function GB({ r = 24 }: { r?: number }) {
 // ─── Slider ───────────────────────────────────────────────────────────────────
 
 function EffectSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { colors: sliderColors } = useAppTheme();
   const trackRef = useRef(0);
   const [trackPx, setTrackPx] = useState(0);
   const onChangeRef = useRef(onChange);
@@ -100,7 +93,7 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
       {...panResponder.panHandlers}
     >
       {/* Track */}
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)' }}>
+      <View style={{ height: 4, borderRadius: 2, backgroundColor: sliderColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
         {/* Fill */}
         <View
           style={{
@@ -120,7 +113,7 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
             borderRadius: THUMB_R,
             backgroundColor: value > 0 ? GREEN : '#2C2C2C',
             borderWidth: 2,
-            borderColor: value > 0 ? GREEN : 'rgba(255,255,255,0.18)',
+            borderColor: value > 0 ? GREEN : (sliderColors.isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)'),
           }}
         />
       )}
@@ -138,6 +131,8 @@ export default function SideEffectsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addSideEffectLog } = useLogStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [activeIds, setActiveIds] = useState<string[]>([]);
   const [customDefs, setCustomDefs] = useState<CustomEffect[]>([]);
@@ -218,7 +213,7 @@ export default function SideEffectsScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: BG }}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
@@ -226,7 +221,7 @@ export default function SideEffectsScreen() {
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 14,
-          backgroundColor: BG,
+          backgroundColor: colors.bg,
         }}
       >
         <TouchableOpacity
@@ -234,13 +229,13 @@ export default function SideEffectsScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GB r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: '800', color: DARK }}>Side Effects Log</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Side Effects Log</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
@@ -249,10 +244,10 @@ export default function SideEffectsScreen() {
             onPress={() => router.push('/entry/customize-side-effects' as any)}
             activeOpacity={0.7}
           >
-            <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+            <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
             <GB r={20} />
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="settings-outline" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -265,12 +260,12 @@ export default function SideEffectsScreen() {
       >
         {/* Date card */}
         <View style={[s.card, { marginBottom: 4 }]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GB r={20} />
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10 }}>
-            <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.35)" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.5)' }}>
+            <Ionicons name="calendar-outline" size={18} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
               {dateStr}
             </Text>
           </View>
@@ -278,12 +273,12 @@ export default function SideEffectsScreen() {
 
         {/* Effect rows */}
         <View style={[s.card, { marginTop: 12 }]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GB r={20} />
           <View style={{ padding: 20 }}>
             {allActive.length === 0 ? (
-              <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', textAlign: 'center', paddingVertical: 20 }}>
+              <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', textAlign: 'center', paddingVertical: 20 }}>
                 No effects tracked yet. Tap the settings icon to customize.
               </Text>
             ) : (
@@ -296,15 +291,15 @@ export default function SideEffectsScreen() {
                     style={{
                       paddingVertical: 16,
                       borderBottomWidth: isLast ? 0 : 1,
-                      borderBottomColor: 'rgba(255,255,255,0.06)',
+                      borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
                     }}
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: DARK }}>{effect.label}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
                       <Text
                         style={{
                           fontSize: 15, fontWeight: '800',
-                          color: val > 0 ? GREEN : 'rgba(255,255,255,0.2)',
+                          color: val > 0 ? GREEN : (colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'),
                           minWidth: 20, textAlign: 'right',
                         }}
                       >
@@ -324,7 +319,7 @@ export default function SideEffectsScreen() {
 
         {/* Customize prompt */}
         <View style={{ marginTop: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginBottom: 14, textAlign: 'center' }}>
+          <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
             Any other side effects you'd like to track?
           </Text>
           <TouchableOpacity
@@ -332,7 +327,7 @@ export default function SideEffectsScreen() {
             onPress={() => router.push('/entry/customize-side-effects' as any)}
             activeOpacity={0.75}
           >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.2 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
               Customize side effects
             </Text>
           </TouchableOpacity>
@@ -355,7 +350,7 @@ export default function SideEffectsScreen() {
                 <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, marginBottom: 3 }}>
                   Weekly Food Noise Check-In
                 </Text>
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
                   Track how much you're thinking about food this week · 2 min
                 </Text>
               </View>
@@ -370,9 +365,9 @@ export default function SideEffectsScreen() {
         style={{
           paddingHorizontal: 20, paddingTop: 12,
           paddingBottom: insets.bottom + 16,
-          backgroundColor: BG,
+          backgroundColor: colors.bg,
           borderTopWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
         }}
       >
         <TouchableOpacity
@@ -389,7 +384,7 @@ export default function SideEffectsScreen() {
         >
           {loading
             ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={{ fontSize: 16, fontWeight: '800', color: hasAny ? '#FFF' : 'rgba(255,255,255,0.25)', letterSpacing: 0.4 }}>
+            : <Text style={{ fontSize: 16, fontWeight: '800', color: hasAny ? '#FFF' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'), letterSpacing: 0.4 }}>
                 Log Side Effects
               </Text>
           }
@@ -399,18 +394,27 @@ export default function SideEffectsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  headerBtn: {
-    width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center',
-    ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
-  },
-  card: {
-    borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111',
-    ...SHADOW,
-  },
-  customizeBtn: {
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24,
-  },
-});
+const createStyles = (c: AppColors) => {
+  const SHADOW = {
+    shadowColor: c.shadowColor,
+    shadowOffset: { width: 0, height: 8 } as const,
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+  };
+  return StyleSheet.create({
+    headerBtn: {
+      width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
+      alignItems: 'center', justifyContent: 'center',
+      ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
+    },
+    card: {
+      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
+      ...SHADOW,
+    },
+    customizeBtn: {
+      borderWidth: 1, borderColor: c.border,
+      borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24,
+    },
+  });
+};

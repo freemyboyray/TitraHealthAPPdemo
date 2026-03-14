@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -15,6 +15,8 @@ import {
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_W = 32;
@@ -24,6 +26,8 @@ const UNIT_W = ITEM_W + TICK_SPACING;
 export default function GoalWeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const unit = draft.unitSystem ?? 'imperial';
 
   const currentLbs = draft.weightLbs ?? 180;
@@ -123,17 +127,17 @@ export default function GoalWeightScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   display: { alignItems: 'center', marginBottom: 16 },
-  displaySmall: { fontSize: 13, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
-  displayValue: { fontSize: 42, fontWeight: '800', color: '#FFFFFF', marginTop: 4, fontFamily: 'Helvetica Neue' },
+  displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
   toggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: c.glassOverlay,
     borderRadius: 10,
     padding: 3,
     alignSelf: 'center',
@@ -141,7 +145,7 @@ const s = StyleSheet.create({
   },
   toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
   toggleBtnActive: { backgroundColor: '#FF742A' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
+  toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
   toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
   rulerContainer: {
     height: 72,
@@ -167,13 +171,13 @@ const s = StyleSheet.create({
   tickLine: {
     width: 1.5,
     height: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: c.borderSubtle,
   },
-  tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.25)' },
-  tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
+  tickMid: { height: 26, backgroundColor: c.border },
+  tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
   tickLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     marginTop: 4,
     fontFamily: 'Helvetica Neue',
   },

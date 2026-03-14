@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import type { ClinicalFlag } from '@/lib/clinical-alerts';
 
 const DISMISSED_KEY = 'titra_dismissed_flags';
@@ -23,32 +25,35 @@ export async function getDismissedFlags(): Promise<string[]> {
   return raw ? JSON.parse(raw) : [];
 }
 
-const SEVERITY_STYLE: Record<
+function getSeverityStyle(isDark: boolean): Record<
   ClinicalFlag['severity'],
   { border: string; icon: string; iconColor: string; badgeBg: string; badgeText: string }
-> = {
-  action_required: {
-    border: 'rgba(231,76,60,0.5)',
-    icon: 'warning-outline',
-    iconColor: '#E74C3C',
-    badgeBg: 'rgba(231,76,60,0.15)',
-    badgeText: '#E74C3C',
-  },
-  warning: {
-    border: 'rgba(230,126,34,0.4)',
-    icon: 'alert-circle-outline',
-    iconColor: '#E67E22',
-    badgeBg: 'rgba(230,126,34,0.12)',
-    badgeText: '#E67E22',
-  },
-  info: {
-    border: 'rgba(255,255,255,0.1)',
-    icon: 'information-circle-outline',
-    iconColor: 'rgba(255,255,255,0.5)',
-    badgeBg: 'rgba(255,255,255,0.08)',
-    badgeText: 'rgba(255,255,255,0.55)',
-  },
-};
+> {
+  const w = (a: number) => isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return {
+    action_required: {
+      border: 'rgba(231,76,60,0.5)',
+      icon: 'warning-outline',
+      iconColor: '#E74C3C',
+      badgeBg: 'rgba(231,76,60,0.15)',
+      badgeText: '#E74C3C',
+    },
+    warning: {
+      border: 'rgba(230,126,34,0.4)',
+      icon: 'alert-circle-outline',
+      iconColor: '#E67E22',
+      badgeBg: 'rgba(230,126,34,0.12)',
+      badgeText: '#E67E22',
+    },
+    info: {
+      border: w(0.1),
+      icon: 'information-circle-outline',
+      iconColor: w(0.5),
+      badgeBg: w(0.08),
+      badgeText: w(0.55),
+    },
+  };
+}
 
 type Props = {
   flag: ClinicalFlag;
@@ -56,8 +61,11 @@ type Props = {
 };
 
 export function ClinicalAlertCard({ flag, onDismiss }: Props) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const router = useRouter();
-  const sty = SEVERITY_STYLE[flag.severity];
+  const sty = getSeverityStyle(colors.isDark)[flag.severity];
   const [localDismissed, setLocalDismissed] = useState(false);
 
   if (localDismissed) return null;
@@ -70,8 +78,8 @@ export function ClinicalAlertCard({ flag, onDismiss }: Props) {
 
   return (
     <View style={[s.wrap, { borderColor: sty.border }]}>
-      <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)' }]} />
+      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
 
       <View style={s.inner}>
         {/* Header row */}
@@ -82,7 +90,7 @@ export function ClinicalAlertCard({ flag, onDismiss }: Props) {
           </View>
           {flag.dismissible && (
             <TouchableOpacity onPress={handleDismiss} hitSlop={10} style={s.closeBtn}>
-              <Ionicons name="close" size={16} color="rgba(255,255,255,0.4)" />
+              <Ionicons name="close" size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
             </TouchableOpacity>
           )}
         </View>
@@ -106,11 +114,13 @@ export function ClinicalAlertCard({ flag, onDismiss }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   wrap: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: c.bg,
     borderWidth: 1,
     marginBottom: 10,
     shadowColor: '#000',
@@ -128,14 +138,14 @@ const s = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 14, fontWeight: '700', color: '#FFFFFF', flex: 1, lineHeight: 19,
+    fontSize: 14, fontWeight: '700', color: c.textPrimary, flex: 1, lineHeight: 19,
   },
   body: {
-    fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 19,
+    fontSize: 13, color: w(0.55), lineHeight: 19,
   },
   closeBtn: {
     width: 24, height: 24, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: w(0.06),
     alignItems: 'center', justifyContent: 'center',
   },
   actionBtn: {
@@ -145,4 +155,5 @@ const s = StyleSheet.create({
   actionText: {
     fontSize: 13, fontWeight: '700', color: '#FF742A',
   },
-});
+  });
+};

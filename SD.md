@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 9, 2026 (rev 5)
+**Last Updated:** March 14, 2026 (rev 6)
 
 ---
 
@@ -267,34 +267,58 @@ Auto-hides on scroll down, restores on scroll up. `Animated.spring` animation.
 
 ## 5. Design System
 
-### Dark-First Design (current)
+### Theme System (rev 6)
 
-All screens use a unified dark palette. Tokens are exported from `constants/theme.ts`.
+All screens use a runtime theme system. The active palette is provided via `contexts/theme-context.tsx` → `useAppTheme()` → `{ colors: AppColors, isDark: boolean }`. User preference is persisted in `stores/preferences-store.ts` (AsyncStorage key `preferences-store`). Toggle lives in **Settings → Appearance → Light Mode**.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `BG_BASE` | `#141210` | All screen backgrounds |
-| `BG_SURFACE` | `#1E1B17` | Card / sheet surface |
-| `BG_SURFACE2` | `#252219` | Elevated / active surface, input bg |
-| `ORANGE` | `#FF742A` | Primary brand accent — FAB, active tab, accents, progress bars, score rings |
-| `ORANGE_DIM` | `rgba(255,116,42,0.15)` | Icon bg tint, selected pill bg |
-| `TEXT_PRIMARY` | `#FFFFFF` | All primary text |
-| `TEXT_SECONDARY` | `#9A9490` | Subtitles, labels, secondary text |
-| `TEXT_MUTED` | `#5A5754` | Placeholders, disabled, section labels |
-| `BORDER_SUBTLE` | `rgba(255,255,255,0.08)` | Dividers, card borders |
-| `GLASS_OVERLAY` | `rgba(255,255,255,0.04)` | BlurView overlay on dark bg |
-| `SHADOW_COLOR` | `#000000` | Drop shadows |
+**`AppColors` type** (`constants/theme.ts`):
 
-**Status colors (semantic, unchanged):**
+| Token | Dark value | Light value | Usage |
+|---|---|---|---|
+| `bg` | `#000000` | `#FFFFFF` | Screen background |
+| `surface` | `#111111` | `#F5F5F5` | Card / sheet surface |
+| `textPrimary` | `#FFFFFF` | `#000000` | All primary text |
+| `textSecondary` | `#9A9490` | `#6B6868` | Subtitles, labels |
+| `textMuted` | `#5A5754` | `#9A9490` | Placeholders, disabled |
+| `orange` | `#FF742A` | `#FF742A` | Brand accent — unchanged |
+| `orangeDim` | `rgba(255,116,42,0.15)` | `rgba(255,116,42,0.15)` | Icon bg tint |
+| `border` | `rgba(255,255,255,0.18)` | `rgba(0,0,0,0.18)` | Card borders |
+| `borderSubtle` | `rgba(255,255,255,0.08)` | `rgba(0,0,0,0.08)` | Dividers |
+| `glassOverlay` | `rgba(255,255,255,0.04)` | `rgba(0,0,0,0.04)` | BlurView overlay |
+| `ringTrack` | `rgba(255,255,255,0.12)` | `rgba(0,0,0,0.12)` | SVG ring background track |
+| `blurTint` | `'dark'` | `'light'` | BlurView tint prop |
+| `statusBar` | `'light'` | `'dark'` | Expo StatusBar style |
+| `isDark` | `true` | `false` | Used in `w(alpha)` helper |
+
+**Status colors (semantic, unchanged in both modes):**
 - Good: `#27AE60` | Low: `#F39C12` | Bad: `#E74C3C`
 
-Glass card pattern:
+**Pattern for per-file usage:**
+```typescript
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
+
+// Inside component:
+const { colors } = useAppTheme();
+const s = useMemo(() => createStyles(colors), [colors]);
+
+// Style factory — use w(alpha) for all translucent text/border colors:
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    label: { color: w(0.45) },
+    border: { borderColor: w(0.18) },
+  });
+};
+```
+
+**Glass card pattern (both modes):**
 ```
 Container (shadow + borderRadius)
-└── backgroundColor: '#1E1B17'
-└── BlurView (intensity 55–80, tint: "dark") — absolute fill
-    └── rgba(255,255,255, 0.04) overlay
-        └── GlassBorder: top rgba(255,255,255,0.13), left 0.08, right 0.03, bottom 0.02
+└── backgroundColor: c.bg
+└── BlurView (intensity 55–80, tint: colors.blurTint) — absolute fill
+    └── c.glassOverlay overlay
+        └── GlassBorder: top rgba(255,255,255,0.13)... [stays white — specular highlight]
 ```
 
 Shadow: `shadowColor '#000000', offset {0,8}, opacity 0.08–0.12, radius 24, elevation 8`
@@ -787,6 +811,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Water persistence via AsyncStorage** — water intake keyed by date (`@titrahealth_water_YYYY-MM-DD`); loaded on mount; works unauthenticated
 - [x] **Auth screen polish** — terracotta `#D67455`, Helvetica Neue font, `primaryBtn` style rename, shadow/opacity tweaks
 - [x] **Arc gauge SVG fix** — `largeArc` hardcoded to `0` in `log-activity.tsx` to prevent rendering glitch at 50% threshold
+- [x] **Light/dark mode toggle** — persistent app-wide theme system; Settings → Appearance → Light Mode switch; `AppThemeProvider` + `useAppTheme()` hook; `AppColors` palette type with `isDark` flag; `w(alpha)` helper pattern flips all `rgba(255,255,255,X)` → `rgba(0,0,0,X)` in light mode; all 50+ screens and components converted; orange `#FF742A` unchanged in both modes; preference persisted via `stores/preferences-store.ts` (AsyncStorage); `StatusBar` style wired to theme
 
 ### In Progress / Partially Done
 

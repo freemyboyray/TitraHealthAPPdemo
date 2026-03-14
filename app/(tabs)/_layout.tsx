@@ -2,15 +2,20 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import ReAnimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { AppColors } from '@/constants/theme';
+
 import { AddEntrySheet } from '@/components/add-entry-sheet';
+import { useAppTheme } from '@/contexts/theme-context';
 
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useLogStore } from '@/stores/log-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
 
@@ -22,12 +27,14 @@ type CustomTabBarProps = BottomTabBarProps & {
 function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { translateY } = useTabBarVisibility();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const icons = [
-    { focused: <Ionicons name="home" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="home-outline" size={24} color="#5A5754" /> },
-    { focused: <MaterialIcons name="menu" size={26} color="#FFFFFF" />, unfocused: <MaterialIcons name="menu" size={26} color="#5A5754" /> },
-    { focused: <Ionicons name="document" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="document-outline" size={24} color="#5A5754" /> },
-    { focused: <Ionicons name="settings" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="settings-outline" size={24} color="#5A5754" /> },
+    { focused: <Ionicons name="home" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="home-outline" size={24} color={colors.textMuted} /> },
+    { focused: <MaterialIcons name="menu" size={26} color={colors.textPrimary} />, unfocused: <MaterialIcons name="menu" size={26} color={colors.textMuted} /> },
+    { focused: <Ionicons name="document" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="document-outline" size={24} color={colors.textMuted} /> },
+    { focused: <Ionicons name="settings" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="settings-outline" size={24} color={colors.textMuted} /> },
   ];
 
   return (
@@ -36,12 +43,12 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
       {/* Glass pill */}
       <View style={s.pillShadow}>
         <View style={s.pillInner}>
-          <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, s.pillOverlay]} />
+          <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, s.pillOverlay, { backgroundColor: colors.glassOverlay }]} />
           {/* Top specular shine */}
-          <View pointerEvents="none" style={s.pillShine} />
+          <View pointerEvents="none" style={[s.pillShine, { backgroundColor: colors.ringTrack }]} />
           {/* Glass highlight border */}
-          <View pointerEvents="none" style={s.pillBorder} />
+          <View pointerEvents="none" style={[s.pillBorder, { borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} />
           {/* Tab icons */}
           <View style={s.pillContent}>
             {state.routes.map((route, index) => {
@@ -81,33 +88,51 @@ export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
   const requestHealthPermissions = useHealthKitStore(s => s.requestPermissions);
+  const { aiChatOpen } = useUiStore();
+
+  const bgScale = useSharedValue(1);
+  const bgOpacity = useSharedValue(1);
+
   useEffect(() => {
     fetchInsightsData();
     requestHealthPermissions();
   }, []);
 
+  useEffect(() => {
+    bgScale.value = withTiming(aiChatOpen ? 0.92 : 1, { duration: 380, easing: Easing.out(Easing.cubic) });
+    bgOpacity.value = withTiming(aiChatOpen ? 0.72 : 1, { duration: 340 });
+  }, [aiChatOpen]);
+
+  const bgStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bgScale.value }],
+    opacity: bgOpacity.value,
+    borderRadius: withTiming(aiChatOpen ? 20 : 0, { duration: 380 }),
+  }));
+
   return (
     <TabBarVisibilityProvider>
-      <Tabs
-        tabBar={(props) => (
-          <CustomTabBar
-            {...props}
-            fabOpen={sheetOpen}
-            onFabPress={() => setSheetOpen((v) => !v)}
-          />
-        )}
-        screenOptions={{ headerShown: false }}>
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="log" />
-        <Tabs.Screen name="explore" />
-        <Tabs.Screen name="settings" />
-      </Tabs>
+      <ReAnimated.View style={[{ flex: 1, overflow: 'hidden' }, bgStyle]}>
+        <Tabs
+          tabBar={(props) => (
+            <CustomTabBar
+              {...props}
+              fabOpen={sheetOpen}
+              onFabPress={() => setSheetOpen((v) => !v)}
+            />
+          )}
+          screenOptions={{ headerShown: false }}>
+          <Tabs.Screen name="index" />
+          <Tabs.Screen name="log" />
+          <Tabs.Screen name="explore" />
+          <Tabs.Screen name="settings" />
+        </Tabs>
+      </ReAnimated.View>
       <AddEntrySheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </TabBarVisibilityProvider>
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (_c: AppColors) => StyleSheet.create({
   wrapper: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'flex-end',
@@ -117,9 +142,9 @@ const s = StyleSheet.create({
   // Pill
   pillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 10 },
   pillInner: { borderRadius: 36, overflow: 'hidden' },
-  pillOverlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)' },
-  pillShine: { position: 'absolute', top: 0, left: 16, right: 16, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
-  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.13)', borderLeftColor: 'rgba(255,255,255,0.08)', borderRightColor: 'rgba(255,255,255,0.03)', borderBottomColor: 'rgba(255,255,255,0.02)' },
+  pillOverlay: { borderRadius: 36 },
+  pillShine: { position: 'absolute', top: 0, left: 16, right: 16, height: 1.5, borderRadius: 1 },
+  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1 },
   pillContent: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 10 },
 
   tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 46 },

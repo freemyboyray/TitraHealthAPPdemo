@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,19 +23,11 @@ import {
   SIDE_EFFECTS,
   type SideEffectCategory,
 } from '../../constants/side-effects';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG = '#000000';
 const ORANGE = '#FF742A';
 const GREEN = '#5DB87B';
-const DARK = '#FFFFFF';
-
-const SHADOW = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 } as const,
-  shadowOpacity: 0.12,
-  shadowRadius: 24,
-  elevation: 8,
-};
 
 const CATEGORIES: SideEffectCategory[] = ['digestive', 'appetite', 'physical', 'mental'];
 
@@ -60,6 +52,8 @@ type CustomEffect = { id: string; label: string };
 export default function CustomizeSideEffectsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [enabled, setEnabled] = useState<Set<string>>(new Set());
   const [customDefs, setCustomDefs] = useState<CustomEffect[]>([]);
@@ -114,7 +108,7 @@ export default function CustomizeSideEffectsScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: BG }}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
@@ -122,27 +116,27 @@ export default function CustomizeSideEffectsScreen() {
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 14,
-          backgroundColor: BG,
+          backgroundColor: colors.bg,
         }}
       >
         <TouchableOpacity style={s.headerBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GB r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: '800', color: DARK }}>Customize Side Effects</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Customize Side Effects</Text>
 
         <TouchableOpacity
           style={s.headerBtn}
           onPress={() => { setShowAddInput(true); setTimeout(() => inputRef.current?.focus(), 100); }}
           activeOpacity={0.7}
         >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GB r={20} />
-          <Ionicons name="add" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="add" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
       </View>
 
@@ -159,8 +153,8 @@ export default function CustomizeSideEffectsScreen() {
             <View key={cat} style={{ marginBottom: 8 }}>
               <Text style={s.sectionHeader}>{CATEGORY_LABELS[cat].toUpperCase()}</Text>
               <View style={[s.card]}>
-                <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+                <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
                 <GB r={20} />
                 <View style={{ paddingHorizontal: 20 }}>
                   {effects.map((effect, idx) => {
@@ -169,17 +163,17 @@ export default function CustomizeSideEffectsScreen() {
                     return (
                       <View
                         key={effect.id}
-                        style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: 'rgba(255,255,255,0.06)' }]}
+                        style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
                       >
-                        <Text style={{ fontSize: 15, fontWeight: '500', color: DARK, flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>
                           {effect.label}
                         </Text>
                         <Switch
                           value={on}
                           onValueChange={() => toggleEffect(effect.id)}
-                          trackColor={{ false: 'rgba(255,255,255,0.12)', true: GREEN }}
+                          trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: GREEN }}
                           thumbColor={on ? '#FFFFFF' : '#888888'}
-                          ios_backgroundColor="rgba(255,255,255,0.12)"
+                          ios_backgroundColor={colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}
                         />
                       </View>
                     );
@@ -195,8 +189,8 @@ export default function CustomizeSideEffectsScreen() {
           <View style={{ marginBottom: 8 }}>
             <Text style={s.sectionHeader}>CUSTOM</Text>
             <View style={[s.card]}>
-              <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+              <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
               <GB r={20} />
               <View style={{ paddingHorizontal: 20 }}>
                 {customDefs.map((c, idx) => {
@@ -205,15 +199,15 @@ export default function CustomizeSideEffectsScreen() {
                   return (
                     <View
                       key={c.id}
-                      style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: 'rgba(255,255,255,0.06)' }]}
+                      style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: '500', color: DARK, flex: 1 }}>{c.label}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>{c.label}</Text>
                       <Switch
                         value={on}
                         onValueChange={() => toggleEffect(c.id)}
-                        trackColor={{ false: 'rgba(255,255,255,0.12)', true: GREEN }}
+                        trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', true: GREEN }}
                         thumbColor={on ? '#FFFFFF' : '#888888'}
-                        ios_backgroundColor="rgba(255,255,255,0.12)"
+                        ios_backgroundColor={colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}
                       />
                       <TouchableOpacity
                         onPress={() => removeCustomEffect(c.id)}
@@ -233,7 +227,7 @@ export default function CustomizeSideEffectsScreen() {
 
         {/* Add new */}
         <View style={{ marginTop: 16, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginBottom: 14, textAlign: 'center' }}>
+          <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
             Any other side effects you'd like to track?
           </Text>
 
@@ -245,7 +239,7 @@ export default function CustomizeSideEffectsScreen() {
                 value={newEffectText}
                 onChangeText={setNewEffectText}
                 placeholder="e.g. Dry Mouth"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
                 returnKeyType="done"
                 onSubmitEditing={addCustomEffect}
                 autoCapitalize="words"
@@ -264,7 +258,7 @@ export default function CustomizeSideEffectsScreen() {
               onPress={() => { setShowAddInput(true); setTimeout(() => inputRef.current?.focus(), 100); }}
               activeOpacity={0.75}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.2 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
                 Add a new side effect
               </Text>
             </TouchableOpacity>
@@ -277,9 +271,9 @@ export default function CustomizeSideEffectsScreen() {
         style={{
           paddingHorizontal: 20, paddingTop: 12,
           paddingBottom: insets.bottom + 16,
-          backgroundColor: BG,
+          backgroundColor: colors.bg,
           borderTopWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
         }}
       >
         <TouchableOpacity
@@ -299,37 +293,46 @@ export default function CustomizeSideEffectsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  headerBtn: {
-    width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center',
-    ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
-  },
-  sectionHeader: {
-    fontSize: 11, fontWeight: '700', color: '#5A5754',
-    letterSpacing: 3.5, textTransform: 'uppercase',
-    marginBottom: 10, marginLeft: 4,
-  },
-  card: {
-    borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111',
-    ...SHADOW,
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 14,
-  },
-  outlineBtn: {
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24,
-  },
-  textInput: {
-    flex: 1, height: 48, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
-    paddingHorizontal: 16, fontSize: 15, fontWeight: '600', color: '#FFFFFF',
-  },
-  addBtn: {
-    height: 48, paddingHorizontal: 20, borderRadius: 14,
-    backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
-  },
-});
+const createStyles = (c: AppColors) => {
+  const SHADOW = {
+    shadowColor: c.shadowColor,
+    shadowOffset: { width: 0, height: 8 } as const,
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+  };
+  return StyleSheet.create({
+    headerBtn: {
+      width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
+      alignItems: 'center', justifyContent: 'center',
+      ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
+    },
+    sectionHeader: {
+      fontSize: 11, fontWeight: '700', color: c.textMuted,
+      letterSpacing: 3.5, textTransform: 'uppercase',
+      marginBottom: 10, marginLeft: 4,
+    },
+    card: {
+      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
+      ...SHADOW,
+    },
+    row: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 14,
+    },
+    outlineBtn: {
+      borderWidth: 1, borderColor: c.border,
+      borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24,
+    },
+    textInput: {
+      flex: 1, height: 48, borderRadius: 14,
+      backgroundColor: c.glassOverlay,
+      borderWidth: 1, borderColor: c.borderSubtle,
+      paddingHorizontal: 16, fontSize: 15, fontWeight: '600', color: c.textPrimary,
+    },
+    addBtn: {
+      height: 48, paddingHorizontal: 20, borderRadius: 14,
+      backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+    },
+  });
+};

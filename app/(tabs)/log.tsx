@@ -1,27 +1,20 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutAnimation, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { generateLogInsight } from '@/lib/openai';
 import { generatePkCurve, generateIntradayPkCurve, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog } from '@/stores/log-store';
+import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
-const DARK = '#FFFFFF';
-const BG = '#000000';
-
-const glassShadow = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.3,
-  shadowRadius: 24,
-  elevation: 8,
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -143,7 +136,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'progress', label: 'Progress' },
 ];
 
-function SegmentedControl({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+function SegmentedControl({ active, onChange, colors }: { active: Tab; onChange: (t: Tab) => void; colors: AppColors }) {
+  const sc = useMemo(() => createSegmentedStyles(colors), [colors]);
   return (
     <View style={sc.wrap}>
       <View style={sc.row}>
@@ -158,7 +152,7 @@ function SegmentedControl({ active, onChange }: { active: Tab; onChange: (t: Tab
             >
               {isActive && (
                 <>
-                  <BlurView intensity={30} tint="dark" style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]} />
+                  <BlurView intensity={30} tint={colors.blurTint} style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]} />
                   <View style={[StyleSheet.absoluteFillObject, sc.tabActiveOverlay]} />
                 </>
               )}
@@ -171,31 +165,35 @@ function SegmentedControl({ active, onChange }: { active: Tab; onChange: (t: Tab
   );
 }
 
-const sc = StyleSheet.create({
-  wrap: {
-    borderRadius: 36, overflow: 'hidden', marginBottom: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 16, elevation: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)',
-  },
-  overlay: { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)' },
-  row: { flexDirection: 'row', padding: 5 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
-  tabActive: {},
-  tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
-  tabLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
-  tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-});
+const createSegmentedStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    wrap: {
+      borderRadius: 36, overflow: 'hidden', marginBottom: 24,
+      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3, shadowRadius: 16, elevation: 6,
+      backgroundColor: c.borderSubtle,
+      borderWidth: 0.5, borderColor: c.border,
+    },
+    overlay: { borderRadius: 36, backgroundColor: c.glassOverlay },
+    row: { flexDirection: 'row', padding: 5 },
+    tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
+    tabActive: {},
+    tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
+    tabLabel: { fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: 'Helvetica Neue' },
+    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Helvetica Neue' },
+  });
+};
 
 // ─── Ring indicator ───────────────────────────────────────────────────────────
 
 function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: number; strokeWidth?: number; color?: string }) {
+  const { colors } = useAppTheme();
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{
         position: 'absolute', width: size, height: size,
-        borderRadius: size / 2, borderWidth: strokeWidth, borderColor: 'rgba(255,255,255,0.06)',
+        borderRadius: size / 2, borderWidth: strokeWidth, borderColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
       }} />
       <View style={{
         position: 'absolute',
@@ -210,6 +208,8 @@ function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: 
 // ─── Shared Ask AI button ─────────────────────────────────────────────────────
 
 function AskAIButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable style={s.askAiRow} onPress={onPress} hitSlop={6}>
       <Ionicons name="chatbubble-outline" size={11} color="rgba(255,116,42,0.55)" />
@@ -221,9 +221,11 @@ function AskAIButton({ onPress }: { onPress: () => void }) {
 // ─── Shared AI card renderer ──────────────────────────────────────────────────
 
 function AIInsightsCardShell({ text, loading, onPress }: { text: string | null; loading: boolean; onPress?: () => void }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={onPress} disabled={loading || !onPress}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.aiAccent} />
         <View style={s.aiContent}>
           <View style={s.aiHeader}>
@@ -234,8 +236,8 @@ function AIInsightsCardShell({ text, loading, onPress }: { text: string | null; 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 }}>
               <ActivityIndicator size="small" color={ORANGE} />
               <View style={{ flex: 1, gap: 7 }}>
-                <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '88%' }} />
-                <View style={{ height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.08)', width: '65%' }} />
+                <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.borderSubtle, width: '88%' }} />
+                <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.borderSubtle, width: '65%' }} />
               </View>
             </View>
           ) : (
@@ -266,9 +268,10 @@ function AIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }
       .finally(() => setLoading(false));
   }, []);
 
+  const { openAiChat } = useUiStore();
   const handlePress = () => {
     if (!text) return;
-    router.push(`/ai-chat?type=insight&contextLabel=${encodeURIComponent('Lifestyle Insight')}&contextValue=${encodeURIComponent(text.slice(0, 80))}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'Give me an action plan', 'What should I prioritize?', 'How does this relate to my medication?']))}`);
+    openAiChat({ type: 'insight', contextLabel: 'Lifestyle Insight', contextValue: text.slice(0, 80), chips: JSON.stringify(['Tell me more', 'Give me an action plan', 'What should I prioritize?', 'How does this relate to my medication?']) });
   };
 
   return <AIInsightsCardShell text={text} loading={loading} onPress={handlePress} />;
@@ -277,12 +280,16 @@ function AIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }
 // ─── Metric card (Calories / Steps) ──────────────────────────────────────────
 
 function MetricCard({ value, label, ringColor }: { value: string; label: string; ringColor: string }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const { openAiChat } = useUiStore();
   const handleAskAI = () => {
-    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(label)}&contextValue=${encodeURIComponent(value)}&chips=${encodeURIComponent(JSON.stringify(['Is this on track for my goals?', 'How can I improve this?', 'How does GLP-1 affect this?']))}` as any);
+    openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Is this on track for my goals?', 'How can I improve this?', 'How does GLP-1 affect this?']) });
   };
   return (
     <View style={[s.metricWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.metricInner}>
           <View style={s.ringWrap}>
             <RingIndicator color={ringColor} />
@@ -323,13 +330,17 @@ function DailyMetricCard({
 }: {
   icon: React.ReactNode; label: string; value: string; change: string; status: Status;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
   const ss = statusStyle[status];
+  const { openAiChat } = useUiStore();
   const handleAskAI = () => {
-    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(label)}&contextValue=${encodeURIComponent(`${value} · ${change}`)}&chips=${encodeURIComponent(JSON.stringify(['Is this on track?', 'How can I improve this?', `Why is my ${label.toLowerCase()} important on GLP-1?`]))}` as any);
+    openAiChat({ type: 'metric', contextLabel: label, contextValue: `${value} · ${change}`, chips: JSON.stringify(['Is this on track?', 'How can I improve this?', `Why is my ${label.toLowerCase()} important on GLP-1?`]) });
   };
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={s.dailyTopRow}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -351,6 +362,7 @@ function DailyMetricCard({
 function MedAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }) {
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { openAiChat } = useUiStore();
 
   useEffect(() => {
     generateLogInsight('medication', health)
@@ -361,7 +373,7 @@ function MedAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData
 
   const handlePress = () => {
     if (!text) return;
-    router.push(`/ai-chat?type=insight&contextLabel=${encodeURIComponent('Medication Insight')}&contextValue=${encodeURIComponent(text.slice(0, 80))}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'When should I take my next dose?', 'What side effects should I watch for?', 'How do I optimize my medication timing?']))}`);
+    openAiChat({ type: 'insight', contextLabel: 'Medication Insight', contextValue: text.slice(0, 80), chips: JSON.stringify(['Tell me more', 'When should I take my next dose?', 'What side effects should I watch for?', 'How do I optimize my medication timing?']) });
   };
 
   return <AIInsightsCardShell text={text} loading={loading} onPress={handlePress} />;
@@ -378,6 +390,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
   glp1Type: import('@/constants/user-profile').Glp1Type;
   isDailyDrug: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [chartWidth, setChartWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setChartWidth(e.nativeEvent.layout.width);
 
@@ -392,14 +406,15 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
   const currentLevel = chartData[chartData.length - 1] ?? 0;
   const levelLabel = currentLevel >= 75 ? 'Optimal' : currentLevel >= 50 ? 'Active' : currentLevel >= 30 ? 'Tapering' : 'Low';
   const daysSinceLabel = daysSince === 1 ? 'Today' : daysSince === 2 ? 'Yesterday' : `${daysSince - 1} days ago`;
+  const { openAiChat } = useUiStore();
 
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={s.chartMuted}>{glp1Type.charAt(0).toUpperCase() + glp1Type.slice(1)} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-            <AskAIButton onPress={() => router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent('Medication Level')}&contextValue=${encodeURIComponent(`${levelLabel} · Last injection ${daysSinceLabel}`)}&chips=${encodeURIComponent(JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']))}` as any)} />
+            <AskAIButton onPress={() => openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) })} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 2, gap: 10 }}>
             <Text style={s.chartBig}>{levelLabel}</Text>
@@ -482,12 +497,16 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
 // ─── Injection info card ───────────────────────────────────────────────────────
 
 function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const { openAiChat } = useUiStore();
   const handleAskAI = () => {
-    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(label)}&contextValue=${encodeURIComponent(value)}&chips=${encodeURIComponent(JSON.stringify(['Why does this matter?', 'How does this affect my treatment?', 'What should I know about site rotation?']))}` as any);
+    openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Why does this matter?', 'How does this affect my treatment?', 'What should I know about site rotation?']) });
   };
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -513,6 +532,8 @@ function WeightChartCard({ datasets, currentWeight }: {
   datasets: Record<string, number[]>;
   currentWeight: number | null;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [activePeriod, setActivePeriod] = useState<'7D' | '30D' | '90D' | '1Y'>('90D');
   const [chartWidth, setChartWidth] = useState(0);
 
@@ -532,16 +553,17 @@ function WeightChartCard({ datasets, currentWeight }: {
 
   const displayWeight = currentWeight ?? (hasData ? data[data.length - 1] : null);
   const PERIODS = ['7D', '30D', '90D', '1Y'] as const;
+  const { openAiChat } = useUiStore();
 
   return (
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
               <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
-              <AskAIButton onPress={() => router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent('Weight Journey')}&contextValue=${encodeURIComponent(`${displayWeight != null ? displayWeight + ' lbs' : '—'} · ${PERIOD_SUBTITLES[activePeriod]}`)}&chips=${encodeURIComponent(JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']))}` as any)} />
+              <AskAIButton onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '—'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) })} />
             </View>
             <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
               {displayWeight != null ? `${displayWeight} lbs` : '—'}
@@ -655,12 +677,16 @@ function ProgressStatCard({
 }: {
   icon: React.ReactNode; label: string; value: string; children?: React.ReactNode;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const { openAiChat } = useUiStore();
   const handleAskAI = () => {
-    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(label)}&contextValue=${encodeURIComponent(value)}&chips=${encodeURIComponent(JSON.stringify(['What does this mean for my health?', 'Is this a healthy rate of change?', 'What should my target be?']))}` as any);
+    openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['What does this mean for my health?', 'Is this a healthy rate of change?', 'What should my target be?']) });
   };
   return (
     <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -686,17 +712,20 @@ function WeightTimelineCard({
   currentDate: string;
   goalWeight: number | null;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const milestones = [
-    { color: '#FFFFFF', label: 'Starting Weight', date: startDate, weight: startWeight != null ? `${startWeight} lbs` : '—', muted: false },
+    { color: colors.textPrimary, label: 'Starting Weight', date: startDate, weight: startWeight != null ? `${startWeight} lbs` : '—', muted: false },
     { color: ORANGE, label: 'Current Weight', date: currentDate, weight: currentWeight != null ? `${currentWeight} lbs` : '—', muted: false },
     { color: '#3A3735', label: 'Est. Goal Weight', date: 'Goal', weight: goalWeight != null ? `~${goalWeight} lbs` : '—', muted: true },
   ];
 
   const aiContext = `${startWeight ?? '?'} lbs → ${currentWeight ?? '?'} lbs · Goal ${goalWeight ?? '?'} lbs`;
+  const { openAiChat } = useUiStore();
 
   return (
     <View style={s.cardWrap}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           {milestones.map((m, i) => (
             <View key={i}>
@@ -714,7 +743,7 @@ function WeightTimelineCard({
             </View>
           ))}
           <AskAIButton
-            onPress={() => router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent('Weight Timeline')}&contextValue=${encodeURIComponent(aiContext)}&chips=${encodeURIComponent(JSON.stringify(['Am I on track for my goal?', 'How long until I reach my goal?', 'What pace should I aim for?', 'How does GLP-1 affect my timeline?']))}` as any)}
+            onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Timeline', contextValue: aiContext, chips: JSON.stringify(['Am I on track for my goal?', 'How long until I reach my goal?', 'What pace should I aim for?', 'How does GLP-1 affect my timeline?']) })}
           />
         </View>
       </View>
@@ -725,6 +754,8 @@ function WeightTimelineCard({
 // ─── Recent Logs card ─────────────────────────────────────────────────────────
 
 function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
 
   const toggle = () => {
@@ -734,7 +765,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
 
   return (
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
 
         <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -743,7 +774,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
               <Text style={s.logCountText}>{entries.length}</Text>
             </View>
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color="rgba(255,255,255,0.35)" />
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
         </TouchableOpacity>
 
         {expanded && (
@@ -751,7 +782,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
             <View style={s.logDivider} />
             {entries.length === 0 ? (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, fontFamily: 'Helvetica Neue' }}>No entries yet</Text>
+                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 13, fontFamily: 'Helvetica Neue' }}>No entries yet</Text>
               </View>
             ) : entries.map((entry, i) => (
               <View key={entry.id}>
@@ -785,6 +816,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
 function ProgAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData> }) {
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { openAiChat } = useUiStore();
 
   useEffect(() => {
     generateLogInsight('progress', health)
@@ -795,7 +827,7 @@ function ProgAIInsightsCard({ health }: { health: ReturnType<typeof useHealthDat
 
   const handlePress = () => {
     if (!text) return;
-    router.push(`/ai-chat?type=insight&contextLabel=${encodeURIComponent('Progress Insight')}&contextValue=${encodeURIComponent(text.slice(0, 80))}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'Am I on pace for my goal?', 'How can I accelerate my progress?', 'What does this mean long-term?']))}`);
+    openAiChat({ type: 'insight', contextLabel: 'Progress Insight', contextValue: text.slice(0, 80), chips: JSON.stringify(['Tell me more', 'Am I on pace for my goal?', 'How can I accelerate my progress?', 'What does this mean long-term?']) });
   };
 
   return <AIInsightsCardShell text={text} loading={loading} onPress={handlePress} />;
@@ -804,6 +836,8 @@ function ProgAIInsightsCard({ health }: { health: ReturnType<typeof useHealthDat
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function InsightsScreen() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const { onScroll } = useTabBarVisibility();
   const health = useHealthData();
   const { actuals, targets } = health;
@@ -893,7 +927,7 @@ export default function InsightsScreen() {
     : '—';
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -905,13 +939,13 @@ export default function InsightsScreen() {
           {/* ── Header ── */}
           <View style={s.header}>
             <Text style={s.headerTitle}>Insights</Text>
-            <TouchableOpacity style={[s.bellBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]} activeOpacity={0.7}>
-              <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+            <TouchableOpacity style={[s.bellBtn, { backgroundColor: colors.borderSubtle }]} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           {/* ── Segmented Control ── */}
-          <SegmentedControl active={activeTab} onChange={setActiveTab} />
+          <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} />
 
           {/* ── Lifestyle content ── */}
           {activeTab === 'lifestyle' && (
@@ -927,7 +961,7 @@ export default function InsightsScreen() {
                 <MetricCard
                   value={todaySteps > 0 ? todaySteps.toLocaleString() : '—'}
                   label="Daily Steps"
-                  ringColor="#FFFFFF"
+                  ringColor={colors.textPrimary}
                 />
               </View>
 
@@ -1048,17 +1082,19 @@ export default function InsightsScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'Helvetica Neue' },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Helvetica Neue' },
   bellBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  bellOverlay: { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)' },
+  bellOverlay: { borderRadius: 22, backgroundColor: c.glassOverlay },
 
   // Card base
-  cardWrap: { borderRadius: 24, ...glassShadow },
+  cardWrap: { borderRadius: 24 },
   cardBody: { overflow: 'hidden' },
 
   // AI Insights
@@ -1066,7 +1102,7 @@ const s = StyleSheet.create({
   aiContent: { paddingVertical: 18, paddingLeft: 20, paddingRight: 18 },
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
-  aiBody: { fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 21, fontFamily: 'Helvetica Neue' },
+  aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
   aiTapHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
   aiTapHintText: { fontSize: 11, color: 'rgba(255,116,42,0.5)', fontWeight: '600', fontFamily: 'Helvetica Neue' },
   askAiRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
@@ -1079,10 +1115,10 @@ const s = StyleSheet.create({
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   ringCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  metricLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', textAlign: 'center', fontFamily: 'Helvetica Neue' },
+  metricLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'Helvetica Neue' },
 
   // Daily Metrics grid
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
   dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   dailyWrap: { width: '47.5%', borderRadius: 20 },
   dailyInner: { padding: 16 },
@@ -1090,24 +1126,24 @@ const s = StyleSheet.create({
   dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  dailyLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
-  dailyValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
 
   // Medication chart card
-  chartMuted: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', fontFamily: 'Helvetica Neue' },
-  chartBig: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  chartMuted: { fontSize: 12, color: w(0.45), fontWeight: '500', fontFamily: 'Helvetica Neue' },
+  chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   inRangeBadge: { backgroundColor: 'rgba(43,148,80,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   inRangeText: { fontSize: 12, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
-  dayLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.35)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  dayLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
 
   // Progress chart
   progPeriodRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
   progPeriodBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   progPeriodBtnActive: { backgroundColor: ORANGE },
-  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
-  progPeriodLabelActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: '#000000' },
-  progGoalLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' },
+  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: w(0.35), fontFamily: 'Helvetica Neue' },
+  progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: c.bg },
+  progGoalLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), fontFamily: 'Helvetica Neue' },
 
   // Progress stat card
   progStatSub: { marginTop: 6 },
@@ -1117,24 +1153,25 @@ const s = StyleSheet.create({
   // Timeline
   timelineRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
   timelineDot: { width: 10, height: 10, borderRadius: 5 },
-  timelineLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  timelineDate: { fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginTop: 2, fontFamily: 'Helvetica Neue' },
-  timelineWeight: { marginLeft: 'auto', fontSize: 18, fontWeight: '800', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  timelineWeightMuted: { color: 'rgba(255,255,255,0.35)' },
-  timelineDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  timelineLabel: { fontSize: 13, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  timelineDate: { fontSize: 11, color: w(0.45), fontWeight: '500', marginTop: 2, fontFamily: 'Helvetica Neue' },
+  timelineWeight: { marginLeft: 'auto', fontSize: 18, fontWeight: '800', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  timelineWeightMuted: { color: w(0.35) },
+  timelineDivider: { height: 1, backgroundColor: w(0.06) },
 
   // Recent Logs card
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  logHeaderText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  logHeaderText: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)' },
   logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
   logEntryList: { paddingHorizontal: 18, paddingBottom: 14 },
-  logDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  logDivider: { height: 1, backgroundColor: w(0.06) },
   logEntryRow: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
   logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logEntryTitle: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1, fontFamily: 'Helvetica Neue' },
-  logEntryTime: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Helvetica Neue' },
-  logEntryDetails: { fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 18, marginTop: 3, fontFamily: 'Helvetica Neue' },
+  logEntryTitle: { fontSize: 13, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'Helvetica Neue' },
+  logEntryTime: { fontSize: 11, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Helvetica Neue' },
+  logEntryDetails: { fontSize: 12, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'Helvetica Neue' },
   logImpactTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-});
+  });
+};

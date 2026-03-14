@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Dimensions,
@@ -9,6 +9,9 @@ import {
   Text,
   View,
 } from 'react-native';
+
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const ORANGE = '#FF742A';
@@ -26,6 +29,9 @@ type RingBreakdownProps = {
 };
 
 export function RingBreakdown({ visible, title, color, rows, rowNotes, coachNote, onClose }: RingBreakdownProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const slideY = useRef(new Animated.Value(SCREEN_H)).current;
 
   useEffect(() => {
@@ -95,7 +101,7 @@ export function RingBreakdown({ visible, title, color, rows, rowNotes, coachNote
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -105,7 +111,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
@@ -122,7 +128,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: c.ringTrack,
     alignSelf: 'center',
     marginBottom: 20,
   },
@@ -135,7 +141,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: -0.4,
   },
   totalScore: {
@@ -154,12 +160,12 @@ const styles = StyleSheet.create({
     width: 76,
     fontSize: 13,
     fontWeight: '600',
-    color: '#9A9490',
+    color: c.textSecondary,
   },
   barTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     borderRadius: 4,
     overflow: 'hidden',
     marginHorizontal: 10,
@@ -177,7 +183,7 @@ const styles = StyleSheet.create({
   rowMax: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#5A5754',
+    color: c.textMuted,
   },
   rowNote: {
     fontSize: 12,
@@ -190,7 +196,7 @@ const styles = StyleSheet.create({
   },
   coachSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: c.borderSubtle,
     paddingTop: 16,
     marginTop: 8,
     marginBottom: 8,
@@ -204,12 +210,12 @@ const styles = StyleSheet.create({
   },
   coachText: {
     fontSize: 13,
-    color: '#9A9490',
+    color: c.textSecondary,
     lineHeight: 20,
   },
   footer: {
     fontSize: 11,
-    color: '#5A5754',
+    color: c.textMuted,
     textAlign: 'center',
     marginTop: 16,
   },

@@ -4,7 +4,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,21 +20,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useHealthData } from '@/contexts/health-data';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { daysSinceInjection } from '@/constants/scoring';
 import { buildSystemPrompt, callOpenAI } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 
-const BG = '#000000';
 const ORANGE = '#FF742A';
-const DARK = '#FFFFFF';
-
-const glassShadow = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.3,
-  shadowRadius: 24,
-  elevation: 8,
-};
 
 // ─── Type-aware prompt chips ──────────────────────────────────────────────────
 
@@ -104,10 +96,12 @@ function GlassBorder({ r = 20 }: { r?: number }) {
 }
 
 function AiOrb() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.orbShadow}>
       <View style={s.orb}>
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,116,42,0.88)' }]} />
         <GlassBorder r={40} />
         <View style={s.orbShine} />
@@ -129,6 +123,9 @@ type Message = {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AiChatScreen() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
   const insets = useSafeAreaInsets();
   const {
     type,
@@ -281,7 +278,7 @@ export default function AiChatScreen() {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={24} color={DARK} />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Ask AI</Text>
           <View style={s.headerSpacer} />
@@ -302,8 +299,8 @@ export default function AiChatScreen() {
               {currentPrompts.map((p) => (
                 <TouchableOpacity key={p} style={s.chipShadow} activeOpacity={0.75} onPress={() => handlePromptPress(p)}>
                   <View style={s.chip}>
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-                    <View style={[StyleSheet.absoluteFillObject, { borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
+                    <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { borderRadius: 16, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]} />
                     <GlassBorder r={16} />
                     <Text style={s.chipText}>{p}</Text>
                   </View>
@@ -371,9 +368,9 @@ export default function AiChatScreen() {
         {/* Input card */}
         <View style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4 }]}>
           <View style={[s.inputCardShadow, glassShadow]}>
-            <View style={[s.inputCard, { backgroundColor: '#111111' }]}>
-              <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+            <View style={[s.inputCard, { backgroundColor: colors.surface }]}>
+              <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: colors.glassOverlay }]} />
               <GlassBorder r={24} />
               <View style={s.inputInner}>
                 {/* Context pill — lives inside the input card above the text field */}
@@ -393,22 +390,22 @@ export default function AiChatScreen() {
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder="Ask anything about your health…"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
                   multiline
                   returnKeyType="send"
                   onSubmitEditing={() => sendMessage(inputText)}
                 />
                 <View style={s.inputBottomRow}>
                   <View style={s.modePill}>
-                    <Ionicons name="chevron-down" size={14} color={DARK} style={{ marginRight: 3 }} />
+                    <Ionicons name="chevron-down" size={14} color={colors.textPrimary} style={{ marginRight: 3 }} />
                     <Text style={s.modePillText}>Coach</Text>
                   </View>
                   <View style={s.inputIcons}>
                     <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                      <Ionicons name="camera-outline" size={22} color="rgba(255,255,255,0.45)" />
+                      <Ionicons name="camera-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
                     </TouchableOpacity>
                     <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                      <MaterialIcons name="attach-file" size={22} color="rgba(255,255,255,0.45)" />
+                      <MaterialIcons name="attach-file" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={inputText.trim().length > 0 ? 0.7 : 1}
@@ -418,7 +415,7 @@ export default function AiChatScreen() {
                       <Ionicons
                         name="arrow-up"
                         size={18}
-                        color={inputText.trim().length > 0 ? '#000000' : 'rgba(255,255,255,0.25)'}
+                        color={inputText.trim().length > 0 ? colors.bg : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
                       />
                     </TouchableOpacity>
                   </View>
@@ -433,10 +430,12 @@ export default function AiChatScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: c.bg,
   },
 
   // Header
@@ -457,7 +456,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     letterSpacing: -0.2,
   },
   headerSpacer: { width: 40 },
@@ -527,7 +526,7 @@ const s = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.25)', // specular highlight — stays white
   },
   orbShineSmall: {
     position: 'absolute',
@@ -536,12 +535,12 @@ const s = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.15)', // specular highlight — stays white
   },
   greeting: {
     fontSize: 26,
     fontWeight: '800',
-    color: DARK,
+    color: c.textPrimary,
     textAlign: 'center',
     letterSpacing: -0.5,
     lineHeight: 32,
@@ -549,7 +548,7 @@ const s = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.35)',
+    color: w(0.35),
     textAlign: 'center',
     fontWeight: '400',
   },
@@ -563,7 +562,7 @@ const s = StyleSheet.create({
   chipShadow: {
     flex: 1,
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -580,7 +579,7 @@ const s = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: DARK,
+    color: c.textPrimary,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -642,7 +641,7 @@ const s = StyleSheet.create({
   bubbleAssistant: {
     backgroundColor: '#1A1A1A',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: w(0.12),
     borderBottomLeftRadius: 4,
   },
   bubbleLoading: {
@@ -658,7 +657,7 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
   bubbleTextAssistant: {
-    color: 'rgba(255,255,255,0.85)',
+    color: w(0.85),
     fontWeight: '400',
   },
 
@@ -673,19 +672,19 @@ const s = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.6)', // on orange bubble — stays white
     flexShrink: 0,
   },
   bubbleContextText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.65)', // on orange bubble — stays white
     letterSpacing: 0.2,
     flex: 1,
   },
   bubbleContextDivider: {
     height: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.25)', // on orange bubble — stays white
     marginBottom: 8,
   },
 
@@ -707,7 +706,7 @@ const s = StyleSheet.create({
   },
   textInput: {
     fontSize: 15,
-    color: DARK,
+    color: c.textPrimary,
     fontWeight: '400',
     lineHeight: 22,
     minHeight: 44,
@@ -722,17 +721,17 @@ const s = StyleSheet.create({
   modePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: w(0.10),
   },
   modePillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: DARK,
+    color: c.textPrimary,
   },
   inputIcons: {
     flexDirection: 'row',
@@ -748,16 +747,17 @@ const s = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
   sendBtnActive: {
     backgroundColor: ORANGE,
   },
   disclaimer: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
+    color: w(0.25),
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 15,
   },
-});
+  });
+};

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -13,13 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore, type MealType } from '../../stores/log-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TERRACOTTA = '#C4784B';
-const DARK = '#1C0F09';
-const WHITE = '#FFFFFF';
-const MUTED = 'rgba(28,15,9,0.45)';
+const ORANGE = '#FF742A';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,7 +77,8 @@ function GlassBorder({ r = 16, topOnly = false }: { r?: number; topOnly?: boolea
   );
 }
 
-function MacroPill({ label, value, unit }: { label: string; value: string | number; unit: string }) {
+function MacroPill({ label, value, unit, colors }: { label: string; value: string | number; unit: string; colors: AppColors }) {
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.macroPill}>
       <Text style={s.macroPillValue}>
@@ -97,6 +97,8 @@ export default function ScanFoodScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const { loading, addFoodLog } = useLogStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [scanned, setScanned] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -155,9 +157,9 @@ export default function ScanFoodScreen() {
     return (
       <View style={[s.root, s.centered, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { position: 'absolute', top: insets.top + 12, left: 20 }]}>
-          <Ionicons name="chevron-back" size={22} color={DARK} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Ionicons name="camera-outline" size={64} color={MUTED} />
+        <Ionicons name="camera-outline" size={64} color={colors.textSecondary} />
         <Text style={s.permTitle}>Camera Access Needed</Text>
         <Text style={s.permDesc}>Grant camera access to scan barcodes.</Text>
         <TouchableOpacity style={s.permBtn} onPress={requestPermission} activeOpacity={0.85}>
@@ -184,8 +186,8 @@ export default function ScanFoodScreen() {
           {/* Top bar */}
           <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
             <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.75}>
-              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <Ionicons name="chevron-back" size={22} color={WHITE} />
+              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={s.scanTitle}>Scan Barcode</Text>
             <View style={{ width: 40 }} />
@@ -201,7 +203,7 @@ export default function ScanFoodScreen() {
               <View style={[s.corner, s.cornerBR]} />
             </View>
             {fetching ? (
-              <ActivityIndicator size="large" color={TERRACOTTA} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 20 }} />
             ) : (
               <Text style={s.scanHint}>Point at a barcode</Text>
             )}
@@ -212,11 +214,11 @@ export default function ScanFoodScreen() {
       {/* Not found card */}
       {notFound && (
         <View style={[s.bottomPanel, { paddingBottom: insets.bottom + 20 }]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={s.panelOverlay} />
           <GlassBorder topOnly />
 
-          <Ionicons name="alert-circle-outline" size={36} color={TERRACOTTA} style={{ marginBottom: 8 }} />
+          <Ionicons name="alert-circle-outline" size={36} color={ORANGE} style={{ marginBottom: 8 }} />
           <Text style={s.notFoundTitle}>Product Not Found</Text>
           <Text style={s.notFoundDesc}>This barcode isn't in the Open Food Facts database.</Text>
 
@@ -238,7 +240,7 @@ export default function ScanFoodScreen() {
       {/* Product found panel */}
       {product && (
         <View style={[s.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={s.panelOverlay} />
           <GlassBorder topOnly />
 
@@ -249,8 +251,8 @@ export default function ScanFoodScreen() {
           <View style={s.servingRow}>
             <Text style={s.servingLabel}>Serving size</Text>
             <View style={s.servingInputWrap}>
-              <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,255,255,0.35)' }]} />
+              <BlurView intensity={70} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }]} />
               <GlassBorder />
               <TextInput
                 style={s.servingInput}
@@ -265,10 +267,10 @@ export default function ScanFoodScreen() {
 
           {/* Macros */}
           <View style={s.macroRow}>
-            <MacroPill label="Calories" value={Math.round(product.calories * g / 100)} unit=" kcal" />
-            <MacroPill label="Protein" value={(product.protein_g * g / 100).toFixed(1)} unit="g" />
-            <MacroPill label="Carbs" value={(product.carbs_g * g / 100).toFixed(1)} unit="g" />
-            <MacroPill label="Fat" value={(product.fat_g * g / 100).toFixed(1)} unit="g" />
+            <MacroPill label="Calories" value={Math.round(product.calories * g / 100)} unit=" kcal" colors={colors} />
+            <MacroPill label="Protein" value={(product.protein_g * g / 100).toFixed(1)} unit="g" colors={colors} />
+            <MacroPill label="Carbs" value={(product.carbs_g * g / 100).toFixed(1)} unit="g" colors={colors} />
+            <MacroPill label="Fat" value={(product.fat_g * g / 100).toFixed(1)} unit="g" colors={colors} />
           </View>
 
           {/* Meal type */}
@@ -299,7 +301,7 @@ export default function ScanFoodScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={WHITE} size="small" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={s.primaryBtnText}>Log Food</Text>
               )}
@@ -313,8 +315,10 @@ export default function ScanFoodScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
   centered: { alignItems: 'center', justifyContent: 'center' },
 
   topBar: {
@@ -337,7 +341,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: WHITE,
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
 
@@ -355,7 +359,7 @@ const s = StyleSheet.create({
     position: 'absolute',
     width: 28,
     height: 28,
-    borderColor: TERRACOTTA,
+    borderColor: ORANGE,
     borderWidth: 3,
   },
   cornerTL: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 4 },
@@ -365,7 +369,7 @@ const s = StyleSheet.create({
   scanHint: {
     marginTop: 20,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: w(0.8),
     textAlign: 'center',
     letterSpacing: 0.3,
   },
@@ -381,19 +385,19 @@ const s = StyleSheet.create({
   },
   panelOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: c.glassOverlay,
   },
 
   notFoundTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     marginBottom: 6,
     textAlign: 'center',
   },
   notFoundDesc: {
     fontSize: 14,
-    color: MUTED,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -403,18 +407,18 @@ const s = StyleSheet.create({
   productName: {
     fontSize: 18,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     marginBottom: 2,
     lineHeight: 24,
   },
-  productBrand: { fontSize: 13, color: MUTED, marginBottom: 14 },
+  productBrand: { fontSize: 13, color: c.textSecondary, marginBottom: 14 },
 
   servingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
   },
-  servingLabel: { fontSize: 14, color: DARK, fontWeight: '500', marginRight: 12 },
+  servingLabel: { fontSize: 14, color: c.textPrimary, fontWeight: '500', marginRight: 12 },
   servingInputWrap: {
     width: 80,
     height: 38,
@@ -429,9 +433,9 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
-    color: DARK,
+    color: c.textPrimary,
   },
-  servingUnit: { fontSize: 14, color: MUTED },
+  servingUnit: { fontSize: 14, color: c.textSecondary },
 
   macroRow: {
     flexDirection: 'row',
@@ -441,16 +445,16 @@ const s = StyleSheet.create({
   },
   macroPill: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: w(0.7),
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
   },
-  macroPillValue: { fontSize: 15, fontWeight: '700', color: DARK },
-  macroPillUnit: { fontSize: 11, fontWeight: '400', color: MUTED },
+  macroPillValue: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+  macroPillUnit: { fontSize: 11, fontWeight: '400', color: c.textSecondary },
   macroPillLabel: {
     fontSize: 10,
-    color: MUTED,
+    color: c.textSecondary,
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -463,11 +467,11 @@ const s = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(28,15,9,0.06)',
+    backgroundColor: c.glassOverlay,
   },
-  mealChipActive: { backgroundColor: TERRACOTTA },
-  mealChipText: { fontSize: 12, fontWeight: '600', color: MUTED },
-  mealChipTextActive: { color: WHITE },
+  mealChipActive: { backgroundColor: ORANGE },
+  mealChipText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
+  mealChipTextActive: { color: '#FFFFFF' },
 
   panelBtns: { flexDirection: 'row', gap: 10 },
 
@@ -475,36 +479,37 @@ const s = StyleSheet.create({
     flex: 1,
     height: 52,
     borderRadius: 16,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
+    shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 6,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '700', color: WHITE },
+  primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   secondaryBtn: {
     flex: 1,
     height: 52,
     borderRadius: 16,
-    backgroundColor: 'rgba(28,15,9,0.08)',
+    backgroundColor: c.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: DARK },
+  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
 
   // Permission screen
-  permTitle: { fontSize: 20, fontWeight: '700', color: DARK, marginTop: 16, marginBottom: 8 },
-  permDesc: { fontSize: 14, color: MUTED, textAlign: 'center', marginBottom: 24, paddingHorizontal: 32 },
+  permTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginTop: 16, marginBottom: 8 },
+  permDesc: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 32 },
   permBtn: {
     height: 52,
     paddingHorizontal: 32,
     borderRadius: 16,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  permBtnText: { fontSize: 15, fontWeight: '700', color: WHITE },
-});
+  permBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  });
+};

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
@@ -7,6 +7,8 @@ import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { SideEffect } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const OPTIONS: { value: SideEffect; label: string; icon: string }[] = [
   { value: 'nausea', label: 'Nausea', icon: '🤢' },
@@ -22,6 +24,8 @@ export default function SideEffectsScreen() {
   const { updateDraft, completeOnboarding } = useProfile();
   const [selected, setSelected] = useState<SideEffect[]>([]);
   const [saving, setSaving] = useState(false);
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const toggle = (effect: SideEffect) => {
     setSelected((prev) =>
@@ -67,11 +71,11 @@ export default function SideEffectsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   options: {},
 });

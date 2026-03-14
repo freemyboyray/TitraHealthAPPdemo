@@ -1,8 +1,11 @@
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -51,6 +54,9 @@ export function WeeklyCheckinCard({
   summaryRoute,
   sparklineData,
 }: WeeklyCheckinCardProps) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   const router = useRouter();
   const isDone = lastLoggedAt != null && daysSince(lastLoggedAt) <= 6;
 
@@ -64,8 +70,8 @@ export function WeeklyCheckinCard({
         onPress={handlePress}
         activeOpacity={0.8}
       >
-        <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+        <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
         <GlassBorder r={20} />
         <View style={s.inner}>
           <View style={s.leftCol}>
@@ -87,8 +93,8 @@ export function WeeklyCheckinCard({
 
   return (
     <View style={[s.wrap, { shadowColor: color, shadowOpacity: 0.1 }]}>
-      <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <GlassBorder r={20} />
       <View style={s.inner}>
         <View style={s.leftCol}>
@@ -120,11 +126,13 @@ export function WeeklyCheckinCard({
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   wrap: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 20,
     elevation: 6,
@@ -139,8 +147,8 @@ const s = StyleSheet.create({
     minHeight: 88,
   },
   leftCol: { flex: 1, gap: 6 },
-  title: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', fontFamily: FF },
-  subtitle: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: FF, lineHeight: 15 },
+  title: { fontSize: 14, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+  subtitle: { fontSize: 11, color: w(0.4), fontFamily: FF, lineHeight: 15 },
   ctaBtn: {
     backgroundColor: ORANGE, borderRadius: 14,
     paddingHorizontal: 12, paddingVertical: 7, marginLeft: 8,
@@ -148,7 +156,7 @@ const s = StyleSheet.create({
   ctaText: { fontSize: 12, fontWeight: '700', color: '#FFF', fontFamily: FF },
   rightCol: { alignItems: 'flex-end', gap: 2, marginLeft: 8 },
   scoreText: { fontSize: 24, fontWeight: '800', lineHeight: 26, fontFamily: FF },
-  scoreDenom: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: FF },
+  scoreDenom: { fontSize: 11, color: w(0.35), fontFamily: FF },
   sparkRow: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
   doneBadge: {
     backgroundColor: 'rgba(39,174,96,0.15)',
@@ -161,4 +169,5 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 2,
   },
   reviewText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: FF },
-});
+  });
+};

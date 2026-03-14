@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -20,10 +20,10 @@ import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG     = '#000000';
 const ORANGE = '#FF742A';
-const DARK   = '#FFFFFF';
 const SHADOW = { shadowColor: '#000', shadowOffset: { width: 0, height: 8 } as const, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 };
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
@@ -38,13 +38,16 @@ function InfoRow({
   value,
   onPress,
   last = false,
+  colors,
 }: {
   icon: string;
   label: string;
   value: string;
   onPress?: () => void;
   last?: boolean;
+  colors: AppColors;
 }) {
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <>
       <TouchableOpacity
@@ -53,10 +56,10 @@ function InfoRow({
         disabled={!onPress}
         style={s.infoRow}
       >
-        <Ionicons name={icon as any} size={20} color="rgba(255,255,255,0.5)" style={{ width: 26 }} />
+        <Ionicons name={icon as any} size={20} color={colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'} style={{ width: 26 }} />
         <Text style={s.infoLabel}>{label}</Text>
         <Text style={s.infoValue} numberOfLines={1}>{value}</Text>
-        {onPress && <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />}
+        {onPress && <Ionicons name="chevron-forward" size={16} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />}
       </TouchableOpacity>
       {!last && <View style={s.divider} />}
     </>
@@ -65,11 +68,12 @@ function InfoRow({
 
 // ─── SummaryCard ──────────────────────────────────────────────────────────────
 
-function SummaryCard({ icon, label, value, unit }: { icon: string; label: string; value: string | number; unit: string }) {
+function SummaryCard({ icon, label, value, unit, colors }: { icon: string; label: string; value: string | number; unit: string; colors: AppColors }) {
+  const sc = useMemo(() => createSummaryCardStyles(colors), [colors]);
   return (
     <View style={[sc.card, SHADOW]}>
-      <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <GlassBorder r={20} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <Ionicons name={icon as any} size={18} color={ORANGE} />
@@ -92,9 +96,11 @@ interface ArcGaugeProps {
   unit?: string;
   labels: string[];
   onChange: (v: number) => void;
+  colors: AppColors;
 }
 
-function ArcGauge({ value, min, max, unit, labels, onChange }: ArcGaugeProps) {
+function ArcGauge({ value, min, max, unit, labels, onChange, colors }: ArcGaugeProps) {
+  const ag = useMemo(() => createArcGaugeStyles(colors), [colors]);
   const W = 280, H = 160, cx = 140, cy = 140, R = 110;
   const progress = clamp((value - min) / (max - min), 0, 1);
   const angle = -Math.PI + progress * Math.PI;
@@ -140,7 +146,7 @@ function ArcGauge({ value, min, max, unit, labels, onChange }: ArcGaugeProps) {
       {...pan.panHandlers}
     >
       <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Path d={bgPath} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={10} strokeLinecap="round" />
+        <Path d={bgPath} fill="none" stroke={colors.ringTrack} strokeWidth={10} strokeLinecap="round" />
         {progPath && (
           <Path d={progPath} fill="none" stroke={ORANGE} strokeWidth={10} strokeLinecap="round" />
         )}
@@ -171,14 +177,17 @@ function TypePickerSheet({
   current,
   onSave,
   onClose,
+  colors,
 }: {
   visible: boolean;
   current: string;
   onSave: (t: string) => void;
   onClose: () => void;
+  colors: AppColors;
 }) {
   const insets = useSafeAreaInsets();
   const [temp, setTemp] = useState(current);
+  const tp = useMemo(() => createTypePickerStyles(colors), [colors]);
 
   function handleDone() {
     onSave(temp);
@@ -190,8 +199,8 @@ function TypePickerSheet({
       <View style={tp.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
         <View style={[tp.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
 
           <View style={tp.handle} />
@@ -228,6 +237,8 @@ export default function LogActivityScreen() {
   const insets = useSafeAreaInsets();
   const { dispatch } = useHealthData();
   const { loading, addActivityLog } = useLogStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [workoutType, setWorkoutType]       = useState('Walking');
   const [durationMin, setDurationMin]       = useState(30);
@@ -270,16 +281,16 @@ export default function LogActivityScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
-      <View style={{ height: insets.top, backgroundColor: BG }} />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ height: insets.top, backgroundColor: colors.bg }} />
 
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={s.back}>
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={22} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
         <Text style={s.title}>Log Activity</Text>
         <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
@@ -292,25 +303,25 @@ export default function LogActivityScreen() {
       >
         {/* Summary cards row */}
         <View style={s.cardsRow}>
-          <SummaryCard icon="flame-outline" label="Est. Calories" value={estCalories} unit="kcal" />
-          <SummaryCard icon="time-outline" label="Duration" value={durationMin} unit="min" />
+          <SummaryCard icon="flame-outline" label="Est. Calories" value={estCalories} unit="kcal" colors={colors} />
+          <SummaryCard icon="time-outline" label="Duration" value={durationMin} unit="min" colors={colors} />
         </View>
 
         {/* Workout Info */}
         <Text style={s.sectionLabel}>WORKOUT INFO</Text>
         <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
-          <InfoRow icon="calendar-outline" label="DATE" value={dateStr} />
-          <InfoRow icon="barbell-outline" label="WORKOUT TYPE" value={workoutType} onPress={() => setShowTypePicker(true)} last />
+          <InfoRow icon="calendar-outline" label="DATE" value={dateStr} colors={colors} />
+          <InfoRow icon="barbell-outline" label="WORKOUT TYPE" value={workoutType} onPress={() => setShowTypePicker(true)} last colors={colors} />
         </View>
 
         {/* Intensity gauge */}
         <Text style={s.sectionLabel}>INTENSITY</Text>
         <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
           <View style={{ paddingHorizontal: 16 }}>
             <ArcGauge
@@ -319,6 +330,7 @@ export default function LogActivityScreen() {
               max={10}
               labels={['Recovery', 'Moderate', 'Max Effort']}
               onChange={setIntensity}
+              colors={colors}
             />
           </View>
         </View>
@@ -326,8 +338,8 @@ export default function LogActivityScreen() {
         {/* Duration gauge */}
         <Text style={s.sectionLabel}>DURATION</Text>
         <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
           <View style={{ paddingHorizontal: 16 }}>
             <ArcGauge
@@ -337,6 +349,7 @@ export default function LogActivityScreen() {
               unit="min"
               labels={['0', '60 min', '120 min']}
               onChange={setDurationMin}
+              colors={colors}
             />
           </View>
         </View>
@@ -351,7 +364,7 @@ export default function LogActivityScreen() {
           style={[s.logBtn, loading && { opacity: 0.75 }]}
         >
           {loading
-            ? <ActivityIndicator color="#000" size="small" />
+            ? <ActivityIndicator color={colors.bg} size="small" />
             : <Text style={s.logBtnText}>Log Activity</Text>
           }
         </TouchableOpacity>
@@ -362,6 +375,7 @@ export default function LogActivityScreen() {
         current={workoutType}
         onSave={setWorkoutType}
         onClose={() => setShowTypePicker(false)}
+        colors={colors}
       />
     </View>
   );
@@ -369,7 +383,7 @@ export default function LogActivityScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,7 +396,7 @@ const s = StyleSheet.create({
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
     ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
   },
-  title: { fontSize: 18, fontWeight: '700', color: DARK, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   cardsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -392,7 +406,7 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
+    color: c.textMuted,
     letterSpacing: 1.2,
     marginTop: 24,
     marginBottom: 12,
@@ -402,7 +416,7 @@ const s = StyleSheet.create({
   card: {
     borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
   },
   infoRow: {
     flexDirection: 'row',
@@ -415,20 +429,20 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     letterSpacing: 0.8,
     fontFamily: 'Helvetica Neue',
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: DARK,
+    color: c.textPrimary,
     maxWidth: 180,
     fontFamily: 'Helvetica Neue',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: c.borderSubtle,
     marginHorizontal: 16,
   },
   ctaWrap: {
@@ -438,7 +452,7 @@ const s = StyleSheet.create({
     right: 0,
     paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: BG,
+    backgroundColor: c.bg,
   },
   logBtn: {
     height: 56,
@@ -463,33 +477,33 @@ const s = StyleSheet.create({
 
 // ─── Summary card styles ──────────────────────────────────────────────────────
 
-const sc = StyleSheet.create({
+const createSummaryCardStyles = (c: AppColors) => StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 140,
     borderRadius: 20,
     overflow: 'hidden',
     padding: 20,
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
   },
   label: {
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     letterSpacing: 0.3,
     fontFamily: 'Helvetica Neue',
   },
   value: {
     fontSize: 30,
     fontWeight: '800',
-    color: DARK,
+    color: c.textPrimary,
     letterSpacing: -1,
     fontFamily: 'Helvetica Neue',
   },
   unit: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.4)',
+    color: c.textSecondary,
     marginBottom: 4,
     fontFamily: 'Helvetica Neue',
   },
@@ -497,7 +511,7 @@ const sc = StyleSheet.create({
 
 // ─── Arc gauge styles ─────────────────────────────────────────────────────────
 
-const ag = StyleSheet.create({
+const createArcGaugeStyles = (c: AppColors) => StyleSheet.create({
   center: {
     position: 'absolute',
     bottom: 44,
@@ -507,7 +521,7 @@ const ag = StyleSheet.create({
   bigValue: {
     fontSize: 56,
     fontWeight: '900',
-    color: DARK,
+    color: c.textPrimary,
     lineHeight: 60,
     fontFamily: 'Helvetica Neue',
   },
@@ -521,7 +535,7 @@ const ag = StyleSheet.create({
   subtitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
+    color: c.textMuted,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     fontFamily: 'Helvetica Neue',
@@ -535,7 +549,7 @@ const ag = StyleSheet.create({
   labelText: {
     fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.3)',
+    color: c.textMuted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     fontFamily: 'Helvetica Neue',
@@ -544,7 +558,7 @@ const ag = StyleSheet.create({
 
 // ─── Type picker sheet styles ─────────────────────────────────────────────────
 
-const tp = StyleSheet.create({
+const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -554,14 +568,14 @@ const tp = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
     paddingHorizontal: 20,
     paddingTop: 0,
   },
   handle: {
     width: 44,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: c.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -576,7 +590,7 @@ const tp = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: DARK,
+    color: c.textPrimary,
     fontFamily: 'Helvetica Neue',
   },
   doneBtn: {
@@ -602,9 +616,9 @@ const tp = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: c.border,
   },
   pillSelected: {
     backgroundColor: 'rgba(255,116,42,0.2)',
@@ -613,7 +627,7 @@ const tp = StyleSheet.create({
   pillText: {
     fontSize: 15,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: c.textSecondary,
     fontFamily: 'Helvetica Neue',
   },
   pillTextSelected: {

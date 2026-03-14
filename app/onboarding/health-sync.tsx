@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Platform,
   SafeAreaView,
@@ -14,10 +14,14 @@ import {
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 export default function HealthSyncScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {
     // NitroModules (HealthKit) crash the app in Expo Go — skip the native call there.
@@ -83,11 +87,11 @@ export default function HealthSyncScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   illustration: {
     flex: 1,
     alignItems: 'center',
@@ -110,12 +114,12 @@ const s = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     fontFamily: 'Helvetica Neue',
-    color: '#FFFFFF',
+    color: c.textPrimary,
   },
   healthDesc: {
     fontSize: 15,
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
@@ -128,7 +132,7 @@ const s = StyleSheet.create({
   skipText: {
     fontSize: 15,
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     fontWeight: '500',
   },
 });

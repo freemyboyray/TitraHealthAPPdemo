@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -9,11 +9,15 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
 import { toDateString } from '@/constants/user-profile';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 export default function StartScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const unit = draft.unitSystem ?? 'imperial';
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [weightInput, setWeightInput] = useState('');
   const [editingWeight, setEditingWeight] = useState(false);
@@ -58,7 +62,7 @@ export default function StartScreen() {
                   style={s.inputText}
                   keyboardType="decimal-pad"
                   placeholder={`Weight in ${weightLabel}`}
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textMuted}
                   value={weightInput}
                   onChangeText={setWeightInput}
                   autoFocus
@@ -71,7 +75,7 @@ export default function StartScreen() {
                 <Text style={s.rowValue}>
                   {weightInput ? `${weightInput} ${weightLabel}` : `Tap to enter`}
                 </Text>
-                <Ionicons name="pencil" size={16} color="#9A9490" style={{ marginLeft: 8 }} />
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} style={{ marginLeft: 8 }} />
               </View>
             )}
           </TouchableOpacity>
@@ -84,7 +88,7 @@ export default function StartScreen() {
                 <TextInput
                   style={s.dateInput}
                   placeholder="MM"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="number-pad"
                   maxLength={2}
                   value={month}
@@ -94,7 +98,7 @@ export default function StartScreen() {
                 <TextInput
                   style={s.dateInput}
                   placeholder="DD"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="number-pad"
                   maxLength={2}
                   value={day}
@@ -103,7 +107,7 @@ export default function StartScreen() {
                 <TextInput
                   style={[s.dateInput, { flex: 1.5 }]}
                   placeholder="YYYY"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="number-pad"
                   maxLength={4}
                   value={year}
@@ -118,7 +122,7 @@ export default function StartScreen() {
                     ? `${month}/${day}/${year}`
                     : 'Tap to enter'}
                 </Text>
-                <Ionicons name="pencil" size={16} color="#9A9490" style={{ marginLeft: 8 }} />
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} style={{ marginLeft: 8 }} />
               </View>
             )}
           </TouchableOpacity>
@@ -130,40 +134,40 @@ export default function StartScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: c.borderSubtle,
     minHeight: 64,
     gap: 12,
   },
-  rowLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  rowLabel: { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   rowRight: { flexDirection: 'row', alignItems: 'center' },
-  rowValue: { fontSize: 16, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
+  rowValue: { fontSize: 16, color: c.textSecondary, fontFamily: 'Helvetica Neue' },
   inlineInput: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  inputText: { fontSize: 18, color: '#FFFFFF', minWidth: 80, textAlign: 'right', fontFamily: 'Helvetica Neue' },
-  unitHint: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue' },
+  inputText: { fontSize: 18, color: c.textPrimary, minWidth: 80, textAlign: 'right', fontFamily: 'Helvetica Neue' },
+  unitHint: { fontSize: 14, color: c.textSecondary, fontFamily: 'Helvetica Neue' },
   dateRow: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
   dateInput: {
     flex: 1,
     height: 40,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 8,
     fontSize: 15,
     fontFamily: 'Helvetica Neue',
     textAlign: 'center',
-    color: '#FFFFFF',
-    backgroundColor: '#000000',
+    color: c.textPrimary,
+    backgroundColor: c.bg,
   },
 });

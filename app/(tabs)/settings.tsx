@@ -4,15 +4,21 @@ import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { requestNotificationPermission } from '@/lib/notifications';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { useRemindersStore } from '@/stores/reminders-store';
 import { useUserStore } from '@/stores/user-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
+import { useMemo } from 'react';
 
 const ORANGE = '#FF742A';
-const BG = '#000000';
 
 export default function SettingsScreen() {
   const { profile, session, signOut } = useUserStore();
   const { masterEnabled, setMasterEnabled } = useRemindersStore();
+  const { isLightMode, toggleLightMode } = usePreferencesStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   async function handleMasterToggle(value: boolean) {
     if (value) {
@@ -61,6 +67,28 @@ export default function SettingsScreen() {
         </View>
 
         {/* Section label */}
+        <Text style={s.sectionLabel}>APPEARANCE</Text>
+
+        {/* Light mode toggle */}
+        <View style={s.card}>
+          <View style={s.cardRow}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <Ionicons name={isLightMode ? 'sunny' : 'moon'} size={18} color={ORANGE} />
+              </View>
+              <Text style={s.rowLabel}>Light Mode</Text>
+            </View>
+            <Switch
+              value={isLightMode}
+              onValueChange={toggleLightMode}
+              trackColor={{ false: '#333', true: ORANGE }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#333"
+            />
+          </View>
+        </View>
+
+        {/* Section label */}
         <Text style={s.sectionLabel}>NOTIFICATIONS</Text>
 
         {/* Reminders row */}
@@ -81,7 +109,7 @@ export default function SettingsScreen() {
                 ios_backgroundColor="#333"
               />
               <TouchableOpacity onPress={() => router.push('/settings/reminders')} style={s.chevronBtn}>
-                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -99,7 +127,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={s.rowLabel}>Apple Health</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -116,68 +144,70 @@ export default function SettingsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: {
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  headerTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    header: {
+      paddingHorizontal: 20, paddingVertical: 16,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
+    },
+    headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
 
-  scroll: { flex: 1 },
-  content: { padding: 16, gap: 8, paddingBottom: 120 },
+    scroll: { flex: 1 },
+    content: { padding: 16, gap: 8, paddingBottom: 120 },
 
-  profileCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 16, padding: 16, marginBottom: 8,
-    borderWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.13)',
-    borderLeftColor: 'rgba(255,255,255,0.08)',
-    borderRightColor: 'rgba(255,255,255,0.03)',
-    borderBottomColor: 'rgba(255,255,255,0.02)',
-  },
-  avatar: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
-  },
-  avatarLetter: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
-  profileName: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-  profileEmail: { color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 2 },
+    profileCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      backgroundColor: c.glassOverlay,
+      borderRadius: 16, padding: 16, marginBottom: 8,
+      borderWidth: 1,
+      borderTopColor: c.border,
+      borderLeftColor: c.borderSubtle,
+      borderRightColor: c.borderSubtle,
+      borderBottomColor: c.borderSubtle,
+    },
+    avatar: {
+      width: 48, height: 48, borderRadius: 24,
+      backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+    },
+    avatarLetter: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+    profileName: { color: c.textPrimary, fontSize: 16, fontWeight: '600' },
+    profileEmail: { color: c.textSecondary, fontSize: 13, marginTop: 2 },
 
-  sectionLabel: {
-    color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700',
-    letterSpacing: 2, marginTop: 8, marginBottom: 4, marginLeft: 4,
-  },
+    sectionLabel: {
+      color: c.textMuted, fontSize: 11, fontWeight: '700',
+      letterSpacing: 2, marginTop: 8, marginBottom: 4, marginLeft: 4,
+    },
 
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.13)',
-    borderLeftColor: 'rgba(255,255,255,0.08)',
-    borderRightColor: 'rgba(255,255,255,0.03)',
-    borderBottomColor: 'rgba(255,255,255,0.02)',
-    overflow: 'hidden',
-  },
-  cardRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconBadge: {
-    width: 34, height: 34, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
-  chevronBtn: { padding: 4 },
+    card: {
+      backgroundColor: c.glassOverlay,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderTopColor: c.border,
+      borderLeftColor: c.borderSubtle,
+      borderRightColor: c.borderSubtle,
+      borderBottomColor: c.borderSubtle,
+      overflow: 'hidden',
+    },
+    cardRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 14,
+    },
+    rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    iconBadge: {
+      width: 34, height: 34, borderRadius: 10,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowLabel: { color: c.textPrimary, fontSize: 15, fontWeight: '500' },
+    chevronBtn: { padding: 4 },
 
-  signOutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,69,58,0.1)',
-    borderRadius: 14, paddingVertical: 14,
-    borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)',
-  },
-  signOutText: { color: '#FF453A', fontSize: 15, fontWeight: '600' },
-});
+    signOutBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(255,69,58,0.1)',
+      borderRadius: 14, paddingVertical: 14,
+      borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)',
+    },
+    signOutText: { color: '#FF453A', fontSize: 15, fontWeight: '600' },
+  });
+}

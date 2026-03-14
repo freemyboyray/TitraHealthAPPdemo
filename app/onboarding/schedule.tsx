@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -10,6 +10,8 @@ import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
 import { toDateString, BRAND_DEFAULT_FREQ_DAYS } from '@/constants/user-profile';
 import { DRUG_IS_ORAL, DRUG_DEFAULT_FREQ_DAYS } from '@/constants/drug-pk';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const INJECTABLE_FREQUENCIES: { label: string; days: number | 'custom' }[] = [
   { label: 'Every day',                   days: 1  },
@@ -21,6 +23,8 @@ const INJECTABLE_FREQUENCIES: { label: string; days: number | 'custom' }[] = [
 export default function ScheduleScreen() {
   const router = useRouter();
   const { updateDraft, draft } = useProfile();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const glp1Type  = draft.glp1Type;
   const isOral    = glp1Type ? DRUG_IS_ORAL[glp1Type]            : false;
@@ -83,7 +87,7 @@ export default function ScheduleScreen() {
                   <TextInput
                     style={s.input}
                     placeholder="Frequency in days (e.g. 10)"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="number-pad"
                     value={customFreq}
                     onChangeText={setCustomFreq}
@@ -125,7 +129,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputSm]}
               placeholder="MM"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               maxLength={2}
               value={month}
@@ -134,7 +138,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputSm]}
               placeholder="DD"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               maxLength={2}
               value={day}
@@ -143,7 +147,7 @@ export default function ScheduleScreen() {
             <TextInput
               style={[s.dateInput, s.dateInputLg]}
               placeholder="YYYY"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               maxLength={4}
               value={year}
@@ -158,24 +162,24 @@ export default function ScheduleScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe:         { flex: 1, backgroundColor: c.bg },
   container:    { flex: 1, paddingHorizontal: 24 },
   content:      { paddingBottom: 16 },
-  title:        { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle:     { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle:     { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   options:      {},
   input:        {
-    height: 52, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14,
-    paddingHorizontal: 16, fontSize: 16, fontFamily: 'Helvetica Neue', color: '#FFFFFF',
-    marginTop: 4, marginBottom: 10, backgroundColor: '#000000',
+    height: 52, borderWidth: 1.5, borderColor: c.border, borderRadius: 14,
+    paddingHorizontal: 16, fontSize: 16, fontFamily: 'Helvetica Neue', color: c.textPrimary,
+    marginTop: 4, marginBottom: 10, backgroundColor: c.bg,
   },
-  sectionLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Helvetica Neue', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
+  sectionLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Helvetica Neue', color: c.textPrimary, marginTop: 24, marginBottom: 12 },
   dateRow:      { flexDirection: 'row', gap: 10 },
   dateInput:    {
-    height: 52, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 14,
-    paddingHorizontal: 16, fontSize: 18, fontFamily: 'Helvetica Neue', color: '#FFFFFF',
-    textAlign: 'center', backgroundColor: '#000000',
+    height: 52, borderWidth: 1.5, borderColor: c.border, borderRadius: 14,
+    paddingHorizontal: 16, fontSize: 18, fontFamily: 'Helvetica Neue', color: c.textPrimary,
+    textAlign: 'center', backgroundColor: c.bg,
   },
   dateInputSm:  { flex: 1 },
   dateInputLg:  { flex: 1.8 },
@@ -184,6 +188,6 @@ const s = StyleSheet.create({
     borderRadius: 16, padding: 16, marginBottom: 8,
   },
   tipTitle:     { fontSize: 14, fontWeight: '700', color: '#FF742A', marginBottom: 8, fontFamily: 'Helvetica Neue' },
-  tipBody:      { fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 20, fontFamily: 'Helvetica Neue' },
-  tipBold:      { color: '#FFFFFF', fontWeight: '700' },
+  tipBody:      { fontSize: 13, color: c.textSecondary, lineHeight: 20, fontFamily: 'Helvetica Neue' },
+  tipBold:      { color: c.textPrimary, fontWeight: '700' },
 });

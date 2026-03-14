@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLogStore } from '@/stores/log-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG     = '#000000';
 const ORANGE = '#FF742A';
 const FF     = 'Helvetica Neue';
 
@@ -78,6 +79,8 @@ export default function CheckinSummaryScreen() {
     rawScore: string;
     label: string;
   }>();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const logStore = useLogStore();
 
@@ -116,7 +119,7 @@ export default function CheckinSummaryScreen() {
   }, [type]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Header */}
       <View style={{
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -127,10 +130,10 @@ export default function CheckinSummaryScreen() {
           onPress={() => router.replace('/(tabs)')}
           activeOpacity={0.7}
         >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
         <View style={s.pill}>
@@ -147,8 +150,8 @@ export default function CheckinSummaryScreen() {
       >
         {/* Score card */}
         <View style={[s.card, { marginBottom: 16 }]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
           <View style={{ padding: 28, alignItems: 'center' }}>
             <Text style={[s.scoreLarge, { color }]}>{score}</Text>
@@ -171,8 +174,8 @@ export default function CheckinSummaryScreen() {
 
         {/* Explanation card */}
         <View style={s.card}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
           <View style={{ padding: 20 }}>
             <Text style={s.explanationTitle}>What This Means</Text>
@@ -185,9 +188,9 @@ export default function CheckinSummaryScreen() {
       <View style={{
         paddingHorizontal: 20, paddingTop: 12,
         paddingBottom: insets.bottom + 16,
-        backgroundColor: BG,
+        backgroundColor: colors.bg,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
       }}>
         <TouchableOpacity
           style={s.doneBtn}
@@ -201,11 +204,11 @@ export default function CheckinSummaryScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   headerBtn: {
     width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 12, elevation: 4,
   },
   pill: {
@@ -216,8 +219,8 @@ const s = StyleSheet.create({
     fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: FF,
   },
   card: {
-    borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
+    shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
     marginBottom: 12,
   },
@@ -225,10 +228,10 @@ const s = StyleSheet.create({
     fontSize: 72, fontWeight: '800', lineHeight: 76, fontFamily: FF,
   },
   scoreDenom: {
-    fontSize: 13, color: 'rgba(255,255,255,0.35)', fontFamily: FF, marginTop: 2,
+    fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 2,
   },
   rawScoreNote: {
-    fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: FF, marginTop: 4,
+    fontSize: 11, color: c.textMuted, fontFamily: FF, marginTop: 4,
   },
   badge: {
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,
@@ -240,11 +243,11 @@ const s = StyleSheet.create({
     flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 14,
   },
   explanationTitle: {
-    fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)',
+    fontSize: 13, fontWeight: '700', color: c.textSecondary,
     fontFamily: FF, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10,
   },
   explanationBody: {
-    fontSize: 15, fontWeight: '500', color: '#FFFFFF',
+    fontSize: 15, fontWeight: '500', color: c.textPrimary,
     fontFamily: FF, lineHeight: 22,
   },
   doneBtn: {

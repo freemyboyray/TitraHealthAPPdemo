@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +29,9 @@ import { buildClinicalFlags } from '@/lib/clinical-alerts';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
 import { useLogStore } from '@/stores/log-store';
+import { useUiStore } from '@/stores/ui-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -54,6 +57,8 @@ function MedicationBanner({
   programWeek: number;
   startDate: string;
 }) {
+  const { colors } = useAppTheme();
+  const mb = useMemo(() => createMbStyles(colors), [colors]);
   const displayName = medicationName ?? MED_BRAND[glp1Type] ?? glp1Type;
   const dayCount = Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000) + 1);
   return (
@@ -68,19 +73,22 @@ function MedicationBanner({
   );
 }
 
-const mb = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' },
-  chip: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 5,
-  },
-  chipText: {
-    fontSize: 12, fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: FF,
-  },
-});
+const createMbStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    row: { flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' },
+    chip: {
+      backgroundColor: c.borderSubtle,
+      borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 5,
+    },
+    chipText: {
+      fontSize: 12, fontWeight: '600',
+      color: w(0.7),
+      fontFamily: FF,
+    },
+  });
+};
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -156,19 +164,22 @@ const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
 // ─── Health Monitor Card ──────────────────────────────────────────────────────
 
 function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const ss = hmStatusStyle[metric.status];
   const icon = metric.iconSet === 'Ionicons'
     ? <Ionicons name={metric.iconName as any} size={20} color={ORANGE} />
     : <MaterialIcons name={metric.iconName as any} size={20} color={ORANGE} />;
 
   const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
+  const { openAiChat } = useUiStore();
   const handleAskAI = () => {
-    router.push(`/ai-chat?type=metric&contextLabel=${encodeURIComponent(metric.label)}&contextValue=${encodeURIComponent(contextValue)}&chips=${encodeURIComponent(JSON.stringify(['How can I improve this?', `Is this normal for my phase?`, `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']))}` as any);
+    openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', `Is this normal for my phase?`, `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) });
   };
 
   return (
     <View style={[s.hmWrap, glassShadow]}>
-      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: '#000000' }]}>
+      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.bg }]}>
         <View style={s.hmInner}>
           <View style={s.hmTopRow}>
             <View style={s.hmIconWrap}>{icon}</View>
@@ -269,9 +280,10 @@ type DualRingArcProps = {
 };
 
 function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
+  const { colors } = useAppTheme();
   const SVG_SIZE = 500;
   const cx = 250, cy = 250;
-  const OUTER_R = 200, INNER_R = 148, SW = 38;
+  const OUTER_R = 155, INNER_R = 103, SW = 38;
   const outerCirc = 2 * Math.PI * OUTER_R;
   const innerCirc = 2 * Math.PI * INNER_R;
   const outerQuart = outerCirc / 4;
@@ -297,19 +309,21 @@ function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
 
   return (
     <Svg width={SVG_SIZE} height={SVG_SIZE}>
-      <Circle cx={cx} cy={cy} r={OUTER_R} strokeWidth={SW} stroke="#FF742A" fill="none" opacity={0.15} />
-      <Circle cx={cx} cy={cy} r={INNER_R} strokeWidth={SW} stroke="#FFFFFF" fill="none" opacity={0.15} />
+      <Circle cx={cx} cy={cy} r={OUTER_R} strokeWidth={SW} stroke={colors.ringTrack} fill="none" opacity={1} />
+      <Circle cx={cx} cy={cy} r={INNER_R} strokeWidth={SW} stroke={colors.ringTrack} fill="none" opacity={1} />
       <AnimatedCircle
         cx={cx} cy={cy} r={OUTER_R} fill="none"
         stroke="#FF742A" strokeWidth={SW} strokeLinecap="round"
         strokeDasharray={outerQuart} animatedProps={outerProps}
         rotation="-90" origin={`${cx}, ${cy}`}
+        opacity={recoveryScore === 0 ? 0 : 1}
       />
       <AnimatedCircle
         cx={cx} cy={cy} r={INNER_R} fill="none"
-        stroke="#FFFFFF" strokeWidth={SW} strokeLinecap="round"
+        stroke={colors.textPrimary} strokeWidth={SW} strokeLinecap="round"
         strokeDasharray={innerQuart} animatedProps={innerProps}
         rotation="-90" origin={`${cx}, ${cy}`}
+        opacity={supportScore === 0 ? 0 : 1}
       />
     </Svg>
   );
@@ -344,6 +358,8 @@ type CalendarDropdownProps = {
 };
 
 function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps) {
+  const { colors } = useAppTheme();
+  const cal = useMemo(() => createCalStyles(colors), [colors]);
   const today = new Date();
   const [viewYear, setViewYear]   = useState(selectedDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
@@ -371,18 +387,18 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
 
   return (
     <View style={[cal.container, glassShadow, { top }]}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+      <BlurView intensity={40} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <GlassBorder r={20} />
       <View style={cal.inner}>
         {/* Month nav */}
         <View style={cal.monthRow}>
           <Pressable onPress={prevMonth} hitSlop={10}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
           </Pressable>
           <Text style={cal.monthLabel}>{monthLabel}</Text>
           <Pressable onPress={nextMonth} hitSlop={10}>
-            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
         {/* Day headers */}
@@ -422,6 +438,8 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
 // ─── Rings Explainer Modal ────────────────────────────────────────────────────
 
 function RingsExplainerModal({ onClose }: { onClose: () => void }) {
+  const { colors } = useAppTheme();
+  const em = useMemo(() => createEmStyles(colors), [colors]);
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
       <View style={em.overlay}>
@@ -433,7 +451,7 @@ function RingsExplainerModal({ onClose }: { onClose: () => void }) {
           <View style={em.header}>
             <Text style={em.title}>How Your Rings Work</Text>
             <Pressable onPress={onClose} style={em.closeBtn} hitSlop={10}>
-              <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
+              <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
             </Pressable>
           </View>
 
@@ -470,7 +488,7 @@ function RingsExplainerModal({ onClose }: { onClose: () => void }) {
             {/* Readiness Ring */}
             <View style={em.section}>
               <View style={em.sectionHeader}>
-                <View style={[em.dot, { backgroundColor: '#FFFFFF' }]} />
+                <View style={[em.dot, { backgroundColor: colors.textPrimary }]} />
                 <Text style={em.sectionTitle}>Routine Ring (White)</Text>
               </View>
               <View style={em.metricList}>
@@ -542,18 +560,20 @@ function RingsExplainerModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-const em = StyleSheet.create({
+const createEmStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: c.bg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: c.ringTrack,
     maxHeight: '88%',
     paddingBottom: 0,
   },
@@ -561,7 +581,7 @@ const em = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: w(0.2),
     alignSelf: 'center',
     marginTop: 10,
     marginBottom: 4,
@@ -573,12 +593,12 @@ const em = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: c.borderSubtle,
   },
   title: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: -0.3,
     fontFamily: FF,
   },
@@ -586,7 +606,7 @@ const em = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -606,7 +626,7 @@ const em = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: FF,
   },
   metricList: { gap: 12 },
@@ -622,13 +642,13 @@ const em = StyleSheet.create({
   },
   metricDesc: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
+    color: w(0.55),
     lineHeight: 19,
     fontFamily: FF,
   },
   divider: {
     height: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     marginVertical: 20,
   },
   phaseList: { gap: 0 },
@@ -638,27 +658,30 @@ const em = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: w(0.06),
   },
   phaseEmoji: { fontSize: 20, lineHeight: 26 },
   phaseName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginBottom: 2,
     fontFamily: FF,
   },
   phaseDesc: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.50)',
+    color: w(0.50),
     lineHeight: 19,
     fontFamily: FF,
   },
-});
+  });
+};
 
 // ─── Focus Timeline Sub-components ───────────────────────────────────────────
 
 function PulsingDot() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const scale = useSharedValue(1);
   useEffect(() => {
     scale.value = withRepeat(
@@ -672,6 +695,8 @@ function PulsingDot() {
 }
 
 function StatusIndicator({ status }: { status: 'completed' | 'active' | 'pending' }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   if (status === 'completed') {
     return (
       <View style={s.indicatorFilled}>
@@ -690,18 +715,22 @@ function StatusIndicator({ status }: { status: 'completed' | 'active' | 'pending
 }
 
 function TimelineLine({ status }: { status: 'completed' | 'active' | 'pending' }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   if (status === 'completed') {
     return <View style={[s.timelineLine, { backgroundColor: ORANGE }]} />;
   }
   if (status === 'active') {
     return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: ORANGE }]} />;
   }
-  return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: 'rgba(255,255,255,0.15)' }]} />;
+  return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: colors.borderSubtle }]} />;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const { onScroll } = useTabBarVisibility();
   const healthData = useHealthData();
   const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
@@ -710,6 +739,7 @@ export default function HomeScreen() {
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
   const plan = personalizationStore.plan;
+  const { openAiChat } = useUiStore();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -784,7 +814,7 @@ export default function HomeScreen() {
   const phaseOverdue = dayNum > freq;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }}>
 
         {/* ── Fixed header ── */}
@@ -798,12 +828,12 @@ export default function HomeScreen() {
               <Ionicons
                 name={calendarOpen ? 'chevron-up' : 'chevron-down'}
                 size={18}
-                color="#FFFFFF"
+                color={colors.textPrimary}
                 style={{ marginLeft: 6, marginTop: 2 }}
               />
             </Pressable>
             <Pressable style={s.helpBtn} onPress={() => setShowHelp(true)} hitSlop={12}>
-              <Ionicons name="help-circle-outline" size={26} color="rgba(255,255,255,0.55)" />
+              <Ionicons name="help-circle-outline" size={26} color={colors.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'} />
             </Pressable>
           </View>
           <Text style={s.weekday}>{weekday}</Text>
@@ -841,7 +871,7 @@ export default function HomeScreen() {
 
           {/* ── Score Card ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={[s.cardBody, { backgroundColor: '#000000' }]}>
+            <View style={[s.cardBody, { backgroundColor: colors.bg }]}>
               {/* ── Ring + Info panel section ── */}
               <View style={{ height: 220 }}>
                 {/* Concentric rings anchored to bottom-left corner */}
@@ -863,39 +893,22 @@ export default function HomeScreen() {
                           <Text style={s.infoDenom}>/100</Text>
                         </>
                       ) : (
-                        <Text style={[s.infoScore, { color: 'rgba(255,255,255,0.25)', fontSize: 36 }]}>—</Text>
+                        <Text style={[s.infoScore, { color: colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)', fontSize: 36 }]}>—</Text>
                       )}
                     </View>
-                    {recoveryScore == null && (
-                      <Text style={s.infoHint}>Connect Apple Health to unlock</Text>
-                    )}
                   </Pressable>
 
                   <View style={s.infoDiv} />
 
                   <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=routine')}>
                     <View style={s.infoLabelRow}>
-                      <View style={[s.infoDot, { backgroundColor: '#FFFFFF' }]} />
+                      <View style={[s.infoDot, { backgroundColor: colors.textPrimary }]} />
                       <Text style={s.infoLabel}>ROUTINE</Text>
                     </View>
                     <View style={s.infoScoreRow}>
                       <Text style={s.infoScore}>{plan?.adherenceScore ?? supportScore}</Text>
                       <Text style={s.infoDenom}>/100</Text>
                     </View>
-                    {(() => {
-                      const hasFoodData = (plan?.actuals.proteinG ?? 0) > 0;
-                      const hasActivityData = (plan?.actuals.steps ?? 0) > 0;
-                      if (!hasFoodData && !hasActivityData) {
-                        return <Text style={s.infoHint}>Log meals · Log activity for full score</Text>;
-                      }
-                      if (!hasFoodData) {
-                        return <Text style={s.infoHint}>Log meals to include protein</Text>;
-                      }
-                      if (!hasActivityData) {
-                        return <Text style={s.infoHint}>Log activity to include movement</Text>;
-                      }
-                      return null;
-                    })()}
                   </Pressable>
                 </View>
               </View>
@@ -1055,7 +1068,7 @@ export default function HomeScreen() {
               {(focuses ?? []).map((item, index) => {
                 const isLast = index === (focuses ?? []).length - 1;
                 const handleFocusPress = () => {
-                  router.push(`/ai-chat?type=focus&contextLabel=${encodeURIComponent(item.label)}&contextValue=${encodeURIComponent(item.subtitle)}&chips=${encodeURIComponent(JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']))}` as any);
+                  openAiChat({ type: 'focus', contextLabel: item.label, contextValue: item.subtitle, chips: JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']) });
                 };
                 return (
                   <Pressable key={item.id} style={s.focusTimelineItem} onPress={handleFocusPress}>
@@ -1082,7 +1095,7 @@ export default function HomeScreen() {
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
-            <View style={[s.cardBody, { backgroundColor: '#000000' }]}>
+            <View style={[s.cardBody, { backgroundColor: colors.bg }]}>
               <View style={{ padding: 20 }}>
                 <View style={s.insightsHead}>
                   <Text style={s.insightsTitle}>Insights</Text>
@@ -1093,7 +1106,7 @@ export default function HomeScreen() {
                     {[0.85, 0.70, 0.78].map((w, i) => (
                       <View key={i} style={[s.bulletRow, { marginBottom: 14 }]}>
                         <View style={[s.bullet, { backgroundColor: 'rgba(255,116,42,0.3)' }]} />
-                        <View style={{ height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.08)', flex: 1, maxWidth: `${w * 100}%` as any }} />
+                        <View style={{ height: 14, borderRadius: 7, backgroundColor: colors.borderSubtle, flex: 1, maxWidth: `${w * 100}%` as any }} />
                       </View>
                     ))}
                   </>
@@ -1102,7 +1115,7 @@ export default function HomeScreen() {
                     <Pressable
                       key={i}
                       style={s.bulletRow}
-                      onPress={() => router.push(`/ai-chat?contextLabel=${encodeURIComponent('Insight')}&contextValue=${encodeURIComponent(text.slice(0, 60))}&seedMessage=${encodeURIComponent(text)}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']))}` as any)}
+                      onPress={() => openAiChat({ contextLabel: 'Insight', contextValue: text.slice(0, 60), seedMessage: text, chips: JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']) })}
                     >
                       <View style={[s.bullet, { backgroundColor: ORANGE }]} />
                       <Text style={s.bulletText}>{text}</Text>
@@ -1113,7 +1126,7 @@ export default function HomeScreen() {
                     <Pressable
                       key={i}
                       style={s.bulletRow}
-                      onPress={() => router.push(`/ai-chat?contextLabel=${encodeURIComponent('Insight')}&contextValue=${encodeURIComponent(b.text.slice(0, 60))}&seedMessage=${encodeURIComponent(b.text)}&chips=${encodeURIComponent(JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']))}` as any)}
+                      onPress={() => openAiChat({ contextLabel: 'Insight', contextValue: b.text.slice(0, 60), seedMessage: b.text, chips: JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']) })}
                     >
                       <View style={[s.bullet, { backgroundColor: ORANGE }]} />
                       <Text style={s.bulletText}>{b.text}</Text>
@@ -1196,7 +1209,9 @@ export default function HomeScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
   // Fixed header
@@ -1204,22 +1219,22 @@ const s = StyleSheet.create({
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   dateTitleRow: { flexDirection: 'row', alignItems: 'center' },
   helpBtn: { padding: 2 },
-  dateTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  weekday: { fontSize: 13, fontWeight: '500', color: '#7A7570', marginBottom: 4, fontFamily: 'Helvetica Neue' },
-  phaseLabel: { fontSize: 13, fontWeight: '600', color: '#9A9490', fontFamily: 'Helvetica Neue' },
+  dateTitle: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  weekday: { fontSize: 13, fontWeight: '500', color: c.textMuted, marginBottom: 4, fontFamily: 'Helvetica Neue' },
+  phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
   futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Helvetica Neue' },
   connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Helvetica Neue' },
 
   // Glass card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
-  cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
+  cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
 
   // Dark overlay
-  darkOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' },
+  darkOverlay: { borderRadius: 28, backgroundColor: c.glassOverlay },
 
   // Score card inner
   scoreCard: { padding: 24 },
-  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: '#9A9490', letterSpacing: 0.3, textAlign: 'center', marginBottom: 18, fontFamily: 'Helvetica Neue' },
+  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: c.textSecondary, letterSpacing: 0.3, textAlign: 'center', marginBottom: 18, fontFamily: 'Helvetica Neue' },
 
   // Alert badge
   alertBadge: {
@@ -1245,18 +1260,18 @@ const s = StyleSheet.create({
     right: 16,
     top: 16,
     bottom: 16,
-    width: '52%',
-    backgroundColor: '#000000',
+    width: '44%',
+    backgroundColor: c.bg,
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: w(0.25),
     justifyContent: 'center',
     paddingVertical: 8,
   },
   infoRow: {
     flexDirection: 'column',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 8,
     gap: 6,
   },
   infoLabelRow: {
@@ -1267,17 +1282,17 @@ const s = StyleSheet.create({
   infoDot: { width: 8, height: 8, borderRadius: 4 },
   infoText: { flex: 1 },
   infoLabel: {
-    fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.45)',
+    fontSize: 11, fontWeight: '700', color: w(0.45),
     letterSpacing: 1.4, fontFamily: 'Helvetica Neue',
   },
   infoScoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
-  infoScore: { fontSize: 42, fontWeight: '700', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'Helvetica Neue' },
-  infoDenom: { fontSize: 20, fontWeight: '400', color: 'rgba(255,255,255,0.55)', fontFamily: 'Helvetica Neue' },
+  infoScore: { fontSize: 36, fontWeight: '700', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Helvetica Neue' },
+  infoDenom: { fontSize: 20, fontWeight: '400', color: w(0.55), fontFamily: 'Helvetica Neue' },
   infoMsg: { fontSize: 10, fontWeight: '600', marginTop: 3, fontFamily: 'Helvetica Neue' },
-  infoHint: { fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3, fontFamily: 'Helvetica Neue', lineHeight: 14 },
+  infoHint: { fontSize: 10, color: w(0.35), marginTop: 3, fontFamily: 'Helvetica Neue', lineHeight: 14 },
   infoDiv: {
     height: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: w(0.15),
     marginHorizontal: 14,
   },
 
@@ -1285,21 +1300,21 @@ const s = StyleSheet.create({
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statItemText: {},
-  statBold: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  statLight: { fontSize: 12, color: '#5A5754', fontWeight: '400', fontFamily: 'Helvetica Neue' },
+  statBold: { fontSize: 14, fontWeight: '800', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  statLight: { fontSize: 12, color: c.textMuted, fontWeight: '400', fontFamily: 'Helvetica Neue' },
   statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#3A3735' },
 
   // Insights card
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  insightsTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  insightsTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Helvetica Neue' },
   bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   bullet: { width: 7, height: 7, borderRadius: 3.5, marginRight: 10 },
-  bulletText: { fontSize: 15, color: 'rgba(255,255,255,0.75)', fontWeight: '400', flex: 1, fontFamily: 'Helvetica Neue' },
-  insightsFooter: { fontSize: 12, color: 'rgba(255,255,255,0.40)', fontWeight: '500', marginTop: 6, lineHeight: 18, fontFamily: 'Helvetica Neue' },
+  bulletText: { fontSize: 15, color: w(0.75), fontWeight: '400', flex: 1, fontFamily: 'Helvetica Neue' },
+  insightsFooter: { fontSize: 12, color: w(0.40), fontWeight: '500', marginTop: 6, lineHeight: 18, fontFamily: 'Helvetica Neue' },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
@@ -1310,20 +1325,20 @@ const s = StyleSheet.create({
 
   // Focus timeline card
   focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
-  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: '#000000', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)', padding: 22 },
+  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.bg, borderWidth: 0.5, borderColor: c.border, padding: 22 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
-  focusCountBadge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  focusCountText: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.45)', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
+  focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.45), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
   focusTimelineItem: { flexDirection: 'row', alignItems: 'flex-start' },
   focusIndicatorCol: { width: 24, alignItems: 'center', marginRight: 16 },
   focusContent: { flex: 1 },
   focusContentSpaced: { paddingBottom: 28 },
-  focusLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  focusLabelMuted: { color: 'rgba(255,255,255,0.45)' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.45)', marginTop: 3, lineHeight: 17, fontFamily: 'Helvetica Neue' },
+  focusLabel: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  focusLabelMuted: { color: w(0.45) },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.45), marginTop: 3, lineHeight: 17, fontFamily: 'Helvetica Neue' },
   indicatorFilled: { width: 24, height: 24, borderRadius: 12, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
   indicatorActive: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' },
+  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: w(0.35) },
   pulsingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
   timelineLine: { position: 'absolute', top: 28, bottom: 0, left: 11, width: 2 },
   badge: {
@@ -1348,8 +1363,8 @@ const s = StyleSheet.create({
     fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
   },
   phaseWeek: {
-    fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.4)',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8,
+    fontSize: 11, fontWeight: '600', color: w(0.4),
+    backgroundColor: c.borderSubtle, borderRadius: 8,
     paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'Helvetica Neue',
   },
   plasticityBadge: {
@@ -1360,26 +1375,27 @@ const s = StyleSheet.create({
     fontSize: 9, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'Helvetica Neue',
   },
   phaseFocus: {
-    fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 17, fontFamily: 'Helvetica Neue',
+    fontSize: 12, color: w(0.55), lineHeight: 17, fontFamily: 'Helvetica Neue',
   },
 
   // Health Monitor grid
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
   hmWrap: { width: '47.5%', borderRadius: 20 },
-  hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.18)' },
+  hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
   hmInner: { padding: 16 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   hmIconWrap: { alignItems: 'center', justifyContent: 'center' },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  hmLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
-  hmValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  hmUnit: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.45)', letterSpacing: 0, fontFamily: 'Helvetica Neue' },
+  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Helvetica Neue' },
   hmAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 8 },
   hmAiBtnText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,116,42,0.55)', fontFamily: 'Helvetica Neue' },
-});
+  });
+};
 
-const cal = StyleSheet.create({
+const createCalStyles = (c: AppColors) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 20,
@@ -1391,13 +1407,13 @@ const cal = StyleSheet.create({
   },
   inner:      { padding: 16 },
   monthRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  monthLabel: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  monthLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   weekRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: '#5A5754', fontFamily: 'Helvetica Neue' },
+  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: c.textMuted, fontFamily: 'Helvetica Neue' },
   cell:       { width: 36, height: 42, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 3 },
   dayCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   daySelected: { backgroundColor: '#FF742A' },
-  dayNum:     { fontSize: 14, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  dayNum:     { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   dayNumSel:  { fontWeight: '800' },
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },

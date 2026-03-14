@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,22 +18,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { WaterLogSheet } from '@/components/water-log-sheet';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
+import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
-const DARK = '#FFFFFF';
 const ICON_SIZE = 24;
-const ICON_COLOR = '#FFFFFF';
 
 type EntryType = 'water' | 'food' | null;
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 
 export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { colors } = useAppTheme();
+  const f = useMemo(() => createFormStyles(colors), [colors]);
+  const s = useMemo(() => createSheetStyles(colors), [colors]);
+
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { openAiChat } = useUiStore();
   const { dispatch, profile } = useHealthData();
   const { addFoodLog } = useLogStore();
 
@@ -73,7 +79,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
   const handleAskAI = () => {
     closeSheet();
-    setTimeout(() => router.push('/ai-chat'), 300);
+    setTimeout(() => openAiChat(), 300);
   };
 
   const handleLogInjection = () => {
@@ -143,22 +149,22 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const GRID = [
     {
       label: 'DESCRIBE FOOD',
-      icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
     },
     {
       label: 'LOG INJECTION',
-      icon: <FontAwesome5 name="syringe" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <FontAwesome5 name="syringe" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: handleLogInjection,
     },
     {
       label: 'CAPTURE FOOD',
-      icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); },
     },
     {
       label: 'SCAN FOOD',
-      icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); },
     },
     {
@@ -169,17 +175,17 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     },
     {
       label: 'LOG MEALS',
-      icon: <Ionicons name="search-outline" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <Ionicons name="search-outline" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food' as any), 300); },
     },
     {
       label: 'LOG WEIGHT',
-      icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-weight'); },
     },
     {
       label: 'LOG WATER',
-      icon: <Ionicons name="water-outline" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <Ionicons name="water-outline" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => {
         closeSheet();
         setTimeout(() => setWaterLogVisible(true), 300);
@@ -187,7 +193,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     },
     {
       label: 'LOG ACTIVITY',
-      icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={ICON_COLOR} />,
+      icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
     },
   ];
@@ -209,7 +215,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             value={waterInput}
             onChangeText={setWaterInput}
             placeholder={isMetric ? 'e.g. 500' : 'e.g. 16'}
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
             keyboardType="decimal-pad"
             autoFocus
           />
@@ -256,7 +262,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             value={foodDescription}
             onChangeText={setFoodDescription}
             placeholder="Describe what you ate (e.g. 2 scrambled eggs with avocado toast)"
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
             multiline
             autoFocus={aiParsingState !== 'error'}
           />
@@ -271,7 +277,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                 value={foodName}
                 onChangeText={setFoodName}
                 placeholder="Food name"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
               />
               <View style={f.fieldRow}>
                 <TextInput
@@ -279,7 +285,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                   value={foodCalories}
                   onChangeText={setFoodCalories}
                   placeholder="Calories"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
                   keyboardType="number-pad"
                 />
                 <TextInput
@@ -287,7 +293,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                   value={foodProtein}
                   onChangeText={setFoodProtein}
                   placeholder="Protein g"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -309,9 +315,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           {/* Sheet — dark frosted glass */}
           <View style={s.sheetShadow}>
-            <View style={[s.sheetBody, { backgroundColor: '#000000' }]}>
-              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+            <View style={[s.sheetBody, { backgroundColor: colors.bg }]}>
+              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.glassOverlay }]} />
               <View pointerEvents="none" style={s.sheetTopBorder} />
 
               <View style={s.sheetContent}>
@@ -322,7 +328,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                   <>
                     <View style={f.header}>
                       <TouchableOpacity onPress={handleBackFromForm} style={f.backBtn} activeOpacity={0.7}>
-                        <Ionicons name="chevron-back" size={22} color={DARK} />
+                        <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
                       </TouchableOpacity>
                       <Text style={s.title}>{formConfig[activeEntry].title}</Text>
                       <View style={{ width: 36 }} />
@@ -346,7 +352,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                         <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress}>
                           {item.special ? (
                             <View style={s.specialCircle}>
-                              <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+                              <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
                               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 32, backgroundColor: 'rgba(255,116,42,0.85)' }]} />
                               <GlassBorder r={32} />
                               <View style={s.sphereShine} />
@@ -372,19 +378,19 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
           <View style={[s.navWrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
             <View style={s.navPillShadow}>
               <View style={s.navPillInner}>
-                <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+                <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 36, backgroundColor: colors.glassOverlay }]} />
                 <View pointerEvents="none" style={s.pillBorder} />
                 <View style={s.navIcons}>
-                  <Ionicons name="home-outline" size={24} color="rgba(255,255,255,0.25)" style={s.navIcon} />
-                  <MaterialIcons name="menu" size={26} color="rgba(255,255,255,0.25)" style={s.navIcon} />
-                  <Ionicons name="document-outline" size={24} color="rgba(255,255,255,0.25)" style={s.navIcon} />
+                  <Ionicons name="home-outline" size={24} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
+                  <MaterialIcons name="menu" size={26} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
+                  <Ionicons name="document-outline" size={24} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
                 </View>
               </View>
             </View>
             <TouchableOpacity style={s.fabClose} onPress={closeSheet} activeOpacity={0.85}>
               <View style={s.fabInner}>
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+                <BlurView intensity={20} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
                 <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: 'rgba(255,116,42,0.92)' }]} />
                 <View pointerEvents="none" style={s.fabBorder} />
                 <Ionicons name="close" size={32} color="#FFF" />
@@ -403,7 +409,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
 // ─── Form styles ───────────────────────────────────────────────────────────────
 
-const f = StyleSheet.create({
+const createFormStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,7 +423,7 @@ const f = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     borderRadius: 18,
   },
   formBody: {
@@ -430,19 +438,19 @@ const f = StyleSheet.create({
     flex: 1,
     height: 52,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: w(0.07),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: w(0.10),
     paddingHorizontal: 16,
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Helvetica Neue',
   },
   unit: {
     fontSize: 15,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
+    color: w(0.35),
     minWidth: 32,
     fontFamily: 'Helvetica Neue',
   },
@@ -488,7 +496,7 @@ const f = StyleSheet.create({
   },
   aiLoadingText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.45)',
+    color: w(0.45),
     fontWeight: '500',
     fontFamily: 'Helvetica Neue',
   },
@@ -503,23 +511,23 @@ const f = StyleSheet.create({
 
   // Parsed result card
   parsedCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: c.glassOverlay,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: w(0.10),
     padding: 16,
     marginBottom: 4,
   },
   parsedName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginBottom: 2,
     fontFamily: 'Helvetica Neue',
   },
   parsedServing: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.40)',
+    color: w(0.40),
     marginBottom: 14,
     fontFamily: 'Helvetica Neue',
   },
@@ -532,12 +540,12 @@ const f = StyleSheet.create({
   parsedStatVal: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Helvetica Neue',
   },
   parsedStatLabel: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.40)',
+    color: w(0.40),
     fontWeight: '500',
     fontFamily: 'Helvetica Neue',
   },
@@ -555,7 +563,7 @@ const f = StyleSheet.create({
   },
   parsedEditHint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.30)',
+    color: w(0.30),
     fontFamily: 'Helvetica Neue',
     textDecorationLine: 'underline',
   },
@@ -567,30 +575,33 @@ const f = StyleSheet.create({
     marginVertical: 14,
     gap: 10,
   },
-  orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  orLine: { flex: 1, height: 1, backgroundColor: c.borderSubtle },
   orText: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.30)',
+    color: w(0.30),
     fontWeight: '500',
     fontFamily: 'Helvetica Neue',
   },
-});
+  });
+};
 
 // ─── Sheet styles ──────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createSheetStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
 
   // Sheet
   sheetShadow: { borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 16 },
   sheetBody: { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-  sheetTopBorder: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.10)' },
+  sheetTopBorder: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: w(0.10) },
   sheetContent: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 },
 
-  handle: { width: 44, height: 4, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
-  title: { fontSize: 24, fontWeight: '800', color: DARK, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginBottom: 18, fontFamily: 'Helvetica Neue' },
+  handle: { width: 44, height: 4, backgroundColor: c.ringTrack, borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
+  title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 14, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'Helvetica Neue' },
   dash: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(80,130,210,0.3)', marginBottom: 22 },
 
   // Grid
@@ -598,25 +609,26 @@ const s = StyleSheet.create({
   gridItem: { width: '33.33%', alignItems: 'center', marginBottom: 24 },
 
   // Icon circles
-  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
+  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
 
   // ASK AI sphere
   specialCircle: { width: 64, height: 64, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 6 },
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 
-  gridLabel: { fontSize: 10, fontWeight: '700', color: DARK, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Helvetica Neue' },
+  gridLabel: { fontSize: 10, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Helvetica Neue' },
   gridLabelSpecial: { color: ORANGE },
 
   // Bottom nav
   navWrapper: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingTop: 8, backgroundColor: 'transparent' },
   navPillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 10 },
   navPillInner: { borderRadius: 36, overflow: 'hidden' },
-  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.13)', borderLeftColor: 'rgba(255,255,255,0.08)', borderRightColor: 'rgba(255,255,255,0.03)', borderBottomColor: 'rgba(255,255,255,0.02)' },
+  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: w(0.13), borderLeftColor: c.borderSubtle, borderRightColor: w(0.03), borderBottomColor: w(0.02) },
   navIcons: { flexDirection: 'row', paddingVertical: 15, paddingHorizontal: 10 },
   navIcon: { flex: 1, textAlign: 'center' },
 
   fabClose: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 16, elevation: 10, marginBottom: 2 },
   fabInner: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,220,185,0.40)', borderLeftColor: 'rgba(255,200,160,0.25)', borderRightColor: 'rgba(0,0,0,0.15)', borderBottomColor: 'rgba(0,0,0,0.22)' },
-});
+  });
+};

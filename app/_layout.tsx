@@ -10,9 +10,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MOCK_PROFILE } from '@/constants/mock-profile';
 import { HealthProvider } from '@/contexts/health-data';
 import { ProfileProvider, useProfile } from '@/contexts/profile-context';
+import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { AiChatOverlay } from '@/components/ai-chat-overlay';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -33,8 +35,9 @@ function AppWithHealth({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function RootLayout() {
+function RootLayoutInner() {
   const colorScheme = useColorScheme();
+  const { colors } = useAppTheme();
   const { setSession, setSessionLoaded, loadProfile } = useUserStore();
   const router = useRouter();
 
@@ -86,10 +89,19 @@ export default function RootLayout() {
               <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="settings" options={{ headerShown: false }} />
             </Stack>
-            <StatusBar style="auto" />
+            <StatusBar style={colors.statusBar} />
+            <AiChatOverlay />
           </ThemeProvider>
         </AppWithHealth>
       </ProfileProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppThemeProvider>
+      <RootLayoutInner />
+    </AppThemeProvider>
   );
 }

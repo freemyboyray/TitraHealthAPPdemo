@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,8 +13,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLogStore } from '@/stores/log-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG     = '#000000';
 const ORANGE = '#FF742A';
 
 const QUESTIONS = [
@@ -61,6 +62,7 @@ function DotScale({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const { colors: dotColors } = useAppTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, justifyContent: 'center' }}>
       {[0, 1, 2, 3, 4].map((v) => (
@@ -73,16 +75,16 @@ function DotScale({
           <View
             style={{
               width: 44, height: 44, borderRadius: 22,
-              backgroundColor: value === v ? ORANGE : 'rgba(255,255,255,0.08)',
+              backgroundColor: value === v ? ORANGE : (dotColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
               borderWidth: 1.5,
-              borderColor: value === v ? ORANGE : 'rgba(255,255,255,0.15)',
+              borderColor: value === v ? ORANGE : (dotColors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'),
               alignItems: 'center', justifyContent: 'center',
             }}
           >
             <Text
               style={{
                 fontSize: 15, fontWeight: '700',
-                color: value === v ? '#FFF' : 'rgba(255,255,255,0.35)',
+                color: value === v ? '#FFF' : (dotColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'),
               }}
             >
               {v}
@@ -90,7 +92,7 @@ function DotScale({
           </View>
           <Text
             style={{
-              fontSize: 9, color: 'rgba(255,255,255,0.3)',
+              fontSize: 9, color: dotColors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
               letterSpacing: 0.2, textAlign: 'center', width: 44,
             }}
             numberOfLines={2}
@@ -107,6 +109,8 @@ export default function AppetiteSurveyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addWeeklyCheckin } = useLogStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [answers, setAnswers] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(false);
@@ -137,7 +141,7 @@ export default function AppetiteSurveyScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Header */}
       <View
         style={{
@@ -150,15 +154,15 @@ export default function AppetiteSurveyScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF' }}>Appetite &amp; Satiety</Text>
-          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>Weekly · 5 questions</Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Appetite &amp; Satiety</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>Weekly · 5 questions</Text>
         </View>
 
         <View style={{ width: 40 }} />
@@ -171,14 +175,14 @@ export default function AppetiteSurveyScreen() {
       >
         {/* Score display */}
         <View style={[s.card, { marginBottom: 16 }]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
           <View style={{ padding: 20, alignItems: 'center' }}>
-            <Text style={{ fontSize: 48, fontWeight: '800', color: '#FFFFFF', lineHeight: 52 }}>
+            <Text style={{ fontSize: 48, fontWeight: '800', color: colors.textPrimary, lineHeight: 52 }}>
               {rawScore}
             </Text>
-            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginTop: 2 }}>
+            <Text style={{ fontSize: 12, color: colors.textSecondary, letterSpacing: 1.5, marginTop: 2 }}>
               OUT OF 20
             </Text>
             <View style={[s.badge, { backgroundColor: `${interpretation.color}22`, marginTop: 10 }]}>
@@ -192,15 +196,15 @@ export default function AppetiteSurveyScreen() {
         {/* Questions */}
         {QUESTIONS.map((q, idx) => (
           <View key={idx} style={[s.card, { marginBottom: 12 }]}>
-            <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+            <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
             <GlassBorder r={20} />
             <View style={{ padding: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 2 }}>
                 <View style={s.qNumber}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE }}>Q{idx + 1}</Text>
                 </View>
-                <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#FFFFFF', lineHeight: 20 }}>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary, lineHeight: 20 }}>
                   {q}
                 </Text>
               </View>
@@ -216,7 +220,7 @@ export default function AppetiteSurveyScreen() {
           </View>
         ))}
 
-        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 8, lineHeight: 17 }}>
+        <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 17 }}>
           Answer for this past week. Your appetite score tracks how well your medication is managing hunger and satiety signals.
         </Text>
       </ScrollView>
@@ -226,9 +230,9 @@ export default function AppetiteSurveyScreen() {
         style={{
           paddingHorizontal: 20, paddingTop: 12,
           paddingBottom: insets.bottom + 16,
-          backgroundColor: BG,
+          backgroundColor: colors.bg,
           borderTopWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
         }}
       >
         <TouchableOpacity
@@ -256,16 +260,16 @@ export default function AppetiteSurveyScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   headerBtn: {
     width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 12, elevation: 4,
   },
   card: {
-    borderRadius: 20, overflow: 'hidden', backgroundColor: '#111111',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
+    shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
   },
   badge: {

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,11 +18,10 @@ import { useLogStore } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
-const BG     = '#000000';
 const ORANGE = '#FF742A';
-const DARK   = '#FFFFFF';
-const SHADOW = { shadowColor: '#000', shadowOffset: { width: 0, height: 8 } as const, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 };
 const LB_TO_KG = 0.453592;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
@@ -55,6 +54,7 @@ interface WeightRulerProps {
 }
 
 function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
+  const { colors: rulerColors } = useAppTheme();
   const containerWidthRef = useRef(0);
   const [containerWidth, setContainerWidth] = useState(0);
   const currentValueRef = useRef(value);
@@ -103,7 +103,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
             top: 0,
             width: 1.5,
             height: tickH,
-            backgroundColor: 'rgba(255,255,255,0.25)',
+            backgroundColor: rulerColors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
             borderRadius: 1,
           }}
         />
@@ -120,7 +120,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
               textAlign: 'center',
               fontSize: 10,
               fontWeight: '500',
-              color: 'rgba(255,255,255,0.35)',
+              color: rulerColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)',
             }}
           >
             {Math.round(t)}
@@ -187,6 +187,8 @@ export default function LogWeightScreen() {
   const insets = useSafeAreaInsets();
   const { loading, addWeightLog } = useLogStore();
   const hkStore = useHealthKitStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const [lbs, setLbs]   = useState(185.0);
   const [unit, setUnit] = useState<Unit>('lbs');
@@ -236,10 +238,10 @@ export default function LogWeightScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: BG }}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={{ height: insets.top, backgroundColor: BG }} />
+      <View style={{ height: insets.top, backgroundColor: colors.bg }} />
 
       {/* Header */}
       <View style={s.header}>
@@ -248,10 +250,10 @@ export default function LogWeightScreen() {
           activeOpacity={0.7}
           style={s.back}
         >
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={22} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
         <Text style={s.title}>Log Weight</Text>
         <View style={{ width: 44 }} />
@@ -259,11 +261,11 @@ export default function LogWeightScreen() {
 
       <View style={{ flex: 1 }}>
         {/* Date card */}
-        <View style={[s.dateCard, SHADOW]}>
-          <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
+        <View style={[s.dateCard, s.shadow]}>
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
-          <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.45)" />
+          <Ionicons name="calendar-outline" size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
           <Text style={s.dateText}>{dateStr}</Text>
         </View>
 
@@ -290,17 +292,17 @@ export default function LogWeightScreen() {
 
         {/* Unit toggle */}
         <View style={s.toggleRow}>
-          <Text style={[s.toggleLabel, { color: unit === 'lbs' ? DARK : 'rgba(255,255,255,0.3)' }]}>
+          <Text style={[s.toggleLabel, { color: unit === 'lbs' ? colors.textPrimary : (colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)') }]}>
             imperial
           </Text>
           <Switch
             value={unit === 'kg'}
             onValueChange={handleUnitToggle}
-            trackColor={{ false: 'rgba(255,255,255,0.2)', true: ORANGE }}
+            trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', true: ORANGE }}
             thumbColor="#FFFFFF"
-            ios_backgroundColor="rgba(255,255,255,0.2)"
+            ios_backgroundColor={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
           />
-          <Text style={[s.toggleLabel, { color: unit === 'kg' ? DARK : 'rgba(255,255,255,0.3)' }]}>
+          <Text style={[s.toggleLabel, { color: unit === 'kg' ? colors.textPrimary : (colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)') }]}>
             metric
           </Text>
         </View>
@@ -324,84 +326,89 @@ export default function LogWeightScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  back: {
-    width: 44, height: 44, borderRadius: 22,
-    overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
-    ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
-  },
-  title: { fontSize: 18, fontWeight: '700', color: DARK },
-  dateCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 4,
-    borderRadius: 20,
-    overflow: 'hidden',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#111111',
-  },
-  dateText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
-  },
-  currentLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.45)',
-    marginBottom: 8,
-    letterSpacing: 0.3,
-  },
-  weightValue: {
-    fontSize: 72,
-    fontWeight: '800',
-    color: ORANGE,
-    letterSpacing: -3,
-    lineHeight: 78,
-  },
-  weightUnit: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: DARK,
-    marginBottom: 10,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 20,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  logBtn: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: ORANGE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  logBtnText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: 0.5,
-  },
-});
+const createStyles = (c: AppColors) => {
+  const SHADOW = { shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 } as const, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 };
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+    },
+    back: {
+      width: 44, height: 44, borderRadius: 22,
+      overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
+      ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
+    },
+    shadow: SHADOW,
+    title: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+    dateCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginHorizontal: 20,
+      marginTop: 4,
+      borderRadius: 20,
+      overflow: 'hidden',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: c.surface,
+    },
+    dateText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: w(0.6),
+    },
+    currentLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: w(0.45),
+      marginBottom: 8,
+      letterSpacing: 0.3,
+    },
+    weightValue: {
+      fontSize: 72,
+      fontWeight: '800',
+      color: ORANGE,
+      letterSpacing: -3,
+      lineHeight: 78,
+    },
+    weightUnit: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: c.textPrimary,
+      marginBottom: 10,
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      paddingVertical: 20,
+    },
+    toggleLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    logBtn: {
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: ORANGE,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 20,
+      elevation: 8,
+    },
+    logBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#000000',
+      letterSpacing: 0.5,
+    },
+  });
+};

@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,12 +17,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
-const WHITE = '#FFFFFF';
-const BG = '#000000';
 
 const MEDICATIONS = ['Ozempic', 'Wegovy', 'Mounjaro', 'Zepbound', 'Saxenda', 'Victoza'];
 const DOSES = ['0.25mg', '0.5mg', '1mg', '1.7mg', '2mg', '2.4mg'];
@@ -83,11 +83,12 @@ function SectionLabel({ text }: { text: string }) {
   );
 }
 
-function GlassCard({ children }: { children: React.ReactNode }) {
+function GlassCard({ children, colors }: { children: React.ReactNode; colors: AppColors }) {
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.cardShadow}>
       <View style={s.cardClip}>
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
         <GlassBorder r={20} />
         <View style={s.cardContent}>{children}</View>
@@ -102,6 +103,8 @@ export default function LogInjectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const MED_TYPE_DEFAULT: Record<string, string> = {
     semaglutide: 'Ozempic',
@@ -155,6 +158,8 @@ export default function LogInjectionScreen() {
     router.back();
   }
 
+  const siteStyles = useMemo(() => createSiteStyles(colors), [colors]);
+
   return (
     <KeyboardAvoidingView
       style={[s.root, { paddingTop: insets.top }]}
@@ -165,10 +170,10 @@ export default function LogInjectionScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.75} style={s.backShadow}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
 
@@ -187,7 +192,7 @@ export default function LogInjectionScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Medication Card ── */}
-        <GlassCard>
+        <GlassCard colors={colors}>
           <SectionLabel text="MEDICATION" />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={[s.chip, s.chipActive]}>
@@ -198,7 +203,7 @@ export default function LogInjectionScreen() {
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textDecorationLine: 'underline' }}>
+              <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
                 Doesn't match?
               </Text>
             </TouchableOpacity>
@@ -206,7 +211,7 @@ export default function LogInjectionScreen() {
         </GlassCard>
 
         {/* ── Dose Card ── */}
-        <GlassCard>
+        <GlassCard colors={colors}>
           <SectionLabel text="DOSE" />
           <ScrollView
             horizontal
@@ -232,7 +237,7 @@ export default function LogInjectionScreen() {
         </GlassCard>
 
         {/* ── Injection Site Card ── */}
-        <GlassCard>
+        <GlassCard colors={colors}>
           <SectionLabel text="INJECTION SITE" />
           <View style={s.siteGrid}>
             {SITES.map((siteName) => {
@@ -269,11 +274,11 @@ export default function LogInjectionScreen() {
         </GlassCard>
 
         {/* ── Batch & Notes Card ── */}
-        <GlassCard>
+        <GlassCard colors={colors}>
           <TextInput
             style={s.textInput}
             placeholder="Batch # (optional)"
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.textMuted}
             value={batchNumber}
             onChangeText={setBatchNumber}
             maxLength={30}
@@ -284,7 +289,7 @@ export default function LogInjectionScreen() {
             <TextInput
               style={[s.textInput, s.notesInput, { flex: 1 }]}
               placeholder="Add a note or speak to auto-fill…"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textMuted}
               value={notes}
               onChangeText={setNotes}
               maxLength={200}
@@ -320,7 +325,7 @@ export default function LogInjectionScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const siteStyles = StyleSheet.create({
+const createSiteStyles = (c: AppColors) => StyleSheet.create({
   siteBtn: {
     width: '48%',
     marginBottom: 10,
@@ -338,7 +343,7 @@ const siteStyles = StyleSheet.create({
     elevation: 5,
   },
   siteBtnInactive: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
   siteBtnText: {
     fontSize: 13,
@@ -349,14 +354,16 @@ const siteStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   siteBtnTextInactive: {
-    color: 'rgba(255,255,255,0.55)',
+    color: c.textSecondary,
   },
 });
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: c.bg,
   },
 
   // Header
@@ -368,7 +375,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   backShadow: {
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -384,14 +391,14 @@ const s = StyleSheet.create({
   },
   backOverlay: {
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: w(0.12),
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: WHITE,
+    color: c.textPrimary,
     letterSpacing: -0.3,
   },
   headerSpacer: {
@@ -403,7 +410,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
+    color: c.textMuted,
     letterSpacing: 3.5,
     marginTop: 6,
     marginBottom: 18,
@@ -419,7 +426,7 @@ const s = StyleSheet.create({
   // Glass card
   cardShadow: {
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
@@ -428,11 +435,11 @@ const s = StyleSheet.create({
   cardClip: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: c.surface,
   },
   cardOverlay: {
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
   cardContent: {
     padding: 18,
@@ -453,7 +460,7 @@ const s = StyleSheet.create({
     backgroundColor: ORANGE,
   },
   chipInactive: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
   chipText: {
     fontSize: 14,
@@ -463,7 +470,7 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   chipTextInactive: {
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
   },
 
   // Site grid
@@ -486,7 +493,7 @@ const s = StyleSheet.create({
   rotateLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
+    color: c.textMuted,
     letterSpacing: 1.5,
   },
   rotateValue: {
@@ -499,7 +506,7 @@ const s = StyleSheet.create({
   // Text inputs
   textInput: {
     fontSize: 15,
-    color: WHITE,
+    color: c.textPrimary,
     fontWeight: '500',
     paddingVertical: 6,
     minHeight: 36,
@@ -510,7 +517,7 @@ const s = StyleSheet.create({
   },
   inputDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
     marginVertical: 10,
   },
 
@@ -553,4 +560,5 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-});
+  });
+};

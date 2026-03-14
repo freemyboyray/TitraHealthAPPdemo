@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,12 +21,12 @@ import { supabase } from '../../lib/supabase';
 import { computeScore } from '../../stores/insights-store';
 import { useLogStore } from '../../stores/log-store';
 import { useUserStore } from '../../stores/user-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BG = '#000000';
 const ORANGE = '#FF742A';
-const WHITE = '#FFFFFF';
 const MUTED = 'rgba(255,255,255,0.45)';
 
 const SUGGESTION_PROMPTS = [
@@ -71,11 +71,12 @@ function GlassBorder({ r = 16, topOnly = false }: { r?: number; topOnly?: boolea
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ colors }: { colors: AppColors }) {
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.typingRow}>
       <View style={s.assistantBubble}>
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={s.assistantOverlay} />
         <GlassBorder r={18} />
         <Text style={s.typingDots}>• • •</Text>
@@ -90,6 +91,8 @@ export default function AskAIScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList>(null);
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   // Store data for context
   const injectionLogs = useLogStore((s) => s.injectionLogs);
@@ -227,7 +230,7 @@ export default function AskAIScreen() {
           </View>
         ) : (
           <View style={s.assistantBubble}>
-            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={s.assistantOverlay} />
             <GlassBorder r={18} />
             <Text style={s.assistantText}>{item.content}</Text>
@@ -247,10 +250,10 @@ export default function AskAIScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
           <View style={s.backClip}>
-            <BlurView intensity={76} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
 
@@ -264,7 +267,7 @@ export default function AskAIScreen() {
           style={s.infoBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="information-circle-outline" size={22} color={MUTED} />
+          <Ionicons name="information-circle-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
         </TouchableOpacity>
       </View>
 
@@ -282,7 +285,7 @@ export default function AskAIScreen() {
           contentContainerStyle={[s.listContent, { paddingBottom: 16 }]}
           ListEmptyComponent={
             <View style={s.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={56} color={MUTED} />
+              <Ionicons name="chatbubbles-outline" size={56} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
               <Text style={s.emptyTitle}>
                 {userName ? `Hi, ${userName.split(' ')[0]}` : 'Your GLP-1 Companion'}
               </Text>
@@ -307,26 +310,26 @@ export default function AskAIScreen() {
               </ScrollView>
             </View>
           }
-          ListFooterComponent={typing ? <TypingIndicator /> : null}
+          ListFooterComponent={typing ? <TypingIndicator colors={colors} /> : null}
           showsVerticalScrollIndicator={false}
         />
       )}
 
       {/* Input bar */}
       <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={s.inputBarOverlay} />
         <GlassBorder topOnly />
 
         <View style={s.inputRow}>
           <View style={s.inputWrapper}>
-            <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={70} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={s.inputWrapperOverlay} />
             <GlassBorder r={22} />
             <TextInput
               style={s.textInput}
               placeholder="Ask anything about GLP-1…"
-              placeholderTextColor={MUTED}
+              placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'}
               value={input}
               onChangeText={setInput}
               multiline
@@ -343,7 +346,7 @@ export default function AskAIScreen() {
             activeOpacity={0.85}
             disabled={!input.trim() || typing}
           >
-            <Ionicons name="send" size={18} color={WHITE} />
+            <Ionicons name="send" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -356,7 +359,7 @@ export default function AskAIScreen() {
           onPress={() => setShowDisclaimer(false)}
         >
           <View style={s.disclaimerCard}>
-            <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={s.disclaimerOverlay} />
             <GlassBorder r={24} />
             <View style={s.disclaimerContent}>
@@ -381,8 +384,10 @@ export default function AskAIScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
 
   header: {
     flexDirection: 'row',
@@ -392,7 +397,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
   },
   backShadow: {
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -406,10 +411,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backOverlay: { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
+  backOverlay: { borderRadius: 20, backgroundColor: c.borderSubtle },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 11, color: MUTED, fontWeight: '500', letterSpacing: 0.5 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 11, color: w(0.45), fontWeight: '500', letterSpacing: 0.5 },
   infoBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -433,7 +438,7 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  userText: { fontSize: 15, color: WHITE, lineHeight: 21 },
+  userText: { fontSize: 15, color: '#FFFFFF', lineHeight: 21 },
 
   assistantBubble: {
     maxWidth: '80%',
@@ -442,7 +447,7 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -450,12 +455,12 @@ const s = StyleSheet.create({
   },
   assistantOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
-  assistantText: { fontSize: 15, color: WHITE, lineHeight: 21 },
+  assistantText: { fontSize: 15, color: c.textPrimary, lineHeight: 21 },
 
   typingRow: { alignItems: 'flex-start', marginBottom: 10 },
-  typingDots: { fontSize: 18, color: MUTED, letterSpacing: 4 },
+  typingDots: { fontSize: 18, color: w(0.45), letterSpacing: 4 },
 
   // Input bar
   inputBar: {
@@ -478,13 +483,13 @@ const s = StyleSheet.create({
   },
   inputWrapperOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.borderSubtle,
   },
   textInput: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: WHITE,
+    color: c.textPrimary,
     lineHeight: 20,
   },
   sendBtn: {
@@ -504,8 +509,8 @@ const s = StyleSheet.create({
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: WHITE, marginTop: 16, marginBottom: 8 },
-  emptyDesc: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginTop: 16, marginBottom: 8 },
+  emptyDesc: { fontSize: 14, color: w(0.45), textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 
   // Suggestion chips
   chipsRow: { paddingVertical: 4, gap: 8, paddingHorizontal: 4 },
@@ -531,7 +536,7 @@ const s = StyleSheet.create({
     width: '85%',
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: c.shadowColor,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.5,
     shadowRadius: 32,
@@ -542,8 +547,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   disclaimerContent: { padding: 24 },
-  disclaimerTitle: { fontSize: 18, fontWeight: '800', color: WHITE, marginBottom: 12 },
-  disclaimerBody: { fontSize: 14, color: MUTED, lineHeight: 22, marginBottom: 20 },
+  disclaimerTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, marginBottom: 12 },
+  disclaimerBody: { fontSize: 14, color: w(0.45), lineHeight: 22, marginBottom: 20 },
   disclaimerBtn: {
     height: 48,
     borderRadius: 14,
@@ -551,5 +556,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disclaimerBtnText: { fontSize: 15, fontWeight: '700', color: WHITE },
-});
+  disclaimerBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  });
+};

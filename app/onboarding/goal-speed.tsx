@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -16,6 +16,8 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { addWeeks } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const SNAP_VALUES = [0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
@@ -36,6 +38,8 @@ const CONTEXT_NOTES: Record<string, string> = {
 export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [speedIdx, setSpeedIdx] = useState(2);
   const speed = SNAP_VALUES[speedIdx];
 
@@ -109,27 +113,27 @@ export default function GoalSpeedScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   chip: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: c.glassOverlay,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     marginBottom: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  chipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   display: { alignItems: 'center', marginBottom: 12 },
-  displayLabel: { fontSize: 13, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
-  displayValue: { fontSize: 52, fontWeight: '800', color: '#FFFFFF', marginTop: 4, fontFamily: 'Helvetica Neue' },
+  displayLabel: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  displayValue: { fontSize: 52, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
   contextNote: {
     fontSize: 14,
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 20,
@@ -146,10 +150,10 @@ const s = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: c.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: c.bg,
   },
   snapItemSelected: {
     backgroundColor: '#FF742A',
@@ -159,7 +163,7 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.45)',
+    color: c.textSecondary,
   },
   snapLabelSelected: {
     color: '#FFFFFF',
@@ -174,7 +178,7 @@ const s = StyleSheet.create({
   markerText: {
     fontSize: 12,
     fontFamily: 'Helvetica Neue',
-    color: 'rgba(255,255,255,0.35)',
+    color: c.textMuted,
   },
   spacer: { flex: 1 },
 });

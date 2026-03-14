@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const DOSES = [0.25, 0.5, 1.0, 2.5, 5.0, 7.5, 10.0];
 
@@ -14,6 +16,8 @@ export default function DoseScreen() {
   const { updateDraft } = useProfile();
   const [selected, setSelected] = useState<number | 'custom' | null>(null);
   const [customVal, setCustomVal] = useState('');
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const isValid =
     selected !== null &&
@@ -52,7 +56,7 @@ export default function DoseScreen() {
               <TextInput
                 style={s.input}
                 placeholder="Enter dose in mg (e.g. 3.5)"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={customVal}
                 onChangeText={setCustomVal}
@@ -68,23 +72,23 @@ export default function DoseScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   options: {},
   input: {
     height: 52,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: c.border,
     borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
     fontFamily: 'Helvetica Neue',
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginTop: 4,
-    backgroundColor: '#000000',
+    backgroundColor: c.bg,
   },
 });

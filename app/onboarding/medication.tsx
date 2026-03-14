@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
@@ -7,6 +7,8 @@ import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { BRAND_TO_GLP1_TYPE, BRAND_TO_ROUTE, BRAND_DEFAULT_FREQ_DAYS, MedicationBrand } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 type BrandOption = { value: MedicationBrand; label: string; note?: string };
 type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] };
@@ -56,6 +58,8 @@ export default function MedicationScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
   const [selected, setSelected] = useState<MedicationBrand | null>(null);
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleContinue = () => {
     if (!selected) return;
@@ -100,13 +104,13 @@ export default function MedicationScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: '#000000' },
+const createStyles = (c: AppColors) => StyleSheet.create({
+  safe:         { flex: 1, backgroundColor: c.bg },
   container:    { flex: 1, paddingHorizontal: 24 },
   content:      { paddingBottom: 16 },
-  title:        { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle:     { fontSize: 15, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+  subtitle:     { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
   group:        { marginBottom: 24 },
   groupHeading: { fontSize: 13, fontWeight: '700', color: '#FF742A', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica Neue' },
-  groupSub:     { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 10, fontFamily: 'Helvetica Neue' },
+  groupSub:     { fontSize: 12, color: c.textMuted, marginBottom: 10, fontFamily: 'Helvetica Neue' },
 });
