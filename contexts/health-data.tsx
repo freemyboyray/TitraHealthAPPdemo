@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { useHealthKitStore } from '@/stores/healthkit-store';
 import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
@@ -18,7 +19,8 @@ import {
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
-// TODO: Replace with Apple Health data when appleHealthEnabled === true
+// Initial values used before HealthKit data arrives. Overwritten by SYNC_WEARABLE on mount.
+// SpO2 stays at stub (98%) until readLatestSpO2 is added to lib/healthkit.ts.
 const STUB_WEARABLE: WearableData = {
   sleepMinutes: 443,
   hrvMs: 45,
@@ -59,7 +61,9 @@ type Action =
   | { type: 'LOG_INJECTION' }
   | { type: 'LOG_STEPS'; steps: number }
   | { type: 'CLEAR_ACTION' }
-  | { type: 'FETCH_ACTUALS'; actuals: DailyActuals };
+  | { type: 'FETCH_ACTUALS'; actuals: DailyActuals }
+  | { type: 'SYNC_WEARABLE'; wearable: WearableData }
+  | { type: 'SYNC_HK_STEPS'; steps: number };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,6 +120,12 @@ function reducer(state: HealthState, action: Action): HealthState {
       return { ...state, lastLogAction: null };
     case 'FETCH_ACTUALS':
       return recompute({ ...state, actuals: action.actuals, lastLogAction: null });
+    case 'SYNC_WEARABLE':
+      return recompute({ ...state, wearable: { ...state.wearable, ...action.wearable } });
+    case 'SYNC_HK_STEPS': {
+      const steps = Math.max(state.actuals.steps, action.steps);
+      return recompute({ ...state, actuals: { ...state.actuals, steps } });
+    }
     default:
       return state;
   }
@@ -131,12 +141,28 @@ const HealthContext = createContext<HealthContextValue | null>(null);
 
 export function HealthProvider({
   profile,
+  wearable: liveWearable,
   children,
 }: {
   profile: FullUserProfile;
+  wearable?: Partial<WearableData>;
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
+
+  const hkSteps = useHealthKitStore(s => s.steps);
+
+  // Sync live wearable data from HealthKit into scoring engine
+  useEffect(() => {
+    if (!liveWearable || Object.keys(liveWearable).length === 0) return;
+    dispatch({ type: 'SYNC_WEARABLE', wearable: liveWearable as WearableData });
+  }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct]);
+
+  // Sync HealthKit steps — prefer whichever is higher (HealthKit is live; Supabase is manually logged)
+  useEffect(() => {
+    if (hkSteps == null) return;
+    dispatch({ type: 'SYNC_HK_STEPS', steps: hkSteps });
+  }, [hkSteps]);
 
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   useEffect(() => {

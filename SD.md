@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 14, 2026 (rev 6)
+**Last Updated:** March 15, 2026 (rev 7)
 
 ---
 
@@ -182,7 +182,7 @@ TitraHealthAPPdemo/
 │   │                            # breakdown data, coach notes, phase logic, focus cards
 │   └── theme.ts                 # Color tokens + Font definitions
 ├── lib/
-│   ├── supabase.ts              # Supabase client (MemoryStorageAdapter — no native AsyncStorage dep)
+│   ├── supabase.ts              # Supabase client (AsyncStorage session persistence)
 │   ├── openai.ts                # GPT-4o-mini: buildSystemPrompt, callOpenAI, parseFoodDescription,
 │   │                            # generateDynamicInsights, generateCoachNote, generateLogInsight,
 │   │                            # callGPT4oMiniVision (vision/photo flow)
@@ -208,9 +208,10 @@ TitraHealthAPPdemo/
 ### Key Architectural Decisions
 
 - **File-based routing via Expo Router** — screens map directly to files under `app/`.
-- **Supabase auth at root** — `_layout.tsx` wires `onAuthStateChange` and `getSession` into `useUserStore`. Anonymous sign-in is used as a fallback so every user always has a Supabase session.
+- **Supabase auth at root via `AuthGate`** — `_layout.tsx` renders an `AuthGate` component (inside `ProfileProvider`) that subscribes to `supabase.auth.onAuthStateChange`. On sign-in it loads the user's profile; on `SIGNED_OUT` it calls `resetProfile()` and navigates to `/auth/sign-in`. This guarantees auth-driven navigation works even when the user is deep in tabs.
 - **Auth gate in splash** — `app/index.tsx` checks `sessionLoaded` → if no session, redirects to `/auth/sign-in`; then checks `isLoading` + `profile` to route to `/onboarding` or `/(tabs)`.
 - **ProfileProvider at root with in-memory storage** — wraps everything in `_layout.tsx`. Profile is stored in a JS `Map` (not AsyncStorage) to avoid native module issues in dev client. Resets on cold restart; persistent storage should be added in production via a proper native rebuild.
+- **Supabase session persistence (rev 7)** — `lib/supabase.ts` switched from `MemoryStorageAdapter` (in-memory Map) to `AsyncStorage` for session storage. Sessions now persist across app restarts, which is critical for OAuth round-trips where the app briefly backgrounds during the browser auth flow.
 - **AppWithHealth at root** — `_layout.tsx` renders `<AppWithHealth>` (reads `useProfile()`, passes `profile ?? MOCK_PROFILE` to `HealthProvider`) around the full navigator tree. This replaces the previous pattern of `HealthProvider` living inside `(tabs)/_layout.tsx`.
 - **GestureHandlerRootView at root** — wraps entire app in `_layout.tsx` so gesture-based components work everywhere.
 - **AddEntrySheet rendered at tab layout level** — sibling of `<Tabs>`, overlays entire UI including nav bar.
@@ -361,10 +362,10 @@ Shows brand wordmark (`titra`, dark background) with an orange `ActivityIndicato
 **Files:** `app/auth/_layout.tsx`, `app/auth/sign-in.tsx`, `app/auth/sign-up.tsx`
 **Status:** ✅ Built
 
-- **sign-in.tsx** — email/password login via `supabase.auth.signInWithPassword`. OAuth placeholder. Navigates to `/(tabs)` on success.
+- **sign-in.tsx** — email/password login via `supabase.auth.signInWithPassword`. Google OAuth via `expo-auth-session` + `expo-web-browser` (PKCE + implicit flow handling). Apple Sign In via `expo-apple-authentication` + `supabase.auth.signInWithIdToken`. All three paths call `finishOAuth(session)` helper that sets session, loads profile, and navigates to `/(tabs)`.
 - **sign-up.tsx** — email/password registration via `supabase.auth.signUp`. Navigates to `/onboarding` on success.
 - Auth state is managed in `useUserStore` (session, profile row, signOut).
-- The root `_layout.tsx` calls `supabase.auth.onAuthStateChange` to keep `useUserStore` in sync across the session lifecycle.
+- **`AuthGate` component** (rev 7) — `_layout.tsx` renders an `AuthGate` component inside `ProfileProvider` that subscribes to `supabase.auth.onAuthStateChange`. On `SIGNED_OUT` event it calls `resetProfile()` (clears in-memory profile + AsyncStorage) and `router.replace('/auth/sign-in')`, guaranteeing navigation even when the user is deep inside tabs.
 - **Visual polish (rev 5):** Terracotta accent updated from `#C4784B` → `#D67455`; `Helvetica Neue` applied as explicit `fontFamily` across all text styles; button style renamed to `primaryBtn` / `primaryBtnText`.
 
 ---
@@ -465,12 +466,24 @@ Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has ca
 
 ### 6.5 AI Chat Screen
 
-**File:** `app/ai-chat.tsx`
+**File:** `app/ai-chat.tsx` + `components/ai-chat-overlay.tsx`
 **Status:** ✅ Built — fully wired to GPT-4o-mini via `lib/openai.ts`
 
-Modal screen. Accepts optional `?type=recovery|support` route param (navigated from Score Detail).
+`app/ai-chat.tsx` is a standalone modal screen (navigated from Score Detail via route param). `components/ai-chat-overlay.tsx` is a floating overlay triggered by tapping any metric card on the Home or Insights screens.
 
-**Features:**
+**AI Chat Overlay features (rev 7 redesign):**
+- **Minimal floating UI** — blur backdrop + bottom input card + floating chat bubbles
+- **Top-left controls** — X close button (left: 16) + clock history button (gap: 8, same row)
+- **Image upload** — camera icon (`handlePickCamera` via `ImagePicker.launchCameraAsync`) + attach icon (`handlePickLibrary` via `ImagePicker.launchImageLibraryAsync`); both capture base64 + URI; thumbnail preview above input with dismiss X; sending with image calls `callGPT4oMiniVision` instead of `callOpenAI`; image shown in user bubble
+- **Chat history** — clock button opens history panel; messages fetched from Supabase `chat_messages` table; grouped into conversations by 30-minute time gaps (`groupIntoConversations()`); each conversation shown as a card with preview text, date, and message count; "Resume conversation" loads past messages into active chat with a "Resumed from [date]" banner
+- **Context labels** — overlay launched with a `contextLabel`/`contextValue` pair (e.g., "Protein: 45g") shown as an orange badge above the input
+
+**Card tap-to-ask (rev 7):**
+- "Ask AI" text and explicit buttons removed from all cards
+- Cards themselves are wrapped in `Pressable` — tapping any metric card opens the AI overlay with that card's data as context
+- Applies to: `HealthMetricCard` (home), all Insights screen cards (`MetricCard`, `DailyMetricCard`, `InjectionCard`, `WeightChartCard`, etc.)
+
+**`app/ai-chat.tsx` features:**
 - **Context strip** — orange badge at top showing score + phase when launched from a score detail screen
 - **Type-aware prompt chips** — `RECOVERY_CHIPS`, `READINESS_CHIPS`, or `GENERIC_CHIPS` based on `type` param
 - **Chat interface** — full message history with user (orange) / assistant (dark) bubbles, loading state, auto-scroll
@@ -780,7 +793,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **ProfileProvider** — in-memory persistence, draft accumulation, `completeOnboarding`
 - [x] **Splash gate** — session + profile check; routes to auth / onboarding / tabs
 - [x] **Auth flow** — sign-in / sign-up screens wired to Supabase Auth
-- [x] **Supabase integration** — `lib/supabase.ts` (MemoryStorageAdapter); `useUserStore` (session); `useLogStore` (all CRUD); `lib/database.types.ts`
+- [x] **Supabase integration** — `lib/supabase.ts` (AsyncStorage session persistence); `useUserStore` (session); `useLogStore` (all CRUD); `lib/database.types.ts`
 - [x] **Zustand stores** — `log-store`, `insights-store`, `user-store` all implemented
 - [x] **FullUserProfile data model** — replaces old minimal UserProfile
 - [x] **Personalized scoring engine** — weight-based protein/hydration, activity-driven steps, dose/medication multipliers, side effect adjustments
@@ -812,6 +825,13 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Auth screen polish** — terracotta `#D67455`, Helvetica Neue font, `primaryBtn` style rename, shadow/opacity tweaks
 - [x] **Arc gauge SVG fix** — `largeArc` hardcoded to `0` in `log-activity.tsx` to prevent rendering glitch at 50% threshold
 - [x] **Light/dark mode toggle** — persistent app-wide theme system; Settings → Appearance → Light Mode switch; `AppThemeProvider` + `useAppTheme()` hook; `AppColors` palette type with `isDark` flag; `w(alpha)` helper pattern flips all `rgba(255,255,255,X)` → `rgba(0,0,0,X)` in light mode; all 50+ screens and components converted; orange `#FF742A` unchanged in both modes; preference persisted via `stores/preferences-store.ts` (AsyncStorage); `StatusBar` style wired to theme
+- [x] **AI Chat Overlay redesign (rev 7)** — floating minimal UI (blur backdrop, bottom input card, floating bubbles); top-left X + history clock controls; image upload via camera + photo library (`expo-image-picker`); thumbnail preview + dismiss; vision path calls `callGPT4oMiniVision`; image shown in user bubble; chat history panel groups messages into conversations by 30-min time gaps; conversation cards show preview/date/count + "Resume conversation"; resuming pre-loads past messages with banner
+- [x] **Card tap-to-ask AI (rev 7)** — removed "Ask AI" text buttons from all cards (Home + Insights screens); cards themselves wrapped in `Pressable` to open overlay with metric context; applies to `HealthMetricCard`, `MetricCard`, `DailyMetricCard`, `InjectionCard`, `WeightChartCard`, `WeightTimelineCard`, `MedLevelChartCard`, `ProgressStatCard`
+- [x] **Gray card backgrounds (rev 7)** — "Today's Focuses" cards and all Score Breakdown metric cards now use `c.surface` (lifted gray) instead of `c.bg` (pure page background); applied in `index.tsx` (`focusCardInner`) and `score-detail.tsx` (`createCardStyles`, `createFocusStyles`, `coachBody`)
+- [x] **Sign-out navigation (rev 7)** — `AuthGate` inside `ProfileProvider` listens for Supabase `SIGNED_OUT` event; calls `resetProfile()` (clears AsyncStorage + in-memory state) then `router.replace('/auth/sign-in')`; sign-out button in Settings now correctly navigates user out
+- [x] **Google + Apple Sign In functional (rev 7)** — Google OAuth via `expo-auth-session` + `expo-web-browser` with `makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' })`, handles PKCE (code exchange) and implicit (hash token) flows; Apple Sign In via `expo-apple-authentication` + `supabase.auth.signInWithIdToken`; both protected by `checkSupabaseConfigured()` guard; `try/finally` ensures loading states always clear
+- [x] **Apple Health toggle functional (rev 7)** — Settings → Integrations → Apple Health is a live `Switch`; toggle ON calls `requestPermissions()` (HealthKit); if granted sets `appleHealthEnabled` in preferences store + calls `fetchAll()`; if denied shows system Settings alert; `(tabs)/_layout.tsx` only calls `fetchHealthData()` on launch when `appleHealthEnabled` is true; `appleHealthEnabled` added to `preferences-store.ts`
+- [x] **Supabase session persistence via AsyncStorage (rev 7)** — `lib/supabase.ts` switched from `MemoryStorageAdapter` to `AsyncStorage`; sessions persist across app restarts; required for OAuth round-trips where app backgrounds during browser auth flow
 
 ### In Progress / Partially Done
 
@@ -829,7 +849,6 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [ ] Notification system (injection reminders, daily check-in, craving-day alerts)
 - [ ] Photo-based food recognition full pipeline polish
 - [ ] Supabase profile persistence (currently in-memory — needs native rebuild or SecureStore)
-- [ ] User account screen (settings, reset profile, sign out)
 
 ---
 
@@ -837,7 +856,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 | Integration | Purpose | Library / Service | Status |
 |---|---|---|---|
-| Health data (steps, HRV, sleep) | Apple Health live reads | `@kingstinct/react-native-healthkit` | ⚠️ Installed, not wired |
+| Health data (steps, HRV, sleep) | Apple Health live reads | `@kingstinct/react-native-healthkit` | ⚠️ Permission toggle wired; live data reads not yet surfaced to UI |
 | Barcode scanning | Food product lookup | `expo-camera` + USDA FoodData Central | ✅ Built |
 | Food database | Nutritional info lookup | USDA FoodData Central (`lib/usda.ts`) | ✅ Built |
 | AI food description | Text parsing via GPT-4o-mini | `lib/openai.ts` — `parseFoodDescription` | ✅ Built |
@@ -883,4 +902,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 9, 2026 (rev 5). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 15, 2026 (rev 7). It should be updated as features are built and decisions are made.*

@@ -1,9 +1,11 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
+  Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,75 +16,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
-import { daysSinceInjection } from '@/constants/scoring';
-import { buildSystemPrompt, callOpenAI } from '@/lib/openai';
+import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const PANEL_HEIGHT = SCREEN_HEIGHT * 0.88;
-
-// ─── Chip pools ───────────────────────────────────────────────────────────────
-
-const RECOVERY_CHIPS = [
-  'Why is my HRV lower than usual?',
-  'What can I do to sleep better tonight?',
-  'Is my recovery score normal for peak phase?',
-  'How does GLP-1 affect my resting heart rate?',
-  'What causes low SpO₂ readings?',
-  'Tips to improve deep sleep quality',
-];
-
-const READINESS_CHIPS = [
-  'How much more protein should I eat?',
-  'Why is hydration so important on GLP-1?',
-  'What does my readiness score mean today?',
-  'How do I hit my daily fiber target?',
-  'Why should I log my injection?',
-  'How does movement affect my score?',
-];
-
-const INSIGHT_CHIPS = [
-  'Tell me more about this',
-  'Give me a detailed action plan',
-  'What should I prioritize today?',
-  'How does this relate to my medication phase?',
-  'What progress should I expect?',
-  'How can I improve this metric?',
-];
-
-const METRIC_CHIPS = [
-  'How can I improve this?',
-  'Is this typical for my phase?',
-  'How does GLP-1 affect this?',
-  'What does this mean for my health?',
-  'Should I be concerned?',
-  'What trends should I watch?',
-];
-
-const GENERIC_CHIPS = [
-  'Analyze my recent health trends',
-  'Why might I be feeling nauseous?',
-  'What should I eat today?',
-  'How is my medication working?',
-  'Tips to improve my HRV score',
-  'Help me understand my sleep data',
-];
+const SESSION_GAP_MS = 30 * 60 * 1000; // 30 min gap = new conversation
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,33 +36,114 @@ type Message = {
   content: string;
   contextLabel?: string;
   contextValue?: string;
+  imageUri?: string;
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+type HistoryMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+};
 
-function AiOrb({ blurTint }: { blurTint: 'dark' | 'light' }) {
+type Conversation = {
+  id: string;              // first message id
+  messages: HistoryMessage[];
+  startedAt: string;       // ISO timestamp of first message
+  preview: string;         // first user message (truncated)
+  messageCount: number;
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function groupIntoConversations(flat: HistoryMessage[]): Conversation[] {
+  if (flat.length === 0) return [];
+
+  const convs: Conversation[] = [];
+  let current: HistoryMessage[] = [flat[0]];
+
+  for (let i = 1; i < flat.length; i++) {
+    const prevTs = new Date(flat[i - 1].created_at).getTime();
+    const currTs = new Date(flat[i].created_at).getTime();
+    if (currTs - prevTs > SESSION_GAP_MS) {
+      convs.push(buildConv(current));
+      current = [flat[i]];
+    } else {
+      current.push(flat[i]);
+    }
+  }
+  convs.push(buildConv(current));
+
+  // Most recent first
+  return convs.reverse();
+}
+
+function buildConv(msgs: HistoryMessage[]): Conversation {
+  const firstUser = msgs.find(m => m.role === 'user');
+  return {
+    id: msgs[0].id,
+    messages: msgs,
+    startedAt: msgs[0].created_at,
+    preview: firstUser?.content ?? '…',
+    messageCount: msgs.length,
+  };
+}
+
+function formatConvDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (diffDays === 0) return `Today, ${time}`;
+  if (diffDays === 1) return `Yesterday, ${time}`;
+  if (diffDays < 7) {
+    return `${d.toLocaleDateString([], { weekday: 'long' })}, ${time}`;
+  }
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
+// ─── Typing bubble ────────────────────────────────────────────────────────────
+
+function TypingBubble() {
+  const dots = [
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+  ];
+
+  useEffect(() => {
+    const anims = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 140),
+          Animated.timing(dot, { toValue: -6, duration: 260, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 260, useNativeDriver: true }),
+          Animated.delay((2 - i) * 140 + 100),
+        ])
+      )
+    );
+    anims.forEach(a => a.start());
+    return () => anims.forEach(a => a.stop());
+  }, []);
+
   return (
-    <View style={os.orbShadow}>
-      <View style={os.orb}>
-        <BlurView intensity={30} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,116,42,0.88)' }]} />
-        <GlassBorder r={40} />
-        <View style={os.orbShine} />
-        <View style={os.orbShineSmall} />
-      </View>
+    <View style={{ flexDirection: 'row', gap: 5, paddingHorizontal: 14, paddingVertical: 14 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: 3.5,
+            backgroundColor: 'rgba(255,116,42,0.7)',
+            transform: [{ translateY: dot }],
+          }}
+        />
+      ))}
     </View>
   );
 }
-
-const os = StyleSheet.create({
-  orbShadow: {
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45, shadowRadius: 18, elevation: 10, marginBottom: 20,
-  },
-  orb: { width: 80, height: 80, borderRadius: 40, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  orbShine: { position: 'absolute', top: 12, right: 14, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.25)' },
-  orbShineSmall: { position: 'absolute', top: 28, right: 22, width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.15)' },
-});
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
@@ -128,44 +154,48 @@ export function AiChatOverlay() {
   const { aiChatOpen, aiChatParams, closeAiChat } = useUiStore();
   const insets = useSafeAreaInsets();
   const healthData = useHealthData();
-  const { profile } = healthData;
 
   // ─── Animation values ─────────────────────────────────────────────────────
-  const translateY = useSharedValue(SCREEN_HEIGHT);
-  const overlayOpacity = useSharedValue(0);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const inputTranslateY = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
     if (aiChatOpen) {
-      overlayOpacity.value = withTiming(1, { duration: 200 });
-      translateY.value = withSpring(0, { damping: 26, stiffness: 280, mass: 0.8 });
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(inputTranslateY, { toValue: 0, duration: 240, useNativeDriver: true }),
+      ]).start();
     }
   }, [aiChatOpen]);
 
   function handleDismiss() {
-    translateY.value = withTiming(SCREEN_HEIGHT, { duration: 320, easing: Easing.in(Easing.cubic) },
-      () => runOnJS(closeAiChat)());
-    overlayOpacity.value = withTiming(0, { duration: 280 });
+    Animated.parallel([
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(inputTranslateY, { toValue: 40, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      closeAiChat();
+      overlayOpacity.setValue(0);
+      inputTranslateY.setValue(40);
+    });
   }
-
-  const outerStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value,
-  }));
-
-  const panelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
 
   // ─── Chat state ───────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [pillVisible, setPillVisible] = useState(false);
-  const [promptIndex, setPromptIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<{ uri: string; base64: string } | null>(null);
+  const [resumedFrom, setResumedFrom] = useState<string | null>(null); // date label of resumed conv
   const inputRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
   const wasOpenRef = useRef(false);
   const seedSentRef = useRef(false);
+
+  // ─── History state ────────────────────────────────────────────────────────
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // ─── Load user ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -179,7 +209,9 @@ export function AiChatOverlay() {
     if (aiChatOpen && !wasOpenRef.current) {
       setMessages([]);
       setInputText('');
-      setPromptIndex(0);
+      setPendingImage(null);
+      setShowHistory(false);
+      setResumedFrom(null);
       setPillVisible(!!aiChatParams.contextLabel);
       seedSentRef.current = false;
     }
@@ -196,39 +228,46 @@ export function AiChatOverlay() {
 
   // ─── Auto-focus ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (aiChatOpen) {
+    if (aiChatOpen && !showHistory) {
       const t = setTimeout(() => inputRef.current?.focus(), 150);
       return () => clearTimeout(t);
     }
-  }, [aiChatOpen]);
+  }, [aiChatOpen, showHistory]);
 
-  // ─── Chip pool ────────────────────────────────────────────────────────────
-  let chipPool: string[] = GENERIC_CHIPS;
-  const { type, chips: chipsParam } = aiChatParams;
-  if (chipsParam) {
-    try {
-      const parsed = JSON.parse(chipsParam);
-      if (Array.isArray(parsed) && parsed.length > 0) chipPool = parsed;
-    } catch {}
-  } else if (type === 'insight' || type === 'focus') {
-    chipPool = INSIGHT_CHIPS;
-  } else if (type === 'metric') {
-    chipPool = METRIC_CHIPS;
-  } else if (type === 'recovery') {
-    chipPool = RECOVERY_CHIPS;
-  } else if (type === 'support') {
-    chipPool = READINESS_CHIPS;
+  // ─── Load history when panel opens ────────────────────────────────────────
+  useEffect(() => {
+    if (!showHistory || !userId) return;
+    setHistoryLoading(true);
+    supabase
+      .from('chat_messages')
+      .select('id, role, content, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        const flat = (data ?? []) as HistoryMessage[];
+        setConversations(groupIntoConversations(flat));
+        setHistoryLoading(false);
+      });
+  }, [showHistory, userId]);
+
+  // ─── Resume a conversation ─────────────────────────────────────────────────
+  function resumeConversation(conv: Conversation) {
+    const mapped: Message[] = conv.messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+    setMessages(mapped);
+    setResumedFrom(formatConvDate(conv.startedAt));
+    setShowHistory(false);
+    // Scroll to end after layout
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 120);
   }
-
-  const maxPage = Math.floor((chipPool.length - 1) / 2);
-  const currentPrompts = chipPool.slice(promptIndex * 2, promptIndex * 2 + 2);
-  const handleRefresh = () => setPromptIndex(p => (p >= maxPage ? 0 : p + 1));
 
   // ─── System prompt ────────────────────────────────────────────────────────
   function makeSystemPrompt(): string {
-    const isRecovery = type === 'recovery';
+    const { type } = aiChatParams;
     const hasLegacyType = type === 'recovery' || type === 'support';
-    const typeArg = hasLegacyType ? (isRecovery ? 'recovery' : 'support') : undefined;
+    const typeArg = hasLegacyType ? (type as 'recovery' | 'support') : undefined;
     const base = buildSystemPrompt(healthData, typeArg);
 
     const { contextLabel, contextValue } = aiChatParams;
@@ -249,28 +288,63 @@ export function AiChatOverlay() {
     return base;
   }
 
+  // ─── Image pickers ────────────────────────────────────────────────────────
+  async function handlePickCamera() {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'] as any,
+      base64: true,
+      quality: 0.6,
+    });
+    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
+      setPendingImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    }
+  }
+
+  async function handlePickLibrary() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      base64: true,
+      quality: 0.6,
+    });
+    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
+      setPendingImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    }
+  }
+
   // ─── Send message ─────────────────────────────────────────────────────────
   async function sendMessage(userText: string) {
-    if (!userText.trim() || loading) return;
+    if ((!userText.trim() && !pendingImage) || loading) return;
+    const text = userText.trim() || 'What is this?';
     const activeLabel = pillVisible && aiChatParams.contextLabel ? aiChatParams.contextLabel : undefined;
     const activeValue = pillVisible && aiChatParams.contextValue ? aiChatParams.contextValue : undefined;
-    const newMessages: Message[] = [...messages, {
+    const imageUri = pendingImage?.uri;
+    const imageBase64 = pendingImage?.base64;
+
+    const newMsg: Message = {
       role: 'user',
-      content: userText,
+      content: text,
       contextLabel: activeLabel,
       contextValue: activeValue,
-    }];
+      imageUri,
+    };
+    const newMessages: Message[] = [...messages, newMsg];
     setMessages(newMessages);
     setInputText('');
+    setPendingImage(null);
     setLoading(true);
 
     if (userId) {
-      supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: userText }).then(() => {});
+      supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: text }).then(() => {});
     }
 
     try {
       const systemPrompt = makeSystemPrompt();
-      const response = await callOpenAI(newMessages, systemPrompt);
+      let response: string;
+      if (imageBase64) {
+        response = await callGPT4oMiniVision(systemPrompt, imageBase64, text);
+      } else {
+        response = await callOpenAI(newMessages, systemPrompt);
+      }
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
       if (userId) {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
@@ -283,126 +357,138 @@ export function AiChatOverlay() {
     }
   }
 
-  // ─── Phase label ──────────────────────────────────────────────────────────
-  const dayNum = daysSinceInjection(profile.lastInjectionDate);
-  const freq = profile.injectionFrequencyDays;
-  const greetingLabel = aiChatParams.contextLabel
-    ? `About your\n${aiChatParams.contextLabel}`
-    : 'Good morning,\nHow can I help?';
-
-  // Don't render at all if never opened
-  if (!aiChatOpen && translateY.value === SCREEN_HEIGHT) {
-    // Still need to mount so animations work; render but invisible
-  }
+  const iconColor = colors.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)';
+  const closeIconColor = colors.isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+  const canSend = inputText.trim().length > 0 || !!pendingImage;
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }, outerStyle]}
+      style={[StyleSheet.absoluteFillObject, { zIndex: 9999, opacity: overlayOpacity }]}
       pointerEvents={aiChatOpen ? 'auto' : 'none'}
     >
-      {/* Backdrop */}
+      {/* Full-screen blur backdrop — tap to dismiss */}
       <Pressable style={StyleSheet.absoluteFillObject} onPress={handleDismiss}>
         <BlurView intensity={25} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
       </Pressable>
 
-      {/* Panel */}
-      <Animated.View style={[s.panelWrap, panelStyle]}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <View style={s.panel}>
-            <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, s.panelOverlay]} />
-            <GlassBorder r={28} />
+      {/* Top-left button row: X close + clock history */}
+      <View style={[s.topFloatRow, { top: insets.top + 12 }]}>
+        <Pressable onPress={handleDismiss} hitSlop={12} style={s.floatBtn}>
+          <Ionicons name="close" size={20} color={closeIconColor} />
+        </Pressable>
+        <Pressable onPress={() => setShowHistory(true)} hitSlop={12} style={s.floatBtn}>
+          <Ionicons name="time-outline" size={20} color={closeIconColor} />
+        </Pressable>
+      </View>
 
-            {/* Top bar */}
-            <View style={s.topBar}>
-              <Pressable onPress={handleDismiss} hitSlop={12} style={s.closeBtn}>
-                <Ionicons name="close" size={22} color={colors.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)'} />
+      <KeyboardAvoidingView
+        style={s.overlayContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        {showHistory ? (
+          /* ── History: conversation list ─────────────────────────────────── */
+          <View style={s.historyPanel}>
+            <View style={[s.historyTopBar, { paddingTop: insets.top + 8 }]}>
+              <Pressable onPress={() => setShowHistory(false)} hitSlop={12} style={s.floatBtn}>
+                <Ionicons name="arrow-back" size={20} color={closeIconColor} />
               </Pressable>
-              <Text style={s.title}>Ask AI</Text>
+              <Text style={s.historyTitle}>Chat History</Text>
               <View style={{ width: 44 }} />
             </View>
 
-            {/* Content */}
-            {messages.length === 0 && !loading ? (
-              <>
-                <View style={s.heroSection}>
-                  <AiOrb blurTint={colors.blurTint} />
-                  <Text style={s.greeting}>{greetingLabel}</Text>
-                  <Text style={s.subtitle}>Choose a prompt or write your own</Text>
-                </View>
-
-                <View style={s.chipsRow}>
-                  {currentPrompts.map((p) => (
-                    <TouchableOpacity key={p} style={s.chipShadow} activeOpacity={0.75} onPress={() => setInputText(p)}>
-                      <View style={s.chip}>
-                        <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 16, backgroundColor: colors.glassOverlay }]} />
-                        <GlassBorder r={16} />
-                        <Text style={s.chipText}>{p}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity style={s.refreshRow} onPress={handleRefresh} activeOpacity={0.7}>
-                  <Ionicons name="refresh-outline" size={16} color={ORANGE} />
-                  <Text style={s.refreshText}>Refresh prompts</Text>
-                </TouchableOpacity>
-
-                <View style={{ flex: 1 }} />
-              </>
+            {historyLoading ? (
+              <ActivityIndicator style={{ marginTop: 40 }} color={ORANGE} />
+            ) : conversations.length === 0 ? (
+              <View style={s.historyEmptyWrap}>
+                <Ionicons name="chatbubble-outline" size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'} />
+                <Text style={s.historyEmpty}>No past conversations yet.</Text>
+                <Text style={s.historyEmptySub}>Your chat history will appear here.</Text>
+              </View>
             ) : (
               <ScrollView
-                ref={scrollRef}
-                style={{ flex: 1 }}
-                contentContainerStyle={s.chatContent}
+                contentContainerStyle={s.convListContent}
                 showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
               >
-                {messages.map((msg, i) => (
-                  <View key={i} style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}>
-                    {msg.role === 'assistant' && (
-                      <View style={s.bubbleAvatarWrap}>
-                        <View style={s.bubbleAvatar} />
+                {conversations.map((conv) => (
+                  <TouchableOpacity
+                    key={conv.id}
+                    activeOpacity={0.75}
+                    style={s.convCard}
+                    onPress={() => resumeConversation(conv)}
+                  >
+                    <View style={s.convCardInner}>
+                      <View style={s.convMeta}>
+                        <Text style={s.convDate}>{formatConvDate(conv.startedAt)}</Text>
+                        <View style={s.convCountBadge}>
+                          <Text style={s.convCountText}>{conv.messageCount}</Text>
+                        </View>
                       </View>
-                    )}
-                    <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
-                      {msg.role === 'user' && msg.contextLabel && (
-                        <>
-                          <View style={s.bubbleContextTag}>
-                            <View style={s.bubbleContextDot} />
-                            <Text style={s.bubbleContextText} numberOfLines={1}>
-                              {msg.contextLabel}{msg.contextValue ? ` · ${msg.contextValue}` : ''}
-                            </Text>
-                          </View>
-                          <View style={s.bubbleContextDivider} />
-                        </>
-                      )}
-                      <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
-                        {msg.content}
-                      </Text>
+                      <Text style={s.convPreview} numberOfLines={2}>{conv.preview}</Text>
+                      <View style={s.convResumePill}>
+                        <Ionicons name="arrow-forward" size={12} color={ORANGE} />
+                        <Text style={s.convResumeText}>Resume conversation</Text>
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
-                {loading && (
-                  <View style={[s.bubbleRow, s.bubbleRowAssistant]}>
-                    <View style={s.bubbleAvatarWrap}>
-                      <View style={s.bubbleAvatar} />
-                    </View>
-                    <View style={[s.bubble, s.bubbleAssistant, s.bubbleLoading]}>
-                      <ActivityIndicator size="small" color={ORANGE} />
-                    </View>
-                  </View>
-                )}
               </ScrollView>
             )}
+          </View>
+        ) : (
+          /* ── Normal chat ─────────────────────────────────────────────────── */
+          <>
+            <ScrollView
+              ref={scrollRef}
+              style={s.messagesArea}
+              contentContainerStyle={s.chatContent}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {/* Resumed-from banner */}
+              {resumedFrom && messages.length > 0 && (
+                <View style={s.resumedBanner}>
+                  <Ionicons name="time-outline" size={13} color={ORANGE} />
+                  <Text style={s.resumedBannerText}>Resumed from {resumedFrom}</Text>
+                </View>
+              )}
 
-            {/* Input card */}
-            <View style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4 }]}>
+              {messages.map((msg, i) => (
+                <View key={i} style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}>
+                  <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
+                    {msg.role === 'user' && msg.imageUri && (
+                      <Image source={{ uri: msg.imageUri }} style={s.bubbleImage} />
+                    )}
+                    {msg.role === 'user' && msg.contextLabel && (
+                      <>
+                        <View style={s.bubbleContextTag}>
+                          <View style={s.bubbleContextDot} />
+                          <Text style={s.bubbleContextText} numberOfLines={1}>
+                            {msg.contextLabel}{msg.contextValue ? ` · ${msg.contextValue}` : ''}
+                          </Text>
+                        </View>
+                        <View style={s.bubbleContextDivider} />
+                      </>
+                    )}
+                    <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
+                      {msg.content}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {loading && (
+                <View style={[s.bubbleRow, s.bubbleRowAssistant]}>
+                  <View style={[s.bubble, s.bubbleAssistant, { paddingHorizontal: 0, paddingVertical: 0 }]}>
+                    <TypingBubble />
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Input card — pinned at bottom */}
+            <Animated.View
+              style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4, transform: [{ translateY: inputTranslateY }] }]}
+            >
               <View style={[s.inputCardShadow, glassShadow]}>
                 <View style={[s.inputCard, { backgroundColor: colors.surface }]}>
                   <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
@@ -420,50 +506,55 @@ export function AiChatOverlay() {
                         </Pressable>
                       </View>
                     )}
+                    {/* Image preview */}
+                    {pendingImage && (
+                      <View style={s.imagePreviewRow}>
+                        <Image source={{ uri: pendingImage.uri }} style={s.imageThumb} />
+                        <Pressable onPress={() => setPendingImage(null)} hitSlop={8} style={s.imageThumbClose}>
+                          <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.9)" />
+                        </Pressable>
+                      </View>
+                    )}
                     <TextInput
                       ref={inputRef}
                       style={s.textInput}
                       value={inputText}
                       onChangeText={setInputText}
-                      placeholder="Ask anything about your health…"
+                      placeholder={resumedFrom ? 'Continue the conversation…' : 'Ask anything about your health…'}
                       placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'}
                       multiline
                       returnKeyType="send"
                       onSubmitEditing={() => sendMessage(inputText)}
                     />
                     <View style={s.inputBottomRow}>
-                      <View style={s.modePill}>
-                        <Ionicons name="chevron-down" size={14} color={colors.textPrimary} style={{ marginRight: 3 }} />
-                        <Text style={s.modePillText}>Coach</Text>
-                      </View>
                       <View style={s.inputIcons}>
-                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                          <Ionicons name="camera-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
+                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn} onPress={handlePickCamera}>
+                          <Ionicons name="camera-outline" size={22} color={iconColor} />
                         </TouchableOpacity>
-                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                          <MaterialIcons name="attach-file" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          activeOpacity={inputText.trim().length > 0 ? 0.7 : 1}
-                          style={[s.iconBtn, s.sendBtn, inputText.trim().length > 0 && s.sendBtnActive]}
-                          onPress={() => sendMessage(inputText)}
-                        >
-                          <Ionicons
-                            name="arrow-up"
-                            size={18}
-                            color={inputText.trim().length > 0 ? '#000000' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
-                          />
+                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn} onPress={handlePickLibrary}>
+                          <MaterialIcons name="attach-file" size={22} color={iconColor} />
                         </TouchableOpacity>
                       </View>
+                      <TouchableOpacity
+                        activeOpacity={canSend ? 0.7 : 1}
+                        style={[s.sendBtn, canSend && s.sendBtnActive]}
+                        onPress={() => sendMessage(inputText)}
+                      >
+                        <Ionicons
+                          name="arrow-up"
+                          size={18}
+                          color={canSend ? '#000000' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
+                        />
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
               </View>
               <Text style={s.disclaimer}>AI responses are not medical advice. Always consult your doctor.</Text>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
+            </Animated.View>
+          </>
+        )}
+      </KeyboardAvoidingView>
     </Animated.View>
   );
 }
@@ -481,115 +572,53 @@ const glassShadow = {
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-  panelWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: PANEL_HEIGHT,
-  },
-  panel: {
+  overlayContainer: {
     flex: 1,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: c.bg,
+    justifyContent: 'flex-end',
   },
-  panelOverlay: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: 'rgba(14,12,10,0.72)',
+  messagesArea: {
+    flex: 1,
+    paddingTop: 60,
   },
 
-  topBar: {
+  // ── Top-left button row ──────────────────────────────────────────────────
+  topFloatRow: {
+    position: 'absolute',
+    left: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    gap: 8,
+    zIndex: 10,
   },
-  closeBtn: {
+  floatBtn: {
     width: 44,
     height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '700',
-    color: c.textPrimary,
-    letterSpacing: -0.2,
+    backgroundColor: c.isDark ? 'rgba(30,30,30,0.85)' : 'rgba(240,240,240,0.85)',
   },
 
-  heroSection: {
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
-  },
-  greeting: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: c.textPrimary,
-    textAlign: 'center',
-    letterSpacing: -0.5,
-    lineHeight: 32,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: w(0.35),
-    textAlign: 'center',
-    fontWeight: '400',
-  },
-
-  chipsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  chipShadow: {
-    flex: 1,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  chip: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    minHeight: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: c.textPrimary,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-
-  refreshRow: {
+  // ── Resumed banner ───────────────────────────────────────────────────────
+  resumedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     alignSelf: 'center',
-    marginTop: 14,
-    gap: 5,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255,116,42,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.20)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
   },
-  refreshText: {
-    fontSize: 13,
-    fontWeight: '600',
+  resumedBannerText: {
+    fontSize: 12,
     color: ORANGE,
+    fontWeight: '500',
   },
 
+  // ── Chat bubbles ─────────────────────────────────────────────────────────
   chatContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -603,14 +632,6 @@ const createStyles = (c: AppColors) => {
   },
   bubbleRowUser: { justifyContent: 'flex-end' },
   bubbleRowAssistant: { justifyContent: 'flex-start' },
-  bubbleAvatarWrap: { marginBottom: 2 },
-  bubbleAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: ORANGE,
-    opacity: 0.85,
-  },
   bubble: {
     maxWidth: '78%',
     borderRadius: 18,
@@ -622,14 +643,10 @@ const createStyles = (c: AppColors) => {
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: c.isDark ? '#1A1A1A' : 'rgba(240,240,240,0.95)',
     borderWidth: 0.5,
-    borderColor: c.ringTrack,
+    borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
     borderBottomLeftRadius: 4,
-  },
-  bubbleLoading: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   bubbleText: {
     fontSize: 15,
@@ -637,7 +654,12 @@ const createStyles = (c: AppColors) => {
   },
   bubbleTextUser: { color: '#FFFFFF', fontWeight: '500' },
   bubbleTextAssistant: { color: w(0.85), fontWeight: '400' },
-
+  bubbleImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 6,
+  },
   bubbleContextTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -648,22 +670,39 @@ const createStyles = (c: AppColors) => {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(255,255,255,0.6)', // on orange bubble — stays white
+    backgroundColor: 'rgba(255,255,255,0.6)',
     flexShrink: 0,
   },
   bubbleContextText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.65)', // on orange bubble — stays white
+    color: 'rgba(255,255,255,0.65)',
     letterSpacing: 0.2,
     flex: 1,
   },
   bubbleContextDivider: {
     height: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.25)', // on orange bubble — stays white
+    backgroundColor: 'rgba(255,255,255,0.25)',
     marginBottom: 8,
   },
 
+  // ── Image preview ────────────────────────────────────────────────────────
+  imagePreviewRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  imageThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+  },
+  imageThumbClose: {
+    position: 'absolute',
+    top: -4,
+    left: 48,
+  },
+
+  // ── Input card ───────────────────────────────────────────────────────────
   inputWrapper: { paddingHorizontal: 16 },
   inputCardShadow: { borderRadius: 24 },
   inputCard: { borderRadius: 24, overflow: 'hidden' },
@@ -719,19 +758,16 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'space-between',
     marginTop: 8,
   },
-  modePill: {
+  inputIcons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.borderSubtle,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: w(0.10),
+    gap: 4,
   },
-  modePillText: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
-  inputIcons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconBtn: { padding: 4 },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sendBtn: {
     width: 34,
     height: 34,
@@ -747,6 +783,99 @@ const createStyles = (c: AppColors) => {
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 15,
+  },
+
+  // ── History panel ────────────────────────────────────────────────────────
+  historyPanel: { flex: 1 },
+  historyTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  historyTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: c.textPrimary,
+  },
+  historyEmptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 80,
+    gap: 10,
+  },
+  historyEmpty: {
+    textAlign: 'center',
+    color: w(0.5),
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  historyEmptySub: {
+    textAlign: 'center',
+    color: w(0.3),
+    fontSize: 13,
+  },
+
+  // ── Conversation list ────────────────────────────────────────────────────
+  convListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 40,
+    gap: 10,
+  },
+  convCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    borderWidth: 1,
+    borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+  },
+  convCardInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 6,
+  },
+  convMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  convDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: w(0.45),
+    letterSpacing: 0.2,
+  },
+  convCountBadge: {
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  convCountText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: w(0.4),
+  },
+  convPreview: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: w(0.75),
+    fontWeight: '400',
+  },
+  convResumePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
+  convResumeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: ORANGE,
   },
   });
 };

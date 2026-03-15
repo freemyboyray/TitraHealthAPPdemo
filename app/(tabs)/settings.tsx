@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { requestNotificationPermission } from '@/lib/notifications';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useRemindersStore } from '@/stores/reminders-store';
 import { useUserStore } from '@/stores/user-store';
+import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useMemo } from 'react';
@@ -16,7 +17,8 @@ const ORANGE = '#FF742A';
 export default function SettingsScreen() {
   const { profile, session, signOut } = useUserStore();
   const { masterEnabled, setMasterEnabled } = useRemindersStore();
-  const { isLightMode, toggleLightMode } = usePreferencesStore();
+  const { isLightMode, toggleLightMode, appleHealthEnabled, setAppleHealthEnabled } = usePreferencesStore();
+  const { permissionsGranted, requestPermissions, fetchAll, lastRefreshed } = useHealthKitStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -34,12 +36,37 @@ export default function SettingsScreen() {
     setMasterEnabled(value);
   }
 
+  async function handleAppleHealthToggle(value: boolean) {
+    if (!value) {
+      setAppleHealthEnabled(false);
+      return;
+    }
+
+    if (Platform.OS !== 'ios') {
+      Alert.alert('Not Available', 'Apple Health is only available on iOS.');
+      return;
+    }
+
+    const granted = await requestPermissions();
+    if (granted) {
+      setAppleHealthEnabled(true);
+      fetchAll();
+    } else {
+      Alert.alert(
+        'Permission Required',
+        'Please allow access in Settings → Privacy & Security → Health → Titra, then try again.',
+        [{ text: 'OK' }],
+      );
+    }
+  }
+
   async function handleSignOut() {
     Alert.alert('Sign Out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign Out', style: 'destructive',
-        onPress: () => signOut(),
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => { signOut(); },
       },
     ]);
   }
@@ -120,15 +147,30 @@ export default function SettingsScreen() {
 
         {/* Apple Health row */}
         <View style={s.card}>
-          <TouchableOpacity style={s.cardRow} activeOpacity={0.7}>
+          <View style={s.cardRow}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
-                <Ionicons name="heart-outline" size={18} color="#FF3B30" />
+                <Ionicons name="heart" size={18} color="#FF3B30" />
               </View>
-              <Text style={s.rowLabel}>Apple Health</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Apple Health</Text>
+                {appleHealthEnabled && (
+                  <Text style={s.rowSub}>
+                    {lastRefreshed
+                      ? `Synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                      : 'Syncing…'}
+                  </Text>
+                )}
+              </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+            <Switch
+              value={appleHealthEnabled}
+              onValueChange={handleAppleHealthToggle}
+              trackColor={{ false: '#333', true: '#FF3B30' }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#333"
+            />
+          </View>
         </View>
 
         <View style={{ flex: 1, minHeight: 40 }} />
@@ -200,6 +242,7 @@ function createStyles(c: AppColors) {
       alignItems: 'center', justifyContent: 'center',
     },
     rowLabel: { color: c.textPrimary, fontSize: 15, fontWeight: '500' },
+    rowSub: { color: c.textMuted, fontSize: 12, marginTop: 1 },
     chevronBtn: { padding: 4 },
 
     signOutBtn: {

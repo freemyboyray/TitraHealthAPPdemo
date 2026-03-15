@@ -120,7 +120,7 @@ const createStyles = (c: AppColors) => {
   wrap: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: c.bg,
+    backgroundColor: c.surface,
     borderWidth: 1,
     marginBottom: 10,
     shadowColor: '#000',

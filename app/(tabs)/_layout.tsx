@@ -15,6 +15,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useLogStore } from '@/stores/log-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
@@ -87,7 +88,8 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
 export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
-  const requestHealthPermissions = useHealthKitStore(s => s.requestPermissions);
+  const fetchHealthData = useHealthKitStore(s => s.fetchAll);
+  const { appleHealthEnabled } = usePreferencesStore();
   const { aiChatOpen } = useUiStore();
 
   const bgScale = useSharedValue(1);
@@ -95,7 +97,7 @@ export default function TabLayout() {
 
   useEffect(() => {
     fetchInsightsData();
-    requestHealthPermissions();
+    if (appleHealthEnabled) fetchHealthData();
   }, []);
 
   useEffect(() => {

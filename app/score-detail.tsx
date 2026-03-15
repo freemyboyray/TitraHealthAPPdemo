@@ -213,7 +213,7 @@ const createCardStyles = (c: AppColors) => {
     wrap: { borderRadius: 20, marginBottom: 12 },
     body: {
       borderRadius: 20, overflow: 'hidden',
-      backgroundColor: c.bg,
+      backgroundColor: c.surface,
       borderWidth: 0.5, borderColor: c.border,
     },
     inner: { padding: 18 },
@@ -276,7 +276,7 @@ const createFocusStyles = (c: AppColors) => {
     wrap: { borderRadius: 16, marginTop: 4, marginBottom: 4 },
     body: {
       borderRadius: 16, overflow: 'hidden',
-      backgroundColor: c.bg,
+      backgroundColor: c.surface,
       borderWidth: 0.5, borderColor: c.border,
     },
     inner: { padding: 16 },
@@ -651,7 +651,7 @@ const createStyles = (c: AppColors) => {
     coachWrap: { borderRadius: 20 },
     coachBody: {
       borderRadius: 20, overflow: 'hidden',
-      backgroundColor: c.bg,
+      backgroundColor: c.surface,
       borderWidth: 0.5, borderColor: c.border,
     },
     coachInner: { padding: 18 },

@@ -12,6 +12,7 @@ import type { AppColors } from '@/constants/theme';
 import { generateLogInsight } from '@/lib/openai';
 import { generatePkCurve, generateIntradayPkCurve, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog } from '@/stores/log-store';
+import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
 import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
@@ -205,19 +206,6 @@ function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: 
   );
 }
 
-// ─── Shared Ask AI button ─────────────────────────────────────────────────────
-
-function AskAIButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <Pressable style={s.askAiRow} onPress={onPress} hitSlop={6}>
-      <Ionicons name="chatbubble-outline" size={11} color="rgba(255,116,42,0.55)" />
-      <Text style={s.askAiText}>Ask AI</Text>
-    </Pressable>
-  );
-}
-
 // ─── Shared AI card renderer ──────────────────────────────────────────────────
 
 function AIInsightsCardShell({ text, loading, onPress }: { text: string | null; loading: boolean; onPress?: () => void }) {
@@ -225,7 +213,7 @@ function AIInsightsCardShell({ text, loading, onPress }: { text: string | null; 
   const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={onPress} disabled={loading || !onPress}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.aiAccent} />
         <View style={s.aiContent}>
           <View style={s.aiHeader}>
@@ -242,12 +230,6 @@ function AIInsightsCardShell({ text, loading, onPress }: { text: string | null; 
             </View>
           ) : (
             <Text style={s.aiBody}>{text}</Text>
-          )}
-          {!loading && onPress && (
-            <View style={s.aiTapHint}>
-              <Ionicons name="chatbubble-outline" size={11} color="rgba(255,116,42,0.5)" />
-              <Text style={s.aiTapHintText}>Tap to ask AI</Text>
-            </View>
           )}
         </View>
       </View>
@@ -288,8 +270,8 @@ function MetricCard({ value, label, ringColor }: { value: string; label: string;
     openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Is this on track for my goals?', 'How can I improve this?', 'How does GLP-1 affect this?']) });
   };
   return (
-    <View style={[s.metricWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.metricWrap, glassShadow]} onPress={handleAskAI}>
+      <View style={[s.cardBody, { borderRadius: 22, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.metricInner}>
           <View style={s.ringWrap}>
             <RingIndicator color={ringColor} />
@@ -298,10 +280,9 @@ function MetricCard({ value, label, ringColor }: { value: string; label: string;
             </View>
           </View>
           <Text style={s.metricLabel}>{label}</Text>
-          <AskAIButton onPress={handleAskAI} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -339,8 +320,8 @@ function DailyMetricCard({
     openAiChat({ type: 'metric', contextLabel: label, contextValue: `${value} · ${change}`, chips: JSON.stringify(['Is this on track?', 'How can I improve this?', `Why is my ${label.toLowerCase()} important on GLP-1?`]) });
   };
   return (
-    <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.dailyWrap, glassShadow]} onPress={handleAskAI}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={s.dailyTopRow}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -350,10 +331,9 @@ function DailyMetricCard({
           </View>
           <Text style={s.dailyLabel}>{label}</Text>
           <Text style={s.dailyValue}>{value}</Text>
-          <AskAIButton onPress={handleAskAI} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -409,12 +389,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
   const { openAiChat } = useUiStore();
 
   return (
-    <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) })}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={s.chartMuted}>{glp1Type.charAt(0).toUpperCase() + glp1Type.slice(1)} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-            <AskAIButton onPress={() => openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) })} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 2, gap: 10 }}>
             <Text style={s.chartBig}>{levelLabel}</Text>
@@ -490,7 +469,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
           </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -505,18 +484,17 @@ function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: s
     openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Why does this matter?', 'How does this affect my treatment?', 'What should I know about site rotation?']) });
   };
   return (
-    <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.dailyWrap, glassShadow]} onPress={handleAskAI}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
           </View>
           <Text style={s.dailyLabel}>{label}</Text>
           <Text style={s.dailyValue}>{value}</Text>
-          <AskAIButton onPress={handleAskAI} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -528,9 +506,13 @@ const PERIOD_SUBTITLES: Record<string, string> = {
   '7D': 'Last 7 days', '30D': 'Last 30 days', '90D': 'Last 3 months', '1Y': 'Last year',
 };
 
-function WeightChartCard({ datasets, currentWeight }: {
+const PERIOD_PROJ_WEEKS: Record<string, number> = { '7D': 1, '30D': 4, '90D': 13, '1Y': 52 };
+
+function WeightChartCard({ datasets, currentWeight, projection, programWeek }: {
   datasets: Record<string, number[]>;
   currentWeight: number | null;
+  projection?: WeightProjection | null;
+  programWeek?: number;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -543,27 +525,42 @@ function WeightChartCard({ datasets, currentWeight }: {
   const hasData = data && data.length >= 2;
   const n = hasData ? data.length : 0;
   const colW = chartWidth > 0 && n > 0 ? chartWidth / n : 0;
-  const minW = hasData ? Math.min(...data) : 0;
-  const maxW = hasData ? Math.max(...data) + 5 : 5;
+
+  // Projection slice: clip curve to the active period's week span
+  const pw = programWeek ?? 1;
+  const periodWeeks = PERIOD_PROJ_WEEKS[activePeriod] ?? 13;
+  const projStartWeek = Math.max(0, pw - periodWeeks);
+  const projSlice = projection?.curve.filter(p => p.week >= projStartWeek && p.week <= pw) ?? [];
+  const projWeights = projSlice.map(p => p.weightLbs);
+
+  // Unified y-range covering both actual and projected weights
+  const allForRange = [...(hasData ? data : []), ...projWeights];
+  const minW = allForRange.length > 0 ? Math.min(...allForRange) : 0;
+  const maxW = allForRange.length > 0 ? Math.max(...allForRange) + 5 : 5;
   const range = maxW - minW || 1;
 
   const toY = (v: number) => WEIGHT_CHART_HEIGHT - ((v - minW) / range) * WEIGHT_CHART_HEIGHT;
   const points = hasData ? data.map((v, i) => ({ x: colW * i + colW / 2, y: toY(v) })) : [];
   const lastPt = points[points.length - 1];
 
+  // Projection points mapped to same chart width
+  const projN = projSlice.length;
+  const projPoints = projN > 1
+    ? projSlice.map((p, i) => ({ x: (chartWidth / (projN - 1)) * i, y: toY(p.weightLbs) }))
+    : [];
+
   const displayWeight = currentWeight ?? (hasData ? data[data.length - 1] : null);
   const PERIODS = ['7D', '30D', '90D', '1Y'] as const;
   const { openAiChat } = useUiStore();
 
   return (
-    <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '—'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) })}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
               <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
-              <AskAIButton onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '—'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) })} />
             </View>
             <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
               {displayWeight != null ? `${displayWeight} lbs` : '—'}
@@ -646,6 +643,33 @@ function WeightChartCard({ datasets, currentWeight }: {
                   </>
                 )}
 
+                {/* Dashed projection line — every other segment drawn to simulate dashes */}
+                {projPoints.slice(0, -1).map((pt, i) => {
+                  if (i % 2 !== 0) return null;
+                  const next = projPoints[i + 1];
+                  const dx = next.x - pt.x;
+                  const dy = next.y - pt.y;
+                  const length = Math.sqrt(dx * dx + dy * dy);
+                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                  const midX = (pt.x + next.x) / 2;
+                  const midY = (pt.y + next.y) / 2;
+                  return (
+                    <View
+                      key={`proj-${i}`}
+                      style={{
+                        position: 'absolute',
+                        width: length * 0.6,
+                        height: 1.5,
+                        backgroundColor: 'rgba(255,116,42,0.45)',
+                        left: midX - (length * 0.6) / 2,
+                        top: midY - 0.75,
+                        transform: [{ rotate: `${angle}deg` }],
+                        borderRadius: 1,
+                      }}
+                    />
+                  );
+                })}
+
                 <Text style={[s.progGoalLabel, { position: 'absolute', left: 0, top: 2 }]}>
                   START ({data[0]})
                 </Text>
@@ -659,14 +683,75 @@ function WeightChartCard({ datasets, currentWeight }: {
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A3735' }} />
                 <Text style={s.progGoalLabel}>START</Text>
               </View>
-              <Text style={[s.progGoalLabel, { color: ORANGE, fontWeight: '700' }]}>
-                CURRENT ({data[data.length - 1]})
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {projPoints.length > 1 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+                      <View style={{ width: 5, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,116,42,0.45)' }} />
+                      <View style={{ width: 5, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,116,42,0.45)' }} />
+                    </View>
+                    <Text style={[s.progGoalLabel, { color: 'rgba(255,116,42,0.6)' }]}>PROJECTED</Text>
+                  </View>
+                )}
+                <Text style={[s.progGoalLabel, { color: ORANGE, fontWeight: '700' }]}>
+                  CURRENT ({data[data.length - 1]})
+                </Text>
+              </View>
             </View>
           )}
         </View>
       </View>
     </View>
+  );
+}
+
+// ─── Projection stats card ────────────────────────────────────────────────────
+
+function ProjectionStatsCard({ projection }: { projection: WeightProjection }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
+  const confidenceColor = { high: '#34C759', on_track: '#FF9500', monitoring: '#FF3B30' }[projection.confidenceLevel];
+  const confidenceLabel = { high: 'HIGH', on_track: 'ON TRACK', monitoring: 'MONITORING' }[projection.confidenceLevel];
+  const plateauColor = projection.plateauRisk === 'detected' ? '#FF3B30' : '#FF9500';
+  const plateauLabel = projection.plateauRisk === 'detected' ? 'PLATEAU DETECTED' : 'PLATEAU APPROACHING';
+  const goalDateLabel = new Date(projection.projectedGoalDate + 'T00:00:00')
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  return (
+    <View style={[s.cardWrap, { marginBottom: 16 }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+        <View style={{ padding: 18 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', fontFamily: 'Helvetica Neue', marginBottom: 14 }}>
+            Projection
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
+            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>WEEKLY RATE</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+                {projection.weeklyLossRateLbs > 0 ? `-${projection.weeklyLossRateLbs}` : '0'}
+                <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
+              </Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>GOAL DATE</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
+              <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            {projection.plateauRisk !== 'none' && (
+              <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Helvetica Neue' }}>{plateauLabel}</Text>
+              </View>
+            )}
+            <View style={{ backgroundColor: confidenceColor + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: confidenceColor, fontFamily: 'Helvetica Neue' }}>{confidenceLabel}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -685,8 +770,8 @@ function ProgressStatCard({
     openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['What does this mean for my health?', 'Is this a healthy rate of change?', 'What should my target be?']) });
   };
   return (
-    <View style={[s.dailyWrap, glassShadow]}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={[s.dailyWrap, glassShadow]} onPress={handleAskAI}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -694,10 +779,9 @@ function ProgressStatCard({
           <Text style={s.dailyLabel}>{label}</Text>
           <Text style={s.dailyValue}>{value}</Text>
           {children != null && <View style={s.progStatSub}>{children}</View>}
-          <AskAIButton onPress={handleAskAI} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -724,8 +808,8 @@ function WeightTimelineCard({
   const { openAiChat } = useUiStore();
 
   return (
-    <View style={s.cardWrap}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+    <Pressable style={s.cardWrap} onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Timeline', contextValue: aiContext, chips: JSON.stringify(['Am I on track for my goal?', 'How long until I reach my goal?', 'What pace should I aim for?', 'How does GLP-1 affect my timeline?']) })}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           {milestones.map((m, i) => (
             <View key={i}>
@@ -742,12 +826,9 @@ function WeightTimelineCard({
               {i < milestones.length - 1 && <View style={s.timelineDivider} />}
             </View>
           ))}
-          <AskAIButton
-            onPress={() => openAiChat({ type: 'metric', contextLabel: 'Weight Timeline', contextValue: aiContext, chips: JSON.stringify(['Am I on track for my goal?', 'How long until I reach my goal?', 'What pace should I aim for?', 'How does GLP-1 affect my timeline?']) })}
-          />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -765,7 +846,7 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
 
   return (
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.bg, borderWidth: 0.5, borderColor: colors.border }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
 
         <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -913,6 +994,29 @@ export default function InsightsScreen() {
     '1Y': weightDataForPeriod(weightLogs, '1Y'),
   };
 
+  // ── Weight projection ──────────────────────────────────────────────────────
+  const programStartDate = profile?.program_start_date ?? null;
+  const programWeek = useMemo(() => {
+    const refDateStr = programStartDate ?? weightLogs[weightLogs.length - 1]?.logged_at ?? null;
+    if (!refDateStr) return 1;
+    return Math.max(1, Math.round((Date.now() - new Date(refDateStr).getTime()) / (7 * 86400000)));
+  }, [programStartDate, weightLogs]);
+
+  const projection = useMemo<WeightProjection | null>(() => {
+    if (weightLogs.length < 2 || !startWeight || !currentWeight || !goalWeight) return null;
+    return computeWeightProjection({
+      startWeightLbs: startWeight,
+      currentWeightLbs: currentWeight,
+      goalWeightLbs: goalWeight,
+      weightLogHistory: weightLogs.map(l => ({ weight_lbs: l.weight_lbs, logged_at: l.logged_at })),
+      programWeek,
+      medicationType: health.profile.glp1Type,
+      doseMg: health.profile.doseMg,
+      sex: health.profile.sex,
+      heightCm: health.profile.heightCm,
+    });
+  }, [weightLogs, startWeight, currentWeight, goalWeight, programWeek, health.profile]);
+
   const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
     weightToEntry(log, weightLogs[i + 1])
   );
@@ -1037,7 +1141,8 @@ export default function InsightsScreen() {
           {activeTab === 'progress' && (
             <>
               <ProgAIInsightsCard health={health} />
-              <WeightChartCard datasets={weightDatasets} currentWeight={currentWeight} />
+              <WeightChartCard datasets={weightDatasets} currentWeight={currentWeight} projection={projection} programWeek={programWeek} />
+              {projection && <ProjectionStatsCard projection={projection} />}
               <View style={s.dailyGrid}>
                 <ProgressStatCard
                   icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}
@@ -1103,10 +1208,6 @@ const createStyles = (c: AppColors) => {
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
   aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
-  aiTapHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
-  aiTapHintText: { fontSize: 11, color: 'rgba(255,116,42,0.5)', fontWeight: '600', fontFamily: 'Helvetica Neue' },
-  askAiRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
-  askAiText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,116,42,0.55)', fontFamily: 'Helvetica Neue' },
 
   // Metrics row
   metricsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },

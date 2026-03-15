@@ -261,22 +261,36 @@ export default function SignInScreen() {
     setLoading(false);
   }
 
+  // ── Shared: credential guard + post-auth navigation ─────────────────────
+  function checkSupabaseConfigured(): boolean {
+    const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+    const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+    if (!url || url.includes('placeholder') || !key || key.includes('placeholder')) {
+      setError('Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to your .env file.');
+      return false;
+    }
+    return true;
+  }
+
+  async function finishOAuth(session: import('@supabase/supabase-js').Session | null) {
+    if (!session) {
+      setError('Sign-in completed but no session was returned. Please try again.');
+      return;
+    }
+    setSession(session);
+    await loadProfile();
+    const sbProfile = useUserStore.getState().profile;
+    router.replace(sbProfile?.program_start_date ? '/(tabs)' : '/onboarding');
+  }
+
   // ── Google OAuth ────────────────────────────────────────────────────────
   async function handleGoogleSignIn() {
+    if (!checkSupabaseConfigured()) return;
     setGoogleLoading(true);
     setError(null);
 
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
-      if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseKey || supabaseKey.includes('placeholder')) {
-        setError('Supabase not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env');
-        setGoogleLoading(false);
-        return;
-      }
-
-      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
-      console.log('[Google Sign-In] Redirect URI:', redirectUri);
+      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' });
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -284,71 +298,53 @@ export default function SignInScreen() {
       });
 
       if (err || !data.url) {
-        setError(err?.message ?? 'Google sign-in failed. Is it enabled in Supabase?');
-        setGoogleLoading(false);
+        setError(err?.message ?? 'Google sign-in failed. Make sure Google is enabled in your Supabase project.');
         return;
       }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-      console.log('[Google Sign-In] Browser result type:', result.type);
-      if (result.type === 'success' && result.url) {
-        console.log('[Google Sign-In] Redirect URL:', result.url);
 
-        let session = null;
-        const hash = result.url.includes('#') ? result.url.split('#')[1] : '';
-        const hashParams = new URLSearchParams(hash);
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
+      if (result.type !== 'success' || !result.url) {
+        // User cancelled or browser dismissed — not an error
+        return;
+      }
 
-        if (accessToken && refreshToken) {
-          const { data: sd, error: sessionErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (sessionErr) {
-            console.log('[Google Sign-In] setSession error:', sessionErr.message);
-            setError(sessionErr.message);
-            setGoogleLoading(false);
-            return;
-          }
-          session = sd.session;
-        } else {
-          console.log('[Google Sign-In] No hash tokens, trying code exchange...');
-          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
-          if (exchangeErr) {
-            console.log('[Google Sign-In] Exchange error:', exchangeErr.message);
-            setError(exchangeErr.message);
-            setGoogleLoading(false);
-            return;
-          }
-          const { data: { session: s } } = await supabase.auth.getSession();
-          session = s;
-        }
+      // Implicit flow: tokens arrive in the URL hash
+      const hash = result.url.includes('#') ? result.url.split('#')[1] : '';
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
 
-        if (session) {
-          setSession(session);
-          await loadProfile();
-          const sbProfile = useUserStore.getState().profile;
-          router.replace(sbProfile?.program_start_date ? '/(tabs)' : '/onboarding');
-        } else {
-          setError('Sign in completed but no session was returned. Please try again.');
-        }
+      if (accessToken && refreshToken) {
+        const { data: sd, error: sessionErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionErr) { setError(sessionErr.message); return; }
+        await finishOAuth(sd.session);
+      } else {
+        // PKCE flow: code arrives as a query param — exchange it
+        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
+        if (exchangeErr) { setError(exchangeErr.message); return; }
+        const { data: { session } } = await supabase.auth.getSession();
+        await finishOAuth(session);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      let hint = `Google sign-in failed: ${msg}`;
       if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {
-        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
-        hint = `Redirect URI mismatch. Add this to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`;
+        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' });
+        setError(`Redirect URI mismatch.\n\nAdd this to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`);
+      } else {
+        setError(`Google sign-in failed: ${msg}`);
       }
-      setError(hint);
+    } finally {
+      setGoogleLoading(false);
     }
-
-    setGoogleLoading(false);
   }
 
   // ── Apple Sign In ───────────────────────────────────────────────────────
   async function handleAppleSignIn() {
+    if (!checkSupabaseConfigured()) return;
     if (Platform.OS !== 'ios') {
       setError('Apple Sign In is only available on iOS.');
       return;
@@ -368,20 +364,17 @@ export default function SignInScreen() {
         ],
       });
       const { identityToken } = credential;
-      if (!identityToken) throw new Error('No identity token returned.');
+      if (!identityToken) throw new Error('No identity token returned from Apple.');
       const { data, error: err } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: identityToken,
       });
       if (err) { setError(err.message); return; }
-      if (data.session) {
-        setSession(data.session);
-        await loadProfile();
-        const sbProfile = useUserStore.getState().profile;
-        router.replace(sbProfile?.program_start_date ? '/(tabs)' : '/onboarding');
-      }
+      await finishOAuth(data.session);
     } catch (e: any) {
-      if (e.code !== 'ERR_REQUEST_CANCELED') setError(e.message ?? 'Apple sign-in failed.');
+      if (e.code !== 'ERR_REQUEST_CANCELED') {
+        setError(e.message ?? 'Apple sign-in failed.');
+      }
     } finally {
       setAppleLoading(false);
     }

@@ -178,8 +178,8 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   };
 
   return (
-    <View style={[s.hmWrap, glassShadow]}>
-      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.bg }]}>
+    <Pressable style={[s.hmWrap, glassShadow]} onPress={handleAskAI}>
+      <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
         <View style={s.hmInner}>
           <View style={s.hmTopRow}>
             <View style={s.hmIconWrap}>{icon}</View>
@@ -192,13 +192,9 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
             {metric.value}
             {metric.unit ? <Text style={s.hmUnit}> {metric.unit}</Text> : null}
           </Text>
-          <Pressable style={s.hmAiBtn} onPress={handleAskAI} hitSlop={6}>
-            <Ionicons name="chatbubble-outline" size={13} color="rgba(255,116,42,0.55)" />
-            <Text style={s.hmAiBtnText}>Ask AI</Text>
-          </Pressable>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -871,7 +867,7 @@ export default function HomeScreen() {
 
           {/* ── Score Card ── */}
           <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={[s.cardBody, { backgroundColor: colors.bg }]}>
+            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               {/* ── Ring + Info panel section ── */}
               <View style={{ height: 220 }}>
                 {/* Concentric rings anchored to bottom-left corner */}
@@ -1095,7 +1091,7 @@ export default function HomeScreen() {
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
-            <View style={[s.cardBody, { backgroundColor: colors.bg }]}>
+            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               <View style={{ padding: 20 }}>
                 <View style={s.insightsHead}>
                   <Text style={s.insightsTitle}>Insights</Text>
@@ -1325,7 +1321,7 @@ const createStyles = (c: AppColors) => {
 
   // Focus timeline card
   focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
-  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.bg, borderWidth: 0.5, borderColor: c.border, padding: 22 },
+  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, padding: 22 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.45), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
@@ -1390,8 +1386,6 @@ const createStyles = (c: AppColors) => {
   hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
   hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Helvetica Neue' },
-  hmAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 8 },
-  hmAiBtnText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,116,42,0.55)', fontFamily: 'Helvetica Neue' },
   });
 };
 

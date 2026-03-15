@@ -24,9 +24,9 @@ function AppWithHealth({ children }: { children: React.ReactNode }) {
   const { profile } = useProfile();
   const { hrv, restingHR, sleepHours } = useHealthKitStore();
   const liveWearable = {
-    ...(hrv != null && { hrv }),
+    ...(hrv != null && { hrvMs: hrv }),
     ...(restingHR != null && { restingHR }),
-    ...(sleepHours != null && { sleepHours }),
+    ...(sleepHours != null && { sleepMinutes: Math.round(sleepHours * 60) }),
   };
   return (
     <HealthProvider profile={profile ?? MOCK_PROFILE} wearable={liveWearable}>
@@ -35,10 +35,42 @@ function AppWithHealth({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Lives inside ProfileProvider so it can call resetProfile() on sign-out.
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { setSession, setSessionLoaded, loadProfile } = useUserStore();
+  const { resetProfile } = useProfile();
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        loadProfile();
+      } else if (_event === 'SIGNED_OUT') {
+        resetProfile();
+        router.replace('/auth/sign-in');
+      }
+    });
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (session) {
+          setSession(session);
+          loadProfile();
+        }
+        setSessionLoaded(true);
+      })
+      .catch(() => setSessionLoaded(true));
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return <>{children}</>;
+}
+
 function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const { colors } = useAppTheme();
-  const { setSession, setSessionLoaded, loadProfile } = useUserStore();
   const router = useRouter();
 
   // Handle notification deep-link taps
@@ -50,49 +82,28 @@ function RootLayoutInner() {
     return () => sub.remove();
   }, []);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) loadProfile();
-    });
-
-    supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
-        if (session) {
-          setSession(session);
-          loadProfile();
-          setSessionLoaded(true);
-        } else {
-          setSessionLoaded(true);
-        }
-      })
-      .catch(() => {
-        setSessionLoaded(true);
-      });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ProfileProvider>
-        <AppWithHealth>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="entry" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              <Stack.Screen name="ai-chat" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="settings" options={{ headerShown: false }} />
-            </Stack>
-            <StatusBar style={colors.statusBar} />
-            <AiChatOverlay />
-          </ThemeProvider>
-        </AppWithHealth>
+        <AuthGate>
+          <AppWithHealth>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="entry" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                <Stack.Screen name="ai-chat" options={{ presentation: 'modal', headerShown: false }} />
+                <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
+                <Stack.Screen name="settings" options={{ headerShown: false }} />
+              </Stack>
+              <StatusBar style={colors.statusBar} />
+              <AiChatOverlay />
+            </ThemeProvider>
+          </AppWithHealth>
+        </AuthGate>
       </ProfileProvider>
     </GestureHandlerRootView>
   );
