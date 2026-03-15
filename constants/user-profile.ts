@@ -40,7 +40,15 @@ export type SideEffect =
   | 'hair_loss'
   | 'constipation'
   | 'bloating'
-  | 'sulfur_burps';
+  | 'sulfur_burps'
+  | 'diarrhea'
+  | 'vomiting'
+  | 'headache'
+  | 'heartburn'
+  | 'dizziness'
+  | 'muscle_loss'
+  | 'dehydration'
+  | 'food_noise';
 export type UnitSystem = 'imperial' | 'metric';
 
 // ─── Full User Profile ────────────────────────────────────────────────────────
@@ -53,6 +61,8 @@ export type FullUserProfile = {
   glp1Type: Glp1Type;
   routeOfAdministration: RouteOfAdministration;
   doseMg: number;
+  initialDoseMg: number | null;     // dose they started on
+  doseStartDate: string;            // YYYY-MM-DD, when they started current dose
   injectionFrequencyDays: number;   // 1 | 7 | 14 | custom
   lastInjectionDate: string;        // YYYY-MM-DD (also used as "last dose date" for oral)
   sex: Sex;
@@ -187,3 +197,59 @@ export function addWeeks(d: Date, weeks: number): Date {
   result.setDate(result.getDate() + Math.round(weeks * 7));
   return result;
 }
+
+// ─── Brand-specific dose options ──────────────────────────────────────────────
+
+const GENERIC_DOSES = [0.25, 0.5, 1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0];
+
+export const BRAND_DOSES: Partial<Record<MedicationBrand, number[]>> = {
+  ozempic:               [0.25, 0.5, 1.0, 2.0],
+  wegovy:                [0.25, 0.5, 1.0, 1.7, 2.4],
+  oral_wegovy:           [1.5, 3, 7, 14, 25],
+  rybelsus:              [3, 7, 14],
+  mounjaro:              [2.5, 5, 7.5, 10, 12.5, 15],
+  zepbound:              [2.5, 5, 7.5, 10, 12.5, 15],
+  saxenda:               [0.6, 1.2, 1.8, 2.4, 3.0],
+  victoza:               [0.6, 1.2, 1.8],
+  trulicity:             [0.75, 1.5, 3.0, 4.5],
+  compounded_semaglutide:[0.25, 0.5, 1.0, 1.7, 2.0, 2.4],
+  compounded_tirzepatide:[2.5, 5, 7.5, 10, 12.5, 15],
+  compounded_liraglutide:[0.6, 1.2, 1.8, 2.4, 3.0],
+};
+
+export function getBrandDoses(brand: MedicationBrand): number[] {
+  return BRAND_DOSES[brand] ?? GENERIC_DOSES;
+}
+
+// ─── Titration summary strings ────────────────────────────────────────────────
+
+export const BRAND_TITRATION_SUMMARY: Partial<Record<MedicationBrand, string>> = {
+  ozempic:               'Starts at 0.25 mg · escalates every 4 weeks · max 2 mg/wk',
+  wegovy:                'Starts at 0.25 mg · 5 escalation steps · max 2.4 mg/wk',
+  oral_wegovy:           'Starts at 1.5 mg/day · escalates every 30 days · max 25 mg/day',
+  rybelsus:              'Starts at 3 mg/day · 30-day steps · max 14 mg/day',
+  mounjaro:              'Starts at 2.5 mg · escalates every 4 weeks · max 15 mg/wk',
+  zepbound:              'Starts at 2.5 mg · escalates every 4 weeks · max 15 mg/wk',
+  saxenda:               'Starts at 0.6 mg/day · escalates weekly · max 3 mg/day',
+  victoza:               'Starts at 0.6 mg/day · escalates over 2 weeks · max 1.8 mg/day',
+  trulicity:             'Starts at 0.75 mg · can escalate to 4.5 mg/wk',
+  compounded_semaglutide:'Starts at 0.25 mg · protocol varies by compounding pharmacy',
+  compounded_tirzepatide:'Starts at 2.5 mg · protocol varies by compounding pharmacy',
+};
+
+// ─── Default starting dose per brand ─────────────────────────────────────────
+
+export const BRAND_STARTING_DOSE: Partial<Record<MedicationBrand, number>> = {
+  ozempic:               0.25,
+  wegovy:                0.25,
+  oral_wegovy:           1.5,
+  rybelsus:              3,
+  mounjaro:              2.5,
+  zepbound:              2.5,
+  saxenda:               0.6,
+  victoza:               0.6,
+  trulicity:             0.75,
+  compounded_semaglutide:0.25,
+  compounded_tirzepatide:2.5,
+  compounded_liraglutide:0.6,
+};

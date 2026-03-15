@@ -6,6 +6,7 @@ import {
   computeGlp1AdherenceScore,
   computeMedicationScore,
   computeRecovery,
+  computeRollingAdherenceScore,
   computeSideEffectBurden,
   computeSideEffectIndex,
   daysSinceInjection,
@@ -14,6 +15,7 @@ import {
   getShotPhase,
   type DailyActuals,
   type FocusItem,
+  type ProgramPhase,
   type ShotPhase,
   type SideEffectIndex,
   type WearableData,
@@ -50,6 +52,7 @@ export type PersonalizedPlan = {
   // Scores
   recoveryScore: number | null;
   adherenceScore: number;
+  rollingAdherenceScore: number;
   sideEffectBurden: number;
   thiamineRisk: boolean;
 
@@ -62,6 +65,12 @@ export type PersonalizedPlan = {
   shotPhase: ShotPhase;
   shotPhaseLabel: string;
   programWeek: number;
+  programPhase: ProgramPhase;
+
+  // Injection schedule
+  isInjectionDue: boolean;    // true when next scheduled dose is today or overdue
+  daysUntilNextDose: number;  // 0 = due today, positive = days remaining, negative = overdue
+  injectionFrequencyDays: number;
 
   // Personalization
   escalationPhase: EscalationPhase;
@@ -105,8 +114,13 @@ export type FullUserProfileForPlan = {
 
 // ─── Shot phase label ─────────────────────────────────────────────────────────
 
-function buildShotPhaseLabel(daysSinceShot: number, phase: ShotPhase): string {
+function buildShotPhaseLabel(daysSinceShot: number, phase: ShotPhase, daysUntilNextDose?: number): string {
   const dayLabel = `Day ${daysSinceShot}`;
+  if (daysUntilNextDose !== undefined) {
+    if (daysUntilNextDose < 0)  return `Injection overdue (${Math.abs(daysUntilNextDose)}d past due)`;
+    if (daysUntilNextDose === 0) return `Injection due today (${dayLabel})`;
+    if (daysUntilNextDose === 1) return `Reset Phase (${dayLabel}) — due tomorrow`;
+  }
   switch (phase) {
     case 'shot':    return `Shot Day (${dayLabel})`;
     case 'peak':    return `Peak Phase (${dayLabel})`;
@@ -185,10 +199,53 @@ export function computePersonalizedPlan(params: {
   // 1. Shot phase
   const daysSinceShot = daysSinceInjection(profile.lastInjectionDate);
   const shotPhase = getShotPhase(daysSinceShot);
-  const shotPhaseLabel = buildShotPhaseLabel(daysSinceShot, shotPhase);
 
-  // 2. Targets
-  const targets = getDailyTargets(profile as unknown as FullUserProfile, daysSinceShot);
+  // 1b. Injection schedule — uncapped date math, independent of shot phase cap
+  const injectionFrequencyDays = profile.injectionFrequencyDays;
+  const lastInjMs = new Date(profile.lastInjectionDate).getTime();
+  const actualDaysSinceShot = Math.floor((Date.now() - lastInjMs) / 86400000) + 1;
+  const daysUntilNextDose = injectionFrequencyDays - actualDaysSinceShot;
+  const isInjectionDue = daysUntilNextDose <= 0;
+
+  const shotPhaseLabel = buildShotPhaseLabel(daysSinceShot, shotPhase, daysUntilNextDose);
+
+  // 2. Program week + escalation phase (needed before targets)
+  const startDateEarly = profile.startDate ? new Date(profile.startDate) : new Date();
+  const daysSinceStartEarly = Math.floor((Date.now() - startDateEarly.getTime()) / 86400000);
+  const programWeekEarly = Math.max(1, Math.round(daysSinceStartEarly / 7));
+  const escalationPhaseEarly = getEscalationPhase(programWeekEarly, profile.doseMg, profile.glp1Type);
+
+  // Derive 3-tier program phase from escalation phase name
+  const programPhase: ProgramPhase =
+    escalationPhaseEarly.name === 'initiation' ? 'initiation' :
+    escalationPhaseEarly.name === 'max_dose'   ? 'maintenance' :
+    'titration';
+
+  // 2b. Targets (phase-aware + side-effect adjusted)
+  const currentWeightKg = (weightLogs[0]?.weight_lbs ?? profile.weightLbs) * 0.453592;
+  const startWeightKg = profile.startWeightLbs * 0.453592;
+  const weightLostKg = Math.max(0, startWeightKg - currentWeightKg);
+
+  // Filter side effect logs to last 7 days for adjustment engine
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const recentSideEffectLogs = sideEffectLogs
+    .filter(l => l.logged_at >= sevenDaysAgo)
+    .map(l => ({
+      effect_type: l.effect_type,
+      severity: l.severity,
+      logged_at: l.logged_at,
+    }));
+
+  const targets = getDailyTargets(
+    profile as unknown as FullUserProfile,
+    daysSinceShot,
+    {
+      programPhase,
+      baseCaloriesTarget: userGoals?.daily_calories_target ?? undefined,
+      weightLostKg,
+      sideEffectLogs: recentSideEffectLogs,
+    },
+  );
 
   // 3. Recovery score
   const recoveryScore = computeRecovery(wearable, shotPhase);
@@ -230,16 +287,40 @@ export function computePersonalizedPlan(params: {
     hasFoodData,
   );
 
-  // 6. Focus items
-  const focuses = generateFocuses(actuals, targets, wearable, daysSinceShot);
+  // 5b. Rolling adherence score (14-day linear weighted average)
+  const rollingAdherenceScore = computeRollingAdherenceScore({
+    injectionLogs: injectionLogs.map(l => ({
+      injection_date: l.injection_date,
+      injection_time: l.injection_time ?? undefined,
+    })),
+    foodLogs: foodLogs.map(l => ({
+      logged_at: l.logged_at,
+      protein_g: (l as any).protein_g ?? 0,
+      fiber_g:   (l as any).fiber_g   ?? 0,
+    })),
+    activityLogs: activityLogs.map(l => ({
+      date:  l.date,
+      steps: (l as any).steps ?? null,
+    })),
+    sideEffectLogs: sideEffectLogs.map(l => ({
+      effect_type:  l.effect_type,
+      severity:     l.severity,
+      phase_at_log: l.phase_at_log ?? 'balance',
+      logged_at:    l.logged_at,
+    })),
+    profile: profile as any,
+    programPhase,
+    proteinPriority: targets.proteinPriority,
+  });
 
-  // 7. Program week
-  const startDate = profile.startDate ? new Date(profile.startDate) : new Date();
-  const daysSinceStart = Math.floor((Date.now() - startDate.getTime()) / 86400000);
-  const programWeek = Math.max(1, Math.round(daysSinceStart / 7));
+  // 6. Focus items (protein boosted in titration; injection only surfaces when due)
+  const focuses = generateFocuses(actuals, targets, wearable, daysSinceShot, programPhase, isInjectionDue);
 
-  // 8. Escalation phase
-  const escalationPhase = getEscalationPhase(programWeek, profile.doseMg, profile.glp1Type);
+  // 7. Program week (reuse early computation)
+  const programWeek = programWeekEarly;
+
+  // 8. Escalation phase (reuse early computation)
+  const escalationPhase = escalationPhaseEarly;
 
   // 9. Weight projection (requires at least a start weight)
   let weightProjection: WeightProjection | null = null;
@@ -285,7 +366,7 @@ export function computePersonalizedPlan(params: {
     profile:    profileRow,
     userName,
     score: {
-      total:      adherenceScore,
+      total:      rollingAdherenceScore,
       medication: actuals.injectionLogged ? 100 : 0,
       nutrition:  Math.round(Math.min(actuals.proteinG / targets.proteinG, 1) * 100),
       activity:   Math.round(Math.min(actuals.steps / targets.steps, 1) * 100),
@@ -311,6 +392,7 @@ export function computePersonalizedPlan(params: {
   return {
     recoveryScore,
     adherenceScore,
+    rollingAdherenceScore,
     sideEffectBurden,
     thiamineRisk,
     targets,
@@ -319,6 +401,10 @@ export function computePersonalizedPlan(params: {
     shotPhase,
     shotPhaseLabel,
     programWeek,
+    programPhase,
+    isInjectionDue,
+    daysUntilNextDose,
+    injectionFrequencyDays,
     escalationPhase,
     weightProjection,
     focuses,

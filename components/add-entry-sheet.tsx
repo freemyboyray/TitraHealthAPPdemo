@@ -196,6 +196,11 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
     },
+    {
+      label: 'SIDE EFFECTS',
+      icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
+    },
   ];
 
   // ─── Inline form config ──────────────────────────────────────────────────────

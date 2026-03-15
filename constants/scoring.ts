@@ -1,4 +1,5 @@
 import { ActivityLevel, FullUserProfile } from './user-profile';
+import { applyAdjustments, type RecentSideEffectLog } from '@/lib/targets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -7,6 +8,20 @@ export type DailyTargets = {
   waterMl: number;
   fiberG: number;
   steps: number;
+  // Phase-aware targets (Layer 2)
+  caloriesTarget: number;
+  carbsG: number;
+  fatG: number;
+  activeCaloriesTarget: number;
+  proteinPriority: boolean;
+  programPhase: ProgramPhase;
+  // Side-effect adjustment metadata (only populated when adjustments apply)
+  mealFrequency?: number;
+  foodsToAvoid?: string[];
+  foodsToPrioritize?: string[];
+  adjustmentReasons?: string[];
+  resistanceTrainingRecommended?: boolean;
+  fiberType?: string;
 };
 
 export type DailyActuals = {
@@ -29,6 +44,12 @@ export type WearableData = {
 // Defined here (before scoring formulas) so phase-aware functions can reference it.
 
 export type ShotPhase = 'shot' | 'peak' | 'balance' | 'reset';
+
+// ─── Program Phase Type ───────────────────────────────────────────────────────
+// 3-tier clinical phase derived from escalation phase name.
+// Drives protein multipliers, calorie adaptation, and activity targets.
+
+export type ProgramPhase = 'initiation' | 'titration' | 'maintenance';
 
 // ─── InjectionLog (minimal shape needed for medication scoring) ───────────────
 export type InjectionLogForScoring = {
@@ -69,10 +90,26 @@ const stepsMap: Record<ActivityLevel, number> = {
   very_active: 12000,
 };
 
+const activeCaloriesMap: Record<ActivityLevel, number> = {
+  sedentary: 200,
+  light: 300,
+  active: 400,
+  very_active: 500,
+};
+
 export function getDailyTargets(
   profile: FullUserProfile,
   daysSinceShot: number,
+  opts?: {
+    programPhase?: ProgramPhase;
+    baseCaloriesTarget?: number;
+    weightLostKg?: number;
+    /** Recent side-effect logs (last 7 days) — used to apply evidence-based adjustments. */
+    sideEffectLogs?: RecentSideEffectLog[];
+  },
 ): DailyTargets {
+  const programPhase: ProgramPhase = opts?.programPhase ?? 'initiation';
+
   // Protein: kg-based (1.2 g/kg/day per 2025 ACLM/ASN/OMA/TOS joint advisory)
   let proteinG = profile.weightKg * 1.2;
 
@@ -90,6 +127,16 @@ export function getDailyTargets(
     proteinG *= 1.1;
   }
 
+  // Program phase multiplier (stacks with dose-based boosts — clinically appropriate)
+  // Titration: higher lean mass loss risk during dose escalation → push protein harder
+  // Maintenance: max lean mass protection at plateau
+  const programPhaseMultiplier: Record<ProgramPhase, number> = {
+    initiation:  1.0,
+    titration:   1.15,
+    maintenance: 1.25,
+  };
+  proteinG *= programPhaseMultiplier[programPhase];
+
   // Hard cap: 2.0 g/kg/day
   proteinG = Math.min(proteinG, profile.weightKg * 2.0);
 
@@ -106,22 +153,57 @@ export function getDailyTargets(
   if (profile.glp1Type === 'semaglutide') waterOz *= 1.1;
   if (profile.doseMg >= 7.5) waterOz *= 1.15;
   else if (profile.doseMg >= 5) waterOz *= 1.1;
-  if (profile.sideEffects?.includes('constipation')) waterOz *= 1.1;
   const waterMl = Math.round(waterOz * 29.5735);
 
   // Fiber: lower during shot/peak phases — high fiber worsens GI side effects during titration
-  let fiberG = profile.sideEffects?.includes('constipation') ? 35 : 30;
+  let fiberG = 30;
   if (daysSinceShot <= 3) fiberG = Math.max(20, fiberG - 5);
 
-  // Steps: activity level driven
-  const steps = stepsMap[profile.activityLevel] ?? 8000;
+  // Steps: activity level driven, with maintenance boost to counter metabolic adaptation
+  let steps = stepsMap[profile.activityLevel] ?? 8000;
+  if (programPhase === 'maintenance') steps = Math.round(steps * 1.1);
 
-  return {
+  // Active calories: activity level base with phase adjustments
+  // Titration: ×0.9 — side effects may reduce capacity during dose escalation
+  // Maintenance: ×1.05 — counter metabolic adaptation at stable weight
+  let activeCaloriesTarget = activeCaloriesMap[profile.activityLevel] ?? 300;
+  if (programPhase === 'titration') activeCaloriesTarget = Math.round(activeCaloriesTarget * 0.9);
+  else if (programPhase === 'maintenance') activeCaloriesTarget = Math.round(activeCaloriesTarget * 1.05);
+
+  // Calories: use stored onboarding target (TDEE−500) or rough estimate fallback
+  const estimatedBase = Math.round(profile.weightKg * 28); // rough TDEE−500 fallback
+  let caloriesTarget = opts?.baseCaloriesTarget ?? estimatedBase;
+
+  // Maintenance: apply metabolic adaptation adjustment (conservative 10 kcal/kg lost)
+  if (programPhase === 'maintenance' && opts?.weightLostKg) {
+    caloriesTarget = Math.max(1200, caloriesTarget - Math.round(opts.weightLostKg * 10));
+  }
+
+  // Macros: derive from resolved calories + protein (2025 ACLM guidelines)
+  const fatG = Math.round(caloriesTarget * 0.28 / 9);
+  const fatCals = fatG * 9;
+  const proteinCals = Math.round(proteinG) * 4;
+  const carbsG = Math.round(Math.max(50, caloriesTarget - proteinCals - fatCals) / 4);
+
+  const base = {
     proteinG: Math.round(proteinG),
     waterMl,
     fiberG,
     steps,
+    caloriesTarget,
+    carbsG,
+    fatG,
+    activeCaloriesTarget,
+    proteinPriority: programPhase === 'titration',
+    programPhase,
   };
+
+  // Apply evidence-based side-effect adjustments if recent logs provided
+  if (opts?.sideEffectLogs && opts.sideEffectLogs.length > 0) {
+    return applyAdjustments(base, opts.sideEffectLogs);
+  }
+
+  return base;
 }
 
 // ─── Recovery Sub-Scorers ─────────────────────────────────────────────────────
@@ -225,9 +307,34 @@ export function computeGlp1Support(actual: DailyActuals, targets: DailyTargets):
   return Math.round(protein + hydration + fiber + movement + medication);
 }
 
+// ─── Phase Component Weights ──────────────────────────────────────────────────
+
+export type PhaseComponentWeights = {
+  medication:  number;
+  sideEffects: number;
+  nutrition:   number;
+  activity:    number;
+};
+
+/**
+ * Returns score component weights for each 3-tier program phase.
+ * Falls back to titration weights for unknown values.
+ */
+export function getPhaseWeights(programPhase: string): PhaseComponentWeights {
+  switch (programPhase) {
+    case 'initiation':
+      return { medication: 45, sideEffects: 30, nutrition: 15, activity: 10 };
+    case 'maintenance':
+      return { medication: 30, sideEffects: 20, nutrition: 30, activity: 20 };
+    case 'titration':
+    default:
+      return { medication: 35, sideEffects: 25, nutrition: 25, activity: 15 };
+  }
+}
+
 // ─── Side Effect Burden ───────────────────────────────────────────────────────
 // Separate from the SideEffectLog type to avoid circular imports.
-type SideEffectEntry = {
+export type SideEffectEntry = {
   effect_type: string;
   severity: number;
   phase_at_log: string;
@@ -240,45 +347,58 @@ export type SideEffectBurdenResult = {
 };
 
 /**
- * Compute a 0–100 side-effect burden score from the last 14 days of logs.
- * 4-tier phase tolerance: shot(0.6) peak(0.4) balance(0.8) reset(1.0)
+ * Compute a 0–100 side-effect burden score from recent logs.
+ * Incorporates both frequency (how many days had effects) and severity.
+ * GI effects (nausea, vomiting, sulfur_burps): ×1.3 multiplier
+ * Low-concern effects (fatigue, hair_loss): ×0.8 multiplier
+ * Thiamine risk: severity ≥6 nausea/vomiting within 72h of refDate.
+ *
+ * @param windowDays  Look-back window in days (default 14)
+ * @param refDate     Reference date for window + thiamine risk (default now)
  */
 export function computeSideEffectBurden(
   logs: SideEffectEntry[],
   currentPhase: ShotPhase,
+  windowDays: number = 14,
+  refDate?: Date,
 ): SideEffectBurdenResult {
-  const cutoff14d = Date.now() - 14 * 86400000;
-  const cutoff72h = Date.now() - 72 * 3600000;
-  const recent = logs.filter(l => new Date(l.logged_at).getTime() >= cutoff14d);
+  const ref = refDate ?? new Date();
+  const cutoffMs = ref.getTime() - windowDays * 86400000;
+  const cutoff72h = ref.getTime() - 72 * 3600000;
+  const recent = logs.filter(l => new Date(l.logged_at).getTime() >= cutoffMs);
 
   if (recent.length === 0) return { burden: 0, thiamineRisk: false };
 
-  const GI_EXPECTED = new Set(['nausea', 'vomiting']);
+  const GI_HIGH     = new Set(['nausea', 'vomiting', 'sulfur_burps']);
+  const LOW_CONCERN = new Set(['fatigue', 'hair_loss']);
+  const GI_EXPECTED = new Set(['nausea', 'vomiting']); // for thiamine risk
 
-  const PHASE_TOLERANCE: Record<ShotPhase, number> = {
-    shot: 0.6, peak: 0.4, balance: 0.8, reset: 1.0,
-  };
+  // Frequency component: how many distinct days had effects
+  const uniqueDays = new Set(recent.map(l => l.logged_at.slice(0, 10)));
+  const frequency_ratio = uniqueDays.size / windowDays;
 
-  let totalWeight = 0;
+  let weightedSeveritySum = 0;
   let thiamineRisk = false;
 
   for (const log of recent) {
-    const rawWeight = log.severity / 10; // 0–1
-    const isGiExpected = GI_EXPECTED.has(log.effect_type);
-    const adjustedWeight = isGiExpected
-      ? rawWeight * PHASE_TOLERANCE[currentPhase ?? 'balance']
-      : rawWeight;
-    totalWeight += adjustedWeight;
+    const effectMultiplier = GI_HIGH.has(log.effect_type) ? 1.3
+      : LOW_CONCERN.has(log.effect_type) ? 0.8
+      : 1.0;
+    const rawSeverityPct = log.severity / 10; // 0–1
+    weightedSeveritySum += rawSeverityPct * effectMultiplier;
 
-    // Thiamine risk: severe nausea/vomiting within 72h
+    // Thiamine risk: severe nausea/vomiting within 72h (unchanged logic)
     const isRecent72h = new Date(log.logged_at).getTime() >= cutoff72h;
-    if (isRecent72h && isGiExpected && log.severity >= 6) {
+    if (isRecent72h && GI_EXPECTED.has(log.effect_type) && log.severity >= 6) {
       thiamineRisk = true;
     }
   }
 
-  // Normalize: assume max 5 events at max severity = 5.0, cap at 100
-  const burden = Math.min(100, Math.round((totalWeight / Math.max(recent.length, 1)) * 100));
+  const avg_severity_pct = weightedSeveritySum / recent.length; // 0–1+
+  const burden = Math.min(100, Math.round(
+    (frequency_ratio * 0.4 + avg_severity_pct * 0.6) * 100,
+  ));
+
   return { burden, thiamineRisk };
 }
 
@@ -327,32 +447,37 @@ export function computeGlp1AdherenceScore(
   injFreqDays?: number,
   hasActivityData?: boolean,
   hasFoodData?: boolean,
+  phaseWeights?: PhaseComponentWeights,
+  proteinPriority?: boolean,
 ): number {
+  const w = phaseWeights ?? { medication: 35, sideEffects: 25, nutrition: 25, activity: 15 };
   const components: { score: number; weight: number }[] = [];
 
   // Medication — always available (normalize raw 0–35 points to 0–100 scale)
   if (injectionLogs != null && injFreqDays != null) {
-    components.push({ score: (computeMedicationScore(injectionLogs, injFreqDays) / 35) * 100, weight: 35 });
+    components.push({ score: (computeMedicationScore(injectionLogs, injFreqDays) / 35) * 100, weight: w.medication });
   } else {
     // Fallback: binary logged/not-logged
-    components.push({ score: actual.injectionLogged ? 100 : 0, weight: 35 });
+    components.push({ score: actual.injectionLogged ? 100 : 0, weight: w.medication });
   }
 
   // Side Effects — always included (defaults to neutral if no logs)
-  components.push({ score: (1 - sideEffectBurden / 100) * 100, weight: 25 });
+  components.push({ score: (1 - sideEffectBurden / 100) * 100, weight: w.sideEffects });
 
   // Protein — only if food was logged today
   const includeFood = hasFoodData !== undefined ? hasFoodData : actual.proteinG > 0;
   if (includeFood) {
     const proteinPct = Math.min(actual.proteinG / targets.proteinG, 1);
-    components.push({ score: proteinPct * 100, weight: 25 });
+    // During titration, boost protein score 1.5× — appetite suppression increases lean mass loss risk
+    const proteinScore = proteinPriority ? Math.min(100, proteinPct * 1.5 * 100) : proteinPct * 100;
+    components.push({ score: proteinScore, weight: w.nutrition });
   }
 
   // Activity — only if steps or activity data is available
   const includeActivity = hasActivityData !== undefined ? hasActivityData : actual.steps > 0;
   if (includeActivity) {
     const stepsPct = Math.min(actual.steps / targets.steps, 1);
-    components.push({ score: stepsPct * 100, weight: 15 });
+    components.push({ score: stepsPct * 100, weight: w.activity });
   }
 
   const totalWeight = components.reduce((s, c) => s + c.weight, 0);
@@ -844,12 +969,19 @@ export function generateFocuses(
   targets: DailyTargets,
   wearable: Partial<WearableData>,
   daysSinceShot: number,
+  programPhase?: ProgramPhase,
+  isInjectionDue?: boolean,
 ): FocusItem[] {
   const phase = getShotPhase(daysSinceShot);
   const recovery = computeRecovery(wearable, phase) ?? 70;
 
+  // Injection deficit: only non-zero when the dose is actually due.
+  // isInjectionDue defaults to daysSinceShot >= 7 for backwards compat with
+  // callers that don't pass the flag (e.g. contexts/health-data.tsx).
+  const injDue = isInjectionDue ?? daysSinceShot >= 7;
+
   const deficits: Record<FocusCategory, number> = {
-    injection: actuals.injectionLogged ? 0 : (daysSinceShot >= 7 ? 100 : 40),
+    injection: actuals.injectionLogged ? 0 : (injDue ? 100 : 0),
     hydration: Math.max(0, (targets.waterMl - actuals.waterMl) / targets.waterMl * 100),
     protein:   Math.max(0, (targets.proteinG - actuals.proteinG) / targets.proteinG * 100),
     fiber:     Math.max(0, (targets.fiberG - actuals.fiberG) / targets.fiberG * 100),
@@ -861,7 +993,10 @@ export function generateFocuses(
 
   const weights = PHASE_WEIGHTS[phase];
   const weighted = (Object.keys(deficits) as FocusCategory[]).map((cat) => {
-    const mult = weights[cat] ?? 1.0;
+    let mult = weights[cat] ?? 1.0;
+    // During titration, boost protein ranking — appetite suppression at escalating doses
+    // increases lean mass loss risk; surface protein focus even when other deficits exist
+    if (cat === 'protein' && programPhase === 'titration') mult *= 1.5;
     return { cat, score: deficits[cat] * mult };
   });
 
@@ -961,4 +1096,116 @@ export function computeSideEffectIndex(
     daysActive,
     score: Math.round(maxSeverity * 10),
   };
+}
+
+// ─── Rolling Adherence Score ──────────────────────────────────────────────────
+// 14-day linear weighted average: today = weight 14, 13 days ago = weight 1.
+// Days with no data at all are excluded from the average entirely.
+// Returns 0 for brand-new users with no data.
+
+export function computeRollingAdherenceScore(params: {
+  injectionLogs:  Array<{ injection_date: string; injection_time?: string }>;
+  foodLogs:       Array<{ logged_at: string; protein_g: number; fiber_g: number }>;
+  activityLogs:   Array<{ date: string; steps: number | null }>;
+  sideEffectLogs: SideEffectEntry[];
+  profile:        Pick<FullUserProfile, 'weightKg' | 'weightLbs' | 'activityLevel'
+                    | 'glp1Type' | 'doseMg' | 'glp1Status' | 'sideEffects'
+                    | 'injectionFrequencyDays'>;
+  programPhase:   string;   // 'initiation' | 'titration' | 'maintenance'
+  proteinPriority?: boolean;
+  today?:         Date;
+}): number {
+  const {
+    injectionLogs, foodLogs, activityLogs, sideEffectLogs,
+    profile, programPhase, proteinPriority = false, today: todayParam,
+  } = params;
+
+  const today = todayParam ?? new Date();
+  const phaseWeights = getPhaseWeights(programPhase);
+  const injFreq = (profile as any).injectionFrequencyDays ?? 7;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < 14; i++) {
+    const dayWeight = 14 - i; // today = 14, yesterday = 13, 13 days ago = 1
+
+    const dayStart = new Date(today);
+    dayStart.setHours(0, 0, 0, 0);
+    dayStart.setDate(dayStart.getDate() - i);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const dayStr = dayStart.toISOString().slice(0, 10);
+
+    // Filter logs to this calendar date
+    const dayInjections = injectionLogs.filter(l => l.injection_date === dayStr);
+    const dayFood       = foodLogs.filter(l => l.logged_at?.startsWith(dayStr));
+    const dayActivity   = activityLogs.filter(l => l.date === dayStr);
+
+    const hasInjection = dayInjections.length > 0;
+    const hasFood      = dayFood.length > 0;
+    const hasActivity  = dayActivity.length > 0;
+    const hasAnyData   = hasInjection || hasFood || hasActivity;
+
+    if (!hasAnyData) continue;
+
+    // Reconstruct DailyActuals for this day
+    const proteinG = dayFood.reduce((s, f) => s + (f.protein_g ?? 0), 0);
+    const fiberG   = dayFood.reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+    const steps    = dayActivity.reduce((s, a) => s + (a.steps ?? 0), 0);
+    const actuals: DailyActuals = {
+      proteinG,
+      waterMl: 1100, // neutral — no historical water data
+      fiberG,
+      steps,
+      injectionLogged: hasInjection,
+    };
+
+    // Find last injection on or before this day (for streak + daysLate scoring)
+    const injectionsOnOrBefore = injectionLogs
+      .filter(l => l.injection_date <= dayStr)
+      .sort((a, b) => b.injection_date.localeCompare(a.injection_date));
+
+    const lastInj = injectionsOnOrBefore[0];
+    const daySinceShot = lastInj
+      ? daysSinceInjection(lastInj.injection_date, dayStart)
+      : 7; // fallback: reset phase
+
+    const shotPhase = getShotPhase(daySinceShot);
+
+    // Get phase-aware targets for this day
+    const targets = getDailyTargets(
+      profile as unknown as FullUserProfile,
+      daySinceShot,
+      { programPhase: programPhase as ProgramPhase },
+    );
+
+    // Side effects: 7-day window ending this day
+    const seWindowStart = dayEnd.getTime() - 7 * 86400000;
+    const daySE = sideEffectLogs.filter(l => {
+      const t = new Date(l.logged_at).getTime();
+      return t >= seWindowStart && t <= dayEnd.getTime();
+    });
+
+    const { burden: seBurden } = computeSideEffectBurden(daySE, shotPhase, 7, dayEnd);
+
+    // Compute this day's adherence score
+    const dayScore = computeGlp1AdherenceScore(
+      actuals,
+      targets,
+      seBurden,
+      injectionsOnOrBefore as InjectionLogForScoring[],
+      injFreq,
+      hasActivity,
+      hasFood,
+      phaseWeights,
+      proteinPriority,
+    );
+
+    weightedSum += dayScore * dayWeight;
+    totalWeight += dayWeight;
+  }
+
+  if (totalWeight === 0) return 0;
+  return Math.round(weightedSum / totalWeight);
 }

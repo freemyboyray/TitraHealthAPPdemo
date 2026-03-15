@@ -6,7 +6,7 @@ import {
   ProfileDraft,
   computeProfileDerivedMetrics,
 } from '@/constants/user-profile';
-import { getDailyTargets, daysSinceInjection } from '@/constants/scoring';
+import { computeBaseTargets } from '@/lib/targets';
 import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = '@titrahealth_profile';
@@ -19,6 +19,7 @@ type ProfileContextValue = {
   updateDraft: (fields: Partial<FullUserProfile>) => void;
   completeOnboarding: () => Promise<void>;
   resetProfile: () => Promise<void>;
+  updateProfile: (fields: Partial<FullUserProfile>) => Promise<void>;
   isLoading: boolean;
 };
 
@@ -33,12 +34,14 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
   const heightIn = heightInches % 12;
 
   return {
-    glp1Status: 'active',
-    medicationBrand: 'other',
-    unitSystem: 'imperial',
-    glp1Type: row.medication_type ?? 'semaglutide',
-    routeOfAdministration: 'injection',
-    doseMg: row.dose_mg ?? 0,
+    glp1Status:             row.glp1_status ?? 'active',
+    medicationBrand:        row.medication_brand ?? 'other',
+    unitSystem:             row.unit_system ?? 'imperial',
+    glp1Type:               row.medication_type ?? 'semaglutide',
+    routeOfAdministration:  row.route_of_administration ?? 'injection',
+    doseMg:                 row.dose_mg ?? 0,
+    initialDoseMg:          row.initial_dose_mg ?? null,
+    doseStartDate:          row.dose_start_date ?? '',
     injectionFrequencyDays: row.injection_frequency_days ?? 7,
     lastInjectionDate: '',
     sex: row.sex ?? 'prefer_not_to_say',
@@ -71,18 +74,6 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
   };
 }
 
-// ─── TDEE Estimate (Harris-Benedict simplified) ───────────────────────────────
-
-function estimateTDEE(p: FullUserProfile): number {
-  const bmr = p.weightLbs * 6.8 + p.heightCm * 4.57 - p.age * 4.7;
-  const mult: Record<string, number> = {
-    sedentary: 1.2,
-    light: 1.375,
-    active: 1.55,
-    very_active: 1.725,
-  };
-  return Math.round(bmr * (mult[p.activityLevel] ?? 1.375));
-}
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -159,21 +150,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         activity_level:           complete.activityLevel,
         craving_days:             complete.cravingDays,
         initial_side_effects:     complete.sideEffects,
+        medication_brand:         complete.medicationBrand,
+        route_of_administration:  complete.routeOfAdministration,
+        glp1_status:              complete.glp1Status,
+        unit_system:              complete.unitSystem,
+        initial_dose_mg:          complete.initialDoseMg,
+        dose_start_date:          complete.doseStartDate || null,
       });
 
-      // 2. Upsert user_goals (computed from scoring engine)
-      const daysSince = complete.lastInjectionDate
-        ? daysSinceInjection(complete.lastInjectionDate)
-        : 1;
-      const targets = getDailyTargets(complete, daysSince);
-      const tdee = estimateTDEE(complete);
+      // 2. Upsert user_goals (computed from Mifflin-St Jeor base targets)
+      const baseTargets = computeBaseTargets(complete);
       await supabase.from('user_goals').upsert({
-        user_id:                user.id,
-        daily_protein_g_target:  Math.round(targets.proteinG),
-        daily_fiber_g_target:    Math.round(targets.fiberG),
-        daily_steps_target:      Math.round(targets.steps),
-        daily_calories_target:   Math.max(1200, tdee - 500),
-        active_calories_target:  400,
+        user_id:                 user.id,
+        daily_protein_g_target:  baseTargets.proteinG,
+        daily_fiber_g_target:    baseTargets.fiberG,
+        daily_steps_target:      baseTargets.steps,
+        daily_calories_target:   baseTargets.caloriesTarget,
+        active_calories_target:  baseTargets.activeMinutes * 3, // ~3 cal/min
       }, { onConflict: 'user_id' });
 
       // 3. Insert first injection_log from lastInjectionDate (fire-and-forget)
@@ -188,15 +181,41 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfile = async (fields: Partial<FullUserProfile>) => {
+    if (!profile) return;
+    const updated: FullUserProfile = { ...profile, ...fields };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setProfile(updated);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row: Record<string, any> = {};
+      if (fields.doseMg          !== undefined) row.dose_mg           = fields.doseMg;
+      if (fields.glp1Type        !== undefined) row.medication_type   = fields.glp1Type;
+      if (fields.medicationBrand !== undefined) row.medication_brand  = fields.medicationBrand;
+      if (fields.goalWeightLbs   !== undefined) row.goal_weight_lbs   = fields.goalWeightLbs;
+      if (fields.goalWeightKg    !== undefined) row.goal_weight_lbs   = Math.round(fields.goalWeightKg / 0.453592);
+      if (fields.routeOfAdministration !== undefined) row.route_of_administration = fields.routeOfAdministration;
+      if (Object.keys(row).length > 0) {
+        await supabase.from('profiles').update(row).eq('id', user.id);
+      }
+    }
+  };
+
   const resetProfile = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     setProfile(null);
     setDraft({});
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({ program_start_date: null }).eq('id', user.id);
+    }
   };
 
   return (
     <ProfileContext.Provider
-      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, isLoading }}>
+      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, isLoading }}>
       {children}
     </ProfileContext.Provider>
   );

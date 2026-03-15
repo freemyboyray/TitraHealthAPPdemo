@@ -175,10 +175,128 @@ const TIZE_PHASES: PhaseRow[] = [
   },
 ];
 
+const LIRA_PHASES: PhaseRow[] = [
+  {
+    name: 'initiation',
+    displayName: 'Initiation Phase',
+    minDoseMg: 0, maxDoseMg: 1.2,
+    expectedWeekStart: 1, expectedWeekEnd: 1,
+    weeklyFocus: 'Build daily injection habit and monitor GI tolerance at 0.6 mg.',
+    behavioralEmphasis: [
+      'Inject at the same time each day — consistency is more critical with a 13h half-life',
+      'Start protein-forward eating to establish the habit early',
+      'Note any nausea triggers — daily dosing means faster feedback than weekly drugs',
+    ],
+  },
+  {
+    name: 'low_therapeutic',
+    displayName: 'Low Therapeutic',
+    minDoseMg: 1.2, maxDoseMg: 1.8,
+    expectedWeekStart: 2, expectedWeekEnd: 2,
+    weeklyFocus: 'Escalating to 1.2 mg — appetite suppression begins in earnest.',
+    behavioralEmphasis: [
+      'Appetite is beginning to respond — use reduced hunger to establish portion control',
+      'Daily injection routine is critical; missed doses are not forgiven at 13h half-life',
+      'Introduce resistance exercise if not already doing it',
+    ],
+  },
+  {
+    name: 'mid_therapeutic',
+    displayName: 'Mid Therapeutic',
+    minDoseMg: 1.8, maxDoseMg: 2.4,
+    expectedWeekStart: 3, expectedWeekEnd: 3,
+    weeklyFocus: 'Peak habit plasticity window — changes made now are most likely to stick.',
+    behavioralEmphasis: [
+      'Focus on protein and movement — lean mass protection is critical at this dose',
+      'Track food noise score — liraglutide suppresses food noise meaningfully',
+      'Build the behavioral habits that will sustain after medication ends',
+    ],
+  },
+  {
+    name: 'high_therapeutic',
+    displayName: 'High Therapeutic',
+    minDoseMg: 2.4, maxDoseMg: 3.0,
+    expectedWeekStart: 4, expectedWeekEnd: 4,
+    weeklyFocus: 'Approaching max dose — consolidate daily habit and maximize lean mass protection.',
+    behavioralEmphasis: [
+      'Protein target is highest here — prioritize it above all other nutrition goals',
+      'Consider body composition assessment if available',
+      'Daily injection at max titration — consistent timing matters most',
+    ],
+  },
+  {
+    name: 'max_dose',
+    displayName: 'Maintenance Dose',
+    minDoseMg: 3.0, maxDoseMg: Infinity,
+    expectedWeekStart: 5, expectedWeekEnd: 999,
+    weeklyFocus: 'Consolidate the behavioral habits built during titration for long-term success.',
+    behavioralEmphasis: [
+      'Maintain the protein and movement habits established during titration',
+      'Monitor for weight plateau — intervention protocols differ at max dose',
+      'Focus on the behavioral skills needed for eventual medication tapering',
+    ],
+  },
+];
+
+const ORAL_SEMA_PHASES: PhaseRow[] = [
+  {
+    name: 'initiation',
+    displayName: 'Initiation Phase',
+    minDoseMg: 0, maxDoseMg: 7,
+    expectedWeekStart: 1, expectedWeekEnd: 4,
+    weeklyFocus: 'Establish fasting morning routine — absorption window is critical for oral semaglutide.',
+    behavioralEmphasis: [
+      'Take on empty stomach with ≤4 oz water — food/water reduces absorption by up to 90%',
+      'Wait at least 30 minutes before eating, drinking, or taking other medications',
+      'Build the fasting morning habit first — medication efficacy depends on it',
+    ],
+  },
+  {
+    name: 'low_therapeutic',
+    displayName: 'Low Therapeutic',
+    minDoseMg: 7, maxDoseMg: 14,
+    expectedWeekStart: 5, expectedWeekEnd: 8,
+    weeklyFocus: 'Dose escalation to 7 mg — appetite suppression is now active.',
+    behavioralEmphasis: [
+      'Oral route has lower bioavailability than injectable — consistency is the key variable',
+      'Use reduced appetite to build protein-forward meal patterns',
+      'Missing a morning dose is harder to recover from than with weekly injectables',
+    ],
+  },
+  {
+    name: 'mid_therapeutic',
+    displayName: 'Mid Therapeutic',
+    minDoseMg: 14, maxDoseMg: 25,
+    expectedWeekStart: 9, expectedWeekEnd: 16,
+    weeklyFocus: 'Peak behavioral plasticity — habits formed now persist after medication ends.',
+    behavioralEmphasis: [
+      'Food noise scores often reach their lowest here — capitalize on the window',
+      'Track protein and movement weekly — lean mass preservation is a clinical priority',
+      'Fasting absorption habit must be fully established before escalating further',
+    ],
+  },
+  {
+    name: 'max_dose',
+    displayName: 'Maintenance Dose',
+    minDoseMg: 25, maxDoseMg: Infinity,
+    expectedWeekStart: 17, expectedWeekEnd: 999,
+    weeklyFocus: 'Maximum clinical efficacy — consolidate habits for lifelong maintenance.',
+    behavioralEmphasis: [
+      'Sustain the protein, movement, and sleep habits built during titration',
+      'Monitor for weight plateau — intervention strategies differ at max oral dose',
+      'Build the identity-level behaviors that persist after medication ends',
+    ],
+  },
+];
+
 // ─── Expected dose by week ────────────────────────────────────────────────────
 
 function getExpectedDose(programWeek: number, medicationType: Glp1Type): number {
-  const phases = medicationType === 'tirzepatide' ? TIZE_PHASES : SEMA_PHASES;
+  const phases =
+    medicationType === 'tirzepatide'      ? TIZE_PHASES      :
+    medicationType === 'liraglutide'      ? LIRA_PHASES      :
+    medicationType === 'oral_semaglutide' ? ORAL_SEMA_PHASES :
+    SEMA_PHASES;
   const phase = phases.find(
     p => programWeek >= p.expectedWeekStart && programWeek <= p.expectedWeekEnd,
   );
@@ -192,7 +310,11 @@ export function getEscalationPhase(
   doseMg: number,
   medicationType: Glp1Type,
 ): EscalationPhase {
-  const phases = medicationType === 'tirzepatide' ? TIZE_PHASES : SEMA_PHASES;
+  const phases =
+    medicationType === 'tirzepatide'      ? TIZE_PHASES      :
+    medicationType === 'liraglutide'      ? LIRA_PHASES      :
+    medicationType === 'oral_semaglutide' ? ORAL_SEMA_PHASES :
+    SEMA_PHASES;
   const row = phases.find(p => doseMg >= p.minDoseMg && doseMg < p.maxDoseMg)
     ?? phases[phases.length - 1];
 

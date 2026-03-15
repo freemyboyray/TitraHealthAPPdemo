@@ -102,6 +102,24 @@ export function pkConcentrationPct(
   return Math.min(100, Math.max(0, (rawC(tHours) / peak) * 100));
 }
 
+// ─── Cycle-anchored curve (injectable drugs) ──────────────────────────────────
+// Index 0 = Day 1 of cycle (t=24h), index N-1 = Day N.
+// Unlike generatePkCurve, historical points NEVER change when a new injection is
+// logged — each point is anchored to a fixed day of the cycle.
+
+export function generatePkCurveCycle(
+  glp1Type: Glp1Type,
+  glp1Status: Glp1Status,
+  injFreqDays: number,
+): number[] {
+  const atSteadyState = glp1Status === 'active';
+  const intervalH = Math.max(1, injFreqDays) * 24;
+  return Array.from({ length: injFreqDays }, (_, i) => {
+    const tHours = (i + 1) * 24; // day 1 = 24h, day 2 = 48h, ..., day N = N*24h
+    return Math.round(pkConcentrationPct(tHours, glp1Type, atSteadyState, intervalH));
+  });
+}
+
 // ─── 7-day curve (weekly/biweekly injectable drugs) ───────────────────────────
 // Index 0 = 6 days ago, index 6 = today.
 

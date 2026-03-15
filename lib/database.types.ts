@@ -416,19 +416,25 @@ export type Database = {
           dismissed_flags: Json | null
           dob: string | null
           dose_mg: number | null
+          dose_start_date: string | null
           full_name: string | null
+          glp1_status: string | null
           goal_weight_lbs: number | null
           height_inches: number | null
           id: string
+          initial_dose_mg: number | null
           initial_side_effects: Json | null
           injection_day_of_week: number | null
           injection_frequency_days: number
           injection_time: string | null
+          medication_brand: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           program_start_date: string | null
+          route_of_administration: string | null
           sex: string | null
           start_weight_lbs: number | null
           target_weekly_loss_lbs: number | null
+          unit_system: string | null
           updated_at: string
         }
         Insert: {
@@ -440,21 +446,27 @@ export type Database = {
           dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null
+          dose_start_date?: string | null
           full_name?: string | null
+          glp1_status?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
           id: string
+          initial_dose_mg?: number | null
           initial_side_effects?: Json | null
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          medication_brand?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
           program_start_date?: string | null
+          route_of_administration?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
+          unit_system?: string | null
           updated_at?: string
         }
         Update: {
@@ -466,21 +478,27 @@ export type Database = {
           dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null
+          dose_start_date?: string | null
           full_name?: string | null
+          glp1_status?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
           id?: string
+          initial_dose_mg?: number | null
           initial_side_effects?: Json | null
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          medication_brand?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
           program_start_date?: string | null
+          route_of_administration?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
+          unit_system?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -758,6 +776,39 @@ export type Database = {
           },
         ]
       }
+      weekly_checkins: {
+        Row: {
+          answers: Json
+          checkin_type: string
+          id: string
+          logged_at: string
+          phase_at_log: string | null
+          program_week: number | null
+          score: number
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          checkin_type: string
+          id?: string
+          logged_at?: string
+          phase_at_log?: string | null
+          program_week?: number | null
+          score: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          checkin_type?: string
+          id?: string
+          logged_at?: string
+          phase_at_log?: string | null
+          program_week?: number | null
+          score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       weight_logs: {
         Row: {
           id: string
@@ -783,47 +834,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "weight_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weekly_checkins: {
-        Row: {
-          id: string
-          user_id: string
-          checkin_type: string
-          logged_at: string
-          score: number
-          answers: Json
-          program_week: number | null
-          phase_at_log: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          checkin_type: string
-          logged_at?: string
-          score: number
-          answers?: Json
-          program_week?: number | null
-          phase_at_log?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          checkin_type?: string
-          logged_at?: string
-          score?: number
-          answers?: Json
-          program_week?: number | null
-          phase_at_log?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weekly_checkins_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -863,6 +873,13 @@ export type Database = {
         | "appetite_loss"
         | "other"
         | "hair_loss"
+        | "dehydration"
+        | "dizziness"
+        | "muscle_loss"
+        | "heartburn"
+        | "food_noise"
+        | "sulfur_burps"
+        | "bloating"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1015,6 +1032,13 @@ export const Constants = {
         "appetite_loss",
         "other",
         "hair_loss",
+        "dehydration",
+        "dizziness",
+        "muscle_loss",
+        "heartburn",
+        "food_noise",
+        "sulfur_burps",
+        "bloating",
       ],
     },
   },

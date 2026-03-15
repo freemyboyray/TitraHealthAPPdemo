@@ -199,7 +199,10 @@ export const useLogStore = create<LogStore>((set, get) => ({
         medication_name: medication_name ?? null,
         batch_number: batch_number ?? null,
       });
-    if (!error) await get().fetchInsightsData();
+    if (!error) {
+      await supabase.from('profiles').update({ last_injection_date: injection_date }).eq('id', user.id);
+      await get().fetchInsightsData();
+    }
     set({ loading: false, error: error?.message ?? null });
   },
 

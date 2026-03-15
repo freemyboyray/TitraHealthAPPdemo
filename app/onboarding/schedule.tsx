@@ -32,11 +32,19 @@ export default function ScheduleScreen() {
   // Daily drugs (injected or oral) lock to freq=1; only show picker for weekly/biweekly injectables
   const lockedFreq = isDaily ? 1 : null;
 
+  const glp1Status = draft.glp1Status ?? 'active';
+  const isActive   = glp1Status === 'active';
+
   const [freq, setFreq] = useState<number | 'custom' | null>(lockedFreq);
   const [customFreq, setCustomFreq] = useState('');
   const [month, setMonth] = useState('');
   const [day, setDay]     = useState('');
   const [year, setYear]   = useState('');
+
+  // Dose start date — only shown for active users
+  const [dsMonth, setDsMonth] = useState('');
+  const [dsDay,   setDsDay]   = useState('');
+  const [dsYear,  setDsYear]  = useState('');
 
   // Keep freq in sync if the user navigates back and changes their drug selection
   useEffect(() => {
@@ -46,15 +54,20 @@ export default function ScheduleScreen() {
   const freqDays =
     freq === 'custom' ? (customFreq !== '' ? parseInt(customFreq, 10) : null) : freq;
 
-  const isValidDate = month !== '' && day !== '' && year.length === 4;
-  const isValid = freqDays !== null && isValidDate;
+  const isValidDate   = month !== '' && day !== '' && year.length === 4;
+  const isDsDateValid = !isActive || (dsMonth !== '' && dsDay !== '' && dsYear.length === 4);
+  const isValid = freqDays !== null && isValidDate && isDsDateValid;
 
   const handleContinue = () => {
     if (!isValid) return;
-    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const d  = new Date(parseInt(year),   parseInt(month)   - 1, parseInt(day));
+    const ds = isActive && dsYear.length === 4
+      ? new Date(parseInt(dsYear), parseInt(dsMonth) - 1, parseInt(dsDay))
+      : d;
     updateDraft({
       injectionFrequencyDays: freqDays as number,
       lastInjectionDate: toDateString(d),
+      doseStartDate: toDateString(ds),
     });
     router.push('/onboarding/sex');
   };
@@ -154,6 +167,47 @@ export default function ScheduleScreen() {
               onChangeText={setYear}
             />
           </View>
+
+          {/* Dose start date — only for active users */}
+          {isActive && (
+            <>
+              <Text style={s.sectionLabel}>
+                When did you start your current dose?
+              </Text>
+              <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
+                The date you first took this specific dose amount.
+              </Text>
+              <View style={s.dateRow}>
+                <TextInput
+                  style={[s.dateInput, s.dateInputSm]}
+                  placeholder="MM"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={dsMonth}
+                  onChangeText={setDsMonth}
+                />
+                <TextInput
+                  style={[s.dateInput, s.dateInputSm]}
+                  placeholder="DD"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={dsDay}
+                  onChangeText={setDsDay}
+                />
+                <TextInput
+                  style={[s.dateInput, s.dateInputLg]}
+                  placeholder="YYYY"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  value={dsYear}
+                  onChangeText={setDsYear}
+                />
+              </View>
+            </>
+          )}
         </ScrollView>
 
         <ContinueButton onPress={handleContinue} disabled={!isValid} />
