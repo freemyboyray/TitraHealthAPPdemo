@@ -290,7 +290,7 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' });
+      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -298,7 +298,7 @@ export default function SignInScreen() {
       });
 
       if (err || !data.url) {
-        setError(err?.message ?? 'Google sign-in failed. Make sure Google is enabled in your Supabase project.');
+        setError(err?.message ?? 'Google sign-in failed. Enable Google in Supabase → Authentication → Providers.');
         return;
       }
 
@@ -332,8 +332,8 @@ export default function SignInScreen() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {
-        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' });
-        setError(`Redirect URI mismatch.\n\nAdd this to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`);
+        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
+        setError(`Redirect URI mismatch.\n\nAdd this exact URL to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`);
       } else {
         setError(`Google sign-in failed: ${msg}`);
       }
