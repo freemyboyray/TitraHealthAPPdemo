@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 15, 2026 (rev 7)
+**Last Updated:** March 15, 2026 (rev 8)
 
 ---
 
@@ -189,11 +189,15 @@ TitraHealthAPPdemo/
 │   ├── anthropic.ts             # Claude Haiku client: callHaiku(system, userContent[])
 │   ├── usda.ts                  # USDA FoodData Central REST client: searchFoods, getFoodDetails
 │   ├── context-snapshot.ts      # buildContextSnapshot() — natural language health summary for AI
+│   ├── targets.ts               # Personalized Targets Engine — computeBaseTargets() (Mifflin-St Jeor
+│   │                            # BMR → TDEE → deficit → macros); applyAdjustments() (evidence-based
+│   │                            # side-effect delta rules, severity+recency weighted, conflict-resolved)
 │   └── database.types.ts        # Auto-generated Supabase TypeScript types
 ├── stores/                      # Zustand stores (all implemented)
 │   ├── log-store.ts             # All log types + Supabase CRUD + fetchInsightsData
 │   ├── insights-store.ts        # Score computation from real Supabase data
 │   ├── user-store.ts            # Auth state, session, profile row, signOut
+│   ├── preferences-store.ts     # Dark/light mode toggle, appleHealthEnabled (AsyncStorage)
 │   └── ui-store.ts              # Sheet open state, active tab, loading states
 ├── hooks/
 │   ├── use-color-scheme.ts
@@ -494,9 +498,9 @@ Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has ca
 ### 6.6 Add Entry Sheet
 
 **File:** `components/add-entry-sheet.tsx`
-**Status:** ✅ Built — LOG INJECTION + DESCRIBE FOOD + LOG WEIGHT / WATER / ACTIVITY wired
+**Status:** ✅ Built — all 10 items wired
 
-Bottom sheet modal triggered by FAB. 9-item grid. Each item navigates to its dedicated entry screen (via `router.push`) or opens an inline form.
+Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its dedicated entry screen (via `router.push`) or opens an inline form.
 
 - **LOG INJECTION** — navigates to `app/entry/log-injection.tsx`
 - **DESCRIBE FOOD** — AI-powered natural language parser:
@@ -509,6 +513,7 @@ Bottom sheet modal triggered by FAB. 9-item grid. Each item navigates to its ded
 - **SEARCH FOOD** — navigates to `app/entry/search-food.tsx`
 - **PHOTO** — navigates to `app/entry/capture-food.tsx`
 - **LOG WEIGHT / WATER / ACTIVITY** — inline forms wired to log store + HealthContext dispatch
+- **SIDE EFFECTS** — navigates to `app/entry/side-effects.tsx` (restored in rev 8; was dropped during dark mode redesign)
 
 ---
 
@@ -610,13 +615,20 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 
 | Table | Key Columns | Used By |
 |---|---|---|
-| `profiles` | `id`, `full_name`, `medication_type`, `injection_frequency_days`, `start_weight_lbs`, `goal_weight_lbs`, `program_start_date` | `user-store.ts`, `log-store.ts`, `insights-store.ts` |
+| `profiles` | `id`, `full_name`, `medication_type`, `injection_frequency_days`, `start_weight_lbs`, `goal_weight_lbs`, `program_start_date`, `medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date` | `user-store.ts`, `log-store.ts`, `insights-store.ts` |
 | `user_goals` | `daily_calories_target`, `daily_protein_g_target`, `daily_fiber_g_target`, `daily_steps_target` | `log-store.ts`, `insights-store.ts` |
 | `injection_logs` | `dose_mg`, `injection_date`, `injection_time`, `site`, `notes` | `log-store.ts` |
 | `food_logs` | `name`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`, `serving_size`, `meal_type`, `source`, `logged_at` | `log-store.ts` |
 | `weight_logs` | `weight_lbs`, `weight_kg`, `logged_at`, `notes` | `log-store.ts` |
 | `activity_logs` | `activity_type`, `duration_min`, `steps`, `calories_burned`, `source`, `date` | `log-store.ts` |
-| `side_effect_logs` | `effect_type`, `severity`, `phase_at_log`, `notes`, `logged_at` | `log-store.ts` |
+| `side_effect_logs` | `effect_type` (enum — see below), `severity`, `phase_at_log`, `notes`, `logged_at` | `log-store.ts` |
+
+**`side_effect_type` enum values** (expanded in migration `20260315_expand_side_effect_types.sql`):
+`nausea` · `vomiting` · `fatigue` · `constipation` · `diarrhea` · `headache` · `appetite_loss` · `hair_loss` · `dehydration` · `dizziness` · `muscle_loss` · `heartburn` · `food_noise` · `sulfur_burps` · `bloating` · `other`
+
+**Migrations applied:**
+- `20260311_profiles_medication_brand.sql` — adds `medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date` to `profiles`
+- `20260315_expand_side_effect_types.sql` — adds 7 new values to `side_effect_type` enum
 
 ### Scoring Types (implemented)
 
@@ -629,6 +641,40 @@ type WearableData  = { sleepMinutes: number; hrvMs: number; restingHR: number; s
 type ShotPhase     = 'shot' | 'peak' | 'balance' | 'reset';
 type FocusItem     = { id: string; label: string; subtitle: string; badge: string; iconName: string; iconSet: 'Ionicons' | 'MaterialIcons' };
 ```
+
+### Personalized Targets Engine (implemented — `lib/targets.ts`)
+
+```typescript
+// lib/targets.ts — Pure TypeScript, no React/Supabase
+
+type BaseTargets = {
+  caloriesTarget: number;  // Mifflin-St Jeor BMR → TDEE → caloric deficit
+  proteinG: number;        // 1.6–2.0 g/kg based on weekly loss speed
+  fatG: number;            // 28% of calories
+  carbsG: number;          // remainder calories, floor 50g
+  fiberG: number;          // IOM gender/age norms
+  waterMl: number;         // 35 ml/kg, bounded [2000, 4000]
+  steps: number;           // 8000–9000 based on loss speed
+  activeMinutes: number;
+};
+
+type SideEffectRule = {
+  waterMlDelta: number; proteinPct: number; fiberGDelta: number;
+  fatPct: number; carbsPct: number; stepsDelta: number; activeMinDelta: number;
+  mealFrequency: number; fiberType?: 'soluble_first' | 'soluble_only' | 'avoid_cruciferous';
+  resistanceFlag?: boolean; foodsToAvoid?: string[]; foodsToPrioritize?: string[]; label: string;
+};
+
+type SideEffectAdjustment = {
+  mealFrequency: number; foodsToAvoid: string[]; foodsToPrioritize: string[];
+  adjustmentReasons: string[]; resistanceTrainingRecommended: boolean; fiberType?: string;
+};
+```
+
+**Key exports:**
+- `computeBaseTargets(profile)` — Mifflin-St Jeor BMR-based daily targets from `FullUserProfile`; stores to `user_goals` at onboarding completion
+- `SIDE_EFFECT_RULES` — 13-effect rule table with evidence-based deltas (sourced from PMC9821052, PMC11668918, PMC12536186, ACLM/ASN/OMA/TOS joint advisory)
+- `applyAdjustments(base, recentLogs)` — applies severity + recency weighted side-effect deltas to any target set; conflict resolution: water=MAX, protein=MAX, fiber=decrease-wins, fat=most-restrictive, steps=MAX (suppressed for vomiting/severe nausea)
 
 ### Insights Store Types (implemented — `stores/insights-store.ts`)
 
@@ -658,6 +704,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Logs | `useLogStore` (Zustand + Supabase) | All daily log entries; CRUD actions; `fetchInsightsData` |
 | Insights | `insightsStore` (Zustand) | Computed `ScoreBreakdown`, injection phase, focuses from real data |
 | Health / Scores | `HealthContext` (useReducer) | Daily actuals, targets, wearable data, recovery + support scores |
+| Preferences | `usePreferencesStore` (Zustand + AsyncStorage) | `isDark` (light/dark mode), `appleHealthEnabled` |
 | Tab bar visibility | `TabBarVisibilityContext` | `Animated.Value` for scroll-driven show/hide |
 | UI (local) | `useState` | Sheet open, active tab, chart width |
 
@@ -755,7 +802,7 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Complete | Reusable dark-glass border primitive |
 | Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven; quarter-arc rings; AI insights; help button |
 | `RingsExplainerModal` | inline in `app/(tabs)/index.tsx` | ✅ Built | "How Your Rings Work" slide-up modal |
-| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 9 items; each navigates to dedicated entry screen; DESCRIBE FOOD AI parser inline; activity inline form removed |
+| `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 10 items; DESCRIBE FOOD AI parser inline; SIDE EFFECTS button restored (rev 8) |
 | Insights Screen | `app/(tabs)/log.tsx` | ✅ Built | All 3 tabs; dynamic AI insight cards |
 | AI Chat | `app/ai-chat.tsx` | ✅ Built | GPT-4o-mini; full health context; type-aware chips |
 | Score Detail | `app/score-detail.tsx` | ✅ Built | Per-metric breakdown; AI coach note; phase banner |
@@ -832,6 +879,11 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Google + Apple Sign In functional (rev 7)** — Google OAuth via `expo-auth-session` + `expo-web-browser` with `makeRedirectUri({ scheme: 'titrahealthappdemo', native: 'titrahealthappdemo://' })`, handles PKCE (code exchange) and implicit (hash token) flows; Apple Sign In via `expo-apple-authentication` + `supabase.auth.signInWithIdToken`; both protected by `checkSupabaseConfigured()` guard; `try/finally` ensures loading states always clear
 - [x] **Apple Health toggle functional (rev 7)** — Settings → Integrations → Apple Health is a live `Switch`; toggle ON calls `requestPermissions()` (HealthKit); if granted sets `appleHealthEnabled` in preferences store + calls `fetchAll()`; if denied shows system Settings alert; `(tabs)/_layout.tsx` only calls `fetchHealthData()` on launch when `appleHealthEnabled` is true; `appleHealthEnabled` added to `preferences-store.ts`
 - [x] **Supabase session persistence via AsyncStorage (rev 7)** — `lib/supabase.ts` switched from `MemoryStorageAdapter` to `AsyncStorage`; sessions persist across app restarts; required for OAuth round-trips where app backgrounds during browser auth flow
+- [x] **Personalized Targets Engine (rev 8)** — `lib/targets.ts`; `computeBaseTargets()` uses Mifflin-St Jeor BMR → TDEE → deficit → macros; evidence-based from 2024–2025 PMC + ACLM/ASN/OMA/TOS meta-analyses; replaces hardcoded scoring.ts multipliers for calorie and macro targets
+- [x] **Side-Effect Adjustment Engine (rev 8)** — `applyAdjustments()` in `lib/targets.ts`; 13 GLP-1 side effects (constipation, diarrhea, nausea, vomiting, fatigue, headache, appetite_loss, dehydration, dizziness, muscle_loss, heartburn, food_noise, sulfur_burps, bloating); severity × recency weighted; conflict-resolved (water=MAX, protein=MAX, fiber=decrease-wins, fat=most-restrictive); each effect includes `foodsToAvoid`, `foodsToPrioritize`, `mealFrequency`, `fiberType`, optional `resistanceFlag`
+- [x] **DB schema expanded (rev 8)** — `profiles` table: 6 new columns (`medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date`); `side_effect_type` enum: 7 new values (`dehydration`, `dizziness`, `muscle_loss`, `heartburn`, `food_noise`, `sulfur_burps`, `bloating`)
+- [x] **Side Effects button restored in Add Entry Sheet (rev 8)** — was silently dropped in dark-mode redesign commit (`90cfb38`); now navigates to `/entry/side-effects`
+- [x] **Google OAuth redirect URI fix (rev 8)** — updated `makeRedirectUri` for `expo-auth-session` v7 API changes; ensures redirect URI generation works correctly in both Expo Go (tunnel) and production builds
 
 ### In Progress / Partially Done
 
@@ -902,4 +954,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 15, 2026 (rev 7). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 15, 2026 (rev 8). It should be updated as features are built and decisions are made.*
