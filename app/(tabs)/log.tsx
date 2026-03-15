@@ -701,7 +701,7 @@ function WeightChartCard({ datasets, currentWeight, projection, programWeek }: {
           )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -751,7 +751,7 @@ function ProjectionStatsCard({ projection }: { projection: WeightProjection }) {
           </View>
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
