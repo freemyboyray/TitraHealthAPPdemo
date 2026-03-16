@@ -22,7 +22,7 @@ const QUESTIONS = [
   'I felt full after eating smaller portions this week.',
   'My urge to snack between meals has been reduced.',
   'I ate until satisfied, not overly full.',
-  'My appetite felt appropriately managed — not too suppressed, not too strong.',
+  'I was able to eat enough to meet my daily nutritional needs this week.',
   'The medication is helping me control what I eat.',
 ] as const;
 

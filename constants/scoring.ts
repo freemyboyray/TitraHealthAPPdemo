@@ -1,5 +1,6 @@
 import { ActivityLevel, FullUserProfile } from './user-profile';
 import { applyAdjustments, type RecentSideEffectLog } from '@/lib/targets';
+import { localDateStr } from '@/lib/date-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ export type DailyTargets = {
   adjustmentReasons?: string[];
   resistanceTrainingRecommended?: boolean;
   fiberType?: string;
+  checkinAdjustmentReasons?: string[];
 };
 
 export type DailyActuals = {
@@ -1121,11 +1123,11 @@ export function computeRollingAdherenceScore(params: {
     dayStart.setDate(dayStart.getDate() - i);
     const dayEnd = new Date(dayStart);
     dayEnd.setHours(23, 59, 59, 999);
-    const dayStr = dayStart.toISOString().slice(0, 10);
+    const dayStr = localDateStr(dayStart);                                        // local date
 
     // Filter logs to this calendar date
     const dayInjections = injectionLogs.filter(l => l.injection_date === dayStr);
-    const dayFood       = foodLogs.filter(l => l.logged_at?.startsWith(dayStr));
+    const dayFood       = foodLogs.filter(l => localDateStr(new Date(l.logged_at)) === dayStr);
     const dayActivity   = activityLogs.filter(l => l.date === dayStr);
 
     const hasInjection = dayInjections.length > 0;

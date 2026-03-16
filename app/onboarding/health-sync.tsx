@@ -24,9 +24,11 @@ export default function HealthSyncScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {
-    // NitroModules (HealthKit) crash the app in Expo Go — skip the native call there.
-    // In a production EAS build this code path runs normally.
-    const isExpoGo = Constants.appOwnership === 'expo';
+    // NitroModules (HealthKit) crash in Expo Go — skip the native call there.
+    // Check both appOwnership (SDK <52) and executionEnvironment (SDK 52+).
+    const isExpoGo =
+      Constants.appOwnership === 'expo' ||
+      (Constants as any).executionEnvironment === 'storeClient';
 
     if (Platform.OS === 'ios' && !isExpoGo) {
       try {
@@ -59,7 +61,7 @@ export default function HealthSyncScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={8} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={8} total={12} onBack={() => router.back()} />
 
         <Text style={s.title}>Sync with Apple Health</Text>
         <Text style={s.subtitle}>

@@ -26,6 +26,8 @@ import type {
   Glp1Type,
   Sex,
 } from '@/constants/user-profile';
+import { applyCheckinAdjustments, type CheckinScores } from '@/lib/checkin-adjustments';
+import { localDateStr } from '@/lib/date-utils';
 import { buildContextSnapshot } from '@/lib/context-snapshot';
 import { getEscalationPhase, type EscalationPhase } from '@/lib/escalation-phase';
 import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
@@ -236,9 +238,8 @@ export function computePersonalizedPlan(params: {
       logged_at: l.logged_at,
     }));
 
-  const targets = getDailyTargets(
+  let targets = getDailyTargets(
     profile as unknown as FullUserProfile,
-    daysSinceShot,
     {
       programPhase,
       baseCaloriesTarget: userGoals?.daily_calories_target ?? undefined,
@@ -271,12 +272,9 @@ export function computePersonalizedPlan(params: {
     : null;
 
   // 5. Adherence score
-  const hasFoodData = (foodLogs ?? []).some(f =>
-    f.logged_at?.startsWith(new Date().toISOString().split('T')[0]),
-  );
-  const hasActivityData = (activityLogs ?? []).some(a =>
-    a.date === new Date().toISOString().split('T')[0],
-  );
+  const todayLocal = localDateStr();
+  const hasFoodData     = (foodLogs ?? []).some(f => localDateStr(new Date(f.logged_at)) === todayLocal);
+  const hasActivityData = (activityLogs ?? []).some(a => a.date === todayLocal);
   const adherenceScore = computeGlp1AdherenceScore(
     actuals,
     targets,
@@ -354,6 +352,20 @@ export function computePersonalizedPlan(params: {
     energyMood: latestCheckin('energy_mood'),
     appetite:   latestCheckin('appetite'),
   };
+
+  // 10c. Apply check-in score adjustments on top of side-effect adjusted targets
+  const sevenDaysAgoMs = Date.now() - 7 * 86400000;
+  const checkinIsRecent = (at: string | null) => at != null && new Date(at).getTime() >= sevenDaysAgoMs;
+
+  const checkinScores: CheckinScores = {
+    foodNoise:  checkinIsRecent(weeklyCheckins.foodNoise.loggedAt)  ? weeklyCheckins.foodNoise.score  : null,
+    energyMood: checkinIsRecent(weeklyCheckins.energyMood.loggedAt) ? weeklyCheckins.energyMood.score : null,
+    appetite:   checkinIsRecent(weeklyCheckins.appetite.loggedAt)   ? weeklyCheckins.appetite.score   : null,
+  };
+
+  if (Object.values(checkinScores).some(v => v != null)) {
+    targets = applyCheckinAdjustments(targets, checkinScores);
+  }
 
   // 11. Context snapshot for AI surfaces
   const contextSnapshot = buildContextSnapshot({

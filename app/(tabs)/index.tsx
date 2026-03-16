@@ -6,7 +6,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, w
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
-import { fetchActualsForDate, useHealthData } from '@/contexts/health-data';
+import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
+import { localDateStr } from '@/lib/date-utils';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import {
   daysSinceInjection,
@@ -14,7 +15,7 @@ import {
   generateInsights,
   type DailyActuals,
   type ShotPhase,
-  type SideEffectIndex,
+
 } from '@/constants/scoring';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
@@ -29,6 +30,7 @@ import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { supabase } from '@/lib/supabase';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -219,49 +221,6 @@ function buildDynamicFocusHint(plan: PersonalizedPlan | null): string {
   return 'Keep your current habits going — consistency is what drives results';
 }
 
-// ─── Side Effect Badge ────────────────────────────────────────────────────────
-
-function SideEffectBadge({ index }: { index: SideEffectIndex }) {
-  if (index.level === 'none') return null;
-
-  const badgeColor =
-    index.level === 'severe' ? '#E53E3E'
-    : index.level === 'moderate' ? '#E8960C'
-    : '#27AE60'; // mild + expected
-
-  const emoji =
-    index.level === 'severe' ? '🔴'
-    : index.level === 'moderate' ? '🟡'
-    : '🟢';
-
-  const symptomLabel = index.primarySymptom
-    ? index.primarySymptom.replace('_', ' ')
-    : null;
-
-  const label = index.level === 'severe'
-    ? `${emoji} Severe — Contact prescriber`
-    : symptomLabel
-    ? `${emoji} ${index.level.charAt(0).toUpperCase() + index.level.slice(1)} · ${symptomLabel.charAt(0).toUpperCase() + symptomLabel.slice(1)}${index.phaseNote ? ` — ${index.phaseNote}` : ''}`
-    : `${emoji} ${index.level.charAt(0).toUpperCase() + index.level.slice(1)}${index.phaseNote ? ` — ${index.phaseNote}` : ''}`;
-
-  return (
-    <View style={[seb.wrap, { borderColor: badgeColor + '55', backgroundColor: badgeColor + '18' }]}>
-      <Text style={[seb.text, { color: badgeColor }]}>{label}</Text>
-    </View>
-  );
-}
-
-const seb = StyleSheet.create({
-  wrap: {
-    alignSelf: 'flex-start',
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginTop: 4,
-  },
-  text: { fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue' },
-});
 
 // ─── Local date helpers ───────────────────────────────────────────────────────
 
@@ -298,9 +257,10 @@ type CalendarDropdownProps = {
   minDate: Date;
   lastInjectionDate?: string | null;
   injectionFrequencyDays?: number;
+  datesWithLogs?: Set<string>;
 };
 
-function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionDate, injectionFrequencyDays = 7 }: CalendarDropdownProps) {
+function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionDate, injectionFrequencyDays = 7, datesWithLogs }: CalendarDropdownProps) {
   const { colors } = useAppTheme();
   const cal = useMemo(() => createCalStyles(colors), [colors]);
   const today = new Date();
@@ -367,6 +327,7 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
                     return diff >= 0 && diff % injectionFrequencyDays === 0;
                   })()
                 : false;
+              const hasLogs = !isTod && datesWithLogs?.has(localDateStr(date)) === true;
               return (
                 <Pressable key={di} style={cal.cell} onPress={() => { if (!isPre) onSelect(date); }}>
                   <View style={[cal.dayCircle, isSel && cal.daySelected]}>
@@ -375,7 +336,8 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
                     </Text>
                   </View>
                   {isTod && !isSel && <View style={cal.todayDot} />}
-                  {isInjDay && !isSel && !isTod && <View style={cal.injDot} />}
+                  {isInjDay && !isSel && !isTod && !hasLogs && <View style={cal.injDot} />}
+                  {hasLogs && !isSel && <View style={cal.logDot} />}
                 </Pressable>
               );
             })}
@@ -429,6 +391,162 @@ function TimelineLine({ status }: { status: 'completed' | 'active' | 'pending' }
   return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: colors.borderSubtle }]} />;
 }
 
+// ─── Daily Log Summary Card ───────────────────────────────────────────────────
+
+const MEAL_ICONS: Record<string, string> = {
+  breakfast: '🍳',
+  lunch:     '🥗',
+  dinner:    '🍽️',
+  snack:     '🫐',
+};
+
+type DailyLogSummaryCardProps = {
+  foodLogs:      DailySnapshot['foodLogs'];
+  activityLogs:  DailySnapshot['activityLogs'];
+  weightLog:     DailySnapshot['weightLog'] | null;
+  injectionLog:  DailySnapshot['injectionLog'] | null;
+  sideEffectLogs: DailySnapshot['sideEffectLogs'];
+  isLoading:     boolean;
+  isFuture:      boolean;
+};
+
+function DailyLogSummaryCard({
+  foodLogs,
+  activityLogs,
+  weightLog,
+  injectionLog,
+  sideEffectLogs,
+  isLoading,
+  isFuture,
+}: DailyLogSummaryCardProps) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
+  const totalCals = foodLogs.reduce((sum, f) => sum + (f.calories ?? 0), 0);
+  const isEmpty = foodLogs.length === 0 && activityLogs.length === 0 && !weightLog && !injectionLog && sideEffectLogs.length === 0;
+
+  // Group food logs by meal type, show max 5 total
+  const foodByMeal: Record<string, typeof foodLogs> = {};
+  for (const f of foodLogs) {
+    const m = (f.meal_type ?? 'snack').toLowerCase();
+    if (!foodByMeal[m]) foodByMeal[m] = [];
+    foodByMeal[m].push(f);
+  }
+  const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+  const sortedFoods = MEAL_ORDER.flatMap(m => foodByMeal[m] ?? []);
+  const shownFoods = sortedFoods.slice(0, 5);
+  const moreCount = Math.max(0, sortedFoods.length - 5);
+
+  if (isLoading) {
+    return (
+      <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
+        <View style={[s.cardBody, { backgroundColor: colors.surface, padding: 20 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ height: 17, width: 80, borderRadius: 8, backgroundColor: colors.borderSubtle }} />
+            <View style={{ height: 17, width: 60, borderRadius: 8, backgroundColor: colors.borderSubtle }} />
+          </View>
+          {[0.9, 0.7, 0.8].map((pct, i) => (
+            <View key={i} style={{ height: 14, borderRadius: 7, backgroundColor: colors.borderSubtle, marginBottom: 12, width: `${pct * 100}%` as any }} />
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
+      <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
+        <View style={{ padding: 20 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={s.insightsTitle}>Day Log</Text>
+            {totalCals > 0 && (
+              <View style={{ backgroundColor: colors.borderSubtle, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.55), fontFamily: FF }}>{totalCals} cal</Text>
+              </View>
+            )}
+          </View>
+
+          {isFuture ? (
+            <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF }}>Nothing logged yet — this is a future date.</Text>
+          ) : isEmpty ? (
+            <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
+          ) : (
+            <>
+              {/* Injection row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 }}>
+                <Ionicons name="medical-outline" size={16} color={injectionLog ? ORANGE : w(0.3)} />
+                <Text style={{ fontSize: 14, color: injectionLog ? w(0.75) : w(0.35), fontFamily: FF }}>
+                  {injectionLog
+                    ? `${injectionLog.medication_name ?? 'Injection'} ${injectionLog.dose_mg}mg · logged`
+                    : 'No injection logged'}
+                </Text>
+              </View>
+
+              {/* Food section */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.4), letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8, fontFamily: FF }}>Food</Text>
+              {shownFoods.length === 0 ? (
+                <Text style={{ fontSize: 14, color: w(0.35), fontFamily: FF, marginBottom: 12 }}>No meals logged</Text>
+              ) : (
+                <>
+                  {shownFoods.map(f => (
+                    <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                      <Text style={{ fontSize: 16 }}>{MEAL_ICONS[(f.meal_type ?? 'snack').toLowerCase()] ?? '🍽️'}</Text>
+                      <Text style={{ fontSize: 14, color: w(0.75), flex: 1, fontFamily: FF }} numberOfLines={1}>{f.food_name}</Text>
+                      <Text style={{ fontSize: 13, color: w(0.4), fontFamily: FF }}>{f.calories} cal</Text>
+                    </View>
+                  ))}
+                  {moreCount > 0 && (
+                    <Text style={{ fontSize: 12, color: ORANGE, fontWeight: '600', fontFamily: FF, marginBottom: 8 }}>+{moreCount} more</Text>
+                  )}
+                </>
+              )}
+
+              {/* Activity section */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.4), letterSpacing: 0.8, textTransform: 'uppercase', marginTop: 4, marginBottom: 8, fontFamily: FF }}>Activity</Text>
+              {activityLogs.length === 0 ? (
+                <Text style={{ fontSize: 14, color: w(0.35), fontFamily: FF, marginBottom: 12 }}>No activity logged</Text>
+              ) : (
+                <>
+                  {activityLogs.map(a => (
+                    <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                      <Ionicons name="fitness-outline" size={16} color={ORANGE} />
+                      <Text style={{ fontSize: 14, color: w(0.75), flex: 1, fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
+                      <Text style={{ fontSize: 13, color: w(0.4), fontFamily: FF }}>
+                        {a.duration_min > 0 ? `${a.duration_min}min` : a.steps > 0 ? `${a.steps} steps` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {/* Weight row */}
+              {weightLog && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 8, gap: 8 }}>
+                  <Ionicons name="scale-outline" size={16} color={w(0.45)} />
+                  <Text style={{ fontSize: 14, color: w(0.75), fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
+                </View>
+              )}
+
+              {/* Side effects badge */}
+              {sideEffectLogs.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 }}>
+                  <View style={{ backgroundColor: 'rgba(231,76,60,0.12)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
+                      {sideEffectLogs.length} side effect{sideEffectLogs.length > 1 ? 's' : ''} logged
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -451,13 +569,36 @@ export default function HomeScreen() {
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
-  const [historicalActuals, setHistoricalActuals] = useState<DailyActuals | null>(null);
+  const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
   const [isLoadingDate, setIsLoadingDate] = useState(false);
+  const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
 
   useFocusEffect(useCallback(() => {
     hkStore.fetchAll();
     personalizationStore.fetchAndRecompute();
     getDismissedFlags().then(setDismissedFlags);
+
+    // Fetch dates that have logged data (last 90 days) for calendar dot indicators
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 90);
+      const cutoffStr = localDateStr(cutoff);
+      Promise.all([
+        supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', cutoffStr),
+        supabase.from('food_logs').select('logged_at').eq('user_id', user.id).gte('logged_at', cutoff.toISOString()),
+        supabase.from('activity_logs').select('date').eq('user_id', user.id).gte('date', cutoffStr),
+      ]).then(([injR, foodR, actR]) => {
+        const dates = new Set<string>();
+        (injR.data ?? []).forEach(r => dates.add(r.injection_date));
+        (foodR.data ?? []).forEach(r => {
+          const d = localDateStr(new Date(r.logged_at));
+          dates.add(d);
+        });
+        (actR.data ?? []).forEach(r => dates.add(r.date));
+        setDatesWithLogs(dates);
+      });
+    });
   }, []));
 
   const foodNoiseLogs = (logStore.foodNoiseLogs ?? []) as { score: number; logged_at: string }[];
@@ -495,20 +636,20 @@ export default function HomeScreen() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
-  // Fetch historical actuals when user navigates to a past date
+  // Fetch historical snapshot when user navigates to a past date
   useEffect(() => {
     const now = new Date();
     const todayQ = sameDay(selectedDate, now);
     const futureQ = !todayQ && selectedDate > now;
     if (todayQ || futureQ) {
-      setHistoricalActuals(null);
+      setHistoricalSnapshot(null);
       setIsLoadingDate(false);
       return;
     }
     setIsLoadingDate(true);
-    fetchActualsForDate(selectedDate.toISOString().slice(0, 10))
-      .then(setHistoricalActuals)
-      .catch(() => setHistoricalActuals(null))
+    fetchDailySnapshot(localDateStr(selectedDate))
+      .then(setHistoricalSnapshot)
+      .catch(() => setHistoricalSnapshot(null))
       .finally(() => setIsLoadingDate(false));
   }, [selectedDate]);
 
@@ -538,7 +679,7 @@ export default function HomeScreen() {
 
   const displayActuals: DailyActuals = isToday
     ? actuals
-    : (historicalActuals ?? ZERO_ACTUALS);
+    : (historicalSnapshot?.actuals ?? ZERO_ACTUALS);
 
   const displayFocuses = isToday
     ? focuses
@@ -554,11 +695,39 @@ export default function HomeScreen() {
       ? `Planned for ${weekday}`
       : `${weekday}'s Focuses`;
 
+  // ── Today's individual log entries (from logStore) ──────────────────────────
+  const todayStr = localDateStr();
+  const todayFoodLogs = (logStore.foodLogs ?? []).filter(f =>
+    localDateStr(new Date(f.logged_at)) === todayStr
+  );
+  const todayActivityLogs = (logStore.activityLogs ?? []).filter(a =>
+    (a as any).date === todayStr
+  );
+  const todayWeightLog = (logStore.weightLogs ?? []).find(w =>
+    localDateStr(new Date(w.logged_at)) === todayStr
+  ) ?? null;
+  const todayInjectionLog = (logStore.injectionLogs ?? []).find(i =>
+    i.injection_date === todayStr
+  ) ?? null;
+  const todaySideEffects = (logStore.sideEffectLogs ?? []).filter(s =>
+    localDateStr(new Date(s.logged_at)) === todayStr
+  );
+
+  const displaySnapshot = isToday
+    ? {
+        foodLogs:       todayFoodLogs.map(f => ({ id: f.id, food_name: f.food_name, calories: f.calories ?? 0, protein_g: f.protein_g ?? 0, carbs_g: (f as any).carbs_g ?? 0, fat_g: (f as any).fat_g ?? 0, meal_type: f.meal_type ?? 'snack', logged_at: f.logged_at })),
+        activityLogs:   todayActivityLogs.map(a => ({ id: a.id, exercise_type: a.exercise_type ?? '', duration_min: a.duration_min ?? 0, steps: a.steps ?? 0, active_calories: a.active_calories ?? 0 })),
+        weightLog:      todayWeightLog ? { weight_lbs: todayWeightLog.weight_lbs ?? 0, logged_at: todayWeightLog.logged_at } : null,
+        injectionLog:   todayInjectionLog ? { dose_mg: todayInjectionLog.dose_mg ?? 0, injection_date: todayInjectionLog.injection_date, medication_name: (todayInjectionLog as any).medication_name ?? null } : null,
+        sideEffectLogs: todaySideEffects.map(s => ({ effect_type: s.effect_type, severity: s.severity ?? 0, logged_at: s.logged_at })),
+      }
+    : (historicalSnapshot ?? { foodLogs: [], activityLogs: [], weightLog: null, injectionLog: null, sideEffectLogs: [] });
+
   // Block all past dates until the user has at least one logged entry.
   // A fresh user has no reason to navigate back — there's nothing there.
   const hasAnyLogs = logStore.injectionLogs.length > 0 || logStore.foodLogs.length > 0;
   const calMinDate = hasAnyLogs
-    ? (profile.startDate ? new Date(profile.startDate) : today)
+    ? (profile.startDate ? new Date(profile.startDate + 'T00:00:00') : today)
     : today;
 
   return (
@@ -582,15 +751,13 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <Text style={s.weekday}>{weekday}</Text>
-          {plan?.sideEffectIndex && plan.sideEffectIndex.level !== 'none' && (
-            <SideEffectBadge index={plan.sideEffectIndex} />
-          )}
+
           {isFuture && <Text style={s.futureNote}>Projected plan — nothing logged yet</Text>}
           {isPast && isLoadingDate && <ActivityIndicator size="small" color={ORANGE} style={{ marginTop: 6 }} />}
-          {isPast && !isLoadingDate && historicalActuals !== null &&
-            historicalActuals.proteinG === 0 && historicalActuals.fiberG === 0 &&
-            historicalActuals.steps === 0 && !historicalActuals.injectionLogged &&
-            historicalActuals.waterMl === 0 &&
+          {isPast && !isLoadingDate && historicalSnapshot !== null &&
+            historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
+            historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
+            historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
             <Text style={s.futureNote}>No entries logged for this day</Text>
           }
         </View>
@@ -604,6 +771,7 @@ export default function HomeScreen() {
             minDate={calMinDate}
             lastInjectionDate={profile.lastInjectionDate}
             injectionFrequencyDays={profile.injectionFrequencyDays}
+            datesWithLogs={datesWithLogs}
           />
         )}
 
@@ -696,16 +864,9 @@ export default function HomeScreen() {
               return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
             }
 
-            // Pending first, completed last
-            const sortedCards = [...unlockedCards].sort((a, b) => {
-              const aDone = a.lastLoggedAt != null && daysSinceDate(a.lastLoggedAt) <= 6;
-              const bDone = b.lastLoggedAt != null && daysSinceDate(b.lastLoggedAt) <= 6;
-              return Number(aDone) - Number(bDone);
-            });
-
-            const pendingCount = unlockedCards.filter(c =>
+            const pendingCards = unlockedCards.filter(c =>
               c.lastLoggedAt == null || daysSinceDate(c.lastLoggedAt) > 6,
-            ).length;
+            );
 
             if (unlockedCards.length === 0) return null;
 
@@ -713,14 +874,17 @@ export default function HomeScreen() {
               <View style={{ marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Weekly Check-Ins</Text>
-                  {pendingCount > 0 && (
-                    <View style={s.pendingBadge}>
-                      <Text style={s.pendingBadgeText}>{pendingCount} pending</Text>
-                    </View>
-                  )}
                 </View>
+                {pendingCards.length === 0 ? (
+                  <View style={{ padding: 16, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#27AE60' }}>All done this week</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
+                      Check back next week for your next check-ins.
+                    </Text>
+                  </View>
+                ) : (
                 <FlatList
-                  data={sortedCards}
+                  data={pendingCards}
                   keyExtractor={item => item.type}
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -737,6 +901,7 @@ export default function HomeScreen() {
                     />
                   )}
                 />
+                )}
               </View>
             );
           })()}
@@ -788,7 +953,6 @@ export default function HomeScreen() {
                     <View style={[s.focusContent, !isLast && s.focusContentSpaced]}>
                       <Text style={[
                         s.focusLabel,
-                        item.status === 'pending' && s.focusLabelMuted,
                         item.status === 'completed' && s.focusLabelDone,
                       ]}>
                         {item.label}
@@ -800,6 +964,17 @@ export default function HomeScreen() {
               })}
             </View>
           </View>
+
+          {/* ── Daily Log Summary ── */}
+          <DailyLogSummaryCard
+            foodLogs={displaySnapshot.foodLogs}
+            activityLogs={displaySnapshot.activityLogs}
+            weightLog={displaySnapshot.weightLog}
+            injectionLog={displaySnapshot.injectionLog}
+            sideEffectLogs={displaySnapshot.sideEffectLogs}
+            isLoading={isPast && isLoadingDate}
+            isFuture={isFuture}
+          />
 
           {/* ── Insights Card ── */}
           <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
@@ -1060,4 +1235,5 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },
   injDot:     { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },
+  logDot:     { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2, opacity: 0.55 },
 });

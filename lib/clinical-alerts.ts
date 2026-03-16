@@ -4,7 +4,6 @@
 // Pure TypeScript — no React/Supabase dependencies.
 
 export type ClinicalFlagType =
-  | 'thiamine_warning'
   | 'iron_lab_reminder'
   | 'vitamin_d_lab_reminder'
   | 'hair_loss_reassurance'
@@ -41,18 +40,6 @@ export type ClinicalFlagsInput = {
   daysSinceLastLog: number;         // days since any log entry
 };
 
-// ─── Thiamine risk check ──────────────────────────────────────────────────────
-
-function hasThiamineRisk(logs: SideEffectEntry[]): boolean {
-  const cutoff72h = Date.now() - 72 * 3600000;
-  const GI = new Set(['nausea', 'vomiting']);
-  return logs.some(
-    l => GI.has(l.effect_type)
-      && l.severity >= 6
-      && new Date(l.logged_at).getTime() >= cutoff72h,
-  );
-}
-
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function buildClinicalFlags(input: ClinicalFlagsInput): ClinicalFlag[] {
@@ -63,19 +50,6 @@ export function buildClinicalFlags(input: ClinicalFlagsInput): ClinicalFlag[] {
   } = input;
 
   const flags: ClinicalFlag[] = [];
-
-  // ── Thiamine warning ─────────────────────────────────────────────────────
-  if (hasThiamineRisk(sideEffectLogs)) {
-    flags.push({
-      type: 'thiamine_warning',
-      severity: 'action_required',
-      title: 'Prolonged Nausea/Vomiting Alert',
-      body: 'Severe nausea or vomiting lasting more than 72 hours can deplete thiamine (Vitamin B1). Contact your prescriber if this persists. Do not take thiamine supplements without medical guidance.',
-      actionLabel: 'Log a Side Effect',
-      actionRoute: '/entry/side-effects',
-      dismissible: false,
-    });
-  }
 
   // ── Iron lab reminder at week 8 ──────────────────────────────────────────
   if (programWeek === 8) {

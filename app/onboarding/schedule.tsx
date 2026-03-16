@@ -1,14 +1,15 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
-import { toDateString, BRAND_DEFAULT_FREQ_DAYS } from '@/constants/user-profile';
+import { toDateString } from '@/constants/user-profile';
 import { DRUG_IS_ORAL, DRUG_DEFAULT_FREQ_DAYS } from '@/constants/drug-pk';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -29,7 +30,6 @@ export default function ScheduleScreen() {
   const glp1Type  = draft.glp1Type;
   const isOral    = glp1Type ? DRUG_IS_ORAL[glp1Type]            : false;
   const isDaily   = glp1Type ? DRUG_DEFAULT_FREQ_DAYS[glp1Type] === 1 : false;
-  // Daily drugs (injected or oral) lock to freq=1; only show picker for weekly/biweekly injectables
   const lockedFreq = isDaily ? 1 : null;
 
   const glp1Status = draft.glp1Status ?? 'active';
@@ -37,16 +37,9 @@ export default function ScheduleScreen() {
 
   const [freq, setFreq] = useState<number | 'custom' | null>(lockedFreq);
   const [customFreq, setCustomFreq] = useState('');
-  const [month, setMonth] = useState('');
-  const [day, setDay]     = useState('');
-  const [year, setYear]   = useState('');
+  const [lastInjDate, setLastInjDate] = useState(new Date());
+  const [doseStartDate, setDoseStartDate] = useState(new Date());
 
-  // Dose start date — only shown for active users
-  const [dsMonth, setDsMonth] = useState('');
-  const [dsDay,   setDsDay]   = useState('');
-  const [dsYear,  setDsYear]  = useState('');
-
-  // Keep freq in sync if the user navigates back and changes their drug selection
   useEffect(() => {
     if (lockedFreq !== null) setFreq(lockedFreq);
   }, [lockedFreq]);
@@ -54,35 +47,26 @@ export default function ScheduleScreen() {
   const freqDays =
     freq === 'custom' ? (customFreq !== '' ? parseInt(customFreq, 10) : null) : freq;
 
-  const isValidDate   = month !== '' && day !== '' && year.length === 4;
-  const isDsDateValid = !isActive || (dsMonth !== '' && dsDay !== '' && dsYear.length === 4);
-  const isValid = freqDays !== null && isValidDate && isDsDateValid;
+  const isValid = freqDays !== null;
 
   const handleContinue = () => {
     if (!isValid) return;
-    const d  = new Date(parseInt(year),   parseInt(month)   - 1, parseInt(day));
-    const ds = isActive && dsYear.length === 4
-      ? new Date(parseInt(dsYear), parseInt(dsMonth) - 1, parseInt(dsDay))
-      : d;
     updateDraft({
       injectionFrequencyDays: freqDays as number,
-      lastInjectionDate: toDateString(d),
-      doseStartDate: toDateString(ds),
+      lastInjectionDate: toDateString(lastInjDate),
+      doseStartDate: toDateString(isActive ? doseStartDate : lastInjDate),
     });
     router.push('/onboarding/sex');
   };
 
-  // Language adapts: oral = "pill / tablet", daily injectable = "injection / dose", weekly = "shot"
   const doseNoun  = isOral ? 'pill' : isDaily ? 'injection' : 'shot';
-  const doseNounC = isOral ? 'Pill' : isDaily ? 'Injection' : 'Shot';
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={4} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={4} total={12} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-          {/* Frequency — hidden/locked for daily drugs */}
           {!isDaily ? (
             <>
               <Text style={s.title}>How often do you take your {doseNoun}?</Text>
@@ -138,72 +122,31 @@ export default function ScheduleScreen() {
             {isOral ? `When did you last take your ${doseNoun}?`
                     : `When was your last ${doseNoun}?`}
           </Text>
-          <View style={s.dateRow}>
-            <TextInput
-              style={[s.dateInput, s.dateInputSm]}
-              placeholder="MM"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-              value={month}
-              onChangeText={setMonth}
-            />
-            <TextInput
-              style={[s.dateInput, s.dateInputSm]}
-              placeholder="DD"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-              value={day}
-              onChangeText={setDay}
-            />
-            <TextInput
-              style={[s.dateInput, s.dateInputLg]}
-              placeholder="YYYY"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={4}
-              value={year}
-              onChangeText={setYear}
+          <View style={s.datePickerWrap}>
+            <DateTimePicker
+              value={lastInjDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'compact' : 'default'}
+              maximumDate={new Date()}
+              onChange={(_, date) => { if (date) setLastInjDate(date); }}
+              style={s.datePicker}
             />
           </View>
 
-          {/* Dose start date — only for active users */}
           {isActive && (
             <>
-              <Text style={s.sectionLabel}>
-                When did you start your current dose?
-              </Text>
+              <Text style={s.sectionLabel}>When did you start your current dose?</Text>
               <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
                 The date you first took this specific dose amount.
               </Text>
-              <View style={s.dateRow}>
-                <TextInput
-                  style={[s.dateInput, s.dateInputSm]}
-                  placeholder="MM"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  value={dsMonth}
-                  onChangeText={setDsMonth}
-                />
-                <TextInput
-                  style={[s.dateInput, s.dateInputSm]}
-                  placeholder="DD"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  value={dsDay}
-                  onChangeText={setDsDay}
-                />
-                <TextInput
-                  style={[s.dateInput, s.dateInputLg]}
-                  placeholder="YYYY"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  value={dsYear}
-                  onChangeText={setDsYear}
+              <View style={s.datePickerWrap}>
+                <DateTimePicker
+                  value={doseStartDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  maximumDate={new Date()}
+                  onChange={(_, date) => { if (date) setDoseStartDate(date); }}
+                  style={s.datePicker}
                 />
               </View>
             </>
@@ -229,14 +172,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 4, marginBottom: 10, backgroundColor: c.bg,
   },
   sectionLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Helvetica Neue', color: c.textPrimary, marginTop: 24, marginBottom: 12 },
-  dateRow:      { flexDirection: 'row', gap: 10 },
-  dateInput:    {
-    height: 52, borderWidth: 1.5, borderColor: c.border, borderRadius: 14,
-    paddingHorizontal: 16, fontSize: 18, fontFamily: 'Helvetica Neue', color: c.textPrimary,
-    textAlign: 'center', backgroundColor: c.bg,
-  },
-  dateInputSm:  { flex: 1 },
-  dateInputLg:  { flex: 1.8 },
+  datePickerWrap: { marginBottom: 8 },
+  datePicker:   { alignSelf: 'flex-start' },
   tipCard:      {
     backgroundColor: 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.30)',
     borderRadius: 16, padding: 16, marginBottom: 8,

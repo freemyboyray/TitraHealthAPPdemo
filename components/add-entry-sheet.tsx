@@ -174,9 +174,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       onPress: handleAskAI,
     },
     {
-      label: 'LOG MEALS',
-      icon: <Ionicons name="search-outline" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food' as any), 300); },
+      label: 'SIDE EFFECTS',
+      icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
     },
     {
       label: 'LOG WEIGHT',
@@ -195,11 +195,6 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       label: 'LOG ACTIVITY',
       icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
-    },
-    {
-      label: 'SIDE EFFECTS',
-      icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
     },
   ];
 

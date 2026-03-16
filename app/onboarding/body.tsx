@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -61,68 +61,70 @@ export default function BodyScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={7} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={7} total={12} onBack={() => router.back()} />
 
-        <Text style={s.title}>Your Height & Weight</Text>
-        <Text style={s.subtitle}>
-          Helps us calculate your BMI and personalize daily nutrition and activity goals.
-        </Text>
+        <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={s.title}>Your Height & Weight</Text>
+          <Text style={s.subtitle}>
+            Helps us calculate your BMI and personalize daily nutrition and activity goals.
+          </Text>
 
-        {/* Unit toggle */}
-        <View style={s.toggle}>
-          <TouchableOpacity
-            style={[s.toggleBtn, unit === 'imperial' && s.toggleBtnActive]}
-            onPress={() => setUnit('imperial')}>
-            <Text style={[s.toggleText, unit === 'imperial' && s.toggleTextActive]}>
-              Imperial
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.toggleBtn, unit === 'metric' && s.toggleBtnActive]}
-            onPress={() => setUnit('metric')}>
-            <Text style={[s.toggleText, unit === 'metric' && s.toggleTextActive]}>
-              Metric
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={s.pickersSection}>
-          <Text style={s.sectionLabel}>Height</Text>
-          <View style={s.pickersRow}>
-            {unit === 'imperial' ? (
-              <>
-                <View style={s.pickerWrap}>
-                  <WheelPicker data={FEET} selectedIndex={ftIdx} onSelect={setFtIdx} />
-                </View>
-                <View style={s.pickerWrap}>
-                  <WheelPicker data={INCHES} selectedIndex={inIdx} onSelect={setInIdx} />
-                </View>
-              </>
-            ) : (
-              <View style={s.pickerWrap}>
-                <WheelPicker data={CM} selectedIndex={cmIdx} onSelect={setCmIdx} />
-              </View>
-            )}
+          {/* Unit toggle */}
+          <View style={s.toggle}>
+            <TouchableOpacity
+              style={[s.toggleBtn, unit === 'imperial' && s.toggleBtnActive]}
+              onPress={() => setUnit('imperial')}>
+              <Text style={[s.toggleText, unit === 'imperial' && s.toggleTextActive]}>
+                Imperial
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.toggleBtn, unit === 'metric' && s.toggleBtnActive]}
+              onPress={() => setUnit('metric')}>
+              <Text style={[s.toggleText, unit === 'metric' && s.toggleTextActive]}>
+                Metric
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <Text style={[s.sectionLabel, { marginTop: 16 }]}>Weight</Text>
-          <View style={s.pickersRow}>
-            {unit === 'imperial' ? (
-              <>
+          <View style={s.pickersSection}>
+            <Text style={s.sectionLabel}>Height</Text>
+            <View style={s.pickersRow}>
+              {unit === 'imperial' ? (
+                <>
+                  <View style={s.pickerWrap}>
+                    <WheelPicker data={FEET} selectedIndex={ftIdx} onSelect={setFtIdx} />
+                  </View>
+                  <View style={s.pickerWrap}>
+                    <WheelPicker data={INCHES} selectedIndex={inIdx} onSelect={setInIdx} />
+                  </View>
+                </>
+              ) : (
                 <View style={s.pickerWrap}>
-                  <WheelPicker data={LBS_WHOLE} selectedIndex={lbsIdx} onSelect={setLbsIdx} />
+                  <WheelPicker data={CM} selectedIndex={cmIdx} onSelect={setCmIdx} />
                 </View>
-                <View style={[s.pickerWrap, { flex: 0.5 }]}>
-                  <WheelPicker data={LBS_HALF} selectedIndex={halfIdx} onSelect={setHalfIdx} />
+              )}
+            </View>
+
+            <Text style={[s.sectionLabel, { marginTop: 16 }]}>Weight</Text>
+            <View style={s.pickersRow}>
+              {unit === 'imperial' ? (
+                <>
+                  <View style={s.pickerWrap}>
+                    <WheelPicker data={LBS_WHOLE} selectedIndex={lbsIdx} onSelect={setLbsIdx} />
+                  </View>
+                  <View style={[s.pickerWrap, { flex: 0.5 }]}>
+                    <WheelPicker data={LBS_HALF} selectedIndex={halfIdx} onSelect={setHalfIdx} />
+                  </View>
+                </>
+              ) : (
+                <View style={s.pickerWrap}>
+                  <WheelPicker data={KG} selectedIndex={kgIdx} onSelect={setKgIdx} />
                 </View>
-              </>
-            ) : (
-              <View style={s.pickerWrap}>
-                <WheelPicker data={KG} selectedIndex={kgIdx} onSelect={setKgIdx} />
-              </View>
-            )}
+              )}
+            </View>
           </View>
-        </View>
+        </ScrollView>
 
         <ContinueButton onPress={handleContinue} />
       </View>
@@ -161,7 +163,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Helvetica Neue',
   },
-  pickersSection: { flex: 1 },
+  scrollContent: { paddingBottom: 16 },
+  pickersSection: {},
   sectionLabel: {
     fontSize: 13,
     fontWeight: '600',

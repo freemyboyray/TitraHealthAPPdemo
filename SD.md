@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 16, 2026 (rev 9)
+**Last Updated:** March 16, 2026 (rev 10)
 
 ---
 
@@ -530,7 +530,7 @@ Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its de
 | Scan Food | `scan-food.tsx` | Barcode scanner (`expo-camera` `CameraView`). Barcode → USDA lookup via `lib/usda.ts` → food result → `addFoodLog()` |
 | Search Food | `search-food.tsx` | Text search via `lib/usda.ts`. Shows results list → select → `addFoodLog()` |
 | Ask AI | `ask-ai.tsx` | Freeform AI query (opens AI chat modal with context) |
-| Log Activity | `log-activity.tsx` | Activity type, duration, steps. Saves via `useLogStore.addActivityLog()` |
+| Log Activity | `log-activity.tsx` | Activity type, duration, intensity arc gauge, steps input (auto-estimated from `STEPS_PER_MIN` × duration, user-editable). Saves `exercise_type`, `duration_min`, `intensity`, `steps`, `active_calories` via `useLogStore.addActivityLog()`. Multiple workouts per day supported. |
 | Log Weight | `log-weight.tsx` | Current weight (lbs/kg with unit toggle). Saves via `useLogStore.addWeightLog()` |
 | Side Effects | `side-effects.tsx` | Side effect type + severity slider. Saves via `useLogStore.addSideEffectLog()` |
 
@@ -894,6 +894,10 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **DB schema expanded (rev 8)** — `profiles` table: 6 new columns (`medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date`); `side_effect_type` enum: 7 new values (`dehydration`, `dizziness`, `muscle_loss`, `heartburn`, `food_noise`, `sulfur_burps`, `bloating`)
 - [x] **Side Effects button restored in Add Entry Sheet (rev 8)** — was silently dropped in dark-mode redesign commit (`90cfb38`); now navigates to `/entry/side-effects`
 - [x] **Google OAuth redirect URI fix (rev 8)** — updated `makeRedirectUri` for `expo-auth-session` v7 API changes; ensures redirect URI generation works correctly in both Expo Go (tunnel) and production builds
+- [x] **Activity logging persists steps + calories (rev 10)** — `addActivityLog` signature extended with optional `steps` and `active_calories` params; `log-activity.tsx` adds `STEPS_PER_MIN` lookup table (Walking 100/min, Running 160/min, Cycling 0, others 30) that auto-estimates steps from workout type × duration; editable `TextInput` steps field inserted below Duration gauge; user edits lock the auto-estimate via `stepsEdited` flag; voice transcription changes re-estimate correctly; both values now written to `activity_logs` on every manual save; Lifestyle tab "Calories Burned" and "Daily Steps" metric cards populated from real data
+- [x] **Lifestyle tab data refresh on focus (rev 10)** — `log.tsx` mount-only `useEffect(() => fetchInsightsData(), [])` replaced with `useFocusEffect(useCallback(...))` (same pattern as `index.tsx`); ensures `activityLogs`, `foodLogs`, and all Lifestyle/Medication/Progress cards are always fresh when navigating back from any entry screen
+- [x] **Activity log submit decoupled from global loading state (rev 10)** — `log-activity.tsx` previously used `disabled={loading}` tied to the global `useLogStore` loading flag; `useFocusEffect` in `log.tsx` set `loading: true` on every tab focus, making the "Log Activity" button silently no-op when arriving from the log tab; fixed by replacing with a local `isSubmitting` state scoped to the submit action only; `Alert` added to surface Supabase insert errors directly to the user
+- [x] **Drop `activity_logs` unique date constraint (rev 10)** — `activity_logs_user_id_date_key` unique constraint on `(user_id, date)` prevented logging more than one workout per day; migration `20260316_activity_logs_drop_unique_date.sql` drops the constraint; multiple workouts per day now correctly accumulate in the Lifestyle tab cards
 
 ### In Progress / Partially Done
 

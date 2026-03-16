@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { localDateStr } from '@/lib/date-utils';
 
 import { supabase } from '@/lib/supabase';
 import { useHealthKitStore } from '@/stores/healthkit-store';
@@ -37,7 +38,7 @@ const ZERO_ACTUALS: DailyActuals = {
 };
 
 function todayWaterKey(): string {
-  return `@titrahealth_water_${new Date().toISOString().slice(0, 10)}`;
+  return `@titrahealth_water_${localDateStr()}`;
 }
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
@@ -175,7 +176,9 @@ export function HealthProvider({
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   useEffect(() => {
     async function fetchTodayActuals() {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = localDateStr();    // local YYYY-MM-DD (date-only fields)
+      const localMidnight = new Date();
+      localMidnight.setHours(0, 0, 0, 0); // local midnight → correct UTC boundary for food_logs
 
       // Load water from AsyncStorage (not in Supabase)
       const storedWater = await AsyncStorage.getItem(todayWaterKey());
@@ -191,7 +194,7 @@ export function HealthProvider({
       }
 
       const [foodRes, actRes, injRes] = await Promise.all([
-        supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', todayStr),
+        supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
         supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
         supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
       ]);
@@ -233,35 +236,118 @@ export function useHealthData(): HealthContextValue {
   return ctx;
 }
 
-// ─── Standalone date-scoped actuals fetcher ───────────────────────────────────
+// ─── Standalone date-scoped snapshot fetcher ─────────────────────────────────
 
-export async function fetchActualsForDate(dateStr: string): Promise<DailyActuals> {
+export type DailySnapshot = {
+  actuals: DailyActuals;
+  foodLogs: Array<{
+    id: string;
+    food_name: string;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    meal_type: string;
+    logged_at: string;
+  }>;
+  activityLogs: Array<{
+    id: string;
+    exercise_type: string;
+    duration_min: number;
+    steps: number;
+    active_calories: number;
+  }>;
+  weightLog: { weight_lbs: number; logged_at: string } | null;
+  injectionLog: { dose_mg: number; injection_date: string; medication_name: string | null } | null;
+  sideEffectLogs: Array<{ effect_type: string; severity: number; logged_at: string }>;
+};
+
+export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot> {
   const waterKey = `@titrahealth_water_${dateStr}`;
   const storedWater = await AsyncStorage.getItem(waterKey);
   const waterMl = storedWater ? parseFloat(storedWater) : 0;
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return { proteinG: 0, waterMl, fiberG: 0, steps: 0, injectionLogged: false };
+    return {
+      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, injectionLogged: false },
+      foodLogs: [],
+      activityLogs: [],
+      weightLog: null,
+      injectionLog: null,
+      sideEffectLogs: [],
+    };
   }
 
-  const nextDay = new Date(dateStr);
-  nextDay.setDate(nextDay.getDate() + 1);
-  const nextDayStr = nextDay.toISOString().slice(0, 10);
+  const localStart = new Date(`${dateStr}T00:00:00`);
+  const localEnd   = new Date(`${dateStr}T00:00:00`);
+  localEnd.setDate(localEnd.getDate() + 1);
 
-  const [foodRes, actRes, injRes] = await Promise.all([
-    supabase.from('food_logs').select('protein_g,fiber_g')
-      .eq('user_id', user.id).gte('logged_at', dateStr).lt('logged_at', nextDayStr),
-    supabase.from('activity_logs').select('steps')
-      .eq('user_id', user.id).eq('date', dateStr),
-    supabase.from('injection_logs').select('injection_date')
-      .eq('user_id', user.id).eq('injection_date', dateStr).limit(1),
+  const [foodRes, actRes, injRes, weightRes, seRes] = await Promise.all([
+    supabase.from('food_logs')
+      .select('id,food_name,calories,protein_g,carbs_g,fat_g,fiber_g,meal_type,logged_at')
+      .eq('user_id', user.id)
+      .gte('logged_at', localStart.toISOString())
+      .lt('logged_at', localEnd.toISOString()),
+    supabase.from('activity_logs')
+      .select('id,exercise_type,duration_min,steps,active_calories')
+      .eq('user_id', user.id)
+      .eq('date', dateStr),
+    supabase.from('injection_logs')
+      .select('dose_mg,injection_date,medication_name')
+      .eq('user_id', user.id)
+      .eq('injection_date', dateStr)
+      .limit(1),
+    supabase.from('weight_logs')
+      .select('weight_lbs,logged_at')
+      .eq('user_id', user.id)
+      .gte('logged_at', localStart.toISOString())
+      .lt('logged_at', localEnd.toISOString())
+      .limit(1),
+    supabase.from('side_effect_logs')
+      .select('effect_type,severity,logged_at')
+      .eq('user_id', user.id)
+      .gte('logged_at', localStart.toISOString())
+      .lt('logged_at', localEnd.toISOString()),
   ]);
 
-  const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
-  const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
-  const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
+  const foods = foodRes.data ?? [];
+  const acts  = actRes.data  ?? [];
+
+  const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0);
+  const fiberG   = foods.reduce((s, f) => s + (f.fiber_g   ?? 0), 0);
+  const steps    = acts.reduce( (s, a) => s + (a.steps     ?? 0), 0);
   const injectionLogged = (injRes.data ?? []).length > 0;
 
-  return { proteinG, fiberG, steps, waterMl, injectionLogged };
+  return {
+    actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
+    foodLogs: foods.map(f => ({
+      id:        f.id,
+      food_name: f.food_name,
+      calories:  f.calories  ?? 0,
+      protein_g: f.protein_g ?? 0,
+      carbs_g:   f.carbs_g   ?? 0,
+      fat_g:     f.fat_g     ?? 0,
+      meal_type: f.meal_type ?? 'snack',
+      logged_at: f.logged_at,
+    })),
+    activityLogs: acts.map(a => ({
+      id:             a.id,
+      exercise_type:  a.exercise_type  ?? '',
+      duration_min:   a.duration_min   ?? 0,
+      steps:          a.steps          ?? 0,
+      active_calories: a.active_calories ?? 0,
+    })),
+    weightLog:    (weightRes.data ?? [])[0] ?? null,
+    injectionLog: (injRes.data    ?? [])[0] ?? null,
+    sideEffectLogs: (seRes.data ?? []).map(s => ({
+      effect_type: s.effect_type,
+      severity:    s.severity ?? 0,
+      logged_at:   s.logged_at,
+    })),
+  };
+}
+
+export async function fetchActualsForDate(dateStr: string): Promise<DailyActuals> {
+  return fetchDailySnapshot(dateStr).then(s => s.actuals);
 }

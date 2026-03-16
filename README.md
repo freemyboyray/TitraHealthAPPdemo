@@ -15,6 +15,7 @@ A behavior-guidance and tracking app for people on GLP-1 medications (Ozempic, W
 - **Drug-aware PK chart** — FDA-sourced Bateman-equation pharmacokinetic model for all 6 GLP-1 drug classes; 28-point smooth cycle curve with cycle-anchored x-axis labels and a real-time "NOW" marker showing your current concentration position
 - **AI coaching** — GPT-4o-mini contextual insights, coach notes, and food parsing with full health context
 - **Food logging** — describe (AI NLP), photo (GPT-4o-mini vision), barcode scan (USDA), or search (USDA FoodData Central)
+- **Activity logging with steps** — workout type picker, arc-gauge duration/intensity, auto-estimated steps (type × duration lookup), editable steps field, and calorie/steps data wired to Lifestyle tab cards; multiple workouts per day supported
 - **14-screen onboarding** — collects full metabolic profile, medication details, goals, and activity level
 - **Accurate medication display** — brand name (e.g., "Mounjaro®") shown throughout; profile changes in Settings immediately update the PK chart drug and half-life
 - **Smart focus cards** — phase-weighted daily focuses with completion state (strikethrough + orange checkmark when hit; plain gray ring when not)

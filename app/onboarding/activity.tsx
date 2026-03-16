@@ -19,21 +19,24 @@ const OPTIONS: { value: ActivityLevel; label: string; icon: string; subtitle: st
 
 export default function ActivityScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { updateDraft, completeOnboarding } = useProfile();
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
+  const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const handleContinue = () => {
-    if (!selected) return;
+  const handleContinue = async () => {
+    if (!selected || saving) return;
+    setSaving(true);
     updateDraft({ activityLevel: selected });
-    router.push('/onboarding/cravings');
+    await completeOnboarding();
+    router.replace('/(tabs)');
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={12} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={12} total={12} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Tell us a bit about your daily routine.</Text>
           <Text style={s.subtitle}>On most days you are...</Text>
@@ -51,7 +54,11 @@ export default function ActivityScreen() {
           </View>
         </ScrollView>
 
-        <ContinueButton onPress={handleContinue} disabled={!selected} />
+        <ContinueButton
+          onPress={handleContinue}
+          disabled={!selected || saving}
+          label={saving ? 'Saving...' : 'Done'}
+        />
       </View>
     </SafeAreaView>
   );

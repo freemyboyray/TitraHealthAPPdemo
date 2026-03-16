@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ActivityIndicator, LayoutAnimation, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,6 +14,7 @@ import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConce
 import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog } from '@/stores/log-store';
 import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
+import { localDateStr } from '@/lib/date-utils';
 import { useUiStore } from '@/stores/ui-store';
 
 const ORANGE = '#FF742A';
@@ -41,7 +42,7 @@ function fmtDateTime(isoStr: string): string {
 }
 
 function fmtDateOnly(dateStr: string): string {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   if (dateStr === today) return 'Today';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -993,11 +994,11 @@ export default function InsightsScreen() {
   const { weightLogs, injectionLogs, foodLogs, activityLogs, profile, fetchInsightsData, deleteInjectionLog } = useLogStore();
   const [activeTab, setActiveTab] = useState<Tab>('lifestyle');
 
-  useEffect(() => { fetchInsightsData(); }, []);
+  useFocusEffect(useCallback(() => { fetchInsightsData(); }, []));
 
   // ── Today filters ──────────────────────────────────────────────────────────
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayFoodLogs = foodLogs.filter(f => f.logged_at.slice(0, 10) === todayStr);
+  const todayStr = localDateStr();
+  const todayFoodLogs = foodLogs.filter(f => localDateStr(new Date(f.logged_at)) === todayStr);
   const todayActivityLogs = activityLogs.filter(a => a.date === todayStr);
 
   // ── Lifestyle metrics ──────────────────────────────────────────────────────
@@ -1010,7 +1011,9 @@ export default function InsightsScreen() {
   const proteinPct = targets.proteinG > 0 ? Math.round((todayProteinG / targets.proteinG) * 100) : 0;
   const fiberPct = targets.fiberG > 0 ? Math.round((todayFiberG / targets.fiberG) * 100) : 0;
   const waterOz = Math.round(actuals.waterMl / 29.57);
+  const waterTargetOz = Math.round(targets.waterMl / 29.57);
   const waterPct = targets.waterMl > 0 ? Math.round((actuals.waterMl / targets.waterMl) * 100) : 0;
+  const carbsPct = targets.carbsG > 0 ? Math.round((todayCarbsG / targets.carbsG) * 100) : 0;
 
   // ── Lifestyle logs ─────────────────────────────────────────────────────────
   const lifestyleLogs: LogEntry[] = [
@@ -1070,14 +1073,19 @@ export default function InsightsScreen() {
   const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(injectionToEntry);
 
   // ── Progress data ──────────────────────────────────────────────────────────
-  const currentWeight = weightLogs[0]?.weight_lbs ?? null;
-  const startWeight = profile?.start_weight_lbs ?? (weightLogs.length > 0 ? weightLogs[weightLogs.length - 1]?.weight_lbs : null) ?? null;
-  const goalWeight = profile?.goal_weight_lbs ?? null;
-  const heightIn = profile?.height_inches ?? null;
-  const bmi = currentWeight && heightIn ? computeBMI(currentWeight, heightIn) : null;
-  const startBmi = startWeight && heightIn ? computeBMI(startWeight, heightIn) : null;
-  const bmiDelta = bmi && startBmi ? Math.round((startBmi - bmi) * 10) / 10 : null;
-  const toGoalPct = startWeight && currentWeight && goalWeight
+  // Prefer Supabase-persisted profile fields; fall back to in-memory onboarding profile
+  const heightIn    = (profile?.height_inches
+                      ?? (health.profile.heightFt * 12 + health.profile.heightIn)) || null;
+  const startWeight = (profile?.start_weight_lbs
+                      ?? health.profile.startWeightLbs) || null;
+  const goalWeight  = (profile?.goal_weight_lbs
+                      ?? health.profile.goalWeightLbs) || null;
+  const currentWeight = weightLogs[0]?.weight_lbs ?? startWeight;
+  const bmi        = currentWeight && heightIn ? computeBMI(currentWeight, heightIn) : null;
+  const startBmi   = startWeight && heightIn   ? computeBMI(startWeight, heightIn)   : null;
+  const rawBmiDelta = bmi && startBmi ? Math.round((startBmi - bmi) * 10) / 10 : null;
+  const bmiDelta   = rawBmiDelta !== 0 ? rawBmiDelta : null;
+  const toGoalPct  = startWeight && currentWeight && goalWeight
     ? goalProgress(startWeight, currentWeight, goalWeight)
     : null;
 
@@ -1167,26 +1175,27 @@ export default function InsightsScreen() {
               <View style={s.dailyGrid}>
                 <DailyMetricCard
                   icon={<MaterialIcons name="restaurant" size={20} color={ORANGE} />}
-                  label="Protein" value={`${todayProteinG}g`}
+                  label="Protein" value={`${todayProteinG}/${targets.proteinG}g`}
                   change={`${proteinPct}%`}
                   status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
                 />
                 <DailyMetricCard
                   icon={<Ionicons name="leaf-outline" size={20} color={ORANGE} />}
-                  label="Fiber" value={`${todayFiberG}g`}
+                  label="Fiber" value={`${todayFiberG}/${targets.fiberG}g`}
                   change={`${fiberPct}%`}
                   status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
                 />
                 <DailyMetricCard
                   icon={<Ionicons name="water-outline" size={20} color={ORANGE} />}
-                  label="Hydration" value={`${waterOz}oz`}
+                  label="Hydration" value={`${waterOz}/${waterTargetOz}oz`}
                   change={`${waterPct}%`}
                   status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
                 />
                 <DailyMetricCard
                   icon={<MaterialIcons name="grain" size={20} color={ORANGE} />}
-                  label="Carbs" value={`${todayCarbsG}g`}
-                  change="Today" status="neutral"
+                  label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
+                  change={`${carbsPct}%`}
+                  status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
                 />
               </View>
               <RecentLogsCard entries={lifestyleLogs} />

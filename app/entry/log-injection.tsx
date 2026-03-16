@@ -19,18 +19,18 @@ import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { getBrandDoses, MedicationBrand } from '@/constants/user-profile';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
 
 const MEDICATIONS = ['Ozempic', 'Wegovy', 'Mounjaro', 'Zepbound', 'Saxenda', 'Victoza'];
-const DOSES = ['0.25mg', '0.5mg', '1mg', '1.7mg', '2mg', '2.4mg'];
 const SITES = [
   'Left Abdomen',
-  'Right Thigh',
   'Right Abdomen',
   'Left Thigh',
+  'Right Thigh',
   'Left Upper Arm',
   'Right Upper Arm',
 ];
@@ -115,8 +115,24 @@ export default function LogInjectionScreen() {
     ?? (profile?.medication_type ? MED_TYPE_DEFAULT[profile.medication_type] : null)
     ?? 'Ozempic';
 
+  // Dose list from user's medication brand; fall back to common doses
+  const brandDoses = getBrandDoses((profile?.medication_brand as MedicationBrand | undefined) ?? 'ozempic');
+  // Pre-select the user's current dose if it's in the list, else closest value
+  const defaultDoseStr = (() => {
+    const profileDoseMg = profile?.dose_mg;
+    if (profileDoseMg != null) {
+      const exact = brandDoses.find(d => d === profileDoseMg);
+      if (exact != null) return `${exact}mg`;
+      const closest = brandDoses.reduce((a, b) =>
+        Math.abs(b - profileDoseMg) < Math.abs(a - profileDoseMg) ? b : a
+      );
+      return `${closest}mg`;
+    }
+    return `${brandDoses[0]}mg`;
+  })();
+
   const [medication, setMedication] = useState(defaultMed);
-  const [dose, setDose] = useState('0.5mg');
+  const [dose, setDose] = useState(defaultDoseStr);
   const [site, setSite] = useState('Left Abdomen');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -130,7 +146,7 @@ export default function LogInjectionScreen() {
       }
       if (result.dose_mg != null) {
         const doseStr = `${result.dose_mg}mg`;
-        if (DOSES.includes(doseStr)) setDose(doseStr);
+        if (brandDoses.map(d => `${d}mg`).includes(doseStr)) setDose(doseStr);
       }
       if (result.site) {
         const matched = SITES.find(s => s.toLowerCase().includes(result.site.toLowerCase()) || result.site.toLowerCase().includes(s.toLowerCase().split(' ').slice(-1)[0]));
@@ -218,17 +234,18 @@ export default function LogInjectionScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={s.chipRow}
           >
-            {DOSES.map((d) => {
-              const active = d === dose;
+            {brandDoses.map((d) => {
+              const dStr = `${d}mg`;
+              const active = dStr === dose;
               return (
                 <TouchableOpacity
-                  key={d}
-                  onPress={() => setDose(d)}
+                  key={dStr}
+                  onPress={() => setDose(dStr)}
                   activeOpacity={0.75}
                   style={[s.chip, active ? s.chipActive : s.chipInactive]}
                 >
                   <Text style={[s.chipText, active ? s.chipTextActive : s.chipTextInactive]}>
-                    {d}
+                    {dStr}
                   </Text>
                 </TouchableOpacity>
               );

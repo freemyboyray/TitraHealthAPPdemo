@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Modal,
   PanResponder,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -29,6 +31,18 @@ const SHADOW = { shadowColor: '#000', shadowOffset: { width: 0, height: 8 } as c
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
 
 const WORKOUT_TYPES = ['Walking', 'Running', 'Cycling', 'Strength', 'HIIT', 'Yoga', 'Pilates', 'Swimming', 'Other'];
+
+const STEPS_PER_MIN: Record<string, number> = {
+  Walking:  100,
+  Running:  160,
+  Cycling:    0,
+  Strength:  30,
+  HIIT:      30,
+  Yoga:      30,
+  Pilates:   30,
+  Swimming:  30,
+  Other:     30,
+};
 
 // ─── InfoRow ──────────────────────────────────────────────────────────────────
 
@@ -236,7 +250,7 @@ export default function LogActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { dispatch } = useHealthData();
-  const { loading, addActivityLog } = useLogStore();
+  const { addActivityLog } = useLogStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -244,6 +258,21 @@ export default function LogActivityScreen() {
   const [durationMin, setDurationMin]       = useState(30);
   const [intensity, setIntensity]           = useState(5);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [stepsInput, setStepsInput]         = useState('');
+  const [stepsEdited, setStepsEdited]       = useState(false);
+  const [isSubmitting, setIsSubmitting]     = useState(false);
+
+  useEffect(() => {
+    if (stepsEdited) return;
+    const rate = STEPS_PER_MIN[workoutType] ?? 30;
+    const estimated = Math.round(durationMin * rate);
+    setStepsInput(estimated > 0 ? String(estimated) : '');
+  }, [workoutType, durationMin, stepsEdited]);
+
+  function handleStepsChange(text: string) {
+    setStepsEdited(true);
+    setStepsInput(text.replace(/[^0-9]/g, ''));
+  }
 
   async function handleVoiceTranscription(text: string) {
     try {
@@ -263,6 +292,7 @@ export default function LogActivityScreen() {
     }
   }
 
+  const stepsValue = stepsInput === '' ? 0 : parseInt(stepsInput, 10);
   const estCalories = Math.round(durationMin * (intensity / 10) * 8);
 
   const now = new Date();
@@ -272,12 +302,21 @@ export default function LogActivityScreen() {
   });
 
   async function handleLog() {
-    if (loading) return;
-    const intensityLevel = intensity <= 3 ? 'low' : intensity <= 7 ? 'moderate' : 'high';
-    await addActivityLog(workoutType, durationMin, intensityLevel);
-    const steps = Math.round(durationMin * 90);
-    dispatch({ type: 'LOG_STEPS', steps });
-    router.back();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const intensityLevel = intensity <= 3 ? 'low' : intensity <= 7 ? 'moderate' : 'high';
+      await addActivityLog(workoutType, durationMin, intensityLevel, stepsValue, estCalories);
+      const { error } = useLogStore.getState();
+      if (error) {
+        Alert.alert('Could not save activity', error);
+        return;
+      }
+      dispatch({ type: 'LOG_STEPS', steps: stepsValue });
+      router.back();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -353,6 +392,30 @@ export default function LogActivityScreen() {
             />
           </View>
         </View>
+
+        {/* Steps */}
+        <Text style={s.sectionLabel}>STEPS</Text>
+        <View style={[s.card, SHADOW]}>
+          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
+          <GlassBorder r={28} />
+          <View style={s.infoRow}>
+            <Ionicons name="footsteps-outline" size={20}
+              color={colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'}
+              style={{ width: 26 }} />
+            <Text style={s.infoLabel}>STEPS</Text>
+            <TextInput
+              style={s.stepsInput}
+              value={stepsInput}
+              onChangeText={handleStepsChange}
+              keyboardType="number-pad"
+              placeholder="—"
+              placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
+              returnKeyType="done"
+              maxLength={6}
+            />
+          </View>
+        </View>
       </ScrollView>
 
       {/* CTA */}
@@ -360,10 +423,10 @@ export default function LogActivityScreen() {
         <TouchableOpacity
           onPress={handleLog}
           activeOpacity={0.85}
-          disabled={loading}
-          style={[s.logBtn, loading && { opacity: 0.75 }]}
+          disabled={isSubmitting}
+          style={[s.logBtn, isSubmitting && { opacity: 0.75 }]}
         >
-          {loading
+          {isSubmitting
             ? <ActivityIndicator color={colors.bg} size="small" />
             : <Text style={s.logBtnText}>Log Activity</Text>
           }
@@ -444,6 +507,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     height: 1,
     backgroundColor: c.borderSubtle,
     marginHorizontal: 16,
+  },
+  stepsInput: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: c.textPrimary,
+    textAlign: 'right',
+    minWidth: 80,
+    fontFamily: 'Helvetica Neue',
   },
   ctaWrap: {
     position: 'absolute',

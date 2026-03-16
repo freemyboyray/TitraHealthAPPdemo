@@ -63,7 +63,7 @@ export default function GoalWeightScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={10} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={10} total={12} onBack={() => router.back()} />
 
         <Text style={s.title}>Set your goal weight.</Text>
         <Text style={s.subtitle}>We'll use this to guide your progress and keep your plan on track.</Text>
@@ -171,10 +171,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   tickLine: {
     width: 1.5,
     height: 18,
-    backgroundColor: c.borderSubtle,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  tickMid: { height: 26, backgroundColor: c.border },
-  tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
+  tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.55)' },
+  tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
   tickLabel: {
     fontSize: 11,
     color: c.textSecondary,

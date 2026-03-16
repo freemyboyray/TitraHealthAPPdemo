@@ -42,7 +42,7 @@ const BRAND_GROUPS: BrandGroup[] = [
     brands: [
       { value: 'oral_wegovy',  label: 'Oral Wegovy®',   note: 'Semaglutide 25 mg · FDA approved Dec 2025' },
       { value: 'rybelsus',     label: 'Rybelsus®',      note: 'Semaglutide 3/7/14 mg · T2D approved' },
-      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly · FDA review Q2 2026' },
+      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly · NDA filed — FDA decision Q2 2026' },
     ],
   },
   {
@@ -75,7 +75,7 @@ export default function MedicationScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={2} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={2} total={12} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Which GLP-1 medication are you taking?</Text>
           <Text style={s.subtitle}>Select the one that matches your prescription.</Text>

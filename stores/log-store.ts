@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { localDateStr } from '../lib/date-utils';
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
 
@@ -61,11 +62,15 @@ type LogStore = {
     batch_number?: string,
   ) => Promise<void>;
 
+  deleteInjectionLog: (id: string) => Promise<void>;
+
   // Activity — manual workout fields
   addActivityLog: (
     exercise_type: string,
     duration_min: number,
     intensity?: 'low' | 'moderate' | 'high',
+    steps?: number,
+    active_calories?: number,
   ) => Promise<void>;
 
   // Food — uses food_logs table (richer, with meal_type + source enums)
@@ -206,11 +211,20 @@ export const useLogStore = create<LogStore>((set, get) => ({
     set({ loading: false, error: error?.message ?? null });
   },
 
-  addActivityLog: async (exercise_type, duration_min, intensity) => {
+  deleteInjectionLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('injection_logs').delete().eq('id', id).eq('user_id', user.id);
+    if (!error) {
+      set(state => ({ injectionLogs: state.injectionLogs.filter(l => l.id !== id) }));
+    }
+  },
+
+  addActivityLog: async (exercise_type, duration_min, intensity, steps, active_calories) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateStr();
     const { error } = await supabase
       .from('activity_logs')
       .insert({
@@ -220,6 +234,8 @@ export const useLogStore = create<LogStore>((set, get) => ({
         duration_min,
         intensity: intensity ?? null,
         source: 'manual',
+        steps: steps ?? 0,
+        active_calories: active_calories ?? 0,
       });
     if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
@@ -254,7 +270,17 @@ export const useLogStore = create<LogStore>((set, get) => ({
         program_week: program_week ?? null,
         phase_at_log: phase_at_log ?? null,
       });
-    set({ loading: false, error: error?.message ?? null });
+    if (!error) {
+      const { data } = await supabase
+        .from('food_noise_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('logged_at', { ascending: false })
+        .limit(12);
+      set({ loading: false, error: null, foodNoiseLogs: (data ?? []) as FoodNoiseLog[] });
+    } else {
+      set({ loading: false, error: error.message });
+    }
   },
 
   addWeeklyCheckin: async (type, answers, score, program_week) => {
