@@ -104,11 +104,11 @@ export default function RemindersScreen() {
   async function handleTestNotification() {
     await scheduleTestNotification(
       'TitraHealth Reminder',
-      'This is a test — your reminders are working!',
+      'This is a test - your reminders are working!',
     );
     setTestSent(true);
     setTimeout(() => setTestSent(false), 4000);
-    Alert.alert('Test Sent', 'Background the app — notification fires in 5 seconds.');
+    Alert.alert('Test Sent', 'Background the app - notification fires in 5 seconds.');
   }
 
   return (
@@ -140,7 +140,7 @@ export default function RemindersScreen() {
                 />
               </View>
 
-              {/* Time slots — only when enabled */}
+              {/* Time slots - only when enabled */}
               {config.enabled && row.slots.map((slot) => (
                 <TouchableOpacity
                   key={slot.index}
@@ -169,7 +169,7 @@ export default function RemindersScreen() {
         <Text style={s.hint}>Background the app after tapping to see the notification.</Text>
       </ScrollView>
 
-      {/* Time picker modal — iOS */}
+      {/* Time picker modal - iOS */}
       {Platform.OS === 'ios' && pickerTarget && (
         <Modal transparent animationType="slide" onRequestClose={closePicker}>
           <Pressable style={s.modalBackdrop} onPress={closePicker} />

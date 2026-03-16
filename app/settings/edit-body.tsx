@@ -26,7 +26,7 @@ export default function EditBodyScreen() {
 
   const [unit, setUnit] = useState<UnitSystem>(profile?.unitSystem ?? 'imperial');
 
-  // Imperial indices — reverse-mapped from profile
+  // Imperial indices - reverse-mapped from profile
   const [ftIdx, setFtIdx] = useState(() => Math.max(0, (profile?.heightFt ?? 5) - 4));
   const [inIdx, setInIdx] = useState(() => profile?.heightIn ?? 6);
   const [lbsIdx, setLbsIdx] = useState(() => Math.max(0, Math.floor(profile?.weightLbs ?? 180) - 80));

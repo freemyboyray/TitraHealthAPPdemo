@@ -1,6 +1,6 @@
 // ─── Personalization Orchestrator ────────────────────────────────────────────
-// computePersonalizedPlan() — assembles all scoring, projection, and AI context.
-// Pure TypeScript — no React imports.
+// computePersonalizedPlan() - assembles all scoring, projection, and AI context.
+// Pure TypeScript - no React imports.
 
 import {
   computeGlp1AdherenceScore,
@@ -85,9 +85,13 @@ export type PersonalizedPlan = {
 
   // Weekly check-ins
   weeklyCheckins: {
-    foodNoise: { score: number | null; loggedAt: string | null };
-    energyMood: { score: number | null; loggedAt: string | null };
-    appetite:   { score: number | null; loggedAt: string | null };
+    foodNoise:       { score: number | null; loggedAt: string | null };
+    energyMood:      { score: number | null; loggedAt: string | null };
+    appetite:        { score: number | null; loggedAt: string | null };
+    giBurden:        { score: number | null; loggedAt: string | null };
+    activityQuality: { score: number | null; loggedAt: string | null };
+    sleepQuality:    { score: number | null; loggedAt: string | null };
+    mentalHealth:    { score: number | null; loggedAt: string | null };
   };
 
   // Side effect index (badge)
@@ -121,7 +125,7 @@ function buildShotPhaseLabel(daysSinceShot: number, phase: ShotPhase, daysUntilN
   if (daysUntilNextDose !== undefined) {
     if (daysUntilNextDose < 0)  return `Injection overdue (${Math.abs(daysUntilNextDose)}d past due)`;
     if (daysUntilNextDose === 0) return `Injection due today (${dayLabel})`;
-    if (daysUntilNextDose === 1) return `Reset Phase (${dayLabel}) — due tomorrow`;
+    if (daysUntilNextDose === 1) return `Reset Phase (${dayLabel}) - due tomorrow`;
   }
   switch (phase) {
     case 'shot':    return `Shot Day (${dayLabel})`;
@@ -202,7 +206,7 @@ export function computePersonalizedPlan(params: {
   const daysSinceShot = daysSinceInjection(profile.lastInjectionDate);
   const shotPhase = getShotPhase(daysSinceShot);
 
-  // 1b. Injection schedule — uncapped date math, independent of shot phase cap
+  // 1b. Injection schedule - uncapped date math, independent of shot phase cap
   const injectionFrequencyDays = profile.injectionFrequencyDays;
   const lastInjMs = new Date(profile.lastInjectionDate).getTime();
   const actualDaysSinceShot = Math.floor((Date.now() - lastInjMs) / 86400000) + 1;
@@ -348,9 +352,13 @@ export function computePersonalizedPlan(params: {
     return { score: sorted[0]?.score ?? null, loggedAt: sorted[0]?.logged_at ?? null };
   }
   const weeklyCheckins = {
-    foodNoise: { score: latestFoodNoiseScore, loggedAt: sortedFoodNoise[0]?.logged_at ?? null },
-    energyMood: latestCheckin('energy_mood'),
-    appetite:   latestCheckin('appetite'),
+    foodNoise:       { score: latestFoodNoiseScore, loggedAt: sortedFoodNoise[0]?.logged_at ?? null },
+    energyMood:      latestCheckin('energy_mood'),
+    appetite:        latestCheckin('appetite'),
+    giBurden:        latestCheckin('gi_burden'),
+    activityQuality: latestCheckin('activity_quality'),
+    sleepQuality:    latestCheckin('sleep_quality'),
+    mentalHealth:    latestCheckin('mental_health'),
   };
 
   // 10c. Apply check-in score adjustments on top of side-effect adjusted targets
@@ -358,9 +366,13 @@ export function computePersonalizedPlan(params: {
   const checkinIsRecent = (at: string | null) => at != null && new Date(at).getTime() >= sevenDaysAgoMs;
 
   const checkinScores: CheckinScores = {
-    foodNoise:  checkinIsRecent(weeklyCheckins.foodNoise.loggedAt)  ? weeklyCheckins.foodNoise.score  : null,
-    energyMood: checkinIsRecent(weeklyCheckins.energyMood.loggedAt) ? weeklyCheckins.energyMood.score : null,
-    appetite:   checkinIsRecent(weeklyCheckins.appetite.loggedAt)   ? weeklyCheckins.appetite.score   : null,
+    foodNoise:       checkinIsRecent(weeklyCheckins.foodNoise.loggedAt)       ? weeklyCheckins.foodNoise.score       : null,
+    energyMood:      checkinIsRecent(weeklyCheckins.energyMood.loggedAt)      ? weeklyCheckins.energyMood.score      : null,
+    appetite:        checkinIsRecent(weeklyCheckins.appetite.loggedAt)        ? weeklyCheckins.appetite.score        : null,
+    giBurden:        checkinIsRecent(weeklyCheckins.giBurden.loggedAt)        ? weeklyCheckins.giBurden.score        : null,
+    activityQuality: checkinIsRecent(weeklyCheckins.activityQuality.loggedAt) ? weeklyCheckins.activityQuality.score : null,
+    sleepQuality:    checkinIsRecent(weeklyCheckins.sleepQuality.loggedAt)    ? weeklyCheckins.sleepQuality.score    : null,
+    mentalHealth:    checkinIsRecent(weeklyCheckins.mentalHealth.loggedAt)    ? weeklyCheckins.mentalHealth.score    : null,
   };
 
   if (Object.values(checkinScores).some(v => v != null)) {

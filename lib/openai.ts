@@ -1,5 +1,6 @@
 import { FullUserProfile } from '@/constants/user-profile';
 import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
+import type { WeeklySummaryData } from '@/lib/weekly-summary';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,9 +63,9 @@ export function buildSystemPrompt(
   const phase = getShotPhase(dayNum);
   const phaseDesc =
     phase === 'shot'    ? 'Shot Day (medication absorption starting, first 24h)' :
-    phase === 'peak'    ? `Peak Phase — Day ${dayNum} (highest medication concentration, nausea most likely)` :
-    phase === 'balance' ? `Balance Phase — Day ${dayNum} (medication stabilizing, appetite improving)` :
-                          `Reset Phase — Day ${dayNum} (medication tapering toward next shot)`;
+    phase === 'peak'    ? `Peak Phase - Day ${dayNum} (highest medication concentration, nausea most likely)` :
+    phase === 'balance' ? `Balance Phase - Day ${dayNum} (medication stabilizing, appetite improving)` :
+                          `Reset Phase - Day ${dayNum} (medication tapering toward next shot)`;
 
   const sleepH = Math.floor(wearable.sleepMinutes / 60);
   const sleepM = wearable.sleepMinutes % 60;
@@ -122,11 +123,55 @@ ${focusList || '• All metrics on track'}
 ${typeContext}
 
 RESPONSE GUIDELINES:
-- Be concise, warm, and evidence-based
-- Reference the user's specific numbers when relevant
+- Be brief, analytical, and encouraging - lead with the trend or insight, not background
+- Reference the user's specific numbers directly
 - Do NOT make medical diagnoses; recommend consulting their HCP for clinical decisions
-- Keep responses under 150 words unless the user asks for more detail
-- Use plain text, no markdown formatting`;
+- Keep responses to 1–2 sentences unless the user explicitly asks for more
+- Plain text only - no markdown, no bullet lists`;
+}
+
+// ─── Resilient fetch: retries on transient failures ───────────────────────────
+
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const TIMEOUT_MS = 28000; // 28 s - generous for mobile networks
+const MAX_RETRIES = 2;    // up to 3 total attempts
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  let lastError: Error = new Error('Request failed');
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+
+      // Retry on rate-limit or transient server errors
+      if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRIES) {
+        const delay = (attempt + 1) * 1500; // 1.5 s, 3 s
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Don't retry on aborts caused by our own logic; do retry network errors
+      if (attempt < MAX_RETRIES) {
+        const delay = (attempt + 1) * 1500;
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 // ─── Base OpenAI call ──────────────────────────────────────────────────────────
@@ -138,38 +183,30 @@ export async function callOpenAI(
   const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const res = await fetchWithRetry(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ],
+      max_tokens: 400,
+      temperature: 0.7,
+    }),
+  });
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        max_tokens: 400,
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`OpenAI error ${res.status}: ${err}`);
-    }
-
-    const data = await res.json();
-    return data.choices[0].message.content as string;
-  } finally {
-    clearTimeout(timeout);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI error ${res.status}: ${err}`);
   }
+
+  const data = await res.json();
+  return data.choices[0].message.content as string;
 }
 
 // ─── Food Description Parser ───────────────────────────────────────────────────
@@ -181,83 +218,43 @@ export async function parseFoodDescription(
   const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
   const systemPrompt = `You are a nutrition database. Return ONLY valid JSON with the nutritional info for the described food. Base estimates on standard USDA values. Respond with this exact shape: {"name":"string","calories":number,"proteinG":number,"carbsG":number,"fatG":number,"fiberG":number,"servingSize":"string","confidence":"high"|"medium"|"low"}`;
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: description },
-        ],
-        max_tokens: 200,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    });
+  const res = await fetchWithRetry(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: description },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    }),
+  });
 
-    if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
-    const data = await res.json();
-    return JSON.parse(data.choices[0].message.content) as ParsedFood;
-  } finally {
-    clearTimeout(timeout);
-  }
+  if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
+  const data = await res.json();
+  return JSON.parse(data.choices[0].message.content) as ParsedFood;
 }
 
 // ─── Dynamic Insights (cached per day) ────────────────────────────────────────
 
-export async function generateDynamicInsights(health: HealthSnapshot): Promise<string[]> {
+export async function generateDynamicInsights(health: HealthSnapshot): Promise<string> {
   const key = cacheKey('insights');
-  if (_cache.has(key)) return _cache.get(key) as string[];
+  if (_cache.has(key)) return _cache.get(key) as string;
 
   const systemPrompt = buildSystemPrompt(health);
-  const userPrompt = 'Return ONLY a JSON object with key "insights" containing exactly 3 short insight strings (max 20 words each) personalized to my current health data. Format: {"insights":["...","...","..."]}';
+  const userPrompt = 'Write 2–3 sentences of personalized insight for me today. Reference my specific numbers and medication phase directly. Plain text only - no bullets, lists, or markdown.';
 
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 200,
-        temperature: 0.7,
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
-    const data = await res.json();
-    const parsed = JSON.parse(data.choices[0].message.content);
-    const insights: string[] = parsed.insights ?? [];
-    _cache.set(key, insights);
-    return insights;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const result = await callOpenAI([{ role: 'user', content: userPrompt }], systemPrompt);
+  _cache.set(key, result);
+  return result;
 }
 
 // ─── Coach Note (cached per day per type) ─────────────────────────────────────
@@ -323,31 +320,23 @@ export async function parseVoiceLog(
   const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: VOICE_SYSTEM_PROMPTS[logType] },
-          { role: 'user', content: transcription },
-        ],
-        max_tokens: 200,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
-    const data = await res.json();
-    return JSON.parse(data.choices[0].message.content) as VoiceLogResult;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const res = await fetchWithRetry(OPENAI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: VOICE_SYSTEM_PROMPTS[logType] },
+        { role: 'user', content: transcription },
+      ],
+      max_tokens: 200,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
+  const data = await res.json();
+  return JSON.parse(data.choices[0].message.content) as VoiceLogResult;
 }
 
 // ─── Vision (used by capture-food / scan-food screens) ────────────────────────
@@ -365,7 +354,7 @@ export async function callGPT4oMiniVision(
   const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchWithRetry(OPENAI_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -399,4 +388,59 @@ export async function callGPT4oMiniVision(
   }
   const json = await res.json();
   return json.choices[0].message.content as string;
+}
+
+// ─── Weekly Summary Insight ────────────────────────────────────────────────────
+
+export async function generateWeeklyInsight(
+  summary: WeeklySummaryData,
+  profile: FullUserProfile,
+): Promise<string> {
+  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
+
+  const daysOnMed = Math.max(1, Math.floor((Date.now() - new Date(profile.startDate).getTime()) / 86400000));
+  const weightChange = summary.weight.delta != null
+    ? `${summary.weight.delta > 0 ? '+' : ''}${summary.weight.delta.toFixed(1)} lbs`
+    : 'not logged';
+
+  const systemPrompt = `You are Titra, a GLP-1 medication companion AI coach. Write a concise, personalized weekly recap.
+
+USER:
+- Medication: ${profile.medicationBrand} ${profile.doseMg}mg, day ${daysOnMed} on program
+- Weight change this week: ${weightChange}
+- Avg calories: ${summary.nutrition.avgCalories ?? 'not logged'} (target: ${summary.nutrition.caloriesTarget})
+- Avg protein: ${summary.nutrition.avgProteinG ?? 'not logged'}g (target: ${summary.nutrition.proteinTarget}g)
+- Avg fiber: ${summary.nutrition.avgFiberG ?? 'not logged'}g
+- Days food logged: ${summary.nutrition.daysLogged}/7
+- Avg steps: ${summary.activity.avgSteps ?? 'not logged'} (target: ${summary.activity.stepsTarget})
+- Active days: ${summary.activity.activeDays}/7
+- Side effects logged: ${summary.sideEffects.totalCount}${summary.sideEffects.topTypes.length > 0 ? ` (${summary.sideEffects.topTypes.join(', ')})` : ''}
+
+Write 3-4 sentences of personalized insight covering the most significant trend from this week and one specific, actionable recommendation for the next injection cycle. Plain text only — no bullets or markdown.`;
+
+  const res = await fetchWithRetry(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: 'Write my weekly summary insight.' },
+      ],
+      max_tokens: 250,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content as string;
 }

@@ -89,9 +89,10 @@ function DotScale({
           <Text
             style={{
               fontSize: 9, color: dotColors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-              letterSpacing: 0.2, textAlign: 'center', width: 44,
+              textAlign: 'center', width: 44,
             }}
-            numberOfLines={2}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {DOT_LABELS[v]}
           </Text>
@@ -118,7 +119,7 @@ export default function FoodNoiseSurveyScreen() {
   // Plasticity window message (weeks 5–16, score 0–4)
   const lowNoiseMessage =
     score <= 4
-      ? 'Your food noise is low — this is your prime window to build lasting habits.'
+      ? 'Your food noise is low - this is your prime window to build lasting habits.'
       : null;
 
   async function handleSave() {

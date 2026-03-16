@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -63,7 +64,7 @@ export function WeeklyCheckinCard({
   const handlePress = () => router.push(route as any);
 
   if (!isDone) {
-    // Pending state — show Check In button
+    // Pending state - show Check In button
     return (
       <TouchableOpacity
         style={[s.wrap, { shadowColor: ORANGE, shadowOpacity: 0.08 }]}
@@ -75,7 +76,7 @@ export function WeeklyCheckinCard({
         <GlassBorder r={20} />
         <View style={s.inner}>
           <View style={s.leftCol}>
-            <Text style={s.title}>{label}</Text>
+            <Text style={s.title} numberOfLines={1}>{label}</Text>
             <Text style={s.subtitle}>{subtitle}</Text>
           </View>
           <View style={s.ctaBtn}>
@@ -86,22 +87,25 @@ export function WeeklyCheckinCard({
     );
   }
 
-  // Completed state — show score + sparkline + Review button
+  // Completed state - show score + sparkline + Review button
   const scoreVal = lastScore ?? 0;
   const color = scoreColor(scoreVal);
   const spark = sparklineData ? sparklineData.slice(-3) : [scoreVal];
 
   return (
-    <View style={[s.wrap, { shadowColor: color, shadowOpacity: 0.1 }]}>
+    <View style={[s.wrap, { shadowColor: '#27AE60', shadowOpacity: 0.15 }]}>
       <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-      <GlassBorder r={20} />
+      {/* Green tint overlay */}
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(39,174,96,0.07)' }]} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39,174,96,0.3)' }} />
+      {/* Checkmark badge */}
+      <View style={s.checkBadge}>
+        <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
+      </View>
       <View style={s.inner}>
         <View style={s.leftCol}>
           <Text style={s.title}>{label}</Text>
-          <View style={s.doneBadge}>
-            <Text style={s.doneText}>Done this week</Text>
-          </View>
           <TouchableOpacity
             style={s.reviewBtn}
             onPress={() => router.push(summaryRoute as any)}
@@ -147,7 +151,7 @@ const createStyles = (c: AppColors) => {
     minHeight: 88,
   },
   leftCol: { flex: 1, gap: 6 },
-  title: { fontSize: 14, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+  title: { fontSize: 14, fontWeight: '700', color: c.textPrimary, fontFamily: FF, flexShrink: 1 },
   subtitle: { fontSize: 11, color: w(0.4), fontFamily: FF, lineHeight: 15 },
   ctaBtn: {
     backgroundColor: ORANGE, borderRadius: 14,
@@ -158,12 +162,9 @@ const createStyles = (c: AppColors) => {
   scoreText: { fontSize: 24, fontWeight: '800', lineHeight: 26, fontFamily: FF },
   scoreDenom: { fontSize: 11, color: w(0.35), fontFamily: FF },
   sparkRow: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
-  doneBadge: {
-    backgroundColor: 'rgba(39,174,96,0.15)',
-    borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2,
-    alignSelf: 'flex-start',
+  checkBadge: {
+    position: 'absolute', top: 10, right: 10, zIndex: 1,
   },
-  doneText: { fontSize: 10, fontWeight: '700', color: '#27AE60', fontFamily: FF },
   reviewBtn: {
     borderWidth: 1.5, borderColor: ORANGE, borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 2,

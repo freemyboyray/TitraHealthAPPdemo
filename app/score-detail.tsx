@@ -42,9 +42,9 @@ const glassShadow = {
 // ─── Tier Bar Colors ──────────────────────────────────────────────────────────
 
 function tierBarColor(pct: number): string {
-  if (pct >= 0.8) return '#27AE60';  // green  — optimal
-  if (pct >= 0.5) return '#F39C12';  // amber  — fair
-  return '#E74C3C';                  // red    — low
+  if (pct >= 0.8) return '#27AE60';  // green  - optimal
+  if (pct >= 0.5) return '#F39C12';  // amber  - fair
+  return '#E74C3C';                  // red    - low
 }
 
 function tierStatusLabel(pct: number): string {
@@ -76,18 +76,18 @@ function getPhaseInterpretation(
 
     if (phase === 'peak') {
       return {
-        heading: `Readiness — ${phaseLabel}`,
+        heading: `Readiness - ${phaseLabel}`,
         body: `HRV and RHR are adjusted for expected GLP-1 effects. A score of ${score} during peak days (3–4) is equivalent to ~${score + 8} on a trough day. Focus on light movement and hydration.`,
       };
     }
     if (phase === 'shot') {
       return {
-        heading: `Readiness — ${phaseLabel}`,
-        body: `HRV and RHR are adjusted for early medication activity. Your body is beginning to process the dose — rest, hydrate, and eat adequate protein today.`,
+        heading: `Readiness - ${phaseLabel}`,
+        body: `HRV and RHR are adjusted for early medication activity. Your body is beginning to process the dose - rest, hydrate, and eat adequate protein today.`,
       };
     }
     return {
-      heading: `Readiness — ${phaseLabel}`,
+      heading: `Readiness - ${phaseLabel}`,
       body: `No medication adjustment applied today. Your recovery score reflects your biometrics directly, without GLP-1 phase offsets.`,
     };
   }
@@ -99,18 +99,18 @@ function getPhaseInterpretation(
 
   if (phase === 'peak') {
     return {
-      heading: `GLP-1 Amplifier — ${phaseLabel}`,
-      body: `Medication is at peak effectiveness today (days 3–4). Prioritize rest and hydration — your body is doing the most work right now.`,
+      heading: `GLP-1 Amplifier - ${phaseLabel}`,
+      body: `Medication is at peak effectiveness today (days 3–4). Prioritize rest and hydration - your body is doing the most work right now.`,
     };
   }
   if (phase === 'shot') {
     return {
-      heading: `GLP-1 Amplifier — ${phaseLabel}`,
+      heading: `GLP-1 Amplifier - ${phaseLabel}`,
       body: `Injection day. Log your shot to unlock the full 15-point bonus. Protein and hydration are most critical in the first 24 hours.`,
     };
   }
   return {
-    heading: `GLP-1 Amplifier — ${phaseLabel}`,
+    heading: `GLP-1 Amplifier - ${phaseLabel}`,
     body: `Medication levels are ${phase === 'reset' ? 'tapering toward your next shot' : 'stabilizing'}. Consistent protein and movement build on the work your medication is doing.`,
   };
 }
@@ -253,7 +253,7 @@ function PrimaryFocusCard({ cards, pf }: { cards: MetricCardProps[]; pf: ReturnT
         <View style={pf.inner}>
           <Text style={pf.sectionLabel}>TODAY'S PRIMARY FOCUS</Text>
           {allOptimal ? (
-            <Text style={pf.allGood}>All metrics are optimal — maintain your current habits.</Text>
+            <Text style={pf.allGood}>All metrics are optimal - maintain your current habits.</Text>
           ) : (
             <>
               <Text style={pf.focusLabel}>{focus.label}</Text>
@@ -330,7 +330,7 @@ export default function ScoreDetailScreen() {
 
   const score     = isRecovery ? (recoveryScore ?? 0) : adherenceScore;
   const hasRecoveryData = recoveryScore != null;
-  // Fixed brand identity colors — Recovery=orange, Adherence=white/silver (matches home screen rings)
+  // Fixed brand identity colors - Recovery=orange, Adherence=white/silver (matches home screen rings)
   const grad      = isRecovery
     ? { start: '#D4601A', end: '#FF742A' }
     : { start: '#B0B0B0', end: '#FFFFFF' };
@@ -367,7 +367,7 @@ export default function ScoreDetailScreen() {
 
   if (isRecovery) {
     if (!hasRecoveryData) {
-      // No wearable data — show suppressed state cards
+      // No wearable data - show suppressed state cards
       const suppressedNote = 'Connect Apple Health in Settings to enable this metric.';
       const rowDefs = [
         { icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={dimColor} />, label: 'Sleep', max: 40 },
@@ -380,7 +380,7 @@ export default function ScoreDetailScreen() {
         label: rd.label,
         pts: 0,
         maxPts: rd.max,
-        value: '—',
+        value: '-',
         pct: 0,
         color: dimColor,
         note: suppressedNote,
@@ -394,7 +394,7 @@ export default function ScoreDetailScreen() {
           icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={rows[0].available ? accent : dimColor} />,
           label: 'Sleep',
           pts: rows[0].actual, maxPts: rows[0].max,
-          value: rows[0].available ? `${h}h ${m}m` : '—',
+          value: rows[0].available ? `${h}h ${m}m` : '-',
           pct: rows[0].available ? rows[0].actual / rows[0].max : 0,
           color: rows[0].available ? accent : dimColor,
           note: rows[0].available ? recoveryNotes[0] : 'Connect Apple Health to track sleep.',
@@ -403,7 +403,7 @@ export default function ScoreDetailScreen() {
           icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color={rows[1].available ? accent : dimColor} />,
           label: 'HRV',
           pts: rows[1].actual, maxPts: rows[1].max,
-          value: rows[1].available ? `${wearable.hrvMs} ms` : '—',
+          value: rows[1].available ? `${wearable.hrvMs} ms` : '-',
           pct: rows[1].available ? rows[1].actual / rows[1].max : 0,
           color: rows[1].available ? accent : dimColor,
           note: rows[1].available ? recoveryNotes[1] : 'Connect Apple Health to track HRV.',
@@ -412,7 +412,7 @@ export default function ScoreDetailScreen() {
           icon: <Ionicons name="heart-outline" size={ICON_SIZE} color={rows[2].available ? accent : dimColor} />,
           label: 'Resting HR',
           pts: rows[2].actual, maxPts: rows[2].max,
-          value: rows[2].available ? `${wearable.restingHR} bpm` : '—',
+          value: rows[2].available ? `${wearable.restingHR} bpm` : '-',
           pct: rows[2].available ? rows[2].actual / rows[2].max : 0,
           color: rows[2].available ? accent : dimColor,
           note: rows[2].available ? recoveryNotes[2] : 'Connect Apple Health to track resting heart rate.',
@@ -421,7 +421,7 @@ export default function ScoreDetailScreen() {
           icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color={rows[3].available ? accent : dimColor} />,
           label: 'SpO\u2082',
           pts: rows[3].actual, maxPts: rows[3].max,
-          value: rows[3].available ? `${wearable.spo2Pct}%` : '—',
+          value: rows[3].available ? `${wearable.spo2Pct}%` : '-',
           pct: rows[3].available ? rows[3].actual / rows[3].max : 0,
           color: rows[3].available ? accent : dimColor,
           note: rows[3].available ? recoveryNotes[3] : 'Connect Apple Health to track blood oxygen.',
@@ -454,7 +454,7 @@ export default function ScoreDetailScreen() {
         icon: <MaterialIcons name="fitness-center" size={ICON_SIZE} color={rows[2].included ? accent : dimColor} />,
         label: 'Protein',
         pts: rows[2].actual, maxPts: rows[2].max,
-        value: rows[2].included ? `${actuals.proteinG}g / ${targets.proteinG}g` : '—',
+        value: rows[2].included ? `${actuals.proteinG}g / ${targets.proteinG}g` : '-',
         pct: rows[2].included ? rows[2].actual / rows[2].max : 0,
         color: rows[2].included ? accent : dimColor,
         note: rows[2].note ?? glp1Notes[0],
@@ -463,7 +463,7 @@ export default function ScoreDetailScreen() {
         icon: <Ionicons name="walk-outline" size={ICON_SIZE} color={rows[3].included ? accent : dimColor} />,
         label: 'Movement',
         pts: rows[3].actual, maxPts: rows[3].max,
-        value: rows[3].included ? `${actuals.steps.toLocaleString()} steps` : '—',
+        value: rows[3].included ? `${actuals.steps.toLocaleString()} steps` : '-',
         pct: rows[3].included ? rows[3].actual / rows[3].max : 0,
         color: rows[3].included ? accent : dimColor,
         note: rows[3].note ?? glp1Notes[2],
@@ -519,7 +519,7 @@ export default function ScoreDetailScreen() {
             </View>
           </View>
 
-          {/* Phase interpretation banner — suppressed when no wearable data */}
+          {/* Phase interpretation banner - suppressed when no wearable data */}
           {(!isRecovery || hasRecoveryData) && (
             <PhaseInterpretationBanner isRecovery={isRecovery} phase={phase} score={score} pb={pb} />
           )}
@@ -545,7 +545,7 @@ export default function ScoreDetailScreen() {
             <MetricCard key={card.label} {...card} c={cStyles} />
           ))}
 
-          {/* Fiber — informational only (not scored) */}
+          {/* Fiber - informational only (not scored) */}
           {!isRecovery && (
             <View style={[cStyles.wrap, glassShadow, { opacity: 0.75 }]}>
               <View style={[cStyles.body, { borderColor: colors.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
@@ -563,7 +563,7 @@ export default function ScoreDetailScreen() {
                     {actuals.fiberG}g / {targets.fiberG}g
                   </Text>
                   <Text style={cStyles.note}>
-                    Fiber is tracked but not scored. During shot/peak phases, high fiber worsens GI side effects — target is lowered automatically. During balance/reset phases, aim for 25–35g.
+                    Fiber is tracked but not scored. During shot/peak phases, high fiber worsens GI side effects - target is lowered automatically. During balance/reset phases, aim for 25–35g.
                   </Text>
                 </View>
               </View>

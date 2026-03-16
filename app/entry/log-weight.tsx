@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -62,6 +64,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
   const panStartValueRef = useRef(value);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const lastHapticRef = useRef(Math.round(value * 2)); // half-unit buckets
 
   const panResponder = useRef(
     PanResponder.create({
@@ -74,7 +77,13 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
         // drag right → lower weight, drag left → higher weight
         const raw = panStartValueRef.current - gs.dx / RULER_PPU;
         const snapped = Math.round(raw * 10) / 10;
-        onChangeRef.current(clamp(snapped, min, max));
+        const clamped = clamp(snapped, min, max);
+        onChangeRef.current(clamped);
+        const bucket = Math.round(clamped * 2);
+        if (bucket !== lastHapticRef.current) {
+          lastHapticRef.current = bucket;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
       },
     })
   ).current;
@@ -84,7 +93,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
     const halfUnits = (containerWidth / RULER_PPU / 2) + 1.5;
     const rawStart = value - halfUnits;
     const rawEnd   = value + halfUnits;
-    // step 0.1 — iterate integers of (rawStart*10)..(rawEnd*10)
+    // step 0.1 - iterate integers of (rawStart*10)..(rawEnd*10)
     const iStart = Math.ceil(rawStart * 10);
     const iEnd   = Math.floor(rawEnd * 10);
     for (let i = iStart; i <= iEnd; i++) {
@@ -207,19 +216,22 @@ export default function LogWeightScreen() {
   }
 
   function handleUnitToggle(toMetric: boolean) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setUnit(toMetric ? 'kg' : 'lbs');
-    // lbs state unchanged — disp auto-converts
+    // lbs state unchanged - disp auto-converts
   }
 
   async function handleVoiceTranscription(text: string) {
     try {
       const result = await parseVoiceLog('weight', text) as VoiceWeightResult;
-      if (result.weight_lbs) {
+      if (result.weight_lbs != null && result.weight_lbs > 0) {
         setLbs(parseFloat(result.weight_lbs.toFixed(1)));
         if (result.unit === 'kg') setUnit('kg');
+      } else {
+        Alert.alert('Voice Input', 'Could not detect a weight - try saying something like "185 pounds" or "84 kilograms".');
       }
     } catch {
-      // ignore parse errors — user can still adjust manually
+      Alert.alert('Voice Input', 'Could not parse your weight. Please try again.');
     }
   }
 

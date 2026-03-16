@@ -27,7 +27,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-// ─── Design tokens (light card — intentionally fixed, theme-independent) ──────
+// ─── Design tokens (light card - intentionally fixed, theme-independent) ──────
 const CARD_BG    = '#FFFFFF';
 const INPUT_BG   = '#F2F2F7';
 const INPUT_TEXT = '#1C1C1E';
@@ -305,7 +305,7 @@ export default function SignInScreen() {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
       if (result.type !== 'success' || !result.url) {
-        // User cancelled or browser dismissed — not an error
+        // User cancelled or browser dismissed - not an error
         return;
       }
 
@@ -323,7 +323,7 @@ export default function SignInScreen() {
         if (sessionErr) { setError(sessionErr.message); return; }
         await finishOAuth(sd.session);
       } else {
-        // PKCE flow: code arrives as a query param — exchange it
+        // PKCE flow: code arrives as a query param - exchange it
         const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
         if (exchangeErr) { setError(exchangeErr.message); return; }
         const { data: { session } } = await supabase.auth.getSession();
@@ -516,7 +516,7 @@ export default function SignInScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Apple — iOS only */}
+              {/* Apple - iOS only */}
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
                   style={s.socialBtn}
@@ -542,7 +542,7 @@ export default function SignInScreen() {
               onPress={handleDemoLogin}
               activeOpacity={0.7}
             >
-              <Text style={s.demoLinkText}>Try demo — no account needed</Text>
+              <Text style={s.demoLinkText}>Try demo - no account needed</Text>
             </TouchableOpacity>
 
           </View>
@@ -594,7 +594,7 @@ const createStyles = (c: AppColors) => {
     fontFamily: FONT,
   },
 
-  // Card (fixed light — intentional design contrast)
+  // Card (fixed light - intentional design contrast)
   kavRoot:     { flex: 1 },
   scrollContent: { flexGrow: 1 },
   card: {

@@ -217,9 +217,9 @@ export default function AiChatScreen() {
       // Prepend a strong focal directive BEFORE the base prompt so it leads the model's attention
       const focusBlock = [
         `FOCUS DIRECTIVE (highest priority):`,
-        `The user is asking specifically about: ${contextLabel}${contextValue ? ` — current value: ${contextValue}` : ''}.`,
+        `The user is asking specifically about: ${contextLabel}${contextValue ? ` - current value: ${contextValue}` : ''}.`,
         `Your response MUST:`,
-        `1. Directly address this specific metric/insight first — do not open with generic GLP-1 advice`,
+        `1. Directly address this specific metric/insight first - do not open with generic GLP-1 advice`,
         `2. Explain what this specific value means for this user's GLP-1 journey`,
         `3. Give 2–3 concrete, actionable steps tied directly to this metric`,
         `4. Reference the actual value (${contextValue ?? contextLabel}) in your response`,
@@ -373,7 +373,7 @@ export default function AiChatScreen() {
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: colors.glassOverlay }]} />
               <GlassBorder r={24} />
               <View style={s.inputInner}>
-                {/* Context pill — lives inside the input card above the text field */}
+                {/* Context pill - lives inside the input card above the text field */}
                 {pillVisible && contextLabel && (
                   <View style={s.inputPillRow}>
                     <View style={s.inputPillDot} />
@@ -461,7 +461,7 @@ const createStyles = (c: AppColors) => {
   },
   headerSpacer: { width: 40 },
 
-  // Context pill — embedded in input card
+  // Context pill - embedded in input card
   inputPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -526,7 +526,7 @@ const createStyles = (c: AppColors) => {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.25)', // specular highlight — stays white
+    backgroundColor: 'rgba(255,255,255,0.25)', // specular highlight - stays white
   },
   orbShineSmall: {
     position: 'absolute',
@@ -535,7 +535,7 @@ const createStyles = (c: AppColors) => {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.15)', // specular highlight — stays white
+    backgroundColor: 'rgba(255,255,255,0.15)', // specular highlight - stays white
   },
   greeting: {
     fontSize: 26,
@@ -672,19 +672,19 @@ const createStyles = (c: AppColors) => {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(255,255,255,0.6)', // on orange bubble — stays white
+    backgroundColor: 'rgba(255,255,255,0.6)', // on orange bubble - stays white
     flexShrink: 0,
   },
   bubbleContextText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.65)', // on orange bubble — stays white
+    color: 'rgba(255,255,255,0.65)', // on orange bubble - stays white
     letterSpacing: 0.2,
     flex: 1,
   },
   bubbleContextDivider: {
     height: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.25)', // on orange bubble — stays white
+    backgroundColor: 'rgba(255,255,255,0.25)', // on orange bubble - stays white
     marginBottom: 8,
   },
 

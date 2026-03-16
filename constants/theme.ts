@@ -61,7 +61,7 @@ export const lightColors: AppColors = {
   isDark: false,
 };
 
-// ─── Status colors (semantic — unchanged in both modes) ───────────────────────
+// ─── Status colors (semantic - unchanged in both modes) ───────────────────────
 
 export const STATUS_GOOD = '#27AE60';
 export const STATUS_LOW  = '#F39C12';

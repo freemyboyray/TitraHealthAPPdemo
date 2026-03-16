@@ -1,6 +1,6 @@
 // ─── Weight Projection Engine ─────────────────────────────────────────────────
 // Computes a sigmoid-based weight projection and clinical risk flags.
-// Pure TypeScript — no React/Supabase dependencies.
+// Pure TypeScript - no React/Supabase dependencies.
 
 import type { Glp1Type, Sex } from '@/constants/user-profile';
 
@@ -100,10 +100,12 @@ export function computeWeightProjection(params: {
   doseMg: number;
   sex: Sex;
   heightCm: number;
+  targetWeeklyLossLbs: number;
 }): WeightProjection {
   const {
     startWeightLbs, currentWeightLbs, goalWeightLbs,
     weightLogHistory, programWeek, medicationType, doseMg, heightCm,
+    targetWeeklyLossLbs,
   } = params;
 
   // 1. BMI
@@ -120,12 +122,24 @@ export function computeWeightProjection(params: {
   const sorted4 = [...weightLogHistory]
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
     .slice(-4);
-  const regressionPoints = sorted4.map((l, i) => ({ x: i, y: l.weight_lbs }));
-  const slope = linearRegressionSlope(regressionPoints);
-  // slope is negative when losing weight; convert to positive lbs/week
-  const weeklyLossRateLbs = sorted4.length >= 2
-    ? Math.round(Math.abs(slope) * 7 * 10) / 10
+
+  const timespanDays = sorted4.length >= 2
+    ? (new Date(sorted4.at(-1)!.logged_at).getTime() - new Date(sorted4[0].logged_at).getTime()) / 86400000
     : 0;
+
+  const t0 = sorted4.length >= 2 ? new Date(sorted4[0].logged_at).getTime() : 0;
+  const regressionPoints = sorted4.map(l => ({
+    x: (new Date(l.logged_at).getTime() - t0) / 86400000, // elapsed days
+    y: l.weight_lbs,
+  }));
+  const slope = linearRegressionSlope(regressionPoints); // lbs/day
+
+  const regressionRate = sorted4.length >= 2 && timespanDays >= 7
+    ? Math.min(3.0, Math.round(Math.abs(slope) * 7 * 10) / 10)
+    : 0;
+
+  // Use regression if valid, else fall back to onboarding target
+  const weeklyLossRateLbs = regressionRate > 0 ? regressionRate : targetWeeklyLossLbs;
 
   // 4. Early responder flag
   const earlyResponderFlag = programWeek >= 12 && lossToDatePct >= 5;
@@ -150,11 +164,10 @@ export function computeWeightProjection(params: {
     curve.push({ week: w, weightLbs: Math.round((startWeightLbs - lostAtWeek) * 10) / 10 });
   }
 
-  // 9. Projected goal date — first curve week that crosses goalWeightLbs
-  const goalPoint = curve.find(p => p.weightLbs <= goalWeightLbs);
-  const weeksToGoal = goalPoint
-    ? Math.max(0, goalPoint.week - programWeek)
-    : 72 - programWeek;
+  // 9. Projected goal date - forward projection from current weight at current rate
+  const lbsToGoal = Math.max(0, currentWeightLbs - goalWeightLbs);
+  const effectiveRate = weeklyLossRateLbs > 0 ? weeklyLossRateLbs : targetWeeklyLossLbs;
+  const weeksToGoal = effectiveRate > 0 ? Math.round(lbsToGoal / effectiveRate) : 104;
   const projectedGoalDate = toISODate(addWeeksToDate(new Date(), weeksToGoal));
 
   // 10. Confidence level

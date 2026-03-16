@@ -4,6 +4,8 @@ import { localDateStr } from '@/lib/date-utils';
 
 import { supabase } from '@/lib/supabase';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useGarminStore } from '@/stores/garmin-store';
+import { useShallow } from 'zustand/react/shallow';
 import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
@@ -65,7 +67,8 @@ type Action =
   | { type: 'FETCH_ACTUALS'; actuals: DailyActuals }
   | { type: 'SYNC_WEARABLE'; wearable: WearableData }
   | { type: 'SYNC_HK_STEPS'; steps: number }
-  | { type: 'SYNC_PROFILE'; profile: FullUserProfile };
+  | { type: 'SYNC_PROFILE'; profile: FullUserProfile }
+  | { type: 'SYNC_GARMIN'; steps: number | null; activeCalories: number | null; sleepHours: number | null; restingHR: number | null };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +131,17 @@ function reducer(state: HealthState, action: Action): HealthState {
       const steps = Math.max(state.actuals.steps, action.steps);
       return recompute({ ...state, actuals: { ...state.actuals, steps } });
     }
+    case 'SYNC_GARMIN': {
+      const steps = action.steps != null
+        ? Math.max(state.actuals.steps, action.steps)
+        : state.actuals.steps;
+      const wearable: WearableData = {
+        ...state.wearable,
+        ...(action.restingHR != null && { restingHR: action.restingHR }),
+        ...(action.sleepHours != null && { sleepMinutes: Math.round(action.sleepHours * 60) }),
+      };
+      return recompute({ ...state, actuals: { ...state.actuals, steps }, wearable });
+    }
     case 'SYNC_PROFILE':
       return recompute({ ...state, profile: action.profile });
     default:
@@ -155,6 +169,13 @@ export function HealthProvider({
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
 
   const hkSteps = useHealthKitStore(s => s.steps);
+  const garmin = useGarminStore(useShallow(s => ({
+    connected: s.connected,
+    latestSteps: s.latestSteps,
+    latestActiveCalories: s.latestActiveCalories,
+    latestSleepHours: s.latestSleepHours,
+    latestRestingHR: s.latestRestingHR,
+  })));
 
   // Sync profile into scoring engine whenever it changes (e.g. after async load or settings update)
   useEffect(() => {
@@ -167,11 +188,23 @@ export function HealthProvider({
     dispatch({ type: 'SYNC_WEARABLE', wearable: liveWearable as WearableData });
   }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct]);
 
-  // Sync HealthKit steps — prefer whichever is higher (HealthKit is live; Supabase is manually logged)
+  // Sync HealthKit steps - prefer whichever is higher (HealthKit is live; Supabase is manually logged)
   useEffect(() => {
     if (hkSteps == null) return;
     dispatch({ type: 'SYNC_HK_STEPS', steps: hkSteps });
   }, [hkSteps]);
+
+  // Sync Garmin data when the store updates
+  useEffect(() => {
+    if (!garmin.connected) return;
+    dispatch({
+      type: 'SYNC_GARMIN',
+      steps: garmin.latestSteps,
+      activeCalories: garmin.latestActiveCalories,
+      sleepHours: garmin.latestSleepHours,
+      restingHR: garmin.latestRestingHR,
+    });
+  }, [garmin.connected, garmin.latestSteps, garmin.latestSleepHours, garmin.latestRestingHR]);
 
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   useEffect(() => {
@@ -247,6 +280,7 @@ export type DailySnapshot = {
     protein_g: number;
     carbs_g: number;
     fat_g: number;
+    fiber_g: number;
     meal_type: string;
     logged_at: string;
   }>;
@@ -257,9 +291,9 @@ export type DailySnapshot = {
     steps: number;
     active_calories: number;
   }>;
-  weightLog: { weight_lbs: number; logged_at: string } | null;
-  injectionLog: { dose_mg: number; injection_date: string; medication_name: string | null } | null;
-  sideEffectLogs: Array<{ effect_type: string; severity: number; logged_at: string }>;
+  weightLog: { id: string; weight_lbs: number; logged_at: string } | null;
+  injectionLog: { id: string; dose_mg: number; injection_date: string; medication_name: string | null } | null;
+  sideEffectLogs: Array<{ id: string; effect_type: string; severity: number; logged_at: string }>;
 };
 
 export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot> {
@@ -279,9 +313,9 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
     };
   }
 
-  const localStart = new Date(`${dateStr}T00:00:00`);
-  const localEnd   = new Date(`${dateStr}T00:00:00`);
-  localEnd.setDate(localEnd.getDate() + 1);
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const localStart = new Date(y, mo - 1, d, 0, 0, 0, 0);
+  const localEnd   = new Date(y, mo - 1, d + 1, 0, 0, 0, 0);
 
   const [foodRes, actRes, injRes, weightRes, seRes] = await Promise.all([
     supabase.from('food_logs')
@@ -294,18 +328,18 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
       .eq('user_id', user.id)
       .eq('date', dateStr),
     supabase.from('injection_logs')
-      .select('dose_mg,injection_date,medication_name')
+      .select('id,dose_mg,injection_date,medication_name')
       .eq('user_id', user.id)
       .eq('injection_date', dateStr)
       .limit(1),
     supabase.from('weight_logs')
-      .select('weight_lbs,logged_at')
+      .select('id,weight_lbs,logged_at')
       .eq('user_id', user.id)
       .gte('logged_at', localStart.toISOString())
       .lt('logged_at', localEnd.toISOString())
       .limit(1),
     supabase.from('side_effect_logs')
-      .select('effect_type,severity,logged_at')
+      .select('id,effect_type,severity,logged_at')
       .eq('user_id', user.id)
       .gte('logged_at', localStart.toISOString())
       .lt('logged_at', localEnd.toISOString()),
@@ -328,6 +362,7 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
       protein_g: f.protein_g ?? 0,
       carbs_g:   f.carbs_g   ?? 0,
       fat_g:     f.fat_g     ?? 0,
+      fiber_g:   f.fiber_g   ?? 0,
       meal_type: f.meal_type ?? 'snack',
       logged_at: f.logged_at,
     })),
@@ -338,9 +373,16 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
       steps:          a.steps          ?? 0,
       active_calories: a.active_calories ?? 0,
     })),
-    weightLog:    (weightRes.data ?? [])[0] ?? null,
-    injectionLog: (injRes.data    ?? [])[0] ?? null,
+    weightLog: (() => {
+      const row = (weightRes.data ?? [])[0];
+      return row ? { id: row.id, weight_lbs: row.weight_lbs ?? 0, logged_at: row.logged_at } : null;
+    })(),
+    injectionLog: (() => {
+      const row = (injRes.data ?? [])[0];
+      return row ? { id: row.id, dose_mg: row.dose_mg ?? 0, injection_date: row.injection_date, medication_name: row.medication_name ?? null } : null;
+    })(),
     sideEffectLogs: (seRes.data ?? []).map(s => ({
+      id:          s.id,
       effect_type: s.effect_type,
       severity:    s.severity ?? 0,
       logged_at:   s.logged_at,

@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
+import {
+  createAnimatedComponent,
   useAnimatedProps,
   useSharedValue,
   withSpring,
@@ -21,7 +25,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedRect = createAnimatedComponent(Rect);
 
 const BLUE   = '#5B8BF5';
 const ORANGE = '#FF742A';
@@ -47,19 +51,39 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const insets = useSafeAreaInsets();
-  const { dispatch, targets } = useHealthData();
+  const { dispatch, targets, actuals } = useHealthData();
+
+  const alreadyLoggedOz = Math.round(actuals.waterMl / 29.5735);
+  const initialOz = useRef(0);
 
   const [sessionOz, setSessionOz]     = useState(0);
   const [stepSizeIdx, setStepSizeIdx] = useState(1); // default 8oz
   const stepSize = STEP_SIZES[stepSizeIdx];
 
+  // Drag-to-dismiss
+  const sheetY = useRef(new Animated.Value(0)).current;
+  const closeSheet = () => { sheetY.setValue(0); onClose(); };
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => { if (gs.dy > 0) sheetY.setValue(gs.dy); },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.5) {
+          closeSheet();
+        } else {
+          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+        }
+      },
+    })
+  ).current;
+
   const dailyTargetOz = targets.waterMl / 29.5735;
 
-  // Reset session each time sheet opens
+  // Pre-load with today's already-logged amount each time sheet opens
   useEffect(() => {
     if (visible) {
-      setSessionOz(0);
-      fillY.value = 240;
+      initialOz.current = alreadyLoggedOz;
+      setSessionOz(alreadyLoggedOz);
     }
   }, [visible]);
 
@@ -74,31 +98,34 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   const fillProps = useAnimatedProps(() => ({ y: fillY.value }));
 
   const handleUpdate = () => {
-    if (sessionOz > 0) {
-      dispatch({ type: 'LOG_WATER', ml: Math.round(sessionOz * 29.5735) });
+    const deltaOz = sessionOz - initialOz.current;
+    if (deltaOz !== 0) {
+      dispatch({ type: 'LOG_WATER', ml: Math.round(deltaOz * 29.5735) });
     }
-    onClose();
+    closeSheet();
   };
 
   const cycleStepSize = () => setStepSizeIdx(i => (i + 1) % STEP_SIZES.length);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={closeSheet}>
       <View style={s.container}>
 
         {/* Backdrop */}
-        <Pressable style={s.backdrop} onPress={onClose} />
+        <Pressable style={s.backdrop} onPress={closeSheet} />
 
         {/* Sheet */}
-        <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <Animated.View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20), transform: [{ translateY: sheetY }] }]}>
           <View pointerEvents="none" style={s.topBorder} />
 
-          {/* Drag handle */}
-          <View style={s.handle} />
+          {/* Drag handle — hold and drag down to dismiss */}
+          <View {...panResponder.panHandlers} style={s.handleHitArea}>
+            <View style={s.handle} />
+          </View>
 
           {/* Header */}
           <View style={s.header}>
-            <TouchableOpacity onPress={onClose} style={s.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity onPress={closeSheet} style={s.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
             </TouchableOpacity>
             <Text style={s.title}>Water Log</Text>
@@ -156,20 +183,20 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
             <View style={s.stepper}>
               <TouchableOpacity
                 style={s.stepBtn}
-                onPress={() => setSessionOz(o => Math.max(0, o - stepSize))}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSessionOz(o => Math.max(0, o - stepSize)); }}
                 activeOpacity={0.7}
               >
                 <Text style={s.stepBtnText}>−</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={cycleStepSize} activeOpacity={0.7} style={s.stepLabelWrap}>
+              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cycleStepSize(); }} activeOpacity={0.7} style={s.stepLabelWrap}>
                 <Text style={s.stepLabelMain}>{stepSize}oz</Text>
                 <Text style={s.stepLabelHint}>tap to change</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={s.stepBtn}
-                onPress={() => setSessionOz(o => o + stepSize)}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSessionOz(o => o + stepSize); }}
                 activeOpacity={0.7}
               >
                 <Text style={s.stepBtnText}>+</Text>
@@ -190,7 +217,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
               <TouchableOpacity
                 key={preset.oz}
                 style={s.chip}
-                onPress={() => setSessionOz(o => o + preset.oz)}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSessionOz(o => o + preset.oz); }}
                 activeOpacity={0.75}
               >
                 <Ionicons name={preset.icon} size={26} color={BLUE} />
@@ -204,7 +231,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
             <Text style={s.updateBtnText}>Update</Text>
           </TouchableOpacity>
 
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -241,13 +268,16 @@ const createStyles = (c: AppColors) => {
     borderTopRightRadius: 28,
   },
 
+  handleHitArea: {
+    alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 14,
+  },
   handle: {
     width: 44,
     height: 4,
     backgroundColor: c.ringTrack,
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 18,
   },
 
   header: {
@@ -439,7 +469,7 @@ const createStyles = (c: AppColors) => {
   updateBtnText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF', // on orange bg — stays white
+    color: '#FFFFFF', // on orange bg - stays white
     letterSpacing: 0.2,
     fontFamily: FF,
   },

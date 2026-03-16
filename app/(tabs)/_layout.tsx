@@ -1,9 +1,10 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import ReAnimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,10 +14,12 @@ import { AddEntrySheet } from '@/components/add-entry-sheet';
 import { useAppTheme } from '@/contexts/theme-context';
 
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useUiStore } from '@/stores/ui-store';
+import { useInsightsAiStore } from '@/stores/insights-ai-store';
 
 const ORANGE = '#FF742A';
 
@@ -27,11 +30,30 @@ type CustomTabBarProps = BottomTabBarProps & {
 
 function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { translateY } = useTabBarVisibility();
+  const { minimized, expand } = useTabBarVisibility();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const icons = [
+  const activeIndex = state.index;
+
+  // Track whether pill is past halfway so we can disable its touch handling
+  const [pillInteractive, setPillInteractive] = useState(true);
+  useEffect(() => {
+    const id = minimized.addListener(({ value }) => {
+      setPillInteractive(value < 0.05);
+    });
+    return () => minimized.removeListener(id);
+  }, [minimized]);
+
+  // Full pill fades out + scales down as a whole unit
+  const pillOpacity = minimized.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const pillScale   = minimized.interpolate({ inputRange: [0, 1], outputRange: [1, 0.82] });
+
+  // Mini circle (active tab only) fades in + scales up
+  const miniOpacity = minimized.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const miniScale   = minimized.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] });
+
+  const ICON_DEFS = [
     { focused: <Ionicons name="home" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="home-outline" size={24} color={colors.textMuted} /> },
     { focused: <MaterialIcons name="menu" size={26} color={colors.textPrimary} />, unfocused: <MaterialIcons name="menu" size={26} color={colors.textMuted} /> },
     { focused: <Ionicons name="document" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="document-outline" size={24} color={colors.textMuted} /> },
@@ -39,58 +61,103 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
   ];
 
   return (
-    <Animated.View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }, { transform: [{ translateY }] }]}>
+    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
 
-      {/* Glass pill */}
-      <View style={s.pillShadow}>
-        <View style={s.pillInner}>
-          <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, s.pillOverlay, { backgroundColor: colors.glassOverlay }]} />
-          {/* Top specular shine */}
-          <View pointerEvents="none" style={[s.pillShine, { backgroundColor: colors.ringTrack }]} />
-          {/* Glass highlight border */}
-          <View pointerEvents="none" style={[s.pillBorder, { borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} />
-          {/* Tab icons */}
-          <View style={s.pillContent}>
-            {state.routes.map((route, index) => {
-              const isFocused = state.index === index;
-              return (
-                <TouchableOpacity
-                  key={route.key}
-                  style={s.tabBtn}
-                  onPress={() => !isFocused && navigation.navigate(route.name)}
-                  activeOpacity={0.7}>
-                  {isFocused ? (
-                    <View style={s.activeIconWrap}>
-                      {icons[index].focused}
-                    </View>
-                  ) : (
-                    icons[index].unfocused
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+      {/* Left slot holds full pill + mini circle, overlaid */}
+      <View style={s.pillOuter}>
+
+        {/* Full pill — scales + fades as a whole unit */}
+        <Animated.View
+          style={[s.pillShadow, StyleSheet.absoluteFill, {
+            opacity: pillOpacity,
+            transform: [{ scale: pillScale }],
+          }]}
+          pointerEvents={pillInteractive ? 'box-none' : 'none'}
+        >
+          <View style={s.pillInner}>
+            <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, s.pillOverlay, { backgroundColor: colors.glassOverlay }]} />
+            <View pointerEvents="none" style={[s.pillShine, { backgroundColor: colors.ringTrack }]} />
+            <View pointerEvents="none" style={[s.pillBorder, { borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} />
+            <View style={s.pillContent}>
+              {state.routes.map((route, index) => {
+                const isFocused = index === activeIndex;
+                return (
+                  <TouchableOpacity
+                    key={route.key}
+                    style={s.tabBtn}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (!isFocused) navigation.navigate(route.name);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    {isFocused
+                      ? <View style={s.activeIconWrap}>{ICON_DEFS[index].focused}</View>
+                      : ICON_DEFS[index].unfocused
+                    }
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        </Animated.View>
+
+        {/* Mini circle — active tab icon, fades in as pill collapses; tap to expand */}
+        <Animated.View
+          style={[s.miniCircle, {
+            opacity: miniOpacity,
+            transform: [{ scale: miniScale }],
+          }]}
+        >
+          <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: colors.glassOverlay }]} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: 31, borderWidth: 1, borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: 'transparent', borderBottomColor: 'transparent' }]} />
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); expand(); }}
+            activeOpacity={0.7}
+          />
+          {ICON_DEFS[activeIndex]?.focused}
+        </Animated.View>
+
+        {/* Full-area tap target when collapsed — covers entire pill width */}
+        {!pillInteractive && (
+          <Pressable
+            style={[StyleSheet.absoluteFill, { zIndex: 20 }]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); expand(); }}
+          />
+        )}
+
+        {/* Height spacer */}
+        <View style={{ height: 66 }} pointerEvents="none" />
       </View>
 
-      {/* FAB — solid orange */}
-      <TouchableOpacity style={s.fab} onPress={onFabPress} activeOpacity={0.85}>
+      {/* FAB */}
+      <TouchableOpacity
+        style={s.fab}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onFabPress(); }}
+        activeOpacity={0.85}
+      >
         <View style={s.fabInner}>
           <Ionicons name={fabOpen ? 'close' : 'add'} size={32} color="#FFFFFF" />
         </View>
       </TouchableOpacity>
 
-    </Animated.View>
+    </View>
   );
 }
 
 export default function TabLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
+  const logLoading = useLogStore(s => s.loading);
   const fetchHealthData = useHealthKitStore(s => s.fetchAll);
   const { appleHealthEnabled } = usePreferencesStore();
   const { aiChatOpen } = useUiStore();
+  const health = useHealthData();
+  const prefetchInsightsAi = useInsightsAiStore(s => s.prefetchAll);
+  const aiPrefetchFired = useRef(false);
 
   const bgScale = useSharedValue(1);
   const bgOpacity = useSharedValue(1);
@@ -99,6 +166,18 @@ export default function TabLayout() {
     fetchInsightsData();
     if (appleHealthEnabled) fetchHealthData();
   }, []);
+
+  // Fire AI prefetch once, right after the initial Supabase data load completes.
+  // logLoading transitions false→true (fetch start) then true→false (fetch done).
+  // We wait for the first false-after-true to ensure health data is populated.
+  const seenLoading = useRef(false);
+  useEffect(() => {
+    if (logLoading) { seenLoading.current = true; return; }
+    if (seenLoading.current && !aiPrefetchFired.current) {
+      aiPrefetchFired.current = true;
+      prefetchInsightsAi(health);
+    }
+  }, [logLoading]);
 
   useEffect(() => {
     bgScale.value = withTiming(aiChatOpen ? 0.92 : 1, { duration: 380, easing: Easing.out(Easing.cubic) });
@@ -141,8 +220,17 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 8,
   },
 
-  // Pill
-  pillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 10 },
+  // Left slot: full pill + mini circle overlaid
+  pillOuter: {
+    flex: 1,
+    marginRight: 14,
+  },
+
+  // Full pill (absolute-fills pillOuter, scales as a whole)
+  pillShadow: {
+    borderRadius: 36,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 10,
+  },
   pillInner: { borderRadius: 36, overflow: 'hidden' },
   pillOverlay: { borderRadius: 36 },
   pillShine: { position: 'absolute', top: 0, left: 16, right: 16, height: 1.5, borderRadius: 1 },
@@ -151,15 +239,23 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
 
   tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 46 },
   activeIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 46, height: 46, borderRadius: 23,
     backgroundColor: ORANGE,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
 
-  // FAB — solid orange
+  // Mini circle shown when pill is collapsed
+  miniCircle: {
+    position: 'absolute',
+    left: 0, bottom: 0,
+    width: 62, height: 62, borderRadius: 31,
+    overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+    zIndex: 10,
+  },
+
+  // FAB - solid orange
   fab: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10, marginBottom: 2 },
   fabInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
 });

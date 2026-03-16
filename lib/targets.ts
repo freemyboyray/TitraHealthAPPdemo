@@ -1,13 +1,13 @@
 // ─── Personalized Targets Engine ──────────────────────────────────────────────
-// computeBaseTargets() — Mifflin-St Jeor BMR → TDEE → deficit → macros.
-// applyAdjustments()   — evidence-based side-effect delta rules engine.
-// Pure TypeScript — no React, no Supabase.
+// computeBaseTargets() - Mifflin-St Jeor BMR → TDEE → deficit → macros.
+// applyAdjustments()   - evidence-based side-effect delta rules engine.
+// Pure TypeScript - no React, no Supabase.
 //
 // Evidence sources (2024-2025):
-//   PMC9821052   — GLP-1 GI adverse event management (multidisciplinary consensus)
-//   PMC11668918  — Dietary recommendations for GLP-1 GI symptoms
-//   PMC12536186  — Lean mass preservation on GLP-1/GIP agonists
-//   ACLM/ASN/OMA/TOS joint advisory — Nutritional priorities for GLP-1 therapy
+//   PMC9821052   - GLP-1 GI adverse event management (multidisciplinary consensus)
+//   PMC11668918  - Dietary recommendations for GLP-1 GI symptoms
+//   PMC12536186  - Lean mass preservation on GLP-1/GIP agonists
+//   ACLM/ASN/OMA/TOS joint advisory - Nutritional priorities for GLP-1 therapy
 
 import type { FullUserProfile } from '@/constants/user-profile';
 
@@ -63,7 +63,7 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
   const tdee = bmr * (activityMult[activityLevel] ?? 1.375);
 
   // ── Calorie Target ─────────────────────────────────────────────────────────
-  // GLP-1 note: this is a minimum floor, not a restriction — users often under-eat.
+  // GLP-1 note: this is a minimum floor, not a restriction - users often under-eat.
   const deficit = deficitForWeeklyLoss(weeklyLoss);
   const calorieFloor = sex === 'male' ? 1500 : 1200;
   const caloriesTarget = Math.max(Math.round(tdee - deficit), calorieFloor);
@@ -243,7 +243,7 @@ export type SideEffectAdjustment = {
   fiberType?: string;
 };
 
-// ─── Adjustable Targets (minimal shape — avoids circular import with scoring.ts) ─
+// ─── Adjustable Targets (minimal shape - avoids circular import with scoring.ts) ─
 
 type AdjustableTargets = {
   proteinG: number;
@@ -304,7 +304,7 @@ export function applyAdjustments<T extends AdjustableTargets>(
 
   if (weighted.length === 0) return { ...base, ...noOp };
 
-  // Deduplicate by effect type — keep highest weight per type
+  // Deduplicate by effect type - keep highest weight per type
   const byType = new Map<string, (typeof weighted)[0]>();
   for (const log of weighted) {
     const existing = byType.get(log.effect_type);

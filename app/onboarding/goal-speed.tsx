@@ -27,12 +27,12 @@ const UNIT_W = ITEM_W + ITEM_MARGIN * 2;
 
 const CONTEXT_NOTES: Record<string, string> = {
   '0.2': 'This slower pace is gentle and sustainable for your journey.',
-  '0.5': 'A gentle, sustainable pace — great for long-term success.',
+  '0.5': 'A gentle, sustainable pace - great for long-term success.',
   '1.0': 'A moderate pace with good results.',
   '1.5': 'A moderate pace with good results.',
-  '2.0': 'Aggressive — ensure adequate protein and recovery.',
-  '2.5': 'Aggressive — ensure adequate protein and recovery.',
-  '3.0': 'Aggressive — ensure adequate protein and recovery.',
+  '2.0': 'Aggressive - ensure adequate protein and recovery.',
+  '2.5': 'Aggressive - ensure adequate protein and recovery.',
+  '3.0': 'Aggressive - ensure adequate protein and recovery.',
 };
 
 export default function GoalSpeedScreen() {
@@ -64,7 +64,7 @@ export default function GoalSpeedScreen() {
 
         <Text style={s.title}>How quickly do you want to reach your goal?</Text>
         <Text style={s.subtitle}>
-          (Don't worry — we'll help you stay healthy whatever pace you choose.)
+          (Don't worry - we'll help you stay healthy whatever pace you choose.)
         </Text>
 
         {/* Forecast chip */}

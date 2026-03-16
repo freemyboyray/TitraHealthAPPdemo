@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { callHaiku } from '../../lib/anthropic';
+import { callOpenAI } from '../../lib/openai';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -94,9 +94,7 @@ export default function DescribeFoodScreen() {
     setParseError('');
     setItems(null);
     try {
-      const raw = await callHaiku(PARSE_SYSTEM, [
-        { type: 'text', text: `User input: "${text}"` },
-      ]);
+      const raw = await callOpenAI([{ role: 'user', content: `User input: "${text}"` }], PARSE_SYSTEM);
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON array found');
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
@@ -116,7 +114,7 @@ export default function DescribeFoodScreen() {
       );
       setItems(withResults);
     } catch {
-      setParseError("Couldn't parse — try being more specific.");
+      setParseError("Couldn't parse - try being more specific.");
     } finally {
       setParsing(false);
     }
@@ -203,7 +201,7 @@ export default function DescribeFoodScreen() {
             <Text style={s.itemRawName}>{item.item}</Text>
 
             {item.results.length === 0 ? (
-              <Text style={s.noMatch}>No match — will skip</Text>
+              <Text style={s.noMatch}>No match - will skip</Text>
             ) : (
               <>
                 {item.results.slice(0, 3).map((r, ri) => (

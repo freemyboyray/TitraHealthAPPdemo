@@ -37,6 +37,9 @@ type Message = {
   contextLabel?: string;
   contextValue?: string;
   imageUri?: string;
+  isError?: boolean;
+  retryText?: string;
+  retryImageBase64?: string;
 };
 
 type HistoryMessage = {
@@ -274,13 +277,8 @@ export function AiChatOverlay() {
     if (pillVisible && contextLabel) {
       const focusBlock = [
         `FOCUS DIRECTIVE (highest priority):`,
-        `The user is asking specifically about: ${contextLabel}${contextValue ? ` — current value: ${contextValue}` : ''}.`,
-        `Your response MUST:`,
-        `1. Directly address this specific metric/insight first — do not open with generic GLP-1 advice`,
-        `2. Explain what this specific value means for this user's GLP-1 journey`,
-        `3. Give 2–3 concrete, actionable steps tied directly to this metric`,
-        `4. Reference the actual value (${contextValue ?? contextLabel}) in your response`,
-        `Do NOT give a general health overview. Stay tightly focused on ${contextLabel}.`,
+        `Topic: ${contextLabel}${contextValue ? ` (${contextValue})` : ''}.`,
+        `Reply in 1–2 sentences MAX. Be analytical and trend-aware - call out what the number means and whether it's moving in the right direction. Be brief and encouraging. No lists, no preamble, no generic GLP-1 advice. Reference the actual value directly.`,
         ``,
       ].join('\n');
       return focusBlock + base;
@@ -354,10 +352,11 @@ export function AiChatOverlay() {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error && err.message.includes('not set')
-        ? 'AI not configured. Restart the dev server with: npx expo start --clear'
-        : 'Unable to reach AI. Check your connection and try again.';
-      setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+      if (err instanceof Error && err.message.includes('not set')) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'AI not configured. Restart the dev server with: npx expo start --clear', isError: true, retryText: text, retryImageBase64: imageBase64 } as Message]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Tap to retry.', isError: true, retryText: text, retryImageBase64: imageBase64 } as Message]);
+      }
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -373,7 +372,7 @@ export function AiChatOverlay() {
       style={[StyleSheet.absoluteFillObject, { zIndex: 9999, opacity: overlayOpacity }]}
       pointerEvents={aiChatOpen ? 'auto' : 'none'}
     >
-      {/* Full-screen blur backdrop — tap to dismiss */}
+      {/* Full-screen blur backdrop - tap to dismiss */}
       <Pressable style={StyleSheet.absoluteFillObject} onPress={handleDismiss}>
         <BlurView intensity={25} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
       </Pressable>
@@ -462,7 +461,13 @@ export function AiChatOverlay() {
 
               {messages.map((msg, i) => (
                 <View key={i} style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}>
-                  <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
+                  <Pressable
+                    style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant, msg.isError && s.bubbleError]}
+                    onPress={msg.isError && msg.retryText ? () => {
+                      setMessages(prev => prev.slice(0, i));
+                      sendMessage(msg.retryText!);
+                    } : undefined}
+                  >
                     {msg.role === 'user' && msg.imageUri && (
                       <Image source={{ uri: msg.imageUri }} style={s.bubbleImage} />
                     )}
@@ -477,10 +482,16 @@ export function AiChatOverlay() {
                         <View style={s.bubbleContextDivider} />
                       </>
                     )}
-                    <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
+                    <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant, msg.isError && s.bubbleTextError]}>
                       {msg.content}
                     </Text>
-                  </View>
+                    {msg.isError && msg.retryText && (
+                      <View style={s.retryRow}>
+                        <Ionicons name="refresh" size={12} color="rgba(220,80,50,0.8)" />
+                        <Text style={s.retryLabel}>Tap to retry</Text>
+                      </View>
+                    )}
+                  </Pressable>
                 </View>
               ))}
               {loading && (
@@ -492,7 +503,7 @@ export function AiChatOverlay() {
               )}
             </ScrollView>
 
-            {/* Input card — pinned at bottom */}
+            {/* Input card - pinned at bottom */}
             <Animated.View
               style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4, transform: [{ translateY: inputTranslateY }] }]}
             >
@@ -661,6 +672,22 @@ const createStyles = (c: AppColors) => {
   },
   bubbleTextUser: { color: '#FFFFFF', fontWeight: '500' },
   bubbleTextAssistant: { color: w(0.85), fontWeight: '400' },
+  bubbleError: {
+    borderColor: 'rgba(220,80,50,0.3)',
+    borderWidth: 1,
+  },
+  bubbleTextError: { color: 'rgba(220,80,50,0.9)' },
+  retryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  retryLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(220,80,50,0.8)',
+  },
   bubbleImage: {
     width: '100%',
     height: 140,

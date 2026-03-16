@@ -24,7 +24,7 @@ export default function HealthSyncScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {
-    // NitroModules (HealthKit) crash in Expo Go — skip the native call there.
+    // NitroModules (HealthKit) crash in Expo Go - skip the native call there.
     // Check both appOwnership (SDK <52) and executionEnvironment (SDK 52+).
     const isExpoGo =
       Constants.appOwnership === 'expo' ||
@@ -45,7 +45,7 @@ export default function HealthSyncScreen() {
 
         await HealthKit.requestAuthorization(typesToRead, []);
       } catch {
-        // Permission denied or unavailable — still mark as enabled and continue
+        // Permission denied or unavailable - still mark as enabled and continue
       }
     }
 

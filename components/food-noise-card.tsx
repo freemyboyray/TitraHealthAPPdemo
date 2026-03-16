@@ -48,7 +48,7 @@ function SparkDot({ score, isLatest }: { score: number; isLatest: boolean }) {
 }
 
 /**
- * FoodNoiseCard — renders on Sundays or when ≥6 days since last FNQ.
+ * FoodNoiseCard - renders on Sundays or when ≥6 days since last FNQ.
  * Shows last score + 3-dot sparkline, or a "Check In" CTA if no score this week.
  */
 export function FoodNoiseCard({ logs }: Props) {

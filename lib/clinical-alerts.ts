@@ -1,7 +1,7 @@
 // ─── Clinical Alert Engine ────────────────────────────────────────────────────
 // Generates evidence-based clinical flags based on program week, side effects,
 // body composition trends, and behavioral patterns.
-// Pure TypeScript — no React/Supabase dependencies.
+// Pure TypeScript - no React/Supabase dependencies.
 
 export type ClinicalFlagType =
   | 'iron_lab_reminder'
@@ -115,7 +115,7 @@ export function buildClinicalFlags(input: ClinicalFlagsInput): ClinicalFlag[] {
     flags.push({
       type: 'lean_mass_alert',
       severity: 'warning',
-      title: 'Low Protein — Lean Mass at Risk',
+      title: 'Low Protein - Lean Mass at Risk',
       body: `Your protein intake is at ${Math.round(proteinCompliancePct * 100)}% of your target. Below 60% for extended periods accelerates muscle loss alongside fat. Each 10g increase preserves roughly 0.5 lbs of muscle over 12 weeks.`,
       actionLabel: 'Log Food',
       actionRoute: '/entry/log-food',
@@ -128,7 +128,7 @@ export function buildClinicalFlags(input: ClinicalFlagsInput): ClinicalFlag[] {
     flags.push({
       type: 'dropout_risk',
       severity: 'info',
-      title: 'Stay Consistent — High-Risk Period',
+      title: 'Stay Consistent - High-Risk Period',
       body: 'Weeks 17–26 are the highest dropout period for GLP-1 programs. Logging even one data point per day is strongly correlated with long-term success. You\'ve got this.',
       actionLabel: 'Log Something',
       actionRoute: '/entry/log-weight',

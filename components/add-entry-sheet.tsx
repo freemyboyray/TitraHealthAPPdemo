@@ -240,7 +240,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
           </View>
           <View style={[f.confidenceBadge, { backgroundColor: parsedFood.confidence === 'high' ? 'rgba(43,148,80,0.15)' : 'rgba(243,156,18,0.15)' }]}>
             <Text style={[f.confidenceText, { color: parsedFood.confidence === 'high' ? '#2B9450' : '#F39C12' }]}>
-              {parsedFood.confidence === 'high' ? 'High confidence' : parsedFood.confidence === 'medium' ? 'Medium confidence' : 'Low confidence — verify before adding'}
+              {parsedFood.confidence === 'high' ? 'High confidence' : parsedFood.confidence === 'medium' ? 'Medium confidence' : 'Low confidence - verify before adding'}
             </Text>
           </View>
           <Text style={f.parsedEditHint} onPress={() => setAiParsingState('idle')}>Edit manually instead</Text>
@@ -252,10 +252,10 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
           <Text style={f.aiLoadingText}>Analyzing nutrition...</Text>
         </View>
       ) : (
-        /* Description input — initial or error state */
+        /* Description input - initial or error state */
         <>
           {aiParsingState === 'error' && (
-            <Text style={f.aiErrorText}>Couldn't parse that — try being more specific, or enter manually below.</Text>
+            <Text style={f.aiErrorText}>Couldn't parse that - try being more specific, or enter manually below.</Text>
           )}
           <TextInput
             style={[f.input, { marginBottom: 12, minHeight: 64 }]}
@@ -313,7 +313,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
         <Pressable style={s.backdrop} onPress={closeSheet} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* Sheet — dark frosted glass */}
+          {/* Sheet - dark frosted glass */}
           <View style={s.sheetShadow}>
             <View style={[s.sheetBody, { backgroundColor: colors.bg }]}>
               <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
@@ -374,7 +374,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             </View>
           </View>
 
-          {/* Bottom nav — glass pill + FAB X */}
+          {/* Bottom nav - glass pill + FAB X */}
           <View style={[s.navWrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
             <View style={s.navPillShadow}>
               <View style={s.navPillInner}>

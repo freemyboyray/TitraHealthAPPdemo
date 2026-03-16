@@ -162,7 +162,7 @@ export async function readLastNightSleep(): Promise<number | null> {
       'HKCategoryTypeIdentifierSleepAnalysis',
       { from: yesterday, to: new Date() },
     );
-    // Sum asleep stages — exclude InBed (0) and Awake (2)
+    // Sum asleep stages - exclude InBed (0) and Awake (2)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let totalMs = 0;
     for (const s of samples as any[]) {
@@ -196,7 +196,7 @@ export async function writeWeight(lbs: number): Promise<void> {
     const now = new Date();
     await HK.saveQuantitySample('HKQuantityTypeIdentifierBodyMass', 'lb', lbs, { start: now, end: now });
   } catch {
-    // silent — write failures shouldn't crash the UI
+    // silent - write failures shouldn't crash the UI
   }
 }
 

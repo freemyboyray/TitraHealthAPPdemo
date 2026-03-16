@@ -105,7 +105,7 @@ export function getDailyTargets(
     programPhase?: ProgramPhase;
     baseCaloriesTarget?: number;
     weightLostKg?: number;
-    /** Recent side-effect logs (last 7 days) — used to apply evidence-based adjustments. */
+    /** Recent side-effect logs (last 7 days) - used to apply evidence-based adjustments. */
     sideEffectLogs?: RecentSideEffectLog[];
   },
 ): DailyTargets {
@@ -128,7 +128,7 @@ export function getDailyTargets(
     proteinG *= 1.1;
   }
 
-  // Program phase multiplier (stacks with dose-based boosts — clinically appropriate)
+  // Program phase multiplier (stacks with dose-based boosts - clinically appropriate)
   // Titration: higher lean mass loss risk during dose escalation → push protein harder
   // Maintenance: max lean mass protection at plateau
   const programPhaseMultiplier: Record<ProgramPhase, number> = {
@@ -156,7 +156,7 @@ export function getDailyTargets(
   else if (profile.doseMg >= 5) waterOz *= 1.1;
   const waterMl = Math.round(waterOz * 29.5735);
 
-  // Fiber: flat 30g — shot cycle does not affect fiber target
+  // Fiber: flat 30g - shot cycle does not affect fiber target
   const fiberG = 30;
 
   // Steps: activity level driven, with maintenance boost to counter metabolic adaptation
@@ -164,8 +164,8 @@ export function getDailyTargets(
   if (programPhase === 'maintenance') steps = Math.round(steps * 1.1);
 
   // Active calories: activity level base with phase adjustments
-  // Titration: ×0.9 — side effects may reduce capacity during dose escalation
-  // Maintenance: ×1.05 — counter metabolic adaptation at stable weight
+  // Titration: ×0.9 - side effects may reduce capacity during dose escalation
+  // Maintenance: ×1.05 - counter metabolic adaptation at stable weight
   let activeCaloriesTarget = activeCaloriesMap[profile.activityLevel] ?? 300;
   if (programPhase === 'titration') activeCaloriesTarget = Math.round(activeCaloriesTarget * 0.9);
   else if (programPhase === 'maintenance') activeCaloriesTarget = Math.round(activeCaloriesTarget * 1.05);
@@ -453,7 +453,7 @@ export function computeGlp1AdherenceScore(
   const w = phaseWeights ?? { medication: 35, sideEffects: 25, nutrition: 25, activity: 15 };
   const components: { score: number; weight: number }[] = [];
 
-  // Medication — always available (normalize raw 0–35 points to 0–100 scale)
+  // Medication - always available (normalize raw 0–35 points to 0–100 scale)
   if (injectionLogs != null && injFreqDays != null) {
     components.push({ score: (computeMedicationScore(injectionLogs, injFreqDays) / 35) * 100, weight: w.medication });
   } else {
@@ -461,19 +461,19 @@ export function computeGlp1AdherenceScore(
     components.push({ score: actual.injectionLogged ? 100 : 0, weight: w.medication });
   }
 
-  // Side Effects — always included (defaults to neutral if no logs)
+  // Side Effects - always included (defaults to neutral if no logs)
   components.push({ score: (1 - sideEffectBurden / 100) * 100, weight: w.sideEffects });
 
-  // Protein — only if food was logged today
+  // Protein - only if food was logged today
   const includeFood = hasFoodData !== undefined ? hasFoodData : actual.proteinG > 0;
   if (includeFood) {
     const proteinPct = Math.min(actual.proteinG / targets.proteinG, 1);
-    // During titration, boost protein score 1.5× — appetite suppression increases lean mass loss risk
+    // During titration, boost protein score 1.5× - appetite suppression increases lean mass loss risk
     const proteinScore = proteinPriority ? Math.min(100, proteinPct * 1.5 * 100) : proteinPct * 100;
     components.push({ score: proteinScore, weight: w.nutrition });
   }
 
-  // Activity — only if steps or activity data is available
+  // Activity - only if steps or activity data is available
   const includeActivity = hasActivityData !== undefined ? hasActivityData : actual.steps > 0;
   if (includeActivity) {
     const stepsPct = Math.min(actual.steps / targets.steps, 1);
@@ -481,7 +481,7 @@ export function computeGlp1AdherenceScore(
   }
 
   const totalWeight = components.reduce((s, c) => s + c.weight, 0);
-  // Components are already 0–100 scale — do NOT multiply by 100 again
+  // Components are already 0–100 scale - do NOT multiply by 100 again
   return Math.round(
     components.reduce((s, c) => s + c.score * c.weight, 0) / totalWeight,
   );
@@ -532,18 +532,18 @@ export function generateInsights(
 
   if (recovery != null) {
     if (recovery < 40) {
-      insights.push({ text: 'Recovery is critically low — prioritize rest and light movement only', phase: 'ALERT' });
+      insights.push({ text: 'Recovery is critically low - prioritize rest and light movement only', phase: 'ALERT' });
     }
     if (wearable.spo2Pct != null && wearable.spo2Pct < 94) {
-      insights.push({ text: 'Oxygen saturation is below normal — check for illness or altitude effects', phase: 'ALERT' });
+      insights.push({ text: 'Oxygen saturation is below normal - check for illness or altitude effects', phase: 'ALERT' });
     }
 
     if (recovery >= 70 && support < 50) {
-      insights.push({ text: 'Body is well recovered — boost your support score with protein and hydration', phase: 'TODAY' });
+      insights.push({ text: 'Body is well recovered - boost your support score with protein and hydration', phase: 'TODAY' });
     } else if (recovery < 60 && support >= 70) {
-      insights.push({ text: 'GLP-1 support is strong — rest today to let your body consolidate gains', phase: 'RECOVERY' });
+      insights.push({ text: 'GLP-1 support is strong - rest today to let your body consolidate gains', phase: 'RECOVERY' });
     } else if (recovery >= 70 && support >= 70) {
-      insights.push({ text: 'Both scores are strong — maintain your current habits for best GLP-1 outcomes', phase: 'SHOT PHASE' });
+      insights.push({ text: 'Both scores are strong - maintain your current habits for best GLP-1 outcomes', phase: 'SHOT PHASE' });
     }
   } else {
     // No wearable data
@@ -557,17 +557,17 @@ export function generateInsights(
   const sleepMin   = wearable.sleepMinutes;
 
   if (sleepMin != null && sleepMin < 360) {
-    insights.push({ text: 'Sleep is below 6h — poor sleep blunts GLP-1 appetite control by up to 30%', phase: 'RECOVERY' });
+    insights.push({ text: 'Sleep is below 6h - poor sleep blunts GLP-1 appetite control by up to 30%', phase: 'RECOVERY' });
   } else if (!actuals.injectionLogged) {
     insights.push({ text: 'Log your injection to unlock the full medication bonus and enable phase-aware coaching', phase: 'TODAY' });
   } else if (proteinPct < 0.5) {
-    insights.push({ text: `Protein is at ${Math.round(proteinPct * 100)}% — aim for ${targets.proteinG}g to preserve muscle on GLP-1`, phase: 'NUTRITION' });
+    insights.push({ text: `Protein is at ${Math.round(proteinPct * 100)}% - aim for ${targets.proteinG}g to preserve muscle on GLP-1`, phase: 'NUTRITION' });
   } else if (waterPct < 0.6) {
-    insights.push({ text: `Hydration is at ${Math.round(waterPct * 100)}% — adequate water reduces GLP-1 side effects`, phase: 'HYDRATION' });
+    insights.push({ text: `Hydration is at ${Math.round(waterPct * 100)}% - adequate water reduces GLP-1 side effects`, phase: 'HYDRATION' });
   } else if (wearable.hrvMs != null && wearable.hrvMs >= 50) {
-    insights.push({ text: 'HRV is strong — your body is recovering well from medication', phase: 'SHOT PHASE' });
+    insights.push({ text: 'HRV is strong - your body is recovering well from medication', phase: 'SHOT PHASE' });
   } else {
-    insights.push({ text: 'All vitals are in range — maintain your current habits', phase: 'SHOT PHASE' });
+    insights.push({ text: 'All vitals are in range - maintain your current habits', phase: 'SHOT PHASE' });
   }
 
   return insights.slice(0, 3);
@@ -743,7 +743,7 @@ export function adherenceChips(
 export function getRecoveryRowNotes(phase: ShotPhase): string[] {
   const hrvNote =
     phase === 'peak'
-      ? "GLP-1 suppresses HRV by ~6ms during peak days (3–4) — this is a known medication effect. Your score has been adjusted. Exercise restores autonomic tone over 8+ weeks."
+      ? "GLP-1 suppresses HRV by ~6ms during peak days (3–4) - this is a known medication effect. Your score has been adjusted. Exercise restores autonomic tone over 8+ weeks."
       : phase === 'shot'
       ? "GLP-1 begins suppressing HRV on injection day. Your score is adjusted for this medication effect. Consistent exercise counteracts it over time."
       : "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this.";
@@ -764,8 +764,8 @@ export function getRecoveryRowNotes(phase: ShotPhase): string[] {
 export function getGLP1RowNotes(phase: ShotPhase): string[] {
   const proteinNote =
     phase === 'shot'
-      ? "Peak absorption phase — protein shake recommended today if nausea is mild. Adequate protein prevents muscle loss alongside fat."
-      : "GLP-1 medications suppress appetite broadly — intentional protein intake prevents muscle loss alongside fat.";
+      ? "Peak absorption phase - protein shake recommended today if nausea is mild. Adequate protein prevents muscle loss alongside fat."
+      : "GLP-1 medications suppress appetite broadly - intentional protein intake prevents muscle loss alongside fat.";
 
   return [
     proteinNote,
@@ -783,7 +783,7 @@ export const RECOVERY_ROW_NOTES = [
 ];
 
 export const GLP1_ROW_NOTES = [
-  "GLP-1 medications suppress appetite broadly — intentional protein intake prevents muscle loss alongside fat.",
+  "GLP-1 medications suppress appetite broadly - intentional protein intake prevents muscle loss alongside fat.",
   "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects.",
   "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue.",
   "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes.",
@@ -933,7 +933,7 @@ function buildFocusItem(
         id: 'recovery',
         label: 'Recovery day today',
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
-          ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '—'}`
+          ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '-'}`
           : 'Connect Apple Health to see recovery details',
         iconName: 'favorite-border', iconSet: 'MaterialIcons',
         status,
@@ -943,7 +943,7 @@ function buildFocusItem(
       return {
         id: 'rest',
         label: 'Rest & recover today',
-        subtitle: 'Peak GLP-1 day — light movement only',
+        subtitle: 'Peak GLP-1 day - light movement only',
         iconName: 'self-improvement', iconSet: 'MaterialIcons',
         status,
       };
@@ -982,7 +982,7 @@ export function generateFocuses(
   const weights = PHASE_WEIGHTS[phase];
   const weighted = (Object.keys(deficits) as FocusCategory[]).map((cat) => {
     let mult = weights[cat] ?? 1.0;
-    // During titration, boost protein ranking — appetite suppression at escalating doses
+    // During titration, boost protein ranking - appetite suppression at escalating doses
     // increases lean mass loss risk; surface protein focus even when other deficits exist
     if (cat === 'protein' && programPhase === 'titration') mult *= 1.5;
     return { cat, score: deficits[cat] * mult };
@@ -1056,7 +1056,7 @@ export function computeSideEffectIndex(
     if (isPrimaryGI) phaseNote = 'Expected at this phase';
     else phaseNote = 'Monitor non-GI symptoms during peak week';
   } else if (currentPhase === 'reset') {
-    phaseNote = 'Unusual for trough week — monitor';
+    phaseNote = 'Unusual for trough week - monitor';
   } else {
     phaseNote = 'Side effects should be easing';
   }
@@ -1143,7 +1143,7 @@ export function computeRollingAdherenceScore(params: {
     const steps    = dayActivity.reduce((s, a) => s + (a.steps ?? 0), 0);
     const actuals: DailyActuals = {
       proteinG,
-      waterMl: 1100, // neutral — no historical water data
+      waterMl: 1100, // neutral - no historical water data
       fiberG,
       steps,
       injectionLogged: hasInjection,

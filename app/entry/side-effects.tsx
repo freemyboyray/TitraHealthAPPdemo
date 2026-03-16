@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -57,24 +59,38 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
   const [trackPx, setTrackPx] = useState(0);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const lastHapticRef = useRef(value);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const panStartValueRef = useRef(value);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > Math.abs(gs.dy),
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
+        // Tap: jump thumb to tapped position
         const tw = trackRef.current;
         if (tw <= 0) return;
-        onChangeRef.current(
-          Math.max(0, Math.min(10, Math.round((evt.nativeEvent.locationX / tw) * 10))),
-        );
+        const next = Math.max(0, Math.min(10, Math.round((evt.nativeEvent.locationX / tw) * 10)));
+        panStartValueRef.current = next;
+        onChangeRef.current(next);
+        if (next !== lastHapticRef.current) {
+          lastHapticRef.current = next;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
       },
-      onPanResponderMove: (evt) => {
+      onPanResponderMove: (_, gs) => {
+        // Drag: move relative to value at gesture start
         const tw = trackRef.current;
         if (tw <= 0) return;
-        onChangeRef.current(
-          Math.max(0, Math.min(10, Math.round((evt.nativeEvent.locationX / tw) * 10))),
-        );
+        const delta = (gs.dx / tw) * 10;
+        const next = Math.max(0, Math.min(10, Math.round(panStartValueRef.current + delta)));
+        onChangeRef.current(next);
+        if (next !== lastHapticRef.current) {
+          lastHapticRef.current = next;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
       },
     })
   ).current;
@@ -157,7 +173,7 @@ export default function SideEffectsScreen() {
         });
       }
     } catch {
-      // ignore — user can adjust manually
+      Alert.alert('Voice Input', 'Could not parse your symptoms. Try saying something like "nausea at 7, fatigue at 4".');
     }
   }
 
@@ -199,7 +215,10 @@ export default function SideEffectsScreen() {
         const notes = e.dbType === 'other' ? e.label : undefined;
         await addSideEffectLog(e.dbType, values[e.id], phase, notes);
       }
-      router.back();
+      const effectsParam = JSON.stringify(
+        toLog.map(e => ({ type: e.dbType, severity: values[e.id] }))
+      );
+      router.replace(`/entry/side-effect-impact?effects=${encodeURIComponent(effectsParam)}` as any);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,7 +16,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
@@ -42,6 +42,19 @@ const STEPS_PER_MIN: Record<string, number> = {
   Pilates:   30,
   Swimming:  30,
   Other:     30,
+};
+
+// MET values from Compendium of Physical Activities (moderate effort baseline)
+const MET_VALUES: Record<string, number> = {
+  Walking:  3.8,
+  Running:  9.8,
+  Cycling:  7.5,
+  Strength: 4.5,
+  HIIT:    10.0,
+  Yoga:     2.8,
+  Pilates:  3.0,
+  Swimming: 7.0,
+  Other:    4.0,
 };
 
 // ─── InfoRow ──────────────────────────────────────────────────────────────────
@@ -101,9 +114,9 @@ function SummaryCard({ icon, label, value, unit, colors }: { icon: string; label
   );
 }
 
-// ─── ArcGauge ────────────────────────────────────────────────────────────────
+// ─── LinearSlider ─────────────────────────────────────────────────────────────
 
-interface ArcGaugeProps {
+interface LinearSliderProps {
   value: number;
   min: number;
   max: number;
@@ -113,25 +126,16 @@ interface ArcGaugeProps {
   colors: AppColors;
 }
 
-function ArcGauge({ value, min, max, unit, labels, onChange, colors }: ArcGaugeProps) {
-  const ag = useMemo(() => createArcGaugeStyles(colors), [colors]);
-  const W = 280, H = 160, cx = 140, cy = 140, R = 110;
-  const progress = clamp((value - min) / (max - min), 0, 1);
-  const angle = -Math.PI + progress * Math.PI;
-  const tx = cx + R * Math.cos(angle);
-  const ty = cy + R * Math.sin(angle);
-  const largeArc = 0;
-  const bgPath = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
-  const progPath = progress > 0.005
-    ? `M ${cx - R} ${cy} A ${R} ${R} 0 ${largeArc} 1 ${tx.toFixed(2)} ${ty.toFixed(2)}`
-    : null;
-
-  const containerWidthRef = useRef(0);
-  const panStartRef = useRef(progress);
+function LinearSlider({ value, min, max, unit, labels, onChange, colors }: LinearSliderProps) {
+  const trackWidthRef = useRef(0);
+  const panStartValueRef = useRef(value);
   const valueRef = useRef(value);
   valueRef.current = value;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const lastHapticRef = useRef(value);
+
+  const progress = clamp((value - min) / (max - min), 0, 1);
 
   const subtitleDerived =
     value <= min + (max - min) * 0.35 ? labels[0]
@@ -143,41 +147,115 @@ function ArcGauge({ value, min, max, unit, labels, onChange, colors }: ArcGaugeP
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > Math.abs(gs.dy),
       onPanResponderGrant: () => {
-        panStartRef.current = clamp((valueRef.current - min) / (max - min), 0, 1);
+        panStartValueRef.current = valueRef.current;
       },
       onPanResponderMove: (_, gs) => {
-        if (!containerWidthRef.current) return;
-        const p = clamp(panStartRef.current + gs.dx / containerWidthRef.current, 0, 1);
-        onChangeRef.current(Math.round(min + p * (max - min)));
+        if (!trackWidthRef.current) return;
+        const delta = (gs.dx / trackWidthRef.current) * (max - min);
+        const next = Math.round(clamp(panStartValueRef.current + delta, min, max));
+        onChangeRef.current(next);
+        if (next !== lastHapticRef.current) {
+          lastHapticRef.current = next;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
       },
     })
   ).current;
 
-  return (
-    <View
-      style={{ paddingVertical: 16 }}
-      onLayout={e => { containerWidthRef.current = e.nativeEvent.layout.width; }}
-      {...pan.panHandlers}
-    >
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Path d={bgPath} fill="none" stroke={colors.ringTrack} strokeWidth={10} strokeLinecap="round" />
-        {progPath && (
-          <Path d={progPath} fill="none" stroke={ORANGE} strokeWidth={10} strokeLinecap="round" />
-        )}
-        <Circle cx={tx} cy={ty} r={8} fill="white" stroke={ORANGE} strokeWidth={2.5} />
-      </Svg>
+  const isDark = colors.isDark;
 
-      <View style={ag.center}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
-          <Text style={ag.bigValue}>{value}</Text>
-          {unit && <Text style={ag.unitText}>{unit}</Text>}
-        </View>
-        <Text style={ag.subtitle}>{subtitleDerived}</Text>
+  return (
+    <View style={{ paddingVertical: 20, paddingHorizontal: 4 }}>
+      {/* Value display */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginBottom: 16 }}>
+        <Text style={{
+          fontSize: 52,
+          fontWeight: '900',
+          color: colors.textPrimary,
+          lineHeight: 56,
+          fontFamily: 'Helvetica Neue',
+          letterSpacing: -2,
+        }}>
+          {value}
+        </Text>
+        {unit && (
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: ORANGE,
+            marginBottom: 8,
+            fontFamily: 'Helvetica Neue',
+          }}>
+            {unit}
+          </Text>
+        )}
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: colors.textMuted,
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+          fontFamily: 'Helvetica Neue',
+          marginBottom: 10,
+          marginLeft: 4,
+        }}>
+          {subtitleDerived}
+        </Text>
       </View>
 
-      <View style={ag.labelsRow}>
+      {/* Track */}
+      <View
+        style={{ height: 36, justifyContent: 'center' }}
+        onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width; }}
+        {...pan.panHandlers}
+      >
+        {/* Background track */}
+        <View style={{
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
+        }} />
+        {/* Filled portion */}
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          width: `${progress * 100}%`,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: ORANGE,
+        }} />
+        {/* Thumb */}
+        <View style={{
+          position: 'absolute',
+          left: `${progress * 100}%`,
+          marginLeft: -14,
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: '#FFFFFF',
+          borderWidth: 2.5,
+          borderColor: ORANGE,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.18,
+          shadowRadius: 6,
+          elevation: 4,
+        }} />
+      </View>
+
+      {/* Labels */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
         {labels.map((l, i) => (
-          <Text key={i} style={ag.labelText}>{l}</Text>
+          <Text key={i} style={{
+            fontSize: 10,
+            fontWeight: '700',
+            color: colors.textMuted,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+            fontFamily: 'Helvetica Neue',
+          }}>
+            {l}
+          </Text>
         ))}
       </View>
     </View>
@@ -249,7 +327,7 @@ function TypePickerSheet({
 export default function LogActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { dispatch } = useHealthData();
+  const { dispatch, profile } = useHealthData();
   const { addActivityLog } = useLogStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -288,12 +366,15 @@ export default function LogActivityScreen() {
         setIntensity(result.intensity === 'low' ? 2 : result.intensity === 'moderate' ? 5 : 9);
       }
     } catch {
-      // ignore — user can adjust manually
+      Alert.alert('Voice Input', 'Could not parse your activity. Try saying something like "30 minutes of running at moderate intensity".');
     }
   }
 
   const stepsValue = stepsInput === '' ? 0 : parseInt(stepsInput, 10);
-  const estCalories = Math.round(durationMin * (intensity / 10) * 8);
+  const weightKg = profile.weightKg > 0 ? profile.weightKg : 75;
+  const met = MET_VALUES[workoutType] ?? 4.0;
+  const intensityMultiplier = 0.75 + (intensity - 1) * (0.60 / 9);
+  const estCalories = Math.round(met * intensityMultiplier * weightKg * (durationMin / 60));
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', {
@@ -363,7 +444,7 @@ export default function LogActivityScreen() {
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
           <View style={{ paddingHorizontal: 16 }}>
-            <ArcGauge
+            <LinearSlider
               value={intensity}
               min={1}
               max={10}
@@ -381,7 +462,7 @@ export default function LogActivityScreen() {
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={28} />
           <View style={{ paddingHorizontal: 16 }}>
-            <ArcGauge
+            <LinearSlider
               value={durationMin}
               min={0}
               max={120}
@@ -409,7 +490,7 @@ export default function LogActivityScreen() {
               value={stepsInput}
               onChangeText={handleStepsChange}
               keyboardType="number-pad"
-              placeholder="—"
+              placeholder="-"
               placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
               returnKeyType="done"
               maxLength={6}
@@ -576,53 +657,6 @@ const createSummaryCardStyles = (c: AppColors) => StyleSheet.create({
     fontWeight: '500',
     color: c.textSecondary,
     marginBottom: 4,
-    fontFamily: 'Helvetica Neue',
-  },
-});
-
-// ─── Arc gauge styles ─────────────────────────────────────────────────────────
-
-const createArcGaugeStyles = (c: AppColors) => StyleSheet.create({
-  center: {
-    position: 'absolute',
-    bottom: 44,
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  bigValue: {
-    fontSize: 56,
-    fontWeight: '900',
-    color: c.textPrimary,
-    lineHeight: 60,
-    fontFamily: 'Helvetica Neue',
-  },
-  unitText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: ORANGE,
-    marginBottom: 8,
-    fontFamily: 'Helvetica Neue',
-  },
-  subtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: c.textMuted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    fontFamily: 'Helvetica Neue',
-  },
-  labelsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    marginTop: -12,
-  },
-  labelText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: c.textMuted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
     fontFamily: 'Helvetica Neue',
   },
 });

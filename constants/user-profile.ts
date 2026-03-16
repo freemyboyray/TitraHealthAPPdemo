@@ -23,13 +23,13 @@ export type MedicationBrand =
   | 'other';
 
 export type Glp1Type =
-  // Injectable — weekly
+  // Injectable - weekly
   | 'semaglutide'
   | 'tirzepatide'
   | 'dulaglutide'
-  // Injectable — daily
+  // Injectable - daily
   | 'liraglutide'
-  // Oral — daily
+  // Oral - daily
   | 'oral_semaglutide'
   | 'orforglipron';
 export type Sex = 'male' | 'female' | 'other' | 'prefer_not_to_say';

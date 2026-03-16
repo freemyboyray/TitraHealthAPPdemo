@@ -112,7 +112,7 @@ export default function CaptureFoodScreen() {
         setPhase('preview');
       }
     } catch {
-      // camera error — stay in camera phase
+      // camera error - stay in camera phase
     }
   }
 
@@ -301,7 +301,7 @@ export default function CaptureFoodScreen() {
             <GlassCard key={idx} colors={colors}>
               <Text style={s.itemName}>{item.item}</Text>
               {item.results.length === 0 ? (
-                <Text style={s.noMatch}>No match — will skip</Text>
+                <Text style={s.noMatch}>No match - will skip</Text>
               ) : (
                 <>
                   {item.results.slice(0, 3).map((r, ri) => (

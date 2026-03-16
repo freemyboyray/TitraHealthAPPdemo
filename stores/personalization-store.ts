@@ -9,7 +9,7 @@ type PersonalizationStore = {
   plan: PersonalizedPlan | null;
   loading: boolean;
   lastComputedAt: string | null;
-  // Synchronous recompute — used after local log actions with fresh actuals/wearable
+  // Synchronous recompute - used after local log actions with fresh actuals/wearable
   recompute: (actuals: DailyActuals, wearable: Partial<WearableData>) => void;
   // Fetch fresh data then recompute
   fetchAndRecompute: () => Promise<void>;

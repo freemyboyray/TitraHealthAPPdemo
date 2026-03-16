@@ -1,6 +1,6 @@
 // ─── Escalation Phase Engine ─────────────────────────────────────────────────
 // Maps current dose + program week to a named clinical phase with coaching data.
-// Pure TypeScript — no React/Supabase dependencies.
+// Pure TypeScript - no React/Supabase dependencies.
 
 import type { Glp1Type } from '@/constants/user-profile';
 
@@ -47,7 +47,7 @@ const SEMA_PHASES: PhaseRow[] = [
     behavioralEmphasis: [
       'Log every injection on the same day each week',
       'Start protein-forward eating to establish the habit early',
-      'Note any nausea triggers — they inform titration speed',
+      'Note any nausea triggers - they inform titration speed',
     ],
   },
   {
@@ -55,10 +55,10 @@ const SEMA_PHASES: PhaseRow[] = [
     displayName: 'Low Therapeutic',
     minDoseMg: 0.5, maxDoseMg: 1.0,
     expectedWeekStart: 5, expectedWeekEnd: 8,
-    weeklyFocus: 'Appetite suppression is beginning — harness it to hit protein targets consistently.',
+    weeklyFocus: 'Appetite suppression is beginning - harness it to hit protein targets consistently.',
     behavioralEmphasis: [
       'Use reduced appetite as a window to practice portion control',
-      'Hit 7–8h sleep — GLP-1 appetite control is blunted by poor sleep',
+      'Hit 7–8h sleep - GLP-1 appetite control is blunted by poor sleep',
       'Introduce resistance exercise if not already doing it',
     ],
   },
@@ -67,10 +67,10 @@ const SEMA_PHASES: PhaseRow[] = [
     displayName: 'Mid Therapeutic',
     minDoseMg: 1.0, maxDoseMg: 1.7,
     expectedWeekStart: 9, expectedWeekEnd: 12,
-    weeklyFocus: 'Peak habit plasticity — changes made now are most likely to stick long-term.',
+    weeklyFocus: 'Peak habit plasticity - changes made now are most likely to stick long-term.',
     behavioralEmphasis: [
-      'Focus on protein and movement — lean mass protection is critical at this dose',
-      "Track food noise score weekly — it's a pharmacodynamic marker",
+      'Focus on protein and movement - lean mass protection is critical at this dose',
+      "Track food noise score weekly - it's a pharmacodynamic marker",
       'Build the behavioral habits that will sustain after medication ends',
     ],
   },
@@ -81,7 +81,7 @@ const SEMA_PHASES: PhaseRow[] = [
     expectedWeekStart: 13, expectedWeekEnd: 16,
     weeklyFocus: 'Maximize lean mass protection and establish sustainable eating patterns.',
     behavioralEmphasis: [
-      'Protein target is highest here — prioritize it above all other nutrition',
+      'Protein target is highest here - prioritize it above all other nutrition',
       'Consider body composition assessment if available',
       'Monitor iron and vitamin D labs this week (schedule if not done)',
     ],
@@ -94,7 +94,7 @@ const SEMA_PHASES: PhaseRow[] = [
     weeklyFocus: 'Consolidate the behavioral habits built during titration for long-term success.',
     behavioralEmphasis: [
       'Maintain the protein and movement habits established during titration',
-      'Monitor for weight plateau — intervention protocols differ at max dose',
+      'Monitor for weight plateau - intervention protocols differ at max dose',
       'Focus on the behavioral skills needed for eventual medication tapering',
     ],
   },
@@ -110,7 +110,7 @@ const TIZE_PHASES: PhaseRow[] = [
     behavioralEmphasis: [
       'Log every injection on the same day each week',
       'Start protein-forward eating to establish the habit early',
-      'Tirzepatide GI effects can be more pronounced — pace fiber intake',
+      'Tirzepatide GI effects can be more pronounced - pace fiber intake',
     ],
   },
   {
@@ -118,9 +118,9 @@ const TIZE_PHASES: PhaseRow[] = [
     displayName: 'Low Therapeutic',
     minDoseMg: 5, maxDoseMg: 7.5,
     expectedWeekStart: 5, expectedWeekEnd: 8,
-    weeklyFocus: 'Dual GIP+GLP-1 action is active — leverage appetite suppression for protein habits.',
+    weeklyFocus: 'Dual GIP+GLP-1 action is active - leverage appetite suppression for protein habits.',
     behavioralEmphasis: [
-      'Dual incretin action is stronger than semaglutide — portions naturally shrink',
+      'Dual incretin action is stronger than semaglutide - portions naturally shrink',
       'Protein becomes even more critical to preserve lean mass',
       'Resistance training amplifies tirzepatide\'s insulin sensitivity benefit',
     ],
@@ -130,11 +130,11 @@ const TIZE_PHASES: PhaseRow[] = [
     displayName: 'Mid Therapeutic',
     minDoseMg: 7.5, maxDoseMg: 10,
     expectedWeekStart: 9, expectedWeekEnd: 12,
-    weeklyFocus: 'Peak behavioral plasticity — habits formed now persist after medication ends.',
+    weeklyFocus: 'Peak behavioral plasticity - habits formed now persist after medication ends.',
     behavioralEmphasis: [
-      'Tirzepatide mid-dose is associated with the steepest weight loss — track closely',
-      'Food noise scores often reach their lowest here — capitalize on the window',
-      'Weekly activity logs are key — muscle preservation is a clinical priority',
+      'Tirzepatide mid-dose is associated with the steepest weight loss - track closely',
+      'Food noise scores often reach their lowest here - capitalize on the window',
+      'Weekly activity logs are key - muscle preservation is a clinical priority',
     ],
   },
   {
@@ -144,9 +144,9 @@ const TIZE_PHASES: PhaseRow[] = [
     expectedWeekStart: 13, expectedWeekEnd: 16,
     weeklyFocus: 'Clinical trial outcomes show ~18–20% body weight loss range starting here.',
     behavioralEmphasis: [
-      'Protein target is at maximum — do not skip it even if appetite is very low',
+      'Protein target is at maximum - do not skip it even if appetite is very low',
       'Iron, vitamin D, and B12 labs due around week 12–16',
-      'Early responders at this stage often see plateau onset — prepare behaviorally',
+      'Early responders at this stage often see plateau onset - prepare behaviorally',
     ],
   },
   {
@@ -154,10 +154,10 @@ const TIZE_PHASES: PhaseRow[] = [
     displayName: 'High+ Dose',
     minDoseMg: 12.5, maxDoseMg: 15,
     expectedWeekStart: 17, expectedWeekEnd: 20,
-    weeklyFocus: 'Approaching max dose — focus on behavioral consolidation and plateau management.',
+    weeklyFocus: 'Approaching max dose - focus on behavioral consolidation and plateau management.',
     behavioralEmphasis: [
-      'Monitor for plateau — intervention strategies differ at this dose level',
-      'Sleep quality is critical — tirzepatide sleep apnea data applies here',
+      'Monitor for plateau - intervention strategies differ at this dose level',
+      'Sleep quality is critical - tirzepatide sleep apnea data applies here',
       'Begin planning for eventual maintenance phase behaviors',
     ],
   },
@@ -166,7 +166,7 @@ const TIZE_PHASES: PhaseRow[] = [
     displayName: 'Maintenance Dose',
     minDoseMg: 15, maxDoseMg: Infinity,
     expectedWeekStart: 21, expectedWeekEnd: 999,
-    weeklyFocus: 'Maximum clinical efficacy achieved — consolidate habits for lifelong maintenance.',
+    weeklyFocus: 'Maximum clinical efficacy achieved - consolidate habits for lifelong maintenance.',
     behavioralEmphasis: [
       'Sustain the protein, movement, and sleep habits built during titration',
       'Weekly weight tracking remains important for plateau detection',
@@ -183,9 +183,9 @@ const LIRA_PHASES: PhaseRow[] = [
     expectedWeekStart: 1, expectedWeekEnd: 1,
     weeklyFocus: 'Build daily injection habit and monitor GI tolerance at 0.6 mg.',
     behavioralEmphasis: [
-      'Inject at the same time each day — consistency is more critical with a 13h half-life',
+      'Inject at the same time each day - consistency is more critical with a 13h half-life',
       'Start protein-forward eating to establish the habit early',
-      'Note any nausea triggers — daily dosing means faster feedback than weekly drugs',
+      'Note any nausea triggers - daily dosing means faster feedback than weekly drugs',
     ],
   },
   {
@@ -193,9 +193,9 @@ const LIRA_PHASES: PhaseRow[] = [
     displayName: 'Low Therapeutic',
     minDoseMg: 1.2, maxDoseMg: 1.8,
     expectedWeekStart: 2, expectedWeekEnd: 2,
-    weeklyFocus: 'Escalating to 1.2 mg — appetite suppression begins in earnest.',
+    weeklyFocus: 'Escalating to 1.2 mg - appetite suppression begins in earnest.',
     behavioralEmphasis: [
-      'Appetite is beginning to respond — use reduced hunger to establish portion control',
+      'Appetite is beginning to respond - use reduced hunger to establish portion control',
       'Daily injection routine is critical; missed doses are not forgiven at 13h half-life',
       'Introduce resistance exercise if not already doing it',
     ],
@@ -205,10 +205,10 @@ const LIRA_PHASES: PhaseRow[] = [
     displayName: 'Mid Therapeutic',
     minDoseMg: 1.8, maxDoseMg: 2.4,
     expectedWeekStart: 3, expectedWeekEnd: 3,
-    weeklyFocus: 'Peak habit plasticity window — changes made now are most likely to stick.',
+    weeklyFocus: 'Peak habit plasticity window - changes made now are most likely to stick.',
     behavioralEmphasis: [
-      'Focus on protein and movement — lean mass protection is critical at this dose',
-      'Track food noise score — liraglutide suppresses food noise meaningfully',
+      'Focus on protein and movement - lean mass protection is critical at this dose',
+      'Track food noise score - liraglutide suppresses food noise meaningfully',
       'Build the behavioral habits that will sustain after medication ends',
     ],
   },
@@ -217,11 +217,11 @@ const LIRA_PHASES: PhaseRow[] = [
     displayName: 'High Therapeutic',
     minDoseMg: 2.4, maxDoseMg: 3.0,
     expectedWeekStart: 4, expectedWeekEnd: 4,
-    weeklyFocus: 'Approaching max dose — consolidate daily habit and maximize lean mass protection.',
+    weeklyFocus: 'Approaching max dose - consolidate daily habit and maximize lean mass protection.',
     behavioralEmphasis: [
-      'Protein target is highest here — prioritize it above all other nutrition goals',
+      'Protein target is highest here - prioritize it above all other nutrition goals',
       'Consider body composition assessment if available',
-      'Daily injection at max titration — consistent timing matters most',
+      'Daily injection at max titration - consistent timing matters most',
     ],
   },
   {
@@ -232,7 +232,7 @@ const LIRA_PHASES: PhaseRow[] = [
     weeklyFocus: 'Consolidate the behavioral habits built during titration for long-term success.',
     behavioralEmphasis: [
       'Maintain the protein and movement habits established during titration',
-      'Monitor for weight plateau — intervention protocols differ at max dose',
+      'Monitor for weight plateau - intervention protocols differ at max dose',
       'Focus on the behavioral skills needed for eventual medication tapering',
     ],
   },
@@ -244,11 +244,11 @@ const ORAL_SEMA_PHASES: PhaseRow[] = [
     displayName: 'Initiation Phase',
     minDoseMg: 0, maxDoseMg: 7,
     expectedWeekStart: 1, expectedWeekEnd: 4,
-    weeklyFocus: 'Establish fasting morning routine — absorption window is critical for oral semaglutide.',
+    weeklyFocus: 'Establish fasting morning routine - absorption window is critical for oral semaglutide.',
     behavioralEmphasis: [
-      'Take on empty stomach with ≤4 oz water — food/water reduces absorption by up to 90%',
+      'Take on empty stomach with ≤4 oz water - food/water reduces absorption by up to 90%',
       'Wait at least 30 minutes before eating, drinking, or taking other medications',
-      'Build the fasting morning habit first — medication efficacy depends on it',
+      'Build the fasting morning habit first - medication efficacy depends on it',
     ],
   },
   {
@@ -256,9 +256,9 @@ const ORAL_SEMA_PHASES: PhaseRow[] = [
     displayName: 'Low Therapeutic',
     minDoseMg: 7, maxDoseMg: 14,
     expectedWeekStart: 5, expectedWeekEnd: 8,
-    weeklyFocus: 'Dose escalation to 7 mg — appetite suppression is now active.',
+    weeklyFocus: 'Dose escalation to 7 mg - appetite suppression is now active.',
     behavioralEmphasis: [
-      'Oral route has lower bioavailability than injectable — consistency is the key variable',
+      'Oral route has lower bioavailability than injectable - consistency is the key variable',
       'Use reduced appetite to build protein-forward meal patterns',
       'Missing a morning dose is harder to recover from than with weekly injectables',
     ],
@@ -268,10 +268,10 @@ const ORAL_SEMA_PHASES: PhaseRow[] = [
     displayName: 'Mid Therapeutic',
     minDoseMg: 14, maxDoseMg: 25,
     expectedWeekStart: 9, expectedWeekEnd: 16,
-    weeklyFocus: 'Peak behavioral plasticity — habits formed now persist after medication ends.',
+    weeklyFocus: 'Peak behavioral plasticity - habits formed now persist after medication ends.',
     behavioralEmphasis: [
-      'Food noise scores often reach their lowest here — capitalize on the window',
-      'Track protein and movement weekly — lean mass preservation is a clinical priority',
+      'Food noise scores often reach their lowest here - capitalize on the window',
+      'Track protein and movement weekly - lean mass preservation is a clinical priority',
       'Fasting absorption habit must be fully established before escalating further',
     ],
   },
@@ -280,10 +280,10 @@ const ORAL_SEMA_PHASES: PhaseRow[] = [
     displayName: 'Maintenance Dose',
     minDoseMg: 25, maxDoseMg: Infinity,
     expectedWeekStart: 17, expectedWeekEnd: 999,
-    weeklyFocus: 'Maximum clinical efficacy — consolidate habits for lifelong maintenance.',
+    weeklyFocus: 'Maximum clinical efficacy - consolidate habits for lifelong maintenance.',
     behavioralEmphasis: [
       'Sustain the protein, movement, and sleep habits built during titration',
-      'Monitor for weight plateau — intervention strategies differ at max oral dose',
+      'Monitor for weight plateau - intervention strategies differ at max oral dose',
       'Build the identity-level behaviors that persist after medication ends',
     ],
   },

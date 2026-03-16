@@ -38,7 +38,7 @@ export const useUserStore = create<UserStore>((set) => ({
     if (data) {
       set({ profile: data as ProfileRow });
     } else if (error?.code === 'PGRST116') {
-      // No row found — insert minimal placeholder
+      // No row found - insert minimal placeholder
       const { data: inserted } = await supabase
         .from('profiles')
         .insert({

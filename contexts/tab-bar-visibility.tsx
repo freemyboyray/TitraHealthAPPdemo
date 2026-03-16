@@ -1,52 +1,82 @@
-import React, { createContext, useCallback, useContext, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 
 interface TabBarVisibilityContextValue {
-  translateY: Animated.Value;
+  minimized: Animated.Value;
   onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void;
+  onScrollEnd: () => void;
+  expand: () => void;
 }
 
 const TabBarVisibilityContext = createContext<TabBarVisibilityContextValue | null>(null);
 
-const TAB_BAR_HEIGHT = 100; // approximate pill + safe area height
+const COLLAPSE_RANGE = 80; // px of downward scroll = full collapse
 
 export function TabBarVisibilityProvider({ children }: { children: React.ReactNode }) {
-  const translateY = useRef(new Animated.Value(0)).current;
+  const minimized = useRef(new Animated.Value(0)).current;
+  const minimizedValue = useRef(0);
   const lastScrollY = useRef(0);
-  const isHidden = useRef(false);
+  const springAnim = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Keep mirror perfectly in sync (catches spring updates too)
+  useEffect(() => {
+    const id = minimized.addListener(({ value }) => {
+      minimizedValue.current = value;
+    });
+    return () => minimized.removeListener(id);
+  }, [minimized]);
 
   const onScroll = useCallback(
     (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const currentY = event.nativeEvent.contentOffset.y;
       const delta = currentY - lastScrollY.current;
+      lastScrollY.current = currentY;
 
-      if (delta > 4 && !isHidden.current && currentY > 50) {
-        // Scrolling down — hide tab bar
-        isHidden.current = true;
-        Animated.spring(translateY, {
-          toValue: TAB_BAR_HEIGHT,
-          useNativeDriver: true,
-          damping: 20,
-          stiffness: 200,
-        }).start();
-      } else if (delta < -4 && isHidden.current) {
-        // Scrolling up — show tab bar
-        isHidden.current = false;
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 20,
-          stiffness: 200,
-        }).start();
+      // At the top: always expand
+      if (currentY <= 0) {
+        springAnim.current?.stop();
+        minimized.setValue(0);
+        return;
       }
 
-      lastScrollY.current = currentY;
+      // Only collapse on downward scroll — ignore upward/bounce events entirely
+      if (delta <= 0) return;
+
+      springAnim.current?.stop();
+      const next = Math.min(1, minimizedValue.current + delta / COLLAPSE_RANGE);
+      minimized.setValue(next);
     },
-    [translateY]
+    [minimized],
   );
 
+  // Snap to nearest end when finger lifts / momentum ends
+  const onScrollEnd = useCallback(() => {
+    const target = minimizedValue.current >= 0.5 ? 1 : 0;
+    springAnim.current = Animated.spring(minimized, {
+      toValue: target,
+      useNativeDriver: false,
+      damping: 24,
+      stiffness: 260,
+      mass: 0.8,
+    });
+    springAnim.current.start();
+  }, [minimized]);
+
+  // Tap on mini circle → spring back to fully expanded
+  const expand = useCallback(() => {
+    springAnim.current?.stop();
+    springAnim.current = Animated.spring(minimized, {
+      toValue: 0,
+      useNativeDriver: false,
+      damping: 24,
+      stiffness: 260,
+      mass: 0.8,
+    });
+    springAnim.current.start();
+  }, [minimized]);
+
   return (
-    <TabBarVisibilityContext.Provider value={{ translateY, onScroll }}>
+    <TabBarVisibilityContext.Provider value={{ minimized, onScroll, onScrollEnd, expand }}>
       {children}
     </TabBarVisibilityContext.Provider>
   );

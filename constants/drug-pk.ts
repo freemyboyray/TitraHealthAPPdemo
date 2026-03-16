@@ -21,13 +21,13 @@ interface DrugPkParams {
 // ka derivation for each: solve ln(ka/ke)/(ka−ke) = Tmax numerically.
 
 export const DRUG_PK: Record<Glp1Type, DrugPkParams> = {
-  // Weekly SC — 7-day chart
+  // Weekly SC - 7-day chart
   semaglutide:     { ka: 0.0476, ke: 0.00433 },   // t½=160h, Tmax=56h
   tirzepatide:     { ka: 0.135,  ke: 0.00578 },   // t½=120h, Tmax=24h
   dulaglutide:     { ka: 0.0525, ke: 0.00578 },   // t½=120h, Tmax=48h
-  // Daily SC — intraday chart (τ=24h)
+  // Daily SC - intraday chart (τ=24h)
   liraglutide:     { ka: 0.14,   ke: 0.0533  },   // t½=13h,  Tmax=11h
-  // Oral daily — intraday chart (τ=24h)
+  // Oral daily - intraday chart (τ=24h)
   oral_semaglutide:{ ka: 7.0,    ke: 0.00439 },   // t½=158h, Tmax≈1h
   orforglipron:    { ka: 0.45,   ke: 0.01155 },   // t½=60h,  Tmax=8h
 };
@@ -105,7 +105,7 @@ export function pkConcentrationPct(
 // ─── Cycle-anchored curve (injectable drugs) ──────────────────────────────────
 // Index 0 = Day 1 of cycle (t=24h), index N-1 = Day N.
 // Unlike generatePkCurve, historical points NEVER change when a new injection is
-// logged — each point is anchored to a fixed day of the cycle.
+// logged - each point is anchored to a fixed day of the cycle.
 
 export function generatePkCurveCycle(
   glp1Type: Glp1Type,
@@ -167,7 +167,7 @@ export const INTRADAY_TIME_LABELS = ['Dose', '+4h', '+8h', '+12h', '+16h', '+20h
 
 // ─── High-resolution cycle curve (injectable weekly/biweekly drugs) ───────────
 // Returns nPoints evenly-spaced samples from t=0 → injFreqDays×24h.
-// Use nPoints=28 for 7-day cycle (one sample per ~6h) — smooth pharmacokinetic arc.
+// Use nPoints=28 for 7-day cycle (one sample per ~6h) - smooth pharmacokinetic arc.
 
 export function generatePkCurveHighRes(
   glp1Type: Glp1Type,

@@ -10,7 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    // implicit flow — avoids PKCE WebCrypto issues in Expo Go.
+    // implicit flow - avoids PKCE WebCrypto issues in Expo Go.
     // Works for both implicit (hash tokens) and PKCE (code exchange fallback).
     flowType: 'implicit',
   },

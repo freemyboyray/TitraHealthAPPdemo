@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { callHaiku } from '../../lib/anthropic';
+import { callOpenAI } from '../../lib/openai';
 import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { type MealType } from '../../stores/log-store';
@@ -100,9 +100,7 @@ Use standard nutritional values. No extra text, no markdown.`;
 
 async function estimateMacrosWithAI(foodName: string): Promise<FoodResult | null> {
   try {
-    const raw = await callHaiku(MACRO_ESTIMATE_SYSTEM, [
-      { type: 'text', text: foodName },
-    ]);
+    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM);
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const m = JSON.parse(match[0]);
@@ -413,9 +411,7 @@ export default function LogFoodScreen() {
     setDescribeItems(null);
     setCheckedItems(new Set());
     try {
-      const raw = await callHaiku(PARSE_SYSTEM, [
-        { type: 'text', text: `User input: "${describeText}"` },
-      ]);
+      const raw = await callOpenAI([{ role: 'user', content: `User input: "${describeText}"` }], PARSE_SYSTEM);
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON');
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
@@ -441,7 +437,7 @@ export default function LogFoodScreen() {
       // default: all checked
       setCheckedItems(new Set(withResults.map((_, i) => i)));
     } catch {
-      setDescribeError("Couldn't parse — try being more specific.");
+      setDescribeError("Couldn't parse - try being more specific.");
     } finally {
       setDescribing(false);
     }
@@ -592,7 +588,7 @@ export default function LogFoodScreen() {
 
       {/* ── Content area ───────────────────────────────────────────────────── */}
 
-      {/* SCAN MODE — full body camera */}
+      {/* SCAN MODE - full body camera */}
       {mode === 'scan' ? (
         <View style={{ flex: 1 }}>
           {camPermission?.granted ? (
@@ -874,7 +870,7 @@ export default function LogFoodScreen() {
                   </>
                 ) : filteredCustomFoods.length === 0 ? (
                   <View style={s.centered}>
-                    <Text style={s.emptyText}>No results — try a different name</Text>
+                    <Text style={s.emptyText}>No results - try a different name</Text>
                     <TouchableOpacity style={[s.createFoodBtn, { marginTop: 12 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
                       <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
                       <Text style={s.createFoodText}>Create Custom Food</Text>
@@ -1197,7 +1193,7 @@ export default function LogFoodScreen() {
                     {/* Serving size */}
                     <Text style={[{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
 
-                    {/* Serving option pills — spinner while fetching detail */}
+                    {/* Serving option pills - spinner while fetching detail */}
                     {detailLoading !== null ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                         <ActivityIndicator size="small" color={ORANGE} />

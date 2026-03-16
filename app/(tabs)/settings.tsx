@@ -39,16 +39,16 @@ export default function SettingsScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const p = profile;
-  const medSummary = p ? `${BRAND_LABEL[p.medicationBrand] ?? p.medicationBrand} · ${p.doseMg} mg` : '—';
+  const medSummary = p ? `${BRAND_LABEL[p.medicationBrand] ?? p.medicationBrand} · ${p.doseMg} mg` : '-';
   const bodySummary = p
     ? p.unitSystem === 'imperial'
       ? `${p.heightFt}'${p.heightIn}" · ${p.weightLbs} lbs`
       : `${p.heightCm} cm · ${p.weightKg} kg`
-    : '—';
-  const goalsSummary = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '—';
+    : '-';
+  const goalsSummary = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '-';
   const personalSummary = p
     ? `${SEX_DISPLAY[p.sex] ?? p.sex} · Born ${p.birthday?.slice(0,4)} · ${ACTIVITY_DISPLAY[p.activityLevel] ?? p.activityLevel}`
-    : '—';
+    : '-';
 
   async function handleMasterToggle(value: boolean) {
     if (value) {

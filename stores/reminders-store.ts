@@ -38,7 +38,7 @@ const REMINDER_META: Record<
   },
   meals_evening: {
     title: 'Log Your Dinner',
-    body: 'End the day strong — log your evening meal.',
+    body: 'End the day strong - log your evening meal.',
     deepLink: '/entry/log-food',
   },
   weight_morning: {

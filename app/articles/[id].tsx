@@ -105,7 +105,7 @@ export default function ArticleDetailScreen() {
 
             <View style={s.divider} />
 
-            {/* Body — render markdown as plain text paragraphs */}
+            {/* Body - render markdown as plain text paragraphs */}
             {article.body_markdown
               .split('\n')
               .filter(line => line.trim() !== '')

@@ -198,11 +198,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.targetWeeklyLossLbs     !== undefined) row.target_weekly_loss_lbs    = fields.targetWeeklyLossLbs;
       if (fields.goalWeightLbs           !== undefined) row.goal_weight_lbs           = fields.goalWeightLbs;
       else if (fields.goalWeightKg       !== undefined) row.goal_weight_lbs           = Math.round(fields.goalWeightKg / 0.453592);
-      // weightLbs / startWeightLbs both map to start_weight_lbs — prefer weightLbs
+      // weightLbs / startWeightLbs both map to start_weight_lbs - prefer weightLbs
       if (fields.weightLbs               !== undefined) row.start_weight_lbs          = fields.weightLbs;
       else if (fields.startWeightLbs     !== undefined) row.start_weight_lbs          = fields.startWeightLbs;
       else if (fields.weightKg           !== undefined) row.start_weight_lbs          = Math.round(fields.weightKg * 2.20462);
-      // height — trigger if any height field appears
+      // height - trigger if any height field appears
       if (fields.heightFt !== undefined || fields.heightIn !== undefined || fields.heightCm !== undefined) {
         row.height_inches = updated.heightFt * 12 + updated.heightIn;
       }

@@ -44,7 +44,7 @@ export default function CravingsScreen() {
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Which day does food noise and cravings hit hardest?</Text>
           <Text style={s.subtitle}>
-            We'll time your GLP-1 dose so it works hardest when cravings—and food noise—are at their peak.
+            We'll time your GLP-1 dose so it works hardest when cravings-and food noise-are at their peak.
           </Text>
 
           <View style={s.options}>

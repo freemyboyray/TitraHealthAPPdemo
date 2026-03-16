@@ -40,10 +40,10 @@ type LogStore = {
 
   fetchInsightsData: () => Promise<void>;
 
-  // Weight — DB stores lbs
+  // Weight - DB stores lbs
   addWeightLog: (weight_lbs: number, notes?: string) => Promise<void>;
 
-  // Side effects — effect_type is enum, severity 1–10, phase required
+  // Side effects - effect_type is enum, severity 1–10, phase required
   addSideEffectLog: (
     effect_type: SideEffectType,
     severity: number,
@@ -51,7 +51,7 @@ type LogStore = {
     notes?: string,
   ) => Promise<void>;
 
-  // Injection — medication + dose + site + batch + date/time
+  // Injection - medication + dose + site + batch + date/time
   addInjectionLog: (
     dose_mg: number,
     injection_date: string,
@@ -64,7 +64,7 @@ type LogStore = {
 
   deleteInjectionLog: (id: string) => Promise<void>;
 
-  // Activity — manual workout fields
+  // Activity - manual workout fields
   addActivityLog: (
     exercise_type: string,
     duration_min: number,
@@ -73,7 +73,7 @@ type LogStore = {
     active_calories?: number,
   ) => Promise<void>;
 
-  // Food — uses food_logs table (richer, with meal_type + source enums)
+  // Food - uses food_logs table (richer, with meal_type + source enums)
   addFoodLog: (entry: {
     food_name: string;
     calories: number;
@@ -99,14 +99,14 @@ type LogStore = {
     phase_at_log?: PhaseType;
   }) => Promise<void>;
 
-  // Weekly Check-ins (energy_mood | appetite)
+  // Weekly Check-ins
   addWeeklyCheckin: (
-    type: 'energy_mood' | 'appetite',
+    type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health',
     answers: Record<string, number>,
     score: number,
     program_week?: number,
   ) => Promise<void>;
-  fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite') => Promise<void>;
+  fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health') => Promise<void>;
 };
 
 export const useLogStore = create<LogStore>((set, get) => ({
@@ -133,7 +133,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const since90d = new Date(Date.now() - 90 * 86400000).toISOString();
     const since1y  = new Date(Date.now() - 365 * 86400000).toISOString();
 
-    const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp] = await Promise.all([
+    const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh] = await Promise.all([
       supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
       supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
       supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
@@ -144,6 +144,10 @@ export const useLogStore = create<LogStore>((set, get) => ({
       supabase.from('food_noise_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(12),
       supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'energy_mood').order('logged_at', { ascending: false }).limit(12),
       supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'appetite').order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'gi_burden').order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'activity_quality').order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'sleep_quality').order('logged_at', { ascending: false }).limit(12),
+      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'mental_health').order('logged_at', { ascending: false }).limit(12),
     ]);
 
     set({
@@ -154,8 +158,12 @@ export const useLogStore = create<LogStore>((set, get) => ({
       sideEffectLogs: se.data  ?? [],
       foodNoiseLogs:  (fn.data ?? []) as FoodNoiseLog[],
       weeklyCheckins: {
-        energy_mood: (wcEm.data ?? []) as WeeklyCheckinRow[],
-        appetite:    (wcAp.data ?? []) as WeeklyCheckinRow[],
+        energy_mood:      (wcEm.data ?? []) as WeeklyCheckinRow[],
+        appetite:         (wcAp.data ?? []) as WeeklyCheckinRow[],
+        gi_burden:        (wcGi.data ?? []) as WeeklyCheckinRow[],
+        activity_quality: (wcAq.data ?? []) as WeeklyCheckinRow[],
+        sleep_quality:    (wcSq.data ?? []) as WeeklyCheckinRow[],
+        mental_health:    (wcMh.data ?? []) as WeeklyCheckinRow[],
       },
       profile:        prof.data ?? null,
       userGoals:      goals.data ?? null,

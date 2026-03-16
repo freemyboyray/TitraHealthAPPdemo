@@ -48,7 +48,7 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'How do GLP-1 agonists work?',
-        a: 'GLP-1 receptor agonists mimic the glucagon-like peptide-1 hormone. They slow gastric emptying, signal fullness to the brain, and help regulate blood sugar — resulting in reduced appetite and significant weight loss over time.',
+        a: 'GLP-1 receptor agonists mimic the glucagon-like peptide-1 hormone. They slow gastric emptying, signal fullness to the brain, and help regulate blood sugar - resulting in reduced appetite and significant weight loss over time.',
       },
       {
         q: 'Tirzepatide vs Semaglutide',
@@ -56,7 +56,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'What is dose escalation?',
-        a: 'Both medications start at a low "starter" dose to minimize side effects, then increase every 4 weeks. This ramp period is when nausea is most common. Never skip ahead — your body needs time to adjust to each dose.',
+        a: 'Both medications start at a low "starter" dose to minimize side effects, then increase every 4 weeks. This ramp period is when nausea is most common. Never skip ahead - your body needs time to adjust to each dose.',
       },
       {
         q: 'How long does it take to work?',
@@ -72,7 +72,7 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'Why is protein so critical on GLP-1s?',
-        a: 'GLP-1 medications suppress appetite broadly — including protein. Without intentional protein intake, your body can lose muscle mass alongside fat. Aim for 0.7–1g protein per pound of body weight daily. Prioritize protein at every meal.',
+        a: 'GLP-1 medications suppress appetite broadly - including protein. Without intentional protein intake, your body can lose muscle mass alongside fat. Aim for 0.7–1g protein per pound of body weight daily. Prioritize protein at every meal.',
       },
       {
         q: 'How much water should I drink?',
@@ -80,11 +80,11 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'What foods work best on GLP-1s?',
-        a: 'High-protein, nutrient-dense foods: Greek yogurt, eggs, lean meats, fish, legumes, cottage cheese. Eat small, frequent meals. Avoid high-fat or spicy foods near injection day — they can worsen nausea. Fiber-rich vegetables reduce constipation.',
+        a: 'High-protein, nutrient-dense foods: Greek yogurt, eggs, lean meats, fish, legumes, cottage cheese. Eat small, frequent meals. Avoid high-fat or spicy foods near injection day - they can worsen nausea. Fiber-rich vegetables reduce constipation.',
       },
       {
         q: 'Should I track calories?',
-        a: 'GLP-1s naturally reduce caloric intake — many people eat 30–40% less. Focus on hitting protein and hydration targets first. If you do track, a deficit of 500–750 kcal/day is sustainable. Avoid going below 1,200 kcal (women) or 1,500 kcal (men) without medical guidance.',
+        a: 'GLP-1s naturally reduce caloric intake - many people eat 30–40% less. Focus on hitting protein and hydration targets first. If you do track, a deficit of 500–750 kcal/day is sustainable. Avoid going below 1,200 kcal (women) or 1,500 kcal (men) without medical guidance.',
       },
     ],
   },
@@ -104,7 +104,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'How does stress affect my results?',
-        a: 'Chronic stress elevates cortisol, which promotes fat storage and increases hunger — partially overriding the appetite-suppressing effects of GLP-1 medications. Mindfulness, regular movement, and adequate sleep are the best stress management tools.',
+        a: 'Chronic stress elevates cortisol, which promotes fat storage and increases hunger - partially overriding the appetite-suppressing effects of GLP-1 medications. Mindfulness, regular movement, and adequate sleep are the best stress management tools.',
       },
     ],
   },
@@ -272,7 +272,7 @@ const createArticleCardStyles = (c: AppColors) => {
 };
 
 export default function EducationScreen() {
-  const { onScroll } = useTabBarVisibility();
+  const { onScroll, onScrollEnd } = useTabBarVisibility();
   const [articles, setArticles] = useState<ArticleRow[]>([]);
   const { colors } = useAppTheme();
   const s = useMemo(() => createScreenStyles(colors), [colors]);
@@ -295,6 +295,8 @@ export default function EducationScreen() {
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
+          onScrollEndDrag={onScrollEnd}
+          onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
           {/* ── Header ── */}

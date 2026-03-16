@@ -6,6 +6,8 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
 import { useUserStore } from '@/stores/user-store';
+import { useLogStore } from '@/stores/log-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 
 export default function Index() {
   const { colors } = useAppTheme();
@@ -13,22 +15,39 @@ export default function Index() {
 
   const { isLoading, profile } = useProfile();
   const { session, sessionLoaded, demoMode } = useUserStore();
+  const { injectionLogs } = useLogStore();
+  const { lastWeeklySummaryDate } = usePreferencesStore();
   const router = useRouter();
 
   useEffect(() => {
     if (!sessionLoaded) return;
-    // Auth gate: no session and not in demo mode → sign-in
     if (!session && !demoMode) {
       router.replace('/auth/sign-in');
       return;
     }
     if (isLoading) return;
-    if (profile) {
-      router.replace('/(tabs)');
-    } else {
+    if (!profile) {
       router.replace('/onboarding');
+      return;
     }
-  }, [sessionLoaded, session, isLoading, profile]);
+
+    // Shot-day gate: show weekly summary once per calendar day on injection day
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const freq = profile.injectionFrequencyDays ?? 7;
+    const lastInjDate = injectionLogs[0]?.injection_date ?? null;
+    const nextShot = lastInjDate ? new Date(new Date(lastInjDate + 'T00:00:00').getTime() + freq * 86400000) : null;
+    const ns = nextShot;
+    const nextShotStr = ns ? `${ns.getFullYear()}-${String(ns.getMonth() + 1).padStart(2, '0')}-${String(ns.getDate()).padStart(2, '0')}` : null;
+    const isShotDay = nextShotStr === today;
+    const alreadyShown = lastWeeklySummaryDate === today;
+
+    if (freq >= 7 && isShotDay && !alreadyShown) {
+      router.replace('/entry/weekly-summary');
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [sessionLoaded, session, isLoading, profile, injectionLogs]);
 
   return (
     <View style={s.container}>

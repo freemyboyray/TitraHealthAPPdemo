@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { callHaikuChat } from '../../lib/anthropic';
+import { callOpenAI } from '../../lib/openai';
 import { buildContextSnapshot } from '../../lib/context-snapshot';
 import { supabase } from '../../lib/supabase';
 import { computeScore } from '../../stores/insights-store';
@@ -36,7 +36,7 @@ const SUGGESTION_PROMPTS = [
 ];
 
 function buildSystemPrompt(userName: string | null, contextSnapshot: string): string {
-  return `You are a proactive GLP-1 medication companion${userName ? ` for ${userName}` : ''}. You don't just answer questions — you identify patterns, flag concerns, and create actionable plans. Be warm, specific, and evidence-based. Reference the user's actual data in your responses. Never diagnose or replace medical advice. Recommend consulting their provider for medical decisions.
+  return `You are a proactive GLP-1 medication companion${userName ? ` for ${userName}` : ''}. You don't just answer questions - you identify patterns, flag concerns, and create actionable plans. Be warm, specific, and evidence-based. Reference the user's actual data in your responses. Never diagnose or replace medical advice. Recommend consulting their provider for medical decisions.
 
 ${contextSnapshot}`;
 }
@@ -170,7 +170,7 @@ export default function AskAIScreen() {
       const allMsgs = [...messages, userMsg];
       const contextMsgs = allMsgs.slice(-20).map((m) => ({ role: m.role, content: m.content }));
       const systemPrompt = buildSystemPrompt(userName, contextSnapshot);
-      const reply = await callHaikuChat(systemPrompt, contextMsgs);
+      const reply = await callOpenAI(contextMsgs, systemPrompt);
 
       const assistantMsg: Message = {
         id: `local-${Date.now()}-a`,
@@ -208,7 +208,7 @@ export default function AskAIScreen() {
       supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: prompt }).then(() => {});
     }
     const systemPrompt = buildSystemPrompt(userName, contextSnapshot);
-    callHaikuChat(systemPrompt, [{ role: 'user', content: prompt }])
+    callOpenAI([{ role: 'user', content: prompt }], systemPrompt)
       .then((reply) => {
         const aMsg: Message = { id: `local-${Date.now()}-a`, role: 'assistant', content: reply, created_at: new Date().toISOString() };
         setMessages((prev) => [...prev, aMsg]);
@@ -290,7 +290,7 @@ export default function AskAIScreen() {
                 {userName ? `Hi, ${userName.split(' ')[0]}` : 'Your GLP-1 Companion'}
               </Text>
               <Text style={s.emptyDesc}>
-                Ask anything about your GLP-1 journey — I have your latest data ready.
+                Ask anything about your GLP-1 journey - I have your latest data ready.
               </Text>
               <ScrollView
                 horizontal

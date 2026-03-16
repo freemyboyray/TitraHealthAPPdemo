@@ -8,6 +8,10 @@ type PreferencesStore = {
   setLightMode: (v: boolean) => void;
   appleHealthEnabled: boolean;
   setAppleHealthEnabled: (v: boolean) => void;
+  garminConnected: boolean;
+  setGarminConnected: (v: boolean) => void;
+  lastWeeklySummaryDate: string | null;
+  setLastWeeklySummaryDate: (date: string) => void;
 };
 
 export const usePreferencesStore = create<PreferencesStore>()(
@@ -18,6 +22,10 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setLightMode: (v) => set({ isLightMode: v }),
       appleHealthEnabled: false,
       setAppleHealthEnabled: (v) => set({ appleHealthEnabled: v }),
+      garminConnected: false,
+      setGarminConnected: (v) => set({ garminConnected: v }),
+      lastWeeklySummaryDate: null,
+      setLastWeeklySummaryDate: (date) => set({ lastWeeklySummaryDate: date }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

@@ -38,11 +38,11 @@ const BRAND_GROUPS: BrandGroup[] = [
   },
   {
     heading: 'Daily Oral Pill',
-    subheading: 'Taken by mouth once a day — no injections',
+    subheading: 'Taken by mouth once a day - no injections',
     brands: [
       { value: 'oral_wegovy',  label: 'Oral Wegovy®',   note: 'Semaglutide 25 mg · FDA approved Dec 2025' },
       { value: 'rybelsus',     label: 'Rybelsus®',      note: 'Semaglutide 3/7/14 mg · T2D approved' },
-      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly · NDA filed — FDA decision Q2 2026' },
+      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly · NDA filed - FDA decision Q2 2026' },
     ],
   },
   {

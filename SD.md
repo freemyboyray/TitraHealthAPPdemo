@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 16, 2026 (rev 10)
+**Last Updated:** March 16, 2026 (rev 11)
 
 ---
 
@@ -128,10 +128,16 @@ TitraHealthAPPdemo/
 │   │   ├── capture-food.tsx     # Photo food recognition (GPT-4o-mini vision)
 │   │   ├── scan-food.tsx        # Barcode scanner (expo-camera)
 │   │   ├── search-food.tsx      # USDA FoodData Central text search
-│   │   ├── ask-ai.tsx           # Standalone AI query entry screen
+│   │   │   ├── ask-ai.tsx           # Standalone AI query entry screen
 │   │   ├── log-activity.tsx     # Log activity / steps
 │   │   ├── log-weight.tsx       # Log weight entry
-│   │   └── side-effects.tsx     # Log side effects entry
+│   │   ├── side-effects.tsx     # Log side effects entry
+│   │   ├── side-effect-impact.tsx     # Side effect impact + target adjustments viewer
+│   │   ├── weekly-summary.tsx         # 7-day cycle recap; AI insight; print/share
+│   │   ├── gi-burden-survey.tsx       # Weekly check-in: GI Symptom Burden (5 Qs)
+│   │   ├── activity-quality-survey.tsx # Weekly check-in: Activity & Strength (5 Qs)
+│   │   ├── sleep-quality-survey.tsx   # Weekly check-in: Sleep Quality (5 Qs)
+│   │   └── mental-health-survey.tsx   # Weekly check-in: Mental Health / PHQ-2+GAD-2 (5 Qs)
 │   ├── onboarding/
 │   │   ├── _layout.tsx          # Stack navigator (slide_from_right, no header)
 │   │   ├── index.tsx            # Step 1: GLP-1 journey stage
@@ -192,11 +198,15 @@ TitraHealthAPPdemo/
 │   ├── targets.ts               # Personalized Targets Engine — computeBaseTargets() (Mifflin-St Jeor
 │   │                            # BMR → TDEE → deficit → macros); applyAdjustments() (evidence-based
 │   │                            # side-effect delta rules, severity+recency weighted, conflict-resolved)
+│   ├── garmin.ts                # Garmin Connect OAuth 2.0 PKCE flow + wellness data sync
+│   ├── weekly-summary.ts        # computeWeeklySummary() — 7-day cycle aggregation (pure function)
 │   └── database.types.ts        # Auto-generated Supabase TypeScript types
 ├── stores/                      # Zustand stores (all implemented)
 │   ├── log-store.ts             # All log types + Supabase CRUD + fetchInsightsData
 │   ├── insights-store.ts        # Score computation from real Supabase data
+│   ├── insights-ai-store.ts     # Pre-fetches all 3 Insights-tab AI cards in parallel
 │   ├── user-store.ts            # Auth state, session, profile row, signOut
+│   ├── garmin-store.ts          # Garmin connection state, sync, disconnect (persisted)
 │   ├── preferences-store.ts     # Dark/light mode toggle, appleHealthEnabled (AsyncStorage)
 │   └── ui-store.ts              # Sheet open state, active tab, loading states
 ├── hooks/
@@ -533,6 +543,12 @@ Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its de
 | Log Activity | `log-activity.tsx` | Activity type, duration, intensity arc gauge, steps input (auto-estimated from `STEPS_PER_MIN` × duration, user-editable). Saves `exercise_type`, `duration_min`, `intensity`, `steps`, `active_calories` via `useLogStore.addActivityLog()`. Multiple workouts per day supported. |
 | Log Weight | `log-weight.tsx` | Current weight (lbs/kg with unit toggle). Saves via `useLogStore.addWeightLog()` |
 | Side Effects | `side-effects.tsx` | Side effect type + severity slider. Saves via `useLogStore.addSideEffectLog()` |
+| Side Effect Impact | `side-effect-impact.tsx` | Read-only screen showing how active side effects adjust daily nutrition and activity targets; powered by `computeBaseTargets()` + `applyAdjustments()` from `lib/targets.ts` |
+| Weekly Summary | `weekly-summary.tsx` | 7-day cycle recap: weight delta, avg protein/hydration/steps, food noise trend, weekly check-in scores, GPT-4o-mini narrative insight (`generateWeeklyInsight`). Exportable via `expo-print` + `expo-sharing`. Caches last summary in AsyncStorage. |
+| GI Burden Survey | `gi-burden-survey.tsx` | Weekly check-in: 5 GI symptom questions (Not at all → Extremely). Raw score 0–20 inverted to 0–100. Saved to `weekly_checkins` as `gi_burden`. Unlocks on day 1 of each cycle. |
+| Activity Quality Survey | `activity-quality-survey.tsx` | Weekly check-in: 5 activity/strength questions (Not at all → Always). Raw score 0–20 direct → 0–100. Saved as `activity_quality`. Unlocks day 8. |
+| Sleep Quality Survey | `sleep-quality-survey.tsx` | Weekly check-in: 5 sleep quality questions. Raw 0–20 inverted to 0–100. Saved as `sleep_quality`. Unlocks day 15. |
+| Mental Health Survey | `mental-health-survey.tsx` | Weekly check-in: 5 PHQ-2+GAD-2 adapted questions. Raw 0–20 inverted to 0–100. Saved as `mental_health`. Unlocks day 22. |
 
 ---
 
@@ -631,6 +647,8 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 **Migrations applied:**
 - `20260311_profiles_medication_brand.sql` — adds `medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date` to `profiles`
 - `20260315_expand_side_effect_types.sql` — adds 7 new values to `side_effect_type` enum
+- `20260316_garmin_tokens.sql` — adds `garmin_tokens JSONB` to `profiles`; adds `source TEXT DEFAULT 'manual'` to `activity_logs` + `weight_logs`; adds unique constraint `activity_logs_user_date_source_key (user_id, date, source)`; adds partial unique index `weight_logs_garmin_daily_uniq` on `(user_id, source, logged_at::date) WHERE source = 'garmin'`
+- `20260316_new_checkin_types.sql` — documentation marker for 4 new `weekly_checkins` check-in types: `gi_burden`, `activity_quality`, `sleep_quality`, `mental_health` (no schema change; `checkin_type` is TEXT)
 
 ### Scoring Types (implemented)
 
@@ -643,6 +661,64 @@ type WearableData  = { sleepMinutes: number; hrvMs: number; restingHR: number; s
 type ShotPhase     = 'shot' | 'peak' | 'balance' | 'reset';
 type FocusItem     = { id: string; label: string; subtitle: string; iconName: string; iconSet: 'Ionicons' | 'MaterialIcons'; status: 'completed' | 'active' | 'pending' };
 ```
+
+### Weekly Summary Types (implemented — `lib/weekly-summary.ts`)
+
+```typescript
+export interface WeeklySummaryData {
+  windowStart: string;          // 'yyyy-MM-dd', 7 days ago
+  windowEnd: string;            // 'yyyy-MM-dd', yesterday
+  weight: {
+    start: number | null;       // lbs, oldest log in window
+    end: number | null;         // lbs, newest log in window
+    delta: number | null;       // end - start
+  };
+  nutrition: {
+    avgCalories: number | null;
+    avgProteinG: number | null;
+    avgFiberG: number | null;
+    avgWaterMl: number | null;
+    daysLogged: number;
+  };
+  activity: {
+    avgSteps: number | null;
+    totalActiveMin: number | null;
+    daysActive: number;
+  };
+  checkins: {
+    gi_burden: number | null;        // 0–100
+    activity_quality: number | null; // 0–100
+    sleep_quality: number | null;    // 0–100
+    mental_health: number | null;    // 0–100
+  };
+}
+```
+
+**Key exports:**
+- `computeWeeklySummary(logs, targets)` — pure function aggregating 7-day window ending yesterday from `FoodLog[]`, `WeightLog[]`, `ActivityLog[]`, `SideEffectLog[]`, `WeeklyCheckinRow[]`, and `FoodNoiseLog[]`
+
+### Garmin Integration (implemented — `lib/garmin.ts` + `stores/garmin-store.ts`)
+
+```typescript
+// lib/garmin.ts
+export type GarminSyncResult = {
+  steps: number | null;
+  activeCalories: number | null;
+  sleepHours: number | null;
+  restingHR: number | null;
+  weight: number | null;
+};
+```
+
+**Key exports:**
+- `initiateGarminOAuth()` — OAuth 2.0 PKCE flow via `expo-web-browser`; returns auth code from deep-link callback
+- `triggerGarminSync()` — calls `garmin-sync` Supabase Edge Function; returns `GarminSyncResult`
+- `disconnectGarmin()` — calls `garmin-disconnect` Edge Function; clears tokens from `profiles`
+
+**Supabase Edge Functions:**
+- `garmin-token-exchange` — exchanges auth code for access + refresh tokens; stores in `profiles.garmin_tokens`
+- `garmin-sync` — refreshes token if needed; fetches Garmin Wellness API `/dailies` (steps, calories, sleep, HR) + `/bodyComps` (weight); upserts into `activity_logs` and `weight_logs` with `source = 'garmin'`
+- `garmin-disconnect` — nulls `profiles.garmin_tokens`
 
 ### Personalized Targets Engine (implemented — `lib/targets.ts`)
 
@@ -705,6 +781,8 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Auth | `useUserStore` (Zustand + Supabase) | Session, sessionLoaded flag, profile row, signOut |
 | Logs | `useLogStore` (Zustand + Supabase) | All daily log entries; CRUD actions; `fetchInsightsData` |
 | Insights | `insightsStore` (Zustand) | Computed `ScoreBreakdown`, injection phase, focuses from real data |
+| Insights AI | `useInsightsAiStore` (Zustand) | Pre-fetched AI text for all 3 Insights tabs; avoids repeated GPT calls on tab switch |
+| Garmin | `useGarminStore` (Zustand + AsyncStorage) | Connection state, last-synced timestamp, latest wellness data; persisted via `zustand/middleware` |
 | Health / Scores | `HealthContext` (useReducer) | Daily actuals, targets, wearable data, recovery + support scores |
 | Preferences | `usePreferencesStore` (Zustand + AsyncStorage) | `isDark` (light/dark mode), `appleHealthEnabled` |
 | Tab bar visibility | `TabBarVisibilityContext` | `Animated.Value` for scroll-driven show/hide |
@@ -813,6 +891,12 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | `InsightsCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
 | `FocusCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
 | Education Screen | `app/(tabs)/explore.tsx` | ⬜ Boilerplate | Needs full build |
+| Side Effect Impact Screen | `app/entry/side-effect-impact.tsx` | ✅ Built | Shows adjusted targets from active side effects |
+| Weekly Summary Screen | `app/entry/weekly-summary.tsx` | ✅ Built | 7-day recap; AI insight; print/share |
+| GI Burden Survey | `app/entry/gi-burden-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, inverted 0–100) |
+| Activity Quality Survey | `app/entry/activity-quality-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, direct 0–100) |
+| Sleep Quality Survey | `app/entry/sleep-quality-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, inverted 0–100) |
+| Mental Health Survey | `app/entry/mental-health-survey.tsx` | ✅ Built | Weekly check-in PHQ-2+GAD-2 (5 Qs, inverted 0–100) |
 | `BodyDiagram` | Not built | ⬜ Planned | Injection site rotation map |
 
 ---
@@ -898,6 +982,11 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Lifestyle tab data refresh on focus (rev 10)** — `log.tsx` mount-only `useEffect(() => fetchInsightsData(), [])` replaced with `useFocusEffect(useCallback(...))` (same pattern as `index.tsx`); ensures `activityLogs`, `foodLogs`, and all Lifestyle/Medication/Progress cards are always fresh when navigating back from any entry screen
 - [x] **Activity log submit decoupled from global loading state (rev 10)** — `log-activity.tsx` previously used `disabled={loading}` tied to the global `useLogStore` loading flag; `useFocusEffect` in `log.tsx` set `loading: true` on every tab focus, making the "Log Activity" button silently no-op when arriving from the log tab; fixed by replacing with a local `isSubmitting` state scoped to the submit action only; `Alert` added to surface Supabase insert errors directly to the user
 - [x] **Drop `activity_logs` unique date constraint (rev 10)** — `activity_logs_user_id_date_key` unique constraint on `(user_id, date)` prevented logging more than one workout per day; migration `20260316_activity_logs_drop_unique_date.sql` drops the constraint; multiple workouts per day now correctly accumulate in the Lifestyle tab cards
+- [x] **Garmin Connect integration (rev 11)** — `lib/garmin.ts` implements OAuth 2.0 PKCE via `expo-web-browser` deep-link callback; `stores/garmin-store.ts` persists connection state + latest wellness data (steps, active calories, sleep hours, resting HR, weight) via Zustand + AsyncStorage; 3 Supabase Edge Functions: `garmin-token-exchange` (code → tokens → store in `profiles.garmin_tokens`), `garmin-sync` (refresh token if needed → Garmin Wellness API `/dailies` + `/bodyComps` → upsert `activity_logs` + `weight_logs` with `source='garmin'`), `garmin-disconnect` (null tokens); migration adds `garmin_tokens JSONB` to `profiles` + `source TEXT` columns + unique constraints for Garmin upserts
+- [x] **Weekly check-in surveys (rev 11)** — 4 new entry screens, each with 5 Likert-scale questions (Not at all → Extremely/Always); scores normalized to 0–100; saved to `weekly_checkins` table; unlock sequentially by injection cycle day: GI Burden (day 1), Activity Quality (day 8), Sleep Quality (day 15), Mental Health (day 22); all themed with dark glass UI + orange dot picker
+- [x] **Side Effect Impact screen (rev 11)** — `app/entry/side-effect-impact.tsx`; read-only screen showing how the user's current active side effects are adjusting each daily target; uses `computeBaseTargets()` + `applyAdjustments()` to diff base vs. adjusted values; displays delta badges (increase/decrease) for protein, water, fiber, calories, steps, and active minutes with reason labels
+- [x] **Weekly Summary screen + engine (rev 11)** — `app/entry/weekly-summary.tsx` + `lib/weekly-summary.ts`; `computeWeeklySummary()` pure function aggregates 7-day window: weight delta, avg macros/hydration/steps, days logged/active, food noise trend, and all 4 weekly check-in scores; GPT-4o-mini `generateWeeklyInsight()` call generates a narrative paragraph; last summary cached in AsyncStorage; exportable as PDF via `expo-print` + `expo-sharing`
+- [x] **AI Insights Store (rev 11)** — `stores/insights-ai-store.ts`; `prefetchAll(health)` fires all 3 Insights tab AI calls (`lifestyle`, `medication`, `progress`) in parallel on first visit; results cached in store to prevent redundant GPT calls on each tab switch; individual loading flags per tab; static fallback strings on error
 
 ### In Progress / Partially Done
 
@@ -923,11 +1012,12 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Integration | Purpose | Library / Service | Status |
 |---|---|---|---|
 | Health data (steps, HRV, sleep) | Apple Health live reads | `@kingstinct/react-native-healthkit` | ⚠️ Permission toggle wired; live data reads not yet surfaced to UI |
+| Garmin Connect | Wellness data sync (steps, calories, sleep, HR, weight) | `lib/garmin.ts` + `stores/garmin-store.ts` + 3 Edge Functions | ✅ Built |
 | Barcode scanning | Food product lookup | `expo-camera` + USDA FoodData Central | ✅ Built |
 | Food database | Nutritional info lookup | USDA FoodData Central (`lib/usda.ts`) | ✅ Built |
 | AI food description | Text parsing via GPT-4o-mini | `lib/openai.ts` — `parseFoodDescription` | ✅ Built |
 | AI food photo | Photo analysis via GPT-4o-mini vision | `lib/openai.ts` — `callGPT4oMiniVision` | ✅ Built |
-| AI coaching | Dynamic insights, coach notes, log insights | `lib/openai.ts` | ✅ Built |
+| AI coaching | Dynamic insights, coach notes, log insights, weekly summary | `lib/openai.ts` | ✅ Built |
 | Secondary AI | Claude Haiku via Anthropic | `lib/anthropic.ts` | ✅ Built (not yet called from UI) |
 | Charts | Weight trend, macro charts | `victory-native` or `react-native-gifted-charts` | ⬜ Not started |
 | Push notifications | Injection reminders, craving-day alerts | `expo-notifications` | ⬜ Not started |
@@ -968,4 +1058,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 16, 2026 (rev 9). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 16, 2026 (rev 11). It should be updated as features are built and decisions are made.*

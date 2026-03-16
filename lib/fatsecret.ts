@@ -1,10 +1,7 @@
-// Calls FatSecret directly from the app.
-// For production: move these behind a server with a static IP and keep them server-side.
-const CLIENT_ID = process.env.EXPO_PUBLIC_FATSECRET_CLIENT_ID ?? '';
-const CLIENT_SECRET = process.env.EXPO_PUBLIC_FATSECRET_CLIENT_SECRET ?? '';
-
-const TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
-const FS_BASE = 'https://platform.fatsecret.com/rest/server.api';
+// Routes all FatSecret calls through the deployed Supabase edge function
+// (supabase/functions/fatsecret) so credentials stay server-side.
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const EDGE_URL = `${SUPABASE_URL}/functions/v1/fatsecret`;
 
 export type ServingOption = { label: string; grams: number };
 
@@ -22,42 +19,18 @@ export type FoodResult = {
   serving_options?: ServingOption[];
 };
 
-// ─── OAuth token (fetched fresh each call — 24h lifetime, fine at MVP scale) ──
+// ─── Edge function proxy ───────────────────────────────────────────────────────
 
-async function getToken(): Promise<string> {
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    scope: 'basic',
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-  });
-
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!res.ok) throw new Error(`FatSecret token error: ${res.status}`);
-  const json = await res.json();
-  return json.access_token as string;
-}
-
-// ─── REST API call ─────────────────────────────────────────────────────────────
-
-async function callFS(token: string, params: Record<string, string>): Promise<unknown> {
-  const url = new URL(FS_BASE);
-  url.searchParams.set('format', 'json');
+async function callEdge(params: Record<string, string>): Promise<unknown> {
+  const url = new URL(EDGE_URL);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) throw new Error(`FatSecret API error: ${res.status}`);
-  return res.json();
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
 }
 
 // ─── Parse food_description string ────────────────────────────────────────────
@@ -117,13 +90,7 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
 
 export async function searchFatSecret(query: string): Promise<FoodResult[]> {
   try {
-    const token = await getToken();
-    const data = await callFS(token, {
-      method: 'foods.search',
-      search_expression: query,
-      max_results: '20',
-      page_number: '0',
-    }) as any;
+    const data = await callEdge({ action: 'search', q: query }) as any;
 
     const foods = data?.foods?.food;
     if (!foods) return [];
@@ -147,11 +114,7 @@ export async function searchFatSecret(query: string): Promise<FoodResult[]> {
 
 export async function getFatSecretFood(foodId: number): Promise<FoodResult | null> {
   try {
-    const token = await getToken();
-    const data = await callFS(token, {
-      method: 'food.get.v4',
-      food_id: String(foodId),
-    }) as any;
+    const data = await callEdge({ action: 'food', id: String(foodId) }) as any;
 
     const food = data?.food;
     if (!food) return null;
@@ -180,19 +143,7 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
 
 export async function lookupFatSecretBarcode(barcode: string): Promise<FoodResult | null> {
   try {
-    const token = await getToken();
-    const barcodeRes = await callFS(token, {
-      method: 'food.find_id_for_barcode',
-      barcode,
-    }) as any;
-
-    const foodId = barcodeRes?.food_id?.value;
-    if (!foodId) return null;
-
-    const data = await callFS(token, {
-      method: 'food.get.v4',
-      food_id: foodId,
-    }) as any;
+    const data = await callEdge({ action: 'barcode', code: barcode }) as any;
 
     const food = data?.food;
     if (!food) return null;

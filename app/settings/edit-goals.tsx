@@ -23,12 +23,12 @@ const SNAP_VALUES = [0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
 
 const CONTEXT_NOTES: Record<string, string> = {
   '0.2': 'This slower pace is gentle and sustainable for your journey.',
-  '0.5': 'A gentle, sustainable pace — great for long-term success.',
+  '0.5': 'A gentle, sustainable pace - great for long-term success.',
   '1.0': 'A moderate pace with good results.',
   '1.5': 'A moderate pace with good results.',
-  '2.0': 'Aggressive — ensure adequate protein and recovery.',
-  '2.5': 'Aggressive — ensure adequate protein and recovery.',
-  '3.0': 'Aggressive — ensure adequate protein and recovery.',
+  '2.0': 'Aggressive - ensure adequate protein and recovery.',
+  '2.5': 'Aggressive - ensure adequate protein and recovery.',
+  '3.0': 'Aggressive - ensure adequate protein and recovery.',
 };
 
 export default function EditGoalsScreen() {

@@ -16,7 +16,7 @@ type HealthKitStore = {
   bloodGlucose: number | null;
   permissionsGranted: boolean;
   lastRefreshed: Date | null;
-  requestPermissions(): Promise<void>;
+  requestPermissions(): Promise<boolean>;
   fetchAll(): Promise<void>;
   writeWeight(lbs: number): Promise<void>;
   writeNutrition(macros: NutritionData): Promise<void>;
@@ -39,6 +39,7 @@ export const useHealthKitStore = create<HealthKitStore>((set) => ({
   async requestPermissions() {
     const granted = await lib.requestPermissions();
     set({ permissionsGranted: granted });
+    return granted;
   },
 
   async fetchAll() {

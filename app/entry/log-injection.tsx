@@ -1,9 +1,11 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -145,17 +147,24 @@ export default function LogInjectionScreen() {
         if (med) setMedication(med);
       }
       if (result.dose_mg != null) {
-        const doseStr = `${result.dose_mg}mg`;
-        if (brandDoses.map(d => `${d}mg`).includes(doseStr)) setDose(doseStr);
+        // Match numerically to avoid "1mg" vs "1.0mg" mismatches
+        const closest = brandDoses.reduce((a, b) =>
+          Math.abs(b - result.dose_mg) < Math.abs(a - result.dose_mg) ? b : a
+        );
+        if (Math.abs(closest - result.dose_mg) <= 0.1) setDose(`${closest}mg`);
       }
       if (result.site) {
-        const matched = SITES.find(s => s.toLowerCase().includes(result.site.toLowerCase()) || result.site.toLowerCase().includes(s.toLowerCase().split(' ').slice(-1)[0]));
+        const siteLower = result.site.toLowerCase();
+        const matched = SITES.find(s =>
+          s.toLowerCase().includes(siteLower) ||
+          siteLower.includes(s.toLowerCase().split(' ').slice(-1)[0])
+        );
         if (matched) setSite(matched);
       }
       if (result.batch) setBatchNumber(result.batch);
       if (result.notes) setNotes(result.notes);
     } catch {
-      // ignore — user adjusts manually
+      Alert.alert('Voice Input', 'Could not parse your injection details. Try saying the medication name, dose, and site.');
     }
   }
 
@@ -184,7 +193,7 @@ export default function LogInjectionScreen() {
     >
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.75} style={s.backShadow}>
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} activeOpacity={0.75} style={s.backShadow}>
           <View style={s.backClip}>
             <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
@@ -215,7 +224,7 @@ export default function LogInjectionScreen() {
               <Text style={[s.chipText, s.chipTextActive]}>{medication}</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/settings')}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/settings'); }}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -240,7 +249,7 @@ export default function LogInjectionScreen() {
               return (
                 <TouchableOpacity
                   key={dStr}
-                  onPress={() => setDose(dStr)}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDose(dStr); }}
                   activeOpacity={0.75}
                   style={[s.chip, active ? s.chipActive : s.chipInactive]}
                 >
@@ -262,7 +271,7 @@ export default function LogInjectionScreen() {
               return (
                 <TouchableOpacity
                   key={siteName}
-                  onPress={() => setSite(siteName)}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite(siteName); }}
                   activeOpacity={0.75}
                   style={[
                     siteStyles.siteBtn,
@@ -321,7 +330,7 @@ export default function LogInjectionScreen() {
       {/* ── Save Button ── */}
       <View style={[s.saveWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
         <TouchableOpacity
-          onPress={handleSave}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSave(); }}
           activeOpacity={0.82}
           disabled={loading}
           style={[s.saveBtn, loading && s.saveBtnDisabled]}
