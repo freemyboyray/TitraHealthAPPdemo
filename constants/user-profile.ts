@@ -111,6 +111,23 @@ export const BRAND_TO_GLP1_TYPE: Record<MedicationBrand, Glp1Type> = {
   other:                  'semaglutide',
 };
 
+export const BRAND_DISPLAY_NAMES: Record<MedicationBrand, string> = {
+  zepbound:               'Zepbound®',
+  mounjaro:               'Mounjaro®',
+  ozempic:                'Ozempic®',
+  wegovy:                 'Wegovy®',
+  trulicity:              'Trulicity®',
+  compounded_semaglutide: 'Compounded Semaglutide',
+  compounded_tirzepatide: 'Compounded Tirzepatide',
+  saxenda:                'Saxenda®',
+  victoza:                'Victoza®',
+  compounded_liraglutide: 'Compounded Liraglutide',
+  rybelsus:               'Rybelsus®',
+  oral_wegovy:            'Oral Wegovy®',
+  orforglipron:           'Orforglipron',
+  other:                  'Other',
+};
+
 export const BRAND_TO_ROUTE: Record<MedicationBrand, RouteOfAdministration> = {
   zepbound:               'injection',
   mounjaro:               'injection',

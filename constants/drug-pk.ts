@@ -7,7 +7,7 @@ interface DrugPkParams {
 
 // ─── FDA / population-PK sourced parameters ──────────────────────────────────
 //
-// Semaglutide SC (Ozempic/Wegovy):   NDA 209637; t½=168h Tmax=56h → ka=0.0476 h⁻¹ ✓
+// Semaglutide SC (Ozempic/Wegovy):   NDA 209637; t½=160h (label range 155–165h) Tmax=56h → ka=0.0476 h⁻¹ ✓
 // Tirzepatide SC (Mounjaro/Zepbound): NDA 215866; t½=120h Tmax=24h → ka=0.135  h⁻¹ ✓
 // Dulaglutide SC (Trulicity):         NDA 125469; t½=120h Tmax=48h → ka=0.0525 h⁻¹ ✓
 // Liraglutide SC (Saxenda/Victoza):   NDA 202253; t½=13h  Tmax=11h → ka=0.14   h⁻¹ ✓
@@ -15,21 +15,21 @@ interface DrugPkParams {
 //   Note: ka=2.09 h⁻¹ is the population-PK fitted value but yields Tmax≈3h in the
 //   simple Bateman equation. ka=7.0 h⁻¹ matches the clinically observed Tmax≈1h for
 //   the SNAC-mediated gastric absorption mechanism.
-// Orforglipron (Eli Lilly, NDA filed ~2025): t½=50h (SS midpoint) Tmax=8h → ka=0.45 h⁻¹ ✓
-//   ka verified: ln(0.45/0.01386)/(0.45−0.01386) = 7.98h ≈ 8h ✓
+// Orforglipron: t½=60h (SS midpoint, Phase 1b range 48–68h) Tmax=8h → ka=0.45 h⁻¹ ✓
+//   ka verified: ln(0.45/0.01155)/(0.45−0.01155) = 8.35h ≈ 8h ✓
 //
 // ka derivation for each: solve ln(ka/ke)/(ka−ke) = Tmax numerically.
 
 export const DRUG_PK: Record<Glp1Type, DrugPkParams> = {
   // Weekly SC — 7-day chart
-  semaglutide:     { ka: 0.0476, ke: 0.00413 },   // t½=168h, Tmax=56h
+  semaglutide:     { ka: 0.0476, ke: 0.00433 },   // t½=160h, Tmax=56h
   tirzepatide:     { ka: 0.135,  ke: 0.00578 },   // t½=120h, Tmax=24h
   dulaglutide:     { ka: 0.0525, ke: 0.00578 },   // t½=120h, Tmax=48h
   // Daily SC — intraday chart (τ=24h)
   liraglutide:     { ka: 0.14,   ke: 0.0533  },   // t½=13h,  Tmax=11h
   // Oral daily — intraday chart (τ=24h)
   oral_semaglutide:{ ka: 7.0,    ke: 0.00439 },   // t½=158h, Tmax≈1h
-  orforglipron:    { ka: 0.45,   ke: 0.01386 },   // t½=50h,  Tmax=8h
+  orforglipron:    { ka: 0.45,   ke: 0.01155 },   // t½=60h,  Tmax=8h
 };
 
 export const DRUG_HALF_LIFE_LABEL: Record<Glp1Type, string> = {
@@ -38,7 +38,7 @@ export const DRUG_HALF_LIFE_LABEL: Record<Glp1Type, string> = {
   dulaglutide:      '5-day half-life',
   liraglutide:      '13-hour half-life',
   oral_semaglutide: '7-day half-life',
-  orforglipron:     '2-day half-life',
+  orforglipron:     '2.5-day half-life',
 };
 
 // Whether the drug is taken orally (drives chart/UX branches)
@@ -164,3 +164,26 @@ export function generateIntradayPkCurve(glp1Type: Glp1Type): number[] {
 
 // X-axis labels for the intraday chart
 export const INTRADAY_TIME_LABELS = ['Dose', '+4h', '+8h', '+12h', '+16h', '+20h', '+24h'];
+
+// ─── High-resolution cycle curve (injectable weekly/biweekly drugs) ───────────
+// Returns nPoints evenly-spaced samples from t=0 → injFreqDays×24h.
+// Use nPoints=28 for 7-day cycle (one sample per ~6h) — smooth pharmacokinetic arc.
+
+export function generatePkCurveHighRes(
+  glp1Type: Glp1Type,
+  glp1Status: Glp1Status,
+  injFreqDays: number,
+  nPoints = 28,
+): number[] {
+  const atSteadyState = glp1Status === 'active';
+  const intervalH = Math.max(1, injFreqDays) * 24;
+  return Array.from({ length: nPoints }, (_, i) => {
+    const tHours = (i / (nPoints - 1)) * intervalH;
+    return Math.round(pkConcentrationPct(tHours, glp1Type, atSteadyState, intervalH));
+  });
+}
+
+// X-axis cycle labels: ['Inj', '+1D', '+2D', ..., '+6D', 'Next'] for a 7-day cycle
+export function pkCycleLabels(injFreqDays: number): string[] {
+  return ['Inj', ...Array.from({ length: injFreqDays - 1 }, (_, i) => `+${i + 1}D`), 'Next'];
+}

@@ -63,7 +63,8 @@ type Action =
   | { type: 'CLEAR_ACTION' }
   | { type: 'FETCH_ACTUALS'; actuals: DailyActuals }
   | { type: 'SYNC_WEARABLE'; wearable: WearableData }
-  | { type: 'SYNC_HK_STEPS'; steps: number };
+  | { type: 'SYNC_HK_STEPS'; steps: number }
+  | { type: 'SYNC_PROFILE'; profile: FullUserProfile };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ function buildInitialState(profile: FullUserProfile): HealthState {
   const daysSinceShot = daysSinceInjection(profile.lastInjectionDate);
   const phase = getShotPhase(daysSinceShot);
   const recoveryScore = computeRecovery(STUB_WEARABLE, phase);
-  const targets = getDailyTargets(profile, daysSinceShot);
+  const targets = getDailyTargets(profile);
   const supportScore = computeGlp1Support(ZERO_ACTUALS, targets);
   const focuses = generateFocuses(ZERO_ACTUALS, targets, STUB_WEARABLE, daysSinceShot);
   return {
@@ -90,7 +91,7 @@ function recompute(state: HealthState): HealthState {
   const daysSinceShot = daysSinceInjection(state.profile.lastInjectionDate);
   const phase = getShotPhase(daysSinceShot);
   const recoveryScore = computeRecovery(state.wearable, phase);
-  const targets = getDailyTargets(state.profile, daysSinceShot);
+  const targets = getDailyTargets(state.profile);
   const supportScore = computeGlp1Support(state.actuals, targets);
   const focuses = generateFocuses(state.actuals, targets, state.wearable, daysSinceShot);
   return { ...state, targets, recoveryScore, supportScore, focuses };
@@ -126,6 +127,8 @@ function reducer(state: HealthState, action: Action): HealthState {
       const steps = Math.max(state.actuals.steps, action.steps);
       return recompute({ ...state, actuals: { ...state.actuals, steps } });
     }
+    case 'SYNC_PROFILE':
+      return recompute({ ...state, profile: action.profile });
     default:
       return state;
   }
@@ -151,6 +154,11 @@ export function HealthProvider({
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
 
   const hkSteps = useHealthKitStore(s => s.steps);
+
+  // Sync profile into scoring engine whenever it changes (e.g. after async load or settings update)
+  useEffect(() => {
+    dispatch({ type: 'SYNC_PROFILE', profile });
+  }, [profile]);
 
   // Sync live wearable data from HealthKit into scoring engine
   useEffect(() => {
@@ -223,4 +231,37 @@ export function useHealthData(): HealthContextValue {
   const ctx = useContext(HealthContext);
   if (!ctx) throw new Error('useHealthData must be used within HealthProvider');
   return ctx;
+}
+
+// ─── Standalone date-scoped actuals fetcher ───────────────────────────────────
+
+export async function fetchActualsForDate(dateStr: string): Promise<DailyActuals> {
+  const waterKey = `@titrahealth_water_${dateStr}`;
+  const storedWater = await AsyncStorage.getItem(waterKey);
+  const waterMl = storedWater ? parseFloat(storedWater) : 0;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { proteinG: 0, waterMl, fiberG: 0, steps: 0, injectionLogged: false };
+  }
+
+  const nextDay = new Date(dateStr);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+  const [foodRes, actRes, injRes] = await Promise.all([
+    supabase.from('food_logs').select('protein_g,fiber_g')
+      .eq('user_id', user.id).gte('logged_at', dateStr).lt('logged_at', nextDayStr),
+    supabase.from('activity_logs').select('steps')
+      .eq('user_id', user.id).eq('date', dateStr),
+    supabase.from('injection_logs').select('injection_date')
+      .eq('user_id', user.id).eq('injection_date', dateStr).limit(1),
+  ]);
+
+  const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
+  const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+  const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
+  const injectionLogged = (injRes.data ?? []).length > 0;
+
+  return { proteinG, fiberG, steps, waterMl, injectionLogged };
 }

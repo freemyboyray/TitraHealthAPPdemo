@@ -12,10 +12,12 @@ A behavior-guidance and tracking app for people on GLP-1 medications (Ozempic, W
 - **Lifestyle Effectiveness Score** — two animated score rings (Recovery + GLP-1 Amplifier) driven by real daily data
 - **Personalized targets** — Mifflin-St Jeor BMR + evidence-based macro/hydration goals auto-calculated from your profile
 - **Side-effect adjustment engine** — 13 GLP-1 side effects dynamically adjust daily nutrition and activity targets (severity + recency weighted)
-- **Drug-aware PK chart** — FDA-sourced Bateman-equation pharmacokinetic model for all 6 GLP-1 drug classes (weekly, daily injectable, daily oral)
+- **Drug-aware PK chart** — FDA-sourced Bateman-equation pharmacokinetic model for all 6 GLP-1 drug classes; 28-point smooth cycle curve with cycle-anchored x-axis labels and a real-time "NOW" marker showing your current concentration position
 - **AI coaching** — GPT-4o-mini contextual insights, coach notes, and food parsing with full health context
 - **Food logging** — describe (AI NLP), photo (GPT-4o-mini vision), barcode scan (USDA), or search (USDA FoodData Central)
 - **14-screen onboarding** — collects full metabolic profile, medication details, goals, and activity level
+- **Accurate medication display** — brand name (e.g., "Mounjaro®") shown throughout; profile changes in Settings immediately update the PK chart drug and half-life
+- **Smart focus cards** — phase-weighted daily focuses with completion state (strikethrough + orange checkmark when hit; plain gray ring when not)
 - **Light/dark mode** — persistent app-wide theme with orange `#FF742A` brand accent unchanged in both modes
 - **Google + Apple Sign In** — OAuth via `expo-auth-session` + Supabase Auth
 

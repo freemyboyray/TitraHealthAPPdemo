@@ -290,6 +290,8 @@ export function AiChatOverlay() {
 
   // ─── Image pickers ────────────────────────────────────────────────────────
   async function handlePickCamera() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'] as any,
       base64: true,
@@ -301,6 +303,8 @@ export function AiChatOverlay() {
   }
 
   async function handlePickLibrary() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'] as any,
       base64: true,
@@ -349,8 +353,11 @@ export function AiChatOverlay() {
       if (userId) {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
       }
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach AI. Check your connection and try again.' }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error && err.message.includes('not set')
+        ? 'AI not configured. Restart the dev server with: npx expo start --clear'
+        : 'Unable to reach AI. Check your connection and try again.';
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);

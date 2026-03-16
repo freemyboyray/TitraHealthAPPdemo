@@ -169,21 +169,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         active_calories_target:  baseTargets.activeMinutes * 3, // ~3 cal/min
       }, { onConflict: 'user_id' });
 
-      // 3. Insert first injection_log from lastInjectionDate (fire-and-forget)
-      if (complete.lastInjectionDate) {
-        supabase.from('injection_logs').insert({
-          user_id:        user.id,
-          dose_mg:        complete.doseMg,
-          injection_date: complete.lastInjectionDate,
-          notes:          'Logged during onboarding setup',
-        }).then(() => {});
-      }
     }
   };
 
   const updateProfile = async (fields: Partial<FullUserProfile>) => {
     if (!profile) return;
-    const updated: FullUserProfile = { ...profile, ...fields };
+    const derived = computeProfileDerivedMetrics(fields);
+    const updated: FullUserProfile = { ...profile, ...fields, ...derived };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setProfile(updated);
 
@@ -191,14 +183,50 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const row: Record<string, any> = {};
-      if (fields.doseMg          !== undefined) row.dose_mg           = fields.doseMg;
-      if (fields.glp1Type        !== undefined) row.medication_type   = fields.glp1Type;
-      if (fields.medicationBrand !== undefined) row.medication_brand  = fields.medicationBrand;
-      if (fields.goalWeightLbs   !== undefined) row.goal_weight_lbs   = fields.goalWeightLbs;
-      if (fields.goalWeightKg    !== undefined) row.goal_weight_lbs   = Math.round(fields.goalWeightKg / 0.453592);
-      if (fields.routeOfAdministration !== undefined) row.route_of_administration = fields.routeOfAdministration;
+      if (fields.doseMg                  !== undefined) row.dose_mg                  = fields.doseMg;
+      if (fields.glp1Type                !== undefined) row.medication_type           = fields.glp1Type;
+      if (fields.medicationBrand         !== undefined) row.medication_brand          = fields.medicationBrand;
+      if (fields.routeOfAdministration   !== undefined) row.route_of_administration   = fields.routeOfAdministration;
+      if (fields.glp1Status              !== undefined) row.glp1_status               = fields.glp1Status;
+      if (fields.initialDoseMg           !== undefined) row.initial_dose_mg           = fields.initialDoseMg;
+      if (fields.injectionFrequencyDays  !== undefined) row.injection_frequency_days  = fields.injectionFrequencyDays;
+      if (fields.doseStartDate           !== undefined) row.dose_start_date           = fields.doseStartDate;
+      if (fields.sex                     !== undefined) row.sex                       = fields.sex;
+      if (fields.birthday                !== undefined) row.dob                       = fields.birthday;
+      if (fields.unitSystem              !== undefined) row.unit_system               = fields.unitSystem;
+      if (fields.activityLevel           !== undefined) row.activity_level            = fields.activityLevel;
+      if (fields.targetWeeklyLossLbs     !== undefined) row.target_weekly_loss_lbs    = fields.targetWeeklyLossLbs;
+      if (fields.goalWeightLbs           !== undefined) row.goal_weight_lbs           = fields.goalWeightLbs;
+      else if (fields.goalWeightKg       !== undefined) row.goal_weight_lbs           = Math.round(fields.goalWeightKg / 0.453592);
+      // weightLbs / startWeightLbs both map to start_weight_lbs — prefer weightLbs
+      if (fields.weightLbs               !== undefined) row.start_weight_lbs          = fields.weightLbs;
+      else if (fields.startWeightLbs     !== undefined) row.start_weight_lbs          = fields.startWeightLbs;
+      else if (fields.weightKg           !== undefined) row.start_weight_lbs          = Math.round(fields.weightKg * 2.20462);
+      // height — trigger if any height field appears
+      if (fields.heightFt !== undefined || fields.heightIn !== undefined || fields.heightCm !== undefined) {
+        row.height_inches = updated.heightFt * 12 + updated.heightIn;
+      }
+
       if (Object.keys(row).length > 0) {
         await supabase.from('profiles').update(row).eq('id', user.id);
+      }
+
+      // Recompute user_goals when nutrition-affecting fields change
+      const NUTRITION_AFFECTING = new Set([
+        'heightFt','heightIn','heightCm','weightLbs','weightKg','startWeightLbs',
+        'activityLevel','goalWeightLbs','goalWeightKg','targetWeeklyLossLbs',
+        'sex','birthday',
+      ]);
+      if (Object.keys(fields).some(k => NUTRITION_AFFECTING.has(k))) {
+        const baseTargets = computeBaseTargets(updated);
+        await supabase.from('user_goals').upsert({
+          user_id:                user.id,
+          daily_protein_g_target: baseTargets.proteinG,
+          daily_fiber_g_target:   baseTargets.fiberG,
+          daily_steps_target:     baseTargets.steps,
+          daily_calories_target:  baseTargets.caloriesTarget,
+          active_calories_target: baseTargets.activeMinutes * 3,
+        }, { onConflict: 'user_id' });
       }
     }
   };

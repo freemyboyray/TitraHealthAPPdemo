@@ -99,7 +99,6 @@ const activeCaloriesMap: Record<ActivityLevel, number> = {
 
 export function getDailyTargets(
   profile: FullUserProfile,
-  daysSinceShot: number,
   opts?: {
     programPhase?: ProgramPhase;
     baseCaloriesTarget?: number;
@@ -155,9 +154,8 @@ export function getDailyTargets(
   else if (profile.doseMg >= 5) waterOz *= 1.1;
   const waterMl = Math.round(waterOz * 29.5735);
 
-  // Fiber: lower during shot/peak phases — high fiber worsens GI side effects during titration
-  let fiberG = 30;
-  if (daysSinceShot <= 3) fiberG = Math.max(20, fiberG - 5);
+  // Fiber: flat 30g — shot cycle does not affect fiber target
+  const fiberG = 30;
 
   // Steps: activity level driven, with maintenance boost to counter metabolic adaptation
   let steps = stepsMap[profile.activityLevel] ?? 8000;
@@ -805,7 +803,6 @@ export type FocusItem = {
   id: FocusCategory;
   label: string;
   subtitle: string;
-  badge: string;
   status: 'completed' | 'active' | 'pending';
   iconName: string;
   iconSet: 'MaterialIcons' | 'Ionicons';
@@ -872,55 +869,47 @@ function buildFocusItem(
       return {
         id: 'injection', label: 'Log Your Injection',
         subtitle: 'Keep your shot cycle accurate',
-        badge: '+15 pts', iconName: 'colorize', iconSet: 'MaterialIcons',
+        iconName: 'colorize', iconSet: 'MaterialIcons',
         status,
       };
     case 'hydration': {
       const pct = Math.round(actuals.waterMl / targets.waterMl * 100);
       const remainOz = Math.round(Math.max(0, targets.waterMl - actuals.waterMl) / 29.57);
-      const pts = Math.round(20 * Math.max(0, 1 - actuals.waterMl / targets.waterMl));
       return {
         id: 'hydration',
         label: remainOz > 0 ? `Drink ${remainOz}oz more water` : 'Hit your hydration goal',
         subtitle: `${pct}% of daily target${phase === 'peak' ? ' · Electrolytes critical today' : phaseNote}`,
-        badge: pts > 0 ? `+${pts} pts` : 'On Track',
         iconName: 'water-outline', iconSet: 'Ionicons',
         status,
       };
     }
     case 'protein': {
       const remainG = Math.round(Math.max(0, targets.proteinG - actuals.proteinG));
-      const pts = Math.round(30 * Math.max(0, 1 - actuals.proteinG / targets.proteinG));
       const tip = phase === 'shot' ? ' · Try a protein shake today' : '';
       return {
         id: 'protein',
         label: remainG > 0 ? `Add ${remainG}g protein today` : 'Protein goal reached',
         subtitle: `Preserves lean muscle on GLP-1${tip}`,
-        badge: pts > 0 ? `+${pts} pts` : 'Complete',
         iconName: 'restaurant', iconSet: 'MaterialIcons',
         status,
       };
     }
     case 'fiber': {
       const remainG = Math.round(Math.max(0, targets.fiberG - actuals.fiberG));
-      const pts = Math.round(15 * Math.max(0, 1 - actuals.fiberG / targets.fiberG));
       return {
         id: 'fiber',
         label: remainG > 0 ? `Get ${remainG}g more fiber` : 'Fiber goal complete',
         subtitle: `Supports digestion · ${targets.fiberG}g daily target`,
-        badge: pts > 0 ? `+${pts} pts` : 'Complete',
         iconName: 'eco', iconSet: 'MaterialIcons',
         status,
       };
     }
     case 'activity': {
       const remainSteps = Math.max(0, targets.steps - actuals.steps);
-      const pts = Math.round(20 * Math.max(0, 1 - actuals.steps / targets.steps));
       return {
         id: 'activity',
         label: remainSteps > 500 ? `Walk ${remainSteps.toLocaleString()} more steps` : '15-min walk',
         subtitle: `${actuals.steps.toLocaleString()} of ${targets.steps.toLocaleString()} steps today`,
-        badge: pts > 0 ? `+${pts} pts` : 'Goal Met',
         iconName: 'directions-walk', iconSet: 'MaterialIcons',
         status,
       };
@@ -932,7 +921,6 @@ function buildFocusItem(
         id: 'sleep',
         label: 'Prioritize sleep tonight',
         subtitle: `Last night: ${hrs}h · Aim for 7–9h${phaseNote}`,
-        badge: 'Sleep Focus',
         iconName: 'moon-outline', iconSet: 'Ionicons',
         status,
       };
@@ -945,7 +933,6 @@ function buildFocusItem(
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
           ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '—'}`
           : 'Connect Apple Health to see recovery details',
-        badge: 'Recovery',
         iconName: 'favorite-border', iconSet: 'MaterialIcons',
         status,
       };
@@ -955,7 +942,6 @@ function buildFocusItem(
         id: 'rest',
         label: 'Rest & recover today',
         subtitle: 'Peak GLP-1 day — light movement only',
-        badge: 'Phase Rest',
         iconName: 'self-improvement', iconSet: 'MaterialIcons',
         status,
       };
@@ -1176,7 +1162,6 @@ export function computeRollingAdherenceScore(params: {
     // Get phase-aware targets for this day
     const targets = getDailyTargets(
       profile as unknown as FullUserProfile,
-      daySinceShot,
       { programPhase: programPhase as ProgramPhase },
     );
 

@@ -1,22 +1,18 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, LayoutChangeEvent, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { ActivityIndicator, FlatList, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 
 import { GlassBorder } from '@/components/ui/glass-border';
-import { useHealthData } from '@/contexts/health-data';
+import { fetchActualsForDate, useHealthData } from '@/contexts/health-data';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import {
   daysSinceInjection,
+  generateFocuses,
   generateInsights,
-  recoveryGradient,
-  recoveryMessage,
-  supportGradient,
-  supportMessage,
+  type DailyActuals,
   type ShotPhase,
   type SideEffectIndex,
 } from '@/constants/scoring';
@@ -32,6 +28,7 @@ import { useLogStore } from '@/stores/log-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { usePreferencesStore } from '@/stores/preferences-store';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -89,8 +86,6 @@ const createMbStyles = (c: AppColors) => {
     },
   });
 };
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -268,63 +263,6 @@ const seb = StyleSheet.create({
   text: { fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue' },
 });
 
-// ─── Dual Ring Arc ────────────────────────────────────────────────────────────
-
-type DualRingArcProps = {
-  recoveryScore: number | null;
-  supportScore: number;
-};
-
-function DualRingArc({ recoveryScore, supportScore }: DualRingArcProps) {
-  const { colors } = useAppTheme();
-  const SVG_SIZE = 500;
-  const cx = 250, cy = 250;
-  const OUTER_R = 155, INNER_R = 103, SW = 38;
-  const outerCirc = 2 * Math.PI * OUTER_R;
-  const innerCirc = 2 * Math.PI * INNER_R;
-  const outerQuart = outerCirc / 4;
-  const innerQuart = innerCirc / 4;
-
-  const outerOffset = useSharedValue(outerQuart);
-  const innerOffset = useSharedValue(innerQuart);
-
-  useEffect(() => {
-    // When recovery is null (no wearable data), keep outer ring at 0% fill (full dash offset = full circle = empty)
-    outerOffset.value = withTiming(recoveryScore != null ? outerQuart * (1 - recoveryScore / 100) : outerQuart, {
-      duration: 1200,
-      easing: Easing.out(Easing.cubic),
-    });
-    innerOffset.value = withTiming(innerQuart * (1 - supportScore / 100), {
-      duration: 1200,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [recoveryScore, supportScore]);
-
-  const outerProps = useAnimatedProps(() => ({ strokeDashoffset: outerOffset.value }));
-  const innerProps = useAnimatedProps(() => ({ strokeDashoffset: innerOffset.value }));
-
-  return (
-    <Svg width={SVG_SIZE} height={SVG_SIZE}>
-      <Circle cx={cx} cy={cy} r={OUTER_R} strokeWidth={SW} stroke={colors.ringTrack} fill="none" opacity={1} />
-      <Circle cx={cx} cy={cy} r={INNER_R} strokeWidth={SW} stroke={colors.ringTrack} fill="none" opacity={1} />
-      <AnimatedCircle
-        cx={cx} cy={cy} r={OUTER_R} fill="none"
-        stroke="#FF742A" strokeWidth={SW} strokeLinecap="round"
-        strokeDasharray={outerQuart} animatedProps={outerProps}
-        rotation="-90" origin={`${cx}, ${cy}`}
-        opacity={recoveryScore === 0 ? 0 : 1}
-      />
-      <AnimatedCircle
-        cx={cx} cy={cy} r={INNER_R} fill="none"
-        stroke={colors.textPrimary} strokeWidth={SW} strokeLinecap="round"
-        strokeDasharray={innerQuart} animatedProps={innerProps}
-        rotation="-90" origin={`${cx}, ${cy}`}
-        opacity={supportScore === 0 ? 0 : 1}
-      />
-    </Svg>
-  );
-}
-
 // ─── Local date helpers ───────────────────────────────────────────────────────
 
 function sameDay(a: Date, b: Date): boolean {
@@ -345,15 +283,24 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
+function isProjectedShot(lastDate: string | null, freqDays: number, target: Date): boolean {
+  if (!lastDate) return false;
+  const diff = Math.round((target.getTime() - new Date(lastDate).getTime()) / 86400000);
+  return diff > 0 && diff % freqDays === 0;
+}
+
 // ─── Calendar Dropdown ────────────────────────────────────────────────────────
 
 type CalendarDropdownProps = {
   selectedDate: Date;
   onSelect: (date: Date) => void;
   top: number;
+  minDate: Date;
+  lastInjectionDate?: string | null;
+  injectionFrequencyDays?: number;
 };
 
-function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps) {
+function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionDate, injectionFrequencyDays = 7 }: CalendarDropdownProps) {
   const { colors } = useAppTheme();
   const cal = useMemo(() => createCalStyles(colors), [colors]);
   const today = new Date();
@@ -411,15 +358,24 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
               const date  = new Date(viewYear, viewMonth, day);
               const isSel = sameDay(date, selectedDate);
               const isTod = sameDay(date, today);
-              const isFut = date > today && !isTod;
+              // Block dates before program start (not today)
+              const isPre = !isTod && date < minDate;
+              // Injection day dot: projected based on last injection date + frequency
+              const isInjDay = lastInjectionDate
+                ? (() => {
+                    const diff = Math.round((date.getTime() - new Date(lastInjectionDate).getTime()) / 86400000);
+                    return diff >= 0 && diff % injectionFrequencyDays === 0;
+                  })()
+                : false;
               return (
-                <Pressable key={di} style={cal.cell} onPress={() => onSelect(date)}>
+                <Pressable key={di} style={cal.cell} onPress={() => { if (!isPre) onSelect(date); }}>
                   <View style={[cal.dayCircle, isSel && cal.daySelected]}>
-                    <Text style={[cal.dayNum, isSel && cal.dayNumSel, isFut && cal.dayFuture]}>
+                    <Text style={[cal.dayNum, isSel && cal.dayNumSel, isPre && cal.dayFuture]}>
                       {day}
                     </Text>
                   </View>
                   {isTod && !isSel && <View style={cal.todayDot} />}
+                  {isInjDay && !isSel && !isTod && <View style={cal.injDot} />}
                 </Pressable>
               );
             })}
@@ -430,248 +386,6 @@ function CalendarDropdown({ selectedDate, onSelect, top }: CalendarDropdownProps
   );
 }
 
-
-// ─── Rings Explainer Modal ────────────────────────────────────────────────────
-
-function RingsExplainerModal({ onClose }: { onClose: () => void }) {
-  const { colors } = useAppTheme();
-  const em = useMemo(() => createEmStyles(colors), [colors]);
-  return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <View style={em.overlay}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-        <View style={em.sheet}>
-          <View style={em.handle} />
-
-          {/* Header */}
-          <View style={em.header}>
-            <Text style={em.title}>How Your Rings Work</Text>
-            <Pressable onPress={onClose} style={em.closeBtn} hitSlop={10}>
-              <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
-            </Pressable>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={em.scrollContent}>
-
-            {/* Recovery Ring */}
-            <View style={em.section}>
-              <View style={em.sectionHeader}>
-                <View style={[em.dot, { backgroundColor: '#FF742A' }]} />
-                <Text style={em.sectionTitle}>Readiness Ring (Orange)</Text>
-              </View>
-              <View style={em.metricList}>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Sleep</Text>
-                  <Text style={em.metricDesc}>GLP-1 can disrupt sleep cycles — quality rest is critical for medication effectiveness and appetite regulation.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>HRV</Text>
-                  <Text style={em.metricDesc}>Heart rate variability reflects your nervous system's recovery. GLP-1 medications temporarily lower HRV near injection day — scores are phase-adjusted.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Resting HR</Text>
-                  <Text style={em.metricDesc}>A lower resting heart rate indicates good cardiovascular recovery. Peak phase (days 3–4) may cause a slight elevation due to medication activity.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>SpO₂</Text>
-                  <Text style={em.metricDesc}>Blood oxygen saturation above 95% ensures your muscles and brain are properly fueled during GLP-1-driven metabolic changes.</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={em.divider} />
-
-            {/* Readiness Ring */}
-            <View style={em.section}>
-              <View style={em.sectionHeader}>
-                <View style={[em.dot, { backgroundColor: colors.textPrimary }]} />
-                <Text style={em.sectionTitle}>Routine Ring (White)</Text>
-              </View>
-              <View style={em.metricList}>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Protein</Text>
-                  <Text style={em.metricDesc}>GLP-1 reduces appetite — hitting your protein target prevents muscle loss while your body composition changes.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Hydration</Text>
-                  <Text style={em.metricDesc}>Semaglutide and tirzepatide increase the risk of dehydration. Staying hydrated reduces nausea and supports kidney function.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Movement</Text>
-                  <Text style={em.metricDesc}>Daily steps amplify GLP-1's metabolic effect and offset the muscle loss risk from reduced calorie intake.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Fiber</Text>
-                  <Text style={em.metricDesc}>Fiber slows gastric emptying in sync with your medication and supports gut microbiome health for better outcomes.</Text>
-                </View>
-                <View style={em.metricRow}>
-                  <Text style={em.metricName}>Medication</Text>
-                  <Text style={em.metricDesc}>Logging your injection unlocks the full 15-point bonus and enables phase-aware scoring and coaching throughout your cycle.</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={em.divider} />
-
-            {/* Shot Phase Guide */}
-            <View style={em.section}>
-              <Text style={[em.sectionTitle, { marginBottom: 14 }]}>Shot Phase Guide</Text>
-              <View style={em.phaseList}>
-                <View style={em.phaseRow}>
-                  <Text style={em.phaseEmoji}>💉</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={em.phaseName}>Shot Day</Text>
-                    <Text style={em.phaseDesc}>Log your injection and focus on protein + hydration. Your body begins absorbing the dose in the first 12–24 hours.</Text>
-                  </View>
-                </View>
-                <View style={em.phaseRow}>
-                  <Text style={em.phaseEmoji}>⚡</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={em.phaseName}>Peak Phase (Days 3–4)</Text>
-                    <Text style={em.phaseDesc}>Medication is at peak blood concentration. Nausea is most common here — prioritize light meals, hydration, and gentle movement.</Text>
-                  </View>
-                </View>
-                <View style={em.phaseRow}>
-                  <Text style={em.phaseEmoji}>⚖️</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={em.phaseName}>Balance Phase (Days 5–6)</Text>
-                    <Text style={em.phaseDesc}>Medication levels are stabilizing. Appetite usually improves — a good time to focus on hitting all nutrition targets.</Text>
-                  </View>
-                </View>
-                <View style={[em.phaseRow, { borderBottomWidth: 0 }]}>
-                  <Text style={em.phaseEmoji}>🔄</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={em.phaseName}>Reset Phase (Day 7)</Text>
-                    <Text style={em.phaseDesc}>Medication is tapering toward your next shot. Maintain consistency to keep momentum until the next cycle begins.</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ height: 8 }} />
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const createEmStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  return StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: c.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 0.5,
-    borderColor: c.ringTrack,
-    maxHeight: '88%',
-    paddingBottom: 0,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: w(0.2),
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: c.borderSubtle,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: c.textPrimary,
-    letterSpacing: -0.3,
-    fontFamily: FF,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: c.borderSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  section: { marginBottom: 4 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: c.textPrimary,
-    fontFamily: FF,
-  },
-  metricList: { gap: 12 },
-  metricRow: {
-    flexDirection: 'column',
-    gap: 2,
-  },
-  metricName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FF742A',
-    fontFamily: FF,
-  },
-  metricDesc: {
-    fontSize: 13,
-    color: w(0.55),
-    lineHeight: 19,
-    fontFamily: FF,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: c.borderSubtle,
-    marginVertical: 20,
-  },
-  phaseList: { gap: 0 },
-  phaseRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: w(0.06),
-  },
-  phaseEmoji: { fontSize: 20, lineHeight: 26 },
-  phaseName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.textPrimary,
-    marginBottom: 2,
-    fontFamily: FF,
-  },
-  phaseDesc: {
-    fontSize: 13,
-    color: w(0.50),
-    lineHeight: 19,
-    fontFamily: FF,
-  },
-  });
-};
 
 // ─── Focus Timeline Sub-components ───────────────────────────────────────────
 
@@ -700,13 +414,6 @@ function StatusIndicator({ status }: { status: 'completed' | 'active' | 'pending
       </View>
     );
   }
-  if (status === 'active') {
-    return (
-      <View style={s.indicatorActive}>
-        <PulsingDot />
-      </View>
-    );
-  }
   return <View style={s.indicatorEmpty} />;
 }
 
@@ -731,6 +438,7 @@ export default function HomeScreen() {
   const healthData = useHealthData();
   const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
   const hkStore = useHealthKitStore();
+  const { appleHealthEnabled } = usePreferencesStore();
 
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
@@ -740,10 +448,11 @@ export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [showHelp, setShowHelp] = useState(false);
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
+  const [historicalActuals, setHistoricalActuals] = useState<DailyActuals | null>(null);
+  const [isLoadingDate, setIsLoadingDate] = useState(false);
 
   useFocusEffect(useCallback(() => {
     hkStore.fetchAll();
@@ -770,9 +479,6 @@ export default function HomeScreen() {
       }).filter(f => !dismissedFlags.includes(f.type))
     : [];
 
-  const recovGrad = recoveryScore != null ? recoveryGradient(recoveryScore) : { start: 'rgba(255,116,42,0.2)', end: 'rgba(255,116,42,0.1)' };
-  const suppGrad  = supportGradient(supportScore);
-
   const staticInsights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
 
   useEffect(() => {
@@ -789,9 +495,27 @@ export default function HomeScreen() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
+  // Fetch historical actuals when user navigates to a past date
+  useEffect(() => {
+    const now = new Date();
+    const todayQ = sameDay(selectedDate, now);
+    const futureQ = !todayQ && selectedDate > now;
+    if (todayQ || futureQ) {
+      setHistoricalActuals(null);
+      setIsLoadingDate(false);
+      return;
+    }
+    setIsLoadingDate(true);
+    fetchActualsForDate(selectedDate.toISOString().slice(0, 10))
+      .then(setHistoricalActuals)
+      .catch(() => setHistoricalActuals(null))
+      .finally(() => setIsLoadingDate(false));
+  }, [selectedDate]);
+
   const today   = new Date();
   const isToday = sameDay(selectedDate, today);
   const isFuture = !isToday && selectedDate > today;
+  const isPast = !isToday && !isFuture;
 
   const dateLabel = isToday
     ? `Today, ${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`
@@ -808,6 +532,34 @@ export default function HomeScreen() {
     profile.glp1Type ?? 'semaglutide',
   );
   const phaseOverdue = dayNum > freq;
+
+  // ── Date-scoped display values ──────────────────────────────────────────────
+  const ZERO_ACTUALS: DailyActuals = { proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, injectionLogged: false };
+
+  const displayActuals: DailyActuals = isToday
+    ? actuals
+    : (historicalActuals ?? ZERO_ACTUALS);
+
+  const displayFocuses = isToday
+    ? focuses
+    : generateFocuses(displayActuals, targets, {}, dayNum);
+
+  const isProjectedInjectionDay = isFuture
+    ? isProjectedShot(profile.lastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate)
+    : displayActuals.injectionLogged;
+
+  const focusSectionLabel = isToday
+    ? "Today's Focuses"
+    : isFuture
+      ? `Planned for ${weekday}`
+      : `${weekday}'s Focuses`;
+
+  // Block all past dates until the user has at least one logged entry.
+  // A fresh user has no reason to navigate back — there's nothing there.
+  const hasAnyLogs = logStore.injectionLogs.length > 0 || logStore.foodLogs.length > 0;
+  const calMinDate = hasAnyLogs
+    ? (profile.startDate ? new Date(profile.startDate) : today)
+    : today;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -828,25 +580,19 @@ export default function HomeScreen() {
                 style={{ marginLeft: 6, marginTop: 2 }}
               />
             </Pressable>
-            <Pressable style={s.helpBtn} onPress={() => setShowHelp(true)} hitSlop={12}>
-              <Ionicons name="help-circle-outline" size={26} color={colors.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'} />
-            </Pressable>
           </View>
           <Text style={s.weekday}>{weekday}</Text>
-          {plan && (
-            <MedicationBanner
-              glp1Type={profile.glp1Type ?? 'semaglutide'}
-              doseMg={profile.doseMg ?? 0}
-              medicationName={(logStore.injectionLogs[0] as any)?.medication_name ?? null}
-              programWeek={plan.programWeek}
-              startDate={profile.startDate ?? new Date().toISOString().split('T')[0]}
-            />
-          )}
-          <Text style={[s.phaseLabel, phaseOverdue && { color: '#E53E3E' }, { marginTop: 6 }]}>{phaseLabel}</Text>
           {plan?.sideEffectIndex && plan.sideEffectIndex.level !== 'none' && (
             <SideEffectBadge index={plan.sideEffectIndex} />
           )}
-          {isFuture && <Text style={s.futureNote}>No data yet — showing targets</Text>}
+          {isFuture && <Text style={s.futureNote}>Projected plan — nothing logged yet</Text>}
+          {isPast && isLoadingDate && <ActivityIndicator size="small" color={ORANGE} style={{ marginTop: 6 }} />}
+          {isPast && !isLoadingDate && historicalActuals !== null &&
+            historicalActuals.proteinG === 0 && historicalActuals.fiberG === 0 &&
+            historicalActuals.steps === 0 && !historicalActuals.injectionLogged &&
+            historicalActuals.waterMl === 0 &&
+            <Text style={s.futureNote}>No entries logged for this day</Text>
+          }
         </View>
 
         {/* ── Calendar dropdown overlay ── */}
@@ -855,6 +601,9 @@ export default function HomeScreen() {
             selectedDate={selectedDate}
             onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
             top={headerHeight}
+            minDate={calMinDate}
+            lastInjectionDate={profile.lastInjectionDate}
+            injectionFrequencyDays={profile.injectionFrequencyDays}
           />
         )}
 
@@ -864,54 +613,6 @@ export default function HomeScreen() {
           onScroll={onScroll}
           scrollEventThrottle={16}
         >
-
-          {/* ── Score Card ── */}
-          <View style={[s.cardWrap, { marginBottom: 16 }]}>
-            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
-              {/* ── Ring + Info panel section ── */}
-              <View style={{ height: 220 }}>
-                {/* Concentric rings anchored to bottom-left corner */}
-                <View style={s.ringsWrap} pointerEvents="none">
-                  <DualRingArc recoveryScore={recoveryScore} supportScore={supportScore} />
-                </View>
-
-                {/* Info panel — right side */}
-                <View style={s.infoPanel}>
-                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=recovery')}>
-                    <View style={s.infoLabelRow}>
-                      <View style={[s.infoDot, { backgroundColor: '#FF742A' }]} />
-                      <Text style={s.infoLabel}>READINESS</Text>
-                    </View>
-                    <View style={s.infoScoreRow}>
-                      {recoveryScore != null ? (
-                        <>
-                          <Text style={s.infoScore}>{recoveryScore}</Text>
-                          <Text style={s.infoDenom}>/100</Text>
-                        </>
-                      ) : (
-                        <Text style={[s.infoScore, { color: colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)', fontSize: 36 }]}>—</Text>
-                      )}
-                    </View>
-                  </Pressable>
-
-                  <View style={s.infoDiv} />
-
-                  <Pressable style={s.infoRow} onPress={() => router.push('/score-detail?type=routine')}>
-                    <View style={s.infoLabelRow}>
-                      <View style={[s.infoDot, { backgroundColor: colors.textPrimary }]} />
-                      <Text style={s.infoLabel}>ROUTINE</Text>
-                    </View>
-                    <View style={s.infoScoreRow}>
-                      <Text style={s.infoScore}>{plan?.adherenceScore ?? supportScore}</Text>
-                      <Text style={s.infoDenom}>/100</Text>
-                    </View>
-                  </Pressable>
-                </View>
-              </View>
-
-
-            </View>
-          </View>
 
           {/* ── Phase Focus Hint ── */}
           {plan && buildDynamicFocusHint(plan) !== '' && (
@@ -1049,20 +750,30 @@ export default function HomeScreen() {
             />
           ))}
 
+          {/* ── Shot Day Banner (future projected injection days) ── */}
+          {isFuture && isProjectedInjectionDay && (
+            <View style={[s.phaseBanner, { marginBottom: 12 }]}>
+              <View>
+                <Text style={s.phaseDisplayName}>Shot Day</Text>
+                <Text style={s.phaseFocus}>Projected injection day based on your schedule</Text>
+              </View>
+            </View>
+          )}
+
           {/* ── Today's Focuses ── */}
           <View style={s.focusCard}>
             <View style={s.focusCardInner}>
               {/* Header */}
               <View style={s.focusCardHeader}>
-                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Today's Focuses</Text>
+                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>{focusSectionLabel}</Text>
                 <View style={s.focusCountBadge}>
-                  <Text style={s.focusCountText}>{(focuses ?? []).length} Tasks</Text>
+                  <Text style={s.focusCountText}>{(displayFocuses ?? []).length} Tasks</Text>
                 </View>
               </View>
 
               {/* Timeline items — tap any to open AI chat with context */}
-              {(focuses ?? []).map((item, index) => {
-                const isLast = index === (focuses ?? []).length - 1;
+              {(displayFocuses ?? []).map((item, index) => {
+                const isLast = index === (displayFocuses ?? []).length - 1;
                 const handleFocusPress = () => {
                   openAiChat({ type: 'focus', contextLabel: item.label, contextValue: item.subtitle, chips: JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']) });
                 };
@@ -1073,15 +784,16 @@ export default function HomeScreen() {
                       <StatusIndicator status={item.status} />
                       {!isLast && <TimelineLine status={item.status} />}
                     </View>
-                    {/* Right: label + subtitle + badge */}
+                    {/* Right: label + subtitle */}
                     <View style={[s.focusContent, !isLast && s.focusContentSpaced]}>
-                      <Text style={[s.focusLabel, item.status === 'pending' && s.focusLabelMuted]}>
+                      <Text style={[
+                        s.focusLabel,
+                        item.status === 'pending' && s.focusLabelMuted,
+                        item.status === 'completed' && s.focusLabelDone,
+                      ]}>
                         {item.label}
                       </Text>
                       <Text style={s.focusSubtitle}>{item.subtitle}</Text>
-                      <View style={s.badge}>
-                        <Text style={s.badgeText}>{item.badge}</Text>
-                      </View>
                     </View>
                   </Pressable>
                 );
@@ -1140,52 +852,74 @@ export default function HomeScreen() {
           <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Monitor</Text>
           <View style={s.hmGrid}>
             {((): HealthMetric[] => {
-              const hkRhr   = hkStore.restingHR;
-              const hkHrv   = hkStore.hrv;
-              const hkSleep = hkStore.sleepHours;
-              const rhrVal  = hkRhr   ?? wearable.restingHR ?? 62;
-              const hrvVal  = hkHrv   ?? wearable.hrvMs ?? 45;
-              const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : (wearable.sleepMinutes ?? 0);
+              const hkRhr   = appleHealthEnabled ? hkStore.restingHR   : null;
+              const hkHrv   = appleHealthEnabled ? hkStore.hrv         : null;
+              const hkSleep = appleHealthEnabled ? hkStore.sleepHours  : null;
+              const hkGlucose = appleHealthEnabled ? hkStore.bloodGlucose : null;
+
+              const noData = !appleHealthEnabled;
+
+              const rhrVal  = hkRhr  ?? (noData ? null : wearable.restingHR);
+              const hrvVal  = hkHrv  ?? (noData ? null : wearable.hrvMs);
+              const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : (noData ? null : wearable.sleepMinutes);
+              const spo2Val = noData ? null : wearable.spo2Pct;
+              const respVal = noData ? null : wearable.respRateRpm;
 
               const metrics: HealthMetric[] = [
                 {
                   id: 'rrr', label: 'Resp. Rate',
-                  value: wearable.respRateRpm != null ? String(wearable.respRateRpm) : (hkRhr != null || hkHrv != null ? '—' : '16'),
-                  unit: 'bpm', status: 'normal', iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: 'Normal',
+                  value: respVal != null ? String(respVal) : 'No data',
+                  unit: respVal != null ? 'bpm' : '', status: 'normal',
+                  iconSet: 'MaterialIcons', iconName: 'air',
+                  rangeLabel: respVal != null ? 'Normal' : '—',
                 },
                 {
-                  id: 'rhr', label: 'Resting HR', value: String(rhrVal), unit: 'bpm',
-                  status: hmRhrStatus(rhrVal), iconSet: 'Ionicons', iconName: 'heart-outline',
-                  rangeLabel: hmRhrLabel(rhrVal) + (hkRhr != null ? ' ·  ' : ''),
+                  id: 'rhr', label: 'Resting HR',
+                  value: rhrVal != null ? String(rhrVal) : 'No data',
+                  unit: rhrVal != null ? 'bpm' : '',
+                  status: rhrVal != null ? hmRhrStatus(rhrVal) : 'normal',
+                  iconSet: 'Ionicons', iconName: 'heart-outline',
+                  rangeLabel: rhrVal != null ? hmRhrLabel(rhrVal) : '—',
                 },
                 {
-                  id: 'hrv', label: 'HRV', value: String(hrvVal), unit: 'ms',
-                  status: hmHrvStatus(hrvVal), iconSet: 'MaterialIcons', iconName: 'show-chart',
-                  rangeLabel: hmHrvLabel(hrvVal) + (hkHrv != null ? ' ·  ' : ''),
+                  id: 'hrv', label: 'HRV',
+                  value: hrvVal != null ? String(hrvVal) : 'No data',
+                  unit: hrvVal != null ? 'ms' : '',
+                  status: hrvVal != null ? hmHrvStatus(hrvVal) : 'normal',
+                  iconSet: 'MaterialIcons', iconName: 'show-chart',
+                  rangeLabel: hrvVal != null ? hmHrvLabel(hrvVal) : '—',
                 },
                 {
-                  id: 'spo2', label: 'SpO₂', value: String(wearable.spo2Pct ?? '—'), unit: wearable.spo2Pct != null ? '%' : '',
-                  status: hmSpo2Status(wearable.spo2Pct ?? 98), iconSet: 'MaterialIcons', iconName: 'bloodtype',
-                  rangeLabel: 'Normal',
+                  id: 'spo2', label: 'SpO₂',
+                  value: spo2Val != null ? String(spo2Val) : 'No data',
+                  unit: spo2Val != null ? '%' : '',
+                  status: spo2Val != null ? hmSpo2Status(spo2Val) : 'normal',
+                  iconSet: 'MaterialIcons', iconName: 'bloodtype',
+                  rangeLabel: spo2Val != null ? 'Normal' : '—',
                 },
                 {
-                  id: 'temp', label: 'Temp', value: '98.4', unit: '°F', status: 'normal',
-                  iconSet: 'MaterialIcons', iconName: 'thermostat', rangeLabel: 'Normal',
+                  id: 'temp', label: 'Temp',
+                  value: noData ? 'No data' : '98.4',
+                  unit: noData ? '' : '°F', status: 'normal',
+                  iconSet: 'MaterialIcons', iconName: 'thermostat',
+                  rangeLabel: noData ? '—' : 'Normal',
                 },
                 {
                   id: 'sleep', label: 'Sleep',
-                  value: fmtSleep(sleepMin),
-                  unit: '', status: hmSleepStatus(sleepMin), iconSet: 'Ionicons', iconName: 'moon-outline',
-                  rangeLabel: hmSleepLabel(sleepMin) + (hkSleep != null ? ' ·  ' : ''),
+                  value: sleepMin != null ? fmtSleep(sleepMin) : 'No data',
+                  unit: '',
+                  status: sleepMin != null ? hmSleepStatus(sleepMin) : 'normal',
+                  iconSet: 'Ionicons', iconName: 'moon-outline',
+                  rangeLabel: sleepMin != null ? hmSleepLabel(sleepMin) : '—',
                 },
               ];
 
-              if (hkStore.bloodGlucose != null) {
+              if (hkGlucose != null) {
                 metrics.push({
-                  id: 'glucose', label: 'Blood Glucose', value: String(hkStore.bloodGlucose), unit: 'mg/dL',
-                  status: hkStore.bloodGlucose < 100 ? 'good' : hkStore.bloodGlucose < 125 ? 'normal' : 'elevated',
+                  id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL',
+                  status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated',
                   iconSet: 'MaterialIcons', iconName: 'water-drop',
-                  rangeLabel: hkStore.bloodGlucose < 100 ? 'Normal' : hkStore.bloodGlucose < 125 ? 'Pre-range' : 'High',
+                  rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High',
                 });
               }
 
@@ -1194,9 +928,6 @@ export default function HomeScreen() {
           </View>
 
         </ScrollView>
-
-        {/* ── Rings Explainer Modal ── */}
-        {showHelp && <RingsExplainerModal onClose={() => setShowHelp(false)} />}
 
       </SafeAreaView>
     </View>
@@ -1214,91 +945,15 @@ const createStyles = (c: AppColors) => {
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   dateTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  helpBtn: { padding: 2 },
   dateTitle: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   weekday: { fontSize: 13, fontWeight: '500', color: c.textMuted, marginBottom: 4, fontFamily: 'Helvetica Neue' },
   phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
   futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Helvetica Neue' },
   connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Helvetica Neue' },
 
-  // Glass card containers
+  // Card containers
   cardWrap: { borderRadius: 28, ...glassShadow },
   cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
-
-  // Dark overlay
-  darkOverlay: { borderRadius: 28, backgroundColor: c.glassOverlay },
-
-  // Score card inner
-  scoreCard: { padding: 24 },
-  scoreCardTitle: { fontSize: 13, fontWeight: '600', color: c.textSecondary, letterSpacing: 0.3, textAlign: 'center', marginBottom: 18, fontFamily: 'Helvetica Neue' },
-
-  // Alert badge
-  alertBadge: {
-    marginTop: 14,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(229,62,62,0.10)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(229,62,62,0.25)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  alertText: { fontSize: 12, fontWeight: '700', color: '#E53E3E', fontFamily: 'Helvetica Neue' },
-
-  // Dual ring arc card
-  ringsWrap: {
-    position: 'absolute',
-    bottom: -250,
-    left: -250,
-  },
-  infoPanel: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    bottom: 16,
-    width: '44%',
-    backgroundColor: c.bg,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    borderColor: w(0.25),
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  infoRow: {
-    flexDirection: 'column',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  infoLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  infoDot: { width: 8, height: 8, borderRadius: 4 },
-  infoText: { flex: 1 },
-  infoLabel: {
-    fontSize: 11, fontWeight: '700', color: w(0.45),
-    letterSpacing: 1.4, fontFamily: 'Helvetica Neue',
-  },
-  infoScoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
-  infoScore: { fontSize: 36, fontWeight: '700', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Helvetica Neue' },
-  infoDenom: { fontSize: 20, fontWeight: '400', color: w(0.55), fontFamily: 'Helvetica Neue' },
-  infoMsg: { fontSize: 10, fontWeight: '600', marginTop: 3, fontFamily: 'Helvetica Neue' },
-  infoHint: { fontSize: 10, color: w(0.35), marginTop: 3, fontFamily: 'Helvetica Neue', lineHeight: 14 },
-  infoDiv: {
-    height: 0.5,
-    backgroundColor: w(0.15),
-    marginHorizontal: 14,
-  },
-
-  // Stats row
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statItemText: {},
-  statBold: { fontSize: 14, fontWeight: '800', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
-  statLight: { fontSize: 12, color: c.textMuted, fontWeight: '400', fontFamily: 'Helvetica Neue' },
-  statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#3A3735' },
 
   // Insights card
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -1331,19 +986,12 @@ const createStyles = (c: AppColors) => {
   focusContentSpaced: { paddingBottom: 28 },
   focusLabel: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   focusLabelMuted: { color: w(0.45) },
+  focusLabelDone: { color: w(0.35), textDecorationLine: 'line-through' },
   focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.45), marginTop: 3, lineHeight: 17, fontFamily: 'Helvetica Neue' },
   indicatorFilled: { width: 24, height: 24, borderRadius: 12, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  indicatorActive: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: w(0.35) },
+  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: w(0.35), alignItems: 'center', justifyContent: 'center' },
   pulsingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
   timelineLine: { position: 'absolute', top: 28, bottom: 0, left: 11, width: 2 },
-  badge: {
-    backgroundColor: 'rgba(50,168,82,0.12)',
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(50,168,82,0.25)',
-    alignSelf: 'flex-start', marginTop: 6,
-  },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#2B9450', fontFamily: 'Helvetica Neue' },
 
   // Escalation Phase Banner
   phaseBanner: {
@@ -1411,4 +1059,5 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   dayNumSel:  { fontWeight: '800' },
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },
+  injDot:     { width: 4, height: 4, borderRadius: 2, backgroundColor: '#FF742A', marginTop: 2 },
 });

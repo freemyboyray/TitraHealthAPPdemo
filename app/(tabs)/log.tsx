@@ -2,7 +2,7 @@ import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, LayoutAnimation, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ActivityIndicator, LayoutAnimation, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
@@ -10,7 +10,8 @@ import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { generateLogInsight } from '@/lib/openai';
-import { generatePkCurve, generateIntradayPkCurve, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
+import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
+import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog } from '@/stores/log-store';
 import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
 import { useUiStore } from '@/stores/ui-store';
@@ -19,10 +20,14 @@ const ORANGE = '#FF742A';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const SITE_ROTATION = ['Left Abdomen', 'Right Thigh', 'Left Thigh', 'Right Abdomen'];
+const SITE_ROTATION = [
+  'Left Abdomen', 'Right Abdomen',
+  'Left Thigh', 'Right Thigh',
+  'Left Upper Arm', 'Right Upper Arm',
+];
 
 function nextSite(current: string | null): string {
-  if (!current) return 'Left Abdomen';
+  if (!current) return '—';
   const idx = SITE_ROTATION.indexOf(current);
   return idx === -1 ? SITE_ROTATION[0] : SITE_ROTATION[(idx + 1) % SITE_ROTATION.length];
 }
@@ -42,10 +47,14 @@ function fmtDateOnly(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function nextInjectionLabel(injectionDate: string, freqDays = 7): string {
-  const nextMs = new Date(injectionDate + 'T00:00:00').getTime() + freqDays * 86400000;
+function nextInjectionLabel(injectionDate: string | null | undefined, freqDays = 7): string {
+  if (!injectionDate) return '—';
+  const injMs = new Date(injectionDate + 'T00:00:00').getTime();
+  if (isNaN(injMs)) return '—';
+  const nextMs = injMs + freqDays * 86400000;
   const todayMs = new Date().setHours(0, 0, 0, 0);
   const daysLeft = Math.round((nextMs - todayMs) / 86400000);
+  if (isNaN(daysLeft) || daysLeft < -365 || daysLeft > 365) return '—';
   if (daysLeft <= 0) return 'Today';
   if (daysLeft === 1) return 'Tomorrow';
   return `In ${daysLeft} Days`;
@@ -363,17 +372,33 @@ function MedAIInsightsCard({ health }: { health: ReturnType<typeof useHealthData
 
 const CHART_HEIGHT = 110;
 
-function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyDrug }: {
-  chartData: number[];
+function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct }: {
+  chartData: number[] | null;
   daysSince: number;
   dayLabels: string[];
   glp1Type: import('@/constants/user-profile').Glp1Type;
+  medicationBrand: import('@/constants/user-profile').MedicationBrand;
   isDailyDrug: boolean;
+  currentCyclePct?: number | null;
+  currentConcentrationPct?: number | null;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [chartWidth, setChartWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setChartWidth(e.nativeEvent.layout.width);
+  const { openAiChat } = useUiStore();
+
+  if (!chartData) {
+    return (
+      <View style={[s.cardWrap, { marginBottom: 16 }]}>
+        <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 24, alignItems: 'center' }]}>
+          <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 4 }]}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+          <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first injection</Text>
+          <Text style={[s.chartMuted, { textAlign: 'center', marginTop: 4 }]}>Your medication level curve will appear here</Text>
+        </View>
+      </View>
+    );
+  }
 
   const n = chartData.length;
   const colW = chartWidth > 0 ? chartWidth / n : 0;
@@ -383,17 +408,18 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
     y: CHART_HEIGHT - (v / 100) * CHART_HEIGHT,
   }));
 
-  const currentLevel = chartData[chartData.length - 1] ?? 0;
-  const levelLabel = currentLevel >= 75 ? 'Optimal' : currentLevel >= 50 ? 'Active' : currentLevel >= 30 ? 'Tapering' : 'Low';
+  const currentLevel = currentConcentrationPct ?? (chartData[chartData.length - 1] ?? 0);
+  const levelLabel = isDailyDrug
+    ? (glp1Type === 'liraglutide' ? 'Peaks ~11h post-dose' : 'Steady State')
+    : (currentLevel >= 75 ? 'Optimal' : currentLevel >= 50 ? 'Active' : currentLevel >= 30 ? 'Tapering' : 'Low');
   const daysSinceLabel = daysSince === 1 ? 'Today' : daysSince === 2 ? 'Yesterday' : `${daysSince - 1} days ago`;
-  const { openAiChat } = useUiStore();
 
   return (
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) })}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={s.chartMuted}>{glp1Type.charAt(0).toUpperCase() + glp1Type.slice(1)} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+            <Text style={s.chartMuted}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 2, gap: 10 }}>
             <Text style={s.chartBig}>{levelLabel}</Text>
@@ -458,6 +484,38 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, isDailyD
                     }}
                   />
                 ))}
+
+                {currentCyclePct != null && chartWidth > 0 && (() => {
+                  const markerX = currentCyclePct * chartWidth;
+                  const markerConc = currentConcentrationPct ?? 0;
+                  const markerY = CHART_HEIGHT - (markerConc / 100) * CHART_HEIGHT;
+                  return (
+                    <>
+                      {/* Vertical "now" line */}
+                      <View style={{
+                        position: 'absolute',
+                        left: markerX - 0.75,
+                        top: 0, bottom: 0, width: 1.5,
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                      }} />
+                      {/* "NOW" label */}
+                      <Text style={{
+                        position: 'absolute',
+                        left: markerX - 16, top: Math.max(0, markerY - 22),
+                        width: 32, textAlign: 'center',
+                        fontSize: 9, fontWeight: '700', color: ORANGE, letterSpacing: 0.5,
+                      }}>NOW</Text>
+                      {/* Dot at current concentration */}
+                      <View style={{
+                        position: 'absolute',
+                        width: 10, height: 10, borderRadius: 5,
+                        backgroundColor: '#FFFFFF',
+                        borderWidth: 2, borderColor: ORANGE,
+                        left: markerX - 5, top: markerY - 5,
+                      }} />
+                    </>
+                  );
+                })()}
               </>
             )}
           </View>
@@ -834,7 +892,7 @@ function WeightTimelineCard({
 
 // ─── Recent Logs card ─────────────────────────────────────────────────────────
 
-function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
+function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?: (id: string) => void }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
@@ -872,7 +930,17 @@ function RecentLogsCard({ entries }: { entries: LogEntry[] }) {
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Text style={s.logEntryTitle} numberOfLines={1}>{entry.title}</Text>
-                      <Text style={s.logEntryTime}>{entry.timestamp}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={s.logEntryTime}>{entry.timestamp}</Text>
+                        {onDelete && (
+                          <TouchableOpacity
+                            onPress={() => onDelete(entry.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="trash-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                     <Text style={s.logEntryDetails}>{entry.details}</Text>
                     <View style={[s.logImpactTag, { backgroundColor: statusStyle[entry.impactStatus].bg, marginTop: 6, alignSelf: 'flex-start' }]}>
@@ -922,7 +990,7 @@ export default function InsightsScreen() {
   const { onScroll } = useTabBarVisibility();
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, profile, fetchInsightsData } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, profile, fetchInsightsData, deleteInjectionLog } = useLogStore();
   const [activeTab, setActiveTab] = useState<Tab>('lifestyle');
 
   useEffect(() => { fetchInsightsData(); }, []);
@@ -955,24 +1023,50 @@ export default function InsightsScreen() {
   const lastSite = lastInj?.site ?? null;
   const rotateTo = nextSite(lastSite);
   const lastDosage = lastInj ? `${lastInj.dose_mg}mg` : '—';
-  const lastDaysSince = lastInj
-    ? Math.max(1, Math.floor(
-        (new Date().setHours(0, 0, 0, 0) - new Date(lastInj.injection_date + 'T00:00:00').getTime()) / 86400000
-      ) + 1)
-    : 4;
+  const lastDaysSince = (() => {
+    if (!lastInj?.injection_date) return 0;
+    const injMs = new Date(lastInj.injection_date + 'T00:00:00').getTime();
+    if (isNaN(injMs)) return 0;
+    const diff = Math.floor((new Date().setHours(0, 0, 0, 0) - injMs) / 86400000) + 1;
+    // Cap at 30 days — beyond that the chart is meaningless anyway
+    return Math.max(1, Math.min(diff, 30));
+  })();
   const nextInjLabel = lastInj
     ? nextInjectionLabel(lastInj.injection_date, profile?.injection_frequency_days ?? 7)
     : '—';
   const isDailyDrug = DRUG_DEFAULT_FREQ_DAYS[health.profile.glp1Type] === 1;
-  const medChartData = isDailyDrug
-    ? generateIntradayPkCurve(health.profile.glp1Type)
-    : generatePkCurve(
-        lastDaysSince,
+  const hasInjectionData = isDailyDrug || !!lastInj;
+  const hoursElapsed = (() => {
+    if (!lastInj?.injection_date) return 0;
+    const injMs = new Date(lastInj.injection_date + 'T00:00:00').getTime();
+    if (isNaN(injMs)) return 0;
+    return Math.max(0, (Date.now() - injMs) / 3600000); // ms → hours
+  })();
+  const medChartData: number[] | null = hasInjectionData
+    ? isDailyDrug
+      ? generateIntradayPkCurve(health.profile.glp1Type)
+      : generatePkCurveHighRes(
+          health.profile.glp1Type,
+          health.profile.glp1Status,
+          health.profile.injectionFrequencyDays ?? 7,
+          28,
+        )
+    : null;
+  const medDayLabels = isDailyDrug
+    ? INTRADAY_TIME_LABELS
+    : pkCycleLabels(health.profile.injectionFrequencyDays ?? 7);
+  const cycleHours = (health.profile.injectionFrequencyDays ?? 7) * 24;
+  const currentCyclePct = isDailyDrug
+    ? null
+    : Math.min(1, hoursElapsed / cycleHours);
+  const currentConcentrationPct = isDailyDrug
+    ? null
+    : Math.round(pkConcentrationPct(
+        Math.min(hoursElapsed, cycleHours),
         health.profile.glp1Type,
-        health.profile.glp1Status,
-        health.profile.injectionFrequencyDays ?? 7,
-      );
-  const medDayLabels = isDailyDrug ? INTRADAY_TIME_LABELS : last7DayLabels();
+        health.profile.glp1Status === 'active',
+        cycleHours,
+      ));
   const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(injectionToEntry);
 
   // ── Progress data ──────────────────────────────────────────────────────────
@@ -1108,7 +1202,10 @@ export default function InsightsScreen() {
                 daysSince={lastDaysSince}
                 dayLabels={medDayLabels}
                 glp1Type={health.profile.glp1Type}
+                medicationBrand={health.profile.medicationBrand}
                 isDailyDrug={isDailyDrug}
+                currentCyclePct={currentCyclePct}
+                currentConcentrationPct={currentConcentrationPct}
               />
               <Text style={s.sectionTitle}>Injection Details</Text>
               <View style={s.dailyGrid}>
@@ -1133,7 +1230,12 @@ export default function InsightsScreen() {
                   value={nextInjLabel}
                 />
               </View>
-              <RecentLogsCard entries={medicationLogs} />
+              <RecentLogsCard entries={medicationLogs} onDelete={(id) => {
+                Alert.alert('Delete Log', 'Remove this injection entry?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => deleteInjectionLog(id) },
+                ]);
+              }} />
             </>
           )}
 
