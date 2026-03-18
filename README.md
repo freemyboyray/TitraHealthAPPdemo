@@ -23,6 +23,8 @@ A behavior-guidance and tracking app for people on GLP-1 medications (Ozempic, W
 - **14-screen onboarding** — collects full metabolic profile, medication details, goals, and activity level
 - **Accurate medication display** — brand name (e.g., "Mounjaro®") shown throughout; profile changes in Settings immediately update the PK chart drug and half-life
 - **Smart focus cards** — phase-weighted daily focuses with completion state (strikethrough + orange checkmark when hit; plain gray ring when not)
+- **CycleIQ biometric intelligence** — EMA-based personal baseline for HRV, resting HR, and sleep; drug-phase delta engine classifies deviations as Expected GLP-1 Effect / Better Than Expected / Mildly Unusual / Concerning; tap-to-expand card explains methodology and badge meanings
+- **Education hub** — phase-aware personalized tips card; Myth vs. Fact swipeable deck; interactive Side Effect Decoder (20 symptoms, 3 tiers); "When to Call Your Doctor" safety card; 7 deep-dive accordion sections; Supabase article library with 10 seeded evidence-based articles
 - **Light/dark mode** — persistent app-wide theme with orange `#FF742A` brand accent unchanged in both modes
 - **Google + Apple Sign In** — OAuth via `expo-auth-session` + Supabase Auth
 

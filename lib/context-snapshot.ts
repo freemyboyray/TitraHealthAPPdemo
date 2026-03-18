@@ -19,6 +19,7 @@ type SnapshotInput = {
   userName: string | null;
   score: { total: number; medication: number; nutrition: number; activity: number };
   focalPoint?: { label: string; value: string };
+  cycleiqContext?: string;
   // Extended personalization fields (all optional - backwards compatible)
   escalationPhase?: { name: string; programWeek: number; weeklyFocus: string };
   shotPhaseLabel?: string;          // e.g. "Peak Phase (Day 3)"
@@ -114,5 +115,7 @@ PROGRAM PHASE:
 ${data.projection ? `
 WEIGHT PROJECTION:
 - Lost to date: ${data.projection.lossToDatePct.toFixed(1)}% of body weight
-- Projected goal: ${data.projection.projectedGoalDate} (${data.projection.confidenceLevel})` : ''}`.trim();
+- Projected goal: ${data.projection.projectedGoalDate} (${data.projection.confidenceLevel})` : ''}${data.cycleiqContext ? `
+
+${data.cycleiqContext}` : ''}`.trim();
 }

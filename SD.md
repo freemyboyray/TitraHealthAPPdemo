@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 16, 2026 (rev 11)
+**Last Updated:** March 18, 2026 (rev 12)
 
 ---
 
@@ -158,11 +158,14 @@ TitraHealthAPPdemo/
 │       ├── _layout.tsx          # Tab navigator + CustomTabBar + FAB + AddEntrySheet
 │       ├── index.tsx            # Home screen (dashboard)
 │       ├── log.tsx              # Insights screen (3-tab: Medication / Lifestyle / Progress)
-│       └── explore.tsx          # Education screen (placeholder)
+│       └── explore.tsx          # Education screen — fully built (rev 12)
 ├── components/
 │   ├── add-entry-sheet.tsx      # FAB-triggered bottom sheet for all logging
 │   ├── score-ring.tsx           # Animated SVG ring (Reanimated + react-native-svg)
 │   ├── ring-breakdown.tsx       # Tap-to-expand score breakdown sheet
+│   ├── cycle-biometric-card.tsx # CycleIQ biometric intelligence card (HRV/RHR/Sleep; tap-to-expand)
+│   ├── appetite-forecast-strip.tsx # Appetite forecast strip (CycleIQ)
+│   ├── metabolic-adaptation-card.tsx # Metabolic adaptation card (CycleIQ)
 │   ├── onboarding/
 │   │   ├── onboarding-header.tsx  # Progress bar (Reanimated width) + back button
 │   │   ├── option-pill.tsx        # Single/multi-select pill button
@@ -200,6 +203,7 @@ TitraHealthAPPdemo/
 │   │                            # side-effect delta rules, severity+recency weighted, conflict-resolved)
 │   ├── garmin.ts                # Garmin Connect OAuth 2.0 PKCE flow + wellness data sync
 │   ├── weekly-summary.ts        # computeWeeklySummary() — 7-day cycle aggregation (pure function)
+│   ├── cycle-intelligence.ts    # CycleIQ biometric engine: EMA baseline, drug-phase deltas, classification
 │   └── database.types.ts        # Auto-generated Supabase TypeScript types
 ├── stores/                      # Zustand stores (all implemented)
 │   ├── log-store.ts             # All log types + Supabase CRUD + fetchInsightsData
@@ -208,6 +212,7 @@ TitraHealthAPPdemo/
 │   ├── user-store.ts            # Auth state, session, profile row, signOut
 │   ├── garmin-store.ts          # Garmin connection state, sync, disconnect (persisted)
 │   ├── preferences-store.ts     # Dark/light mode toggle, appleHealthEnabled (AsyncStorage)
+│   ├── biometric-store.ts       # CycleIQ biometric history, EMA baseline, bootstrapping state
 │   └── ui-store.ts              # Sheet open state, active tab, loading states
 ├── hooks/
 │   ├── use-color-scheme.ts
@@ -474,7 +479,35 @@ Three-tab segmented control (Medication | Lifestyle | Progress). Each tab has ca
 ### 6.4 Education Screen
 
 **File:** `app/(tabs)/explore.tsx` *(rename to `education.tsx` pending)*
-**Status:** ⬜ Expo boilerplate — not yet designed
+**Status:** ✅ Built (rev 12)
+
+Fully implemented education hub with 5 interactive sections and a Supabase article library.
+
+**Layout (top to bottom):**
+
+1. **Phase-Aware "This Week's Focus" card** — reads `profile.doseStartDate` + `doseMg` + `glp1Type` via `useProfile()`, computes program week, calls `getEscalationPhase()` to determine current phase, then renders the phase's `weeklyFocus` blurb + 4 actionable phase-specific tips. Displays program week number. Only renders when profile has a start date.
+
+2. **Myth vs. Fact cards** (horizontally scrollable `FlatList`) — 7 tap-to-reveal cards debunking the most common GLP-1 misconceptions (willpower framing, eat-anything myth, weight permanence, hair loss permanence, nausea = efficacy, diabetes-only indication, thyroid risk). Red "MYTH" / green "FACT" badge swaps on tap with `LayoutAnimation`.
+
+3. **Side Effect Decoder** — interactive searchable symptom grid. 20 symptoms colour-coded by category: Expected (green) / Monitor (yellow) / Call Doctor (red). Category filter bar narrows the chip grid. Tapping a chip reveals a detail panel with specific guidance. Teaches the critical Expected vs. Concerning distinction that causes unnecessary ER visits and medication discontinuation.
+
+4. **"When to Call Your Doctor" safety card** — collapsible red-tinted card with 9 specific warning signs (🔴 immediate / 🟡 monitor) including pancreatitis, jaundice, severe dehydration, hypoglycemia, and allergic reaction. Includes emergency note for 911 situations.
+
+5. **FROM THE LIBRARY** — fetches up to 10 articles from Supabase `articles` table (populated by `supabase/migrations/20260318_articles.sql`). Articles rendered as tappable cards with category colour chips and reading time; tap navigates to `app/articles/[id].tsx`.
+
+6. **DEEP DIVES** — 7 expandable accordion sections using `LayoutAnimation.easeInEaseOut` per item:
+   - Understanding Your Medication (6 Q&As)
+   - Injection Technique & Storage (6 Q&As — new in rev 12)
+   - Nutrition Guide (6 Q&As — expanded with supplements, nausea trigger foods)
+   - Lifestyle & Exercise (5 Q&As — expanded with muscle loss, alcohol)
+   - Mental Health & Food Noise (5 Q&As — new in rev 12: food noise neuroscience, body image, addiction connection)
+   - Managing Side Effects (5 Q&As)
+   - Frequently Asked Questions (6 Q&As — expanded with fertility, stopping therapy, drug interactions)
+
+**Articles Database (`supabase/migrations/20260318_articles.sql`):**
+- Creates `articles` table with `id`, `title`, `subtitle`, `category`, `body_markdown`, `reading_time_minutes`, `published_at`, `phase_focus`
+- Row-level security: publicly readable, no auth required
+- Seeds 10 full-length evidence-based articles: protein preservation, injection technique, weight plateau, vitamins/deficiency, food noise neuroscience, muscle preservation, alcohol safety, stopping therapy, GI side effect management, cardiovascular benefits
 
 ---
 
@@ -649,6 +682,7 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 - `20260315_expand_side_effect_types.sql` — adds 7 new values to `side_effect_type` enum
 - `20260316_garmin_tokens.sql` — adds `garmin_tokens JSONB` to `profiles`; adds `source TEXT DEFAULT 'manual'` to `activity_logs` + `weight_logs`; adds unique constraint `activity_logs_user_date_source_key (user_id, date, source)`; adds partial unique index `weight_logs_garmin_daily_uniq` on `(user_id, source, logged_at::date) WHERE source = 'garmin'`
 - `20260316_new_checkin_types.sql` — documentation marker for 4 new `weekly_checkins` check-in types: `gi_burden`, `activity_quality`, `sleep_quality`, `mental_health` (no schema change; `checkin_type` is TEXT)
+- `20260318_articles.sql` — creates `articles` table (`id UUID PK`, `title`, `subtitle`, `category CHECK IN ('nutrition','medication','lifestyle','mindset','exercise')`, `body_markdown`, `reading_time_minutes`, `published_at`, `phase_focus`, `created_at`); public-read RLS policy; seeds 10 evidence-based full-length articles
 
 ### Scoring Types (implemented)
 
@@ -890,7 +924,10 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | `DualRingArc` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/dual-ring-arc.tsx` |
 | `InsightsCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/insights-card.tsx` |
 | `FocusCard` | inline in `app/(tabs)/index.tsx` | ⚠️ Inline | Extract to `components/focus-card.tsx` |
-| Education Screen | `app/(tabs)/explore.tsx` | ⬜ Boilerplate | Needs full build |
+| Education Screen | `app/(tabs)/explore.tsx` | ✅ Built | Phase card, Myth vs. Fact, Side Effect Decoder, Safety card, 7 deep-dive accordions, article library (rev 12) |
+| `CycleBiometricCard` | `components/cycle-biometric-card.tsx` | ✅ Built | HRV/RHR/Sleep with EMA baseline; tap-to-expand explanation panel; long-press AI chat (rev 12) |
+| `AppetiteForecastStrip` | `components/appetite-forecast-strip.tsx` | ✅ Built | CycleIQ appetite forecast strip |
+| `MetabolicAdaptationCard` | `components/metabolic-adaptation-card.tsx` | ✅ Built | CycleIQ metabolic adaptation card |
 | Side Effect Impact Screen | `app/entry/side-effect-impact.tsx` | ✅ Built | Shows adjusted targets from active side effects |
 | Weekly Summary Screen | `app/entry/weekly-summary.tsx` | ✅ Built | 7-day recap; AI insight; print/share |
 | GI Burden Survey | `app/entry/gi-burden-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, inverted 0–100) |
@@ -987,6 +1024,9 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Side Effect Impact screen (rev 11)** — `app/entry/side-effect-impact.tsx`; read-only screen showing how the user's current active side effects are adjusting each daily target; uses `computeBaseTargets()` + `applyAdjustments()` to diff base vs. adjusted values; displays delta badges (increase/decrease) for protein, water, fiber, calories, steps, and active minutes with reason labels
 - [x] **Weekly Summary screen + engine (rev 11)** — `app/entry/weekly-summary.tsx` + `lib/weekly-summary.ts`; `computeWeeklySummary()` pure function aggregates 7-day window: weight delta, avg macros/hydration/steps, days logged/active, food noise trend, and all 4 weekly check-in scores; GPT-4o-mini `generateWeeklyInsight()` call generates a narrative paragraph; last summary cached in AsyncStorage; exportable as PDF via `expo-print` + `expo-sharing`
 - [x] **AI Insights Store (rev 11)** — `stores/insights-ai-store.ts`; `prefetchAll(health)` fires all 3 Insights tab AI calls (`lifestyle`, `medication`, `progress`) in parallel on first visit; results cached in store to prevent redundant GPT calls on each tab switch; individual loading flags per tab; static fallback strings on error
+- [x] **CycleIQ biometric intelligence (rev 12)** — `lib/cycle-intelligence.ts` implements EMA baseline builder (excludes peak/shot days), drug-phase delta application (HRV suppression, RHR elevation at peak), and 5-tier classification engine (`expected_glp1`, `expected_positive`, `mild_unusual`, `concerning`, `insufficient_data`); `stores/biometric-store.ts` persists biometric history and bootstrapping state; `components/cycle-biometric-card.tsx` renders HRV/RHR/Sleep rows with classification badges, tap-to-expand educational panel (`LayoutAnimation.easeInEaseOut`), and long-press AI chat; `components/appetite-forecast-strip.tsx` and `components/metabolic-adaptation-card.tsx` added for Insights tab
+- [x] **Education screen fully built (rev 12)** — `app/(tabs)/explore.tsx` overhauled with 5 novel interactive features: (1) Phase-aware personalized "This Week's Focus" card driven by `getEscalationPhase()` + profile context; (2) horizontally-scrollable Myth vs. Fact card row (7 cards, tap-to-reveal with `LayoutAnimation`); (3) Side Effect Decoder — 20-symptom interactive grid with 3-tier categorisation (Expected/Monitor/Call Doctor), filter bar, and detail panel; (4) collapsible "When to Call Your Doctor" safety card with 9 red-flag warning signs; (5) article library from Supabase `articles` table; 7 deep-dive accordion sections (3 new: Injection Technique & Storage, Mental Health & Food Noise, expanded Nutrition/FAQ); `supabase/migrations/20260318_articles.sql` creates `articles` table + seeds 10 evidence-based full-length articles
+- [x] **Biometric card tap-to-expand (rev 12)** — `CycleBiometricCard` adds `onPress` → `LayoutAnimation.easeInEaseOut` expand toggle; collapsed state shows `↓ Details` chevron + `"Tap for details · Hold for AI"` hint; expanded panel explains baseline methodology (EMA, eligible day count), per-metric GLP-1 pharmacological context (HRV suppression, RHR elevation, sleep), 5-badge classification guide, and "Ask AI" button; long-press AI chat preserved unchanged
 
 ### In Progress / Partially Done
 
@@ -996,7 +1036,6 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ### Not Started
 
-- [ ] Education screen — content structure and articles
 - [ ] Apple Health live reads — wire `@kingstinct/react-native-healthkit` HRV/sleep/steps once permission granted (currently seed data in HealthContext)
 - [ ] Weight logging wired to Progress tab charts
 - [ ] Water / fiber / steps tracking (live, not seed data)

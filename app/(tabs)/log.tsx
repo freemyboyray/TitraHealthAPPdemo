@@ -1,8 +1,8 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +19,15 @@ import { localDateStr } from '@/lib/date-utils';
 import { useUiStore } from '@/stores/ui-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { useBiometricStore } from '@/stores/biometric-store';
+import { getShotPhase } from '@/constants/scoring';
+import {
+  computeCycleIntelligence,
+  computeMetabolicAdaptationScore,
+  buildCycleBiometricContext,
+} from '@/lib/cycle-intelligence';
+import { CycleBiometricCard } from '@/components/cycle-biometric-card';
+import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
 
 const ORANGE = '#FF742A';
 
@@ -1692,6 +1701,7 @@ export default function InsightsScreen() {
   const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
+  const biometricStore = useBiometricStore();
   const [activeTab, setActiveTab] = useState<Tab>('medication');
 
   // ── Today filters ──────────────────────────────────────────────────────────
@@ -1769,6 +1779,55 @@ export default function InsightsScreen() {
         cycleHours,
       ));
   const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(injectionToEntry);
+
+  // ── Shot phase (needed for biometric baseline exclusion) ───────────────────
+  const currentShotPhase = getShotPhase(Math.min(lastDaysSince, 7));
+
+  // ── Record today's biometric day entry on tab focus ─────────────────────────
+  useFocusEffect(useCallback(() => {
+    if (!appleHealthEnabled) return;
+    biometricStore.recordDayEntry({
+      dateStr: todayStr,
+      hrvMs: hkStore.hrv,
+      restingHR: hkStore.restingHR,
+      sleepMinutes: hkStore.sleepHours != null ? Math.round(hkStore.sleepHours * 60) : null,
+      shotPhase: currentShotPhase,
+      pkConcentrationPct: currentConcentrationPct ?? null,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appleHealthEnabled, hkStore.hrv, hkStore.restingHR, hkStore.sleepHours, currentShotPhase]));
+
+  // ── CycleIQ intelligence ───────────────────────────────────────────────────
+  const cycleIntelligenceResult = useMemo(
+    () => computeCycleIntelligence(
+      biometricStore.baseline,
+      { hrv: hkStore.hrv, restingHR: hkStore.restingHR, sleepHours: hkStore.sleepHours },
+      currentShotPhase,
+      lastDaysSince > 0 ? lastDaysSince : null,
+      health.profile.glp1Type,
+    ),
+    [biometricStore.baseline, hkStore.hrv, hkStore.restingHR, hkStore.sleepHours, currentShotPhase, lastDaysSince, health.profile.glp1Type],
+  );
+
+  const cycleiqContextStr = useMemo(
+    () => buildCycleBiometricContext(
+      cycleIntelligenceResult,
+      lastDaysSince > 0 ? lastDaysSince : null,
+      currentShotPhase,
+      health.profile.glp1Type,
+    ),
+    [cycleIntelligenceResult, lastDaysSince, currentShotPhase, health.profile.glp1Type],
+  );
+
+  // ── Metabolic adaptation ───────────────────────────────────────────────────
+  const metabolicAdaptationResult = useMemo(
+    () => computeMetabolicAdaptationScore(
+      activityLogs,
+      weightLogs,
+      biometricStore.history.map(h => ({ dateStr: h.dateStr, restingHR: h.restingHR })),
+    ),
+    [activityLogs, weightLogs, biometricStore.history],
+  );
 
   // ── Progress data ──────────────────────────────────────────────────────────
   // Prefer Supabase-persisted profile fields; fall back to in-memory onboarding profile
@@ -1938,6 +1997,10 @@ export default function InsightsScreen() {
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
               />
+              <CycleBiometricCard
+                result={cycleIntelligenceResult}
+                cycleiqContext={cycleiqContextStr}
+              />
               <Text style={s.sectionTitle}>Injection Details</Text>
               <View style={[s.dailyGrid, { marginBottom: 24 }]}>
                 <InjectionCard
@@ -1981,6 +2044,7 @@ export default function InsightsScreen() {
                 currentWeight={currentWeight}
                 programWeek={programWeek}
               />
+              <MetabolicAdaptationCard result={metabolicAdaptationResult} />
               <View style={s.dailyGrid}>
                 <ProgressStatCard
                   icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}

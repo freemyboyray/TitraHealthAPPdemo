@@ -34,6 +34,9 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
+import { useBiometricStore } from '@/stores/biometric-store';
+import { generateForecastStrip } from '@/lib/cycle-intelligence';
+import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
 
 const ORANGE = '#FF742A';
 
@@ -864,6 +867,8 @@ export default function HomeScreen() {
   const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
   const [datesWithInjections, setDatesWithInjections] = useState<Set<string>>(new Set());
 
+  const biometricStore = useBiometricStore();
+
   useFocusEffect(useCallback(() => {
     hkStore.fetchAll();
     personalizationStore.fetchAndRecompute();
@@ -1044,6 +1049,22 @@ export default function HomeScreen() {
       ? `Planned for ${weekday}`
       : `${weekday}'s Focuses`;
 
+  // ── Appetite forecast strip ────────────────────────────────────────────────
+  // Use the actual logged injection date — not the profile/mock fallback
+  const lastLoggedInjectionDate = logStore.injectionLogs[0]?.injection_date ?? null;
+  const drugName = BRAND_DISPLAY_NAMES[profile.medicationBrand] ?? profile.glp1Type ?? 'your medication';
+  const forecastDays = useMemo(
+    () => lastLoggedInjectionDate
+      ? generateForecastStrip(
+          lastLoggedInjectionDate,
+          profile.injectionFrequencyDays ?? 7,
+          profile.glp1Type,
+          profile.glp1Status,
+        )
+      : [],
+    [lastLoggedInjectionDate, profile.injectionFrequencyDays, profile.glp1Type, profile.glp1Status],
+  );
+
   // ── Today's individual log entries (from logStore) ──────────────────────────
   const todayStr = localDateStr();
   const todayFoodLogs = (logStore.foodLogs ?? []).filter(f =>
@@ -1203,6 +1224,13 @@ export default function HomeScreen() {
               })}
             </View>
           </View>
+
+          {/* ── Appetite & Energy Forecast Strip ── */}
+          <AppetiteForecastStrip
+            forecastDays={forecastDays}
+            appleHealthEnabled={appleHealthEnabled}
+            drugName={drugName}
+          />
 
           {/* ── AI Insights ── */}
           <Pressable
