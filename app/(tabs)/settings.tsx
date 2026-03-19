@@ -12,6 +12,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { useMemo } from 'react';
+import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -103,6 +104,7 @@ export default function SettingsScreen() {
   const displayEmail = session?.user.email ?? '';
 
   return (
+    <TabScreenWrapper>
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
         <Text style={s.headerTitle}>SETTINGS</Text>
@@ -278,6 +280,7 @@ export default function SettingsScreen() {
 
       </ScrollView>
     </SafeAreaView>
+    </TabScreenWrapper>
   );
 }
 

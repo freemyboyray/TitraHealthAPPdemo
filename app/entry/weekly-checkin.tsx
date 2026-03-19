@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useLogStore } from '@/stores/log-store';
+import { useProfile } from '@/contexts/profile-context';
+import { scheduleCheckinReminder } from '@/lib/notifications';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -232,15 +234,69 @@ function DotScale({ value, onChange }: { value: number; onChange: (v: number) =>
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+// Build domain list adapted for daily vs weekly/bi-weekly drugs.
+function buildDomains(isDaily: boolean): DomainConfig[] {
+  const base = DOMAINS.map(d => {
+    if (d.key === 'gi_burden' && isDaily) {
+      return {
+        ...d,
+        questions: [
+          'I felt nauseous, vomited, or had acid reflux.',
+          'GI symptoms (nausea, stomach pain) occurred at a predictable time each day.',
+          'GI issues disrupted my eating or daily routine.',
+        ] as const,
+      };
+    }
+    if (d.key === 'appetite' && isDaily) {
+      return {
+        ...d,
+        questions: [
+          'I struggled to eat enough or skipped meals.',
+          'My hunger noticeably increased toward the end of the day (before my next dose).',
+          'My appetite felt unpredictable or varied significantly throughout the day.',
+        ] as const,
+      };
+    }
+    return d;
+  });
+  // For daily drugs: add a dose consistency domain
+  if (isDaily) {
+    const doseDomain: DomainConfig = {
+      key: 'gi_burden' as DomainKey, // reuse an existing key for submission compat — prepended, won't replace
+      label: 'Dose Consistency',
+      icon: 'calendar-outline',
+      questions: [
+        'I missed one or more doses this week.',
+        'I took my dose at an inconsistent time (different hour each day).',
+        'I took my dose with food or water when I should have taken it on an empty stomach.',
+      ],
+      higherIsBetter: false,
+      getStatus: (s) => makeStatus(s,
+        ['Excellent', 'Good', 'Fair', 'Poor'],
+        ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E'],
+      ),
+    };
+    // Only add if not already there (avoid duplicate)
+    if (!base.some(d => d.label === 'Dose Consistency')) {
+      base.unshift(doseDomain);
+    }
+  }
+  return base;
+}
+
 export default function WeeklyCheckinScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { addWeeklyCheckin } = useLogStore();
+  const { profile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
+
+  const isDaily = (profile?.injectionFrequencyDays ?? 7) === 1;
+  const domains = useMemo(() => buildDomains(isDaily), [isDaily]);
 
   // answers[domainIndex][questionIndex] = 0–4
   const [answers, setAnswers] = useState<number[][]>(
-    DOMAINS.map((d) => d.questions.map(() => 0)),
+    domains.map((d) => d.questions.map(() => 0)),
   );
   const [loading, setLoading] = useState(false);
 
@@ -261,8 +317,10 @@ export default function WeeklyCheckinScreen() {
       const scoresMap: Record<string, number> = {};
       const labelsMap: Record<string, string> = {};
 
+      const savedAt = new Date().toISOString();
+
       await Promise.all(
-        DOMAINS.map(async (domain, i) => {
+        domains.map(async (domain, i) => {
           const sum = domainSums[i];
           const score100 = toScore100(sum, domain.higherIsBetter);
           const answersMap: Record<string, number> = {};
@@ -272,6 +330,8 @@ export default function WeeklyCheckinScreen() {
           labelsMap[domain.key] = domain.getStatus(sum).label;
         }),
       );
+
+      await scheduleCheckinReminder(savedAt);
 
       router.replace({
         pathname: '/entry/weekly-checkin-result',
@@ -313,7 +373,7 @@ export default function WeeklyCheckinScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
       >
-        {DOMAINS.map((domain, domainIdx) => {
+        {domains.map((domain, domainIdx) => {
           const sum = domainSums[domainIdx];
           const status = domain.getStatus(sum);
           return (

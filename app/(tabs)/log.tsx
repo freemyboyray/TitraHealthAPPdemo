@@ -29,6 +29,7 @@ import {
 } from '@/lib/cycle-intelligence';
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
 import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
+import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 
 const ORANGE = '#FF742A';
 
@@ -280,20 +281,20 @@ const LIFESTYLE_METRICS: MetricConfig[] = [
   { id: 'carbs',      label: 'Carbs',      unit: 'g',     color: '#5B8BF5', getTarget: t => t.carbsG,               getValue: (f, _, d) => f[d]?.carbs ?? null },
   { id: 'fat',        label: 'Fat',        unit: 'g',     color: '#F6CB45', getTarget: t => t.fatG,                 getValue: (f, _, d) => f[d]?.fat ?? null },
   { id: 'fiber',      label: 'Fiber',      unit: 'g',     color: '#27AE60', getTarget: t => t.fiberG,               getValue: (f, _, d) => f[d]?.fiber ?? null },
-  { id: 'hydration',  label: 'Hydration',  unit: 'oz',    color: '#5BC4F5', getTarget: t => Math.round(t.waterMl / 29.57), getValue: (f, _, d) => (f[d] as any)?.water ?? null },
   { id: 'calories',   label: 'Calories',   unit: 'kcal',  color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
   { id: 'steps',      label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
   { id: 'active_cal', label: 'Active Cal', unit: 'kcal',  color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
 ];
 
-const LT_TML = 8, LT_TMR = 8, LT_TMT = 8, LT_TMB = 20;
-const LT_COMPACT_H = 88;
-const LT_EXP_H = 190;
+const LT_TML = 44, LT_TMR = 12, LT_TMT = 10, LT_TMB = 24;
+const LT_COMPACT_H = 110;
+const LT_EXP_H = 220;
 const LT_PERIODS: { label: string; days: number }[] = [
   { label: '7D', days: 7 },
   { label: '14D', days: 14 },
   { label: '30D', days: 30 },
   { label: '90D', days: 90 },
+  { label: 'MAX', days: -1 },
 ];
 
 function ltComputeChart(
@@ -301,31 +302,54 @@ function ltComputeChart(
   target: number,
   chartH: number,
   plotW: number,
-): { linePath: string; areaPath: string; goalY: number; pts: { x: number; y: number; valid: boolean }[] } {
-  if (plotW <= 0 || values.length === 0) return { linePath: '', areaPath: '', goalY: 0, pts: [] };
+): {
+  linePath: string; areaPath: string; goalY: number;
+  pts: { x: number; y: number; valid: boolean }[];
+  yTicks: number[]; minVal: number; maxVal: number;
+} {
+  if (plotW <= 0 || values.length === 0)
+    return { linePath: '', areaPath: '', goalY: 0, pts: [], yTicks: [], minVal: 0, maxVal: 0 };
+
   const nonNull = values.filter(v => v !== null) as number[];
-  if (nonNull.length === 0) return { linePath: '', areaPath: '', goalY: 0, pts: [] };
-  const maxVal = Math.max(...nonNull, target * 1.1, 1);
-  const xStep = plotW / Math.max(values.length - 1, 1);
+  if (nonNull.length === 0)
+    return { linePath: '', areaPath: '', goalY: 0, pts: [], yTicks: [], minVal: 0, maxVal: 0 };
+
+  const rawMax = Math.max(...nonNull, target * 1.05);
+  const pad = Math.max(rawMax * 0.08, 1);
+  const minVal = 0;
+  const maxVal = rawMax + pad;
+  const yRange = maxVal - minVal || 1;
+
   const plotH = chartH - LT_TMT - LT_TMB;
+  const xStep = plotW / Math.max(values.length - 1, 1);
+
+  const toY = (v: number) => LT_TMT + plotH * (1 - (v - minVal) / yRange);
+  const goalY = Math.max(LT_TMT, Math.min(LT_TMT + plotH, toY(target)));
+
   const pts = values.map((v, i) => ({
     x: LT_TML + xStep * i,
-    y: LT_TMT + plotH * (1 - (v ?? 0) / maxVal),
+    y: v !== null ? toY(v) : LT_TMT + plotH / 2,
     valid: v !== null,
   }));
-  const rawGoalY = LT_TMT + plotH * (1 - target / maxVal);
-  const goalY = Math.max(LT_TMT, Math.min(LT_TMT + plotH, rawGoalY));
-  const validPts = pts.filter(p => p.valid);
-  let linePath = '';
-  let inSeg = false;
+
+  const validSegments: { x: number; y: number }[][] = [];
+  let seg: { x: number; y: number }[] = [];
   pts.forEach(p => {
-    if (p.valid) { linePath += inSeg ? ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}` : `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; inSeg = true; }
-    else inSeg = false;
+    if (p.valid) { seg.push({ x: p.x, y: p.y }); }
+    else if (seg.length) { validSegments.push(seg); seg = []; }
   });
-  const areaPath = validPts.length >= 2
-    ? `${linePath} L ${validPts[validPts.length - 1].x.toFixed(1)} ${(chartH - LT_TMB).toFixed(1)} L ${validPts[0].x.toFixed(1)} ${(chartH - LT_TMB).toFixed(1)} Z`
+  if (seg.length) validSegments.push(seg);
+
+  const linePath = validSegments.map(s => smoothPath(s)).join(' ');
+
+  const allValid = pts.filter(p => p.valid);
+  const areaPath = allValid.length >= 2
+    ? `${linePath} L ${allValid[allValid.length - 1].x.toFixed(1)} ${(LT_TMT + plotH).toFixed(1)} L ${allValid[0].x.toFixed(1)} ${(LT_TMT + plotH).toFixed(1)} Z`
     : '';
-  return { linePath, areaPath, goalY, pts };
+
+  const yTicks = niceYTicks(minVal, maxVal, 4);
+
+  return { linePath, areaPath, goalY, pts, yTicks, minVal, maxVal };
 }
 
 function ltXLabels(dates: string[], plotW: number, periodDays: number): { x: number; label: string }[] {
@@ -668,7 +692,7 @@ function WearablesConnectPrompt() {
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
       <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Helvetica Neue' }}>
-        Connect wearables in Settings to unlock deeper insights — resting heart rate, HRV, sleep, and more.
+        Connect wearables in Settings to unlock deeper insights: resting heart rate, HRV, sleep, and more.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
@@ -1978,17 +2002,19 @@ function LifestyleTrendCard({
   activityByDate,
   todayStr,
   targets,
+  profile,
 }: {
   foodByDate: FoodByDate;
   activityByDate: ActivityByDate;
   todayStr: string;
   targets: DailyTargets;
+  profile: import('@/stores/log-store').ProfileRow | null;
 }) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const [metricId, setMetricId] = useState('protein');
-  const [periodDays, setPeriodDays] = useState(7);
+  const [periodDays, setPeriodDays] = useState(30);
   const [expanded, setExpanded] = useState(false);
   const [compactW, setCompactW] = useState(0);
   const [expW, setExpW] = useState(0);
@@ -2016,10 +2042,24 @@ function LifestyleTrendCard({
 
   const metric = LIFESTYLE_METRICS.find(m => m.id === metricId) ?? LIFESTYLE_METRICS[0];
 
+  const effectiveDays = useMemo(() => {
+    if (periodDays !== -1) return periodDays;
+    const startStr = profile?.program_start_date;
+    if (startStr) {
+      const msAgo = Date.now() - new Date(startStr).getTime();
+      return Math.max(7, Math.ceil(msAgo / 86400000));
+    }
+    const allDates = [...Object.keys(foodByDate), ...Object.keys(activityByDate)];
+    if (allDates.length === 0) return 30;
+    const earliest = allDates.sort()[0];
+    const msAgo = Date.now() - new Date(earliest + 'T12:00:00').getTime();
+    return Math.max(7, Math.ceil(msAgo / 86400000));
+  }, [periodDays, profile, foodByDate, activityByDate]);
+
   const { dates, values, target, hitRate, average, trendPct, bestStreak } = useMemo(() => {
-    const ds = Array.from({ length: periodDays }, (_, i) => {
+    const ds = Array.from({ length: effectiveDays }, (_, i) => {
       const d = new Date(todayStr + 'T12:00:00');
-      d.setDate(d.getDate() - (periodDays - 1 - i));
+      d.setDate(d.getDate() - (effectiveDays - 1 - i));
       return d.toISOString().slice(0, 10);
     });
     const vs = ds.map(d => metric.getValue(foodByDate, activityByDate, d));
@@ -2034,7 +2074,7 @@ function LifestyleTrendCard({
     let cur = 0, best = 0;
     vs.forEach(v => { if (v !== null && v >= tgt) { cur++; best = Math.max(best, cur); } else cur = 0; });
     return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best };
-  }, [periodDays, todayStr, metric, foodByDate, activityByDate, targets]);
+  }, [effectiveDays, todayStr, metric, foodByDate, activityByDate, targets]);
 
   const hasData = values.some(v => v !== null);
 
@@ -2047,12 +2087,12 @@ function LifestyleTrendCard({
     [values, target, expW],
   );
   const compactLabels = useMemo(
-    () => ltXLabels(dates, Math.max(0, compactW - LT_TML - LT_TMR), periodDays),
-    [dates, compactW, periodDays],
+    () => ltXLabels(dates, Math.max(0, compactW - LT_TML - LT_TMR), effectiveDays),
+    [dates, compactW, effectiveDays],
   );
   const expLabels = useMemo(
-    () => ltXLabels(dates, Math.max(0, expW - LT_TML - LT_TMR), periodDays),
-    [dates, expW, periodDays],
+    () => ltXLabels(dates, Math.max(0, expW - LT_TML - LT_TMR), effectiveDays),
+    [dates, expW, effectiveDays],
   );
 
   const hitRateColor = hitRate >= 0.7 ? '#27AE60' : hitRate >= 0.4 ? '#F6CB45' : '#E74C3C';
@@ -2134,6 +2174,8 @@ function LifestyleTrendCard({
     }
     if (w <= 0) return <View style={{ height: chartH }} />;
     const plotH = chartH - LT_TMT - LT_TMB;
+    const yRange = data.maxVal - data.minVal || 1;
+    const lastValidPt = [...data.pts].reverse().find(p => p.valid) ?? null;
     return (
       <Svg width={w} height={chartH}>
         <Defs>
@@ -2142,21 +2184,67 @@ function LifestyleTrendCard({
             <Stop offset="1" stopColor={metric.color} stopOpacity="0" />
           </LinearGradient>
         </Defs>
+
+        {/* Y-axis gridlines + labels */}
+        {data.yTicks.map(tick => {
+          const y = LT_TMT + plotH * (1 - (tick - data.minVal) / yRange);
+          const label = metric.unit === 'steps'
+            ? tick >= 1000 ? `${(tick / 1000).toFixed(0)}k` : String(Math.round(tick))
+            : String(Math.round(tick));
+          return (
+            <React.Fragment key={`y-${tick}`}>
+              <Line x1={LT_TML} y1={y} x2={w - LT_TMR} y2={y}
+                stroke="rgba(255,255,255,0.07)" strokeWidth={1} strokeDasharray="3,4" />
+              <SvgText x={LT_TML - 6} y={y + 3.5}
+                fontSize={9} fill="rgba(255,255,255,0.35)"
+                textAnchor="end" fontFamily="Helvetica Neue">
+                {label}
+              </SvgText>
+            </React.Fragment>
+          );
+        })}
+
+        {/* X-axis vertical tick lines + labels */}
+        {labels.map((lbl, i) => (
+          <React.Fragment key={i}>
+            <Line x1={lbl.x} y1={LT_TMT} x2={lbl.x} y2={LT_TMT + plotH}
+              stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+            <SvgText x={lbl.x} y={chartH - 5}
+              fontSize={9} fill="rgba(255,255,255,0.35)"
+              textAnchor="middle" fontFamily="Helvetica Neue">
+              {lbl.label}
+            </SvgText>
+          </React.Fragment>
+        ))}
+
+        {/* Area fill */}
         {data.areaPath ? <Path d={data.areaPath} fill={`url(#${gradId})`} /> : null}
+
+        {/* Line */}
         {data.linePath ? (
           <Path d={data.linePath} stroke={metric.color} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         ) : null}
-        {data.goalY > 0 && data.goalY >= LT_TMT && data.goalY <= LT_TMT + plotH && (
-          <Line
-            x1={LT_TML} y1={data.goalY} x2={w - LT_TMR} y2={data.goalY}
-            stroke="#FFFFFF" strokeWidth={1} strokeDasharray="4,3" strokeOpacity="0.4"
-          />
+
+        {/* Goal line with label */}
+        {data.goalY > LT_TMT && data.goalY < LT_TMT + plotH && (
+          <>
+            <Line x1={LT_TML} y1={data.goalY} x2={w - LT_TMR} y2={data.goalY}
+              stroke={metric.color} strokeWidth={1} strokeDasharray="5,4" strokeOpacity="0.5" />
+            <SvgText x={w - LT_TMR - 3} y={data.goalY - 3}
+              fontSize={8} fill={metric.color} fillOpacity={0.6}
+              textAnchor="end" fontFamily="Helvetica Neue">
+              Goal
+            </SvgText>
+          </>
         )}
-        {labels.map((lbl, i) => (
-          <SvgText key={i} x={lbl.x} y={chartH - 4} fontSize={8} fill="rgba(255,255,255,0.35)" textAnchor="middle" fontFamily="Helvetica Neue">
-            {lbl.label}
-          </SvgText>
-        ))}
+
+        {/* Colored dot for last valid data point */}
+        {lastValidPt && (
+          <>
+            <Circle cx={lastValidPt.x} cy={lastValidPt.y} r={7} fill={`${metric.color}33`} />
+            <Circle cx={lastValidPt.x} cy={lastValidPt.y} r={4} fill={metric.color} />
+          </>
+        )}
       </Svg>
     );
   }
@@ -2174,17 +2262,16 @@ function LifestyleTrendCard({
           padding: 14,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}>
-            {renderMetricPills(setMetricId)}
-          </View>
-          <Ionicons name="expand-outline" size={16} color="rgba(255,255,255,0.35)" style={{ marginLeft: 8, marginTop: 4 }} />
-        </View>
+        {/* Period tabs — top */}
         {renderPeriodTabs()}
+        {/* Chart */}
         <View style={{ height: LT_COMPACT_H }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
           {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+        {/* Metric pills — bottom */}
+        {renderMetricPills(setMetricId)}
+        {/* Footer stats */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
           <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
             Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
           </Text>
@@ -2198,106 +2285,130 @@ function LifestyleTrendCard({
         </View>
       </Pressable>
 
-      {/* ── Expanded Modal ── */}
-      <Modal visible={expanded} transparent animationType="none" onRequestClose={dismiss}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={dismiss} />
-        <Animated.View
-          style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            height: screenHeight * 0.82,
-            backgroundColor: '#111',
-            borderTopLeftRadius: 24, borderTopRightRadius: 24,
-            transform: [{ translateY: sheetY }],
-            paddingBottom: insets.bottom,
-          }}
-          {...panRef.panHandlers}
-        >
-          <View style={{ alignItems: 'center', paddingTop: 12, marginBottom: 4 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-          </View>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', textAlign: 'center', marginBottom: 14 }}>
-            {metric.label} Trend
-          </Text>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}>
-            {renderMetricPills(setMetricId)}
-            {renderPeriodTabs()}
+      {/* ── Expanded Modal (glassmorphism) ── */}
+      <Modal visible={expanded} transparent animationType="slide" onRequestClose={dismiss}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+            onPress={dismiss}
+          />
+          <Animated.View
+            style={{
+              height: screenHeight * 0.82,
+              borderTopLeftRadius: 28, borderTopRightRadius: 28,
+              overflow: 'hidden',
+              transform: [{ translateY: sheetY }],
+            }}
+          >
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.07)' }]} />
 
-            {/* Chart + tappable point overlays */}
-            <View style={{ position: 'relative' }}>
-              <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
-                {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
-              </View>
-              {hasData && exp.pts.filter(p => p.valid).map(pt => {
-                const origIdx = exp.pts.findIndex(p2 => p2 === pt);
-                return (
-                  <Pressable
-                    key={origIdx}
-                    onPress={() => setSelIdx(selIdx === origIdx ? null : origIdx)}
-                    style={{ position: 'absolute', left: pt.x - 20, top: pt.y - 20, width: 40, height: 40 }}
-                  />
-                );
-              })}
+            {/* Drag handle */}
+            <View
+              {...panRef.panHandlers}
+              style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 12 }}
+            >
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)' }} />
             </View>
 
-            {/* Selected point tooltip */}
-            {selValue !== null && selDate !== null && (
-              <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>{selDate}</Text>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', marginTop: 2 }}>
-                  {fmtVal(selValue)} {metric.unit}
-                </Text>
-                <Text style={{
-                  fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue', marginTop: 2,
-                  color: selValue >= target ? '#27AE60' : '#E74C3C',
-                }}>
-                  {selValue >= target
-                    ? 'On target ✓'
-                    : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% below target`}
-                </Text>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+                {metric.label} Trend
+              </Text>
+              <Pressable onPress={dismiss} hitSlop={12}>
+                <Ionicons name="close-circle" size={28} color="rgba(255,255,255,0.4)" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+            >
+              {/* Period tabs — top */}
+              {renderPeriodTabs()}
+
+              {/* Chart + tappable point overlays */}
+              <View style={{ position: 'relative' }}>
+                <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
+                  {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
+                </View>
+                {hasData && exp.pts.filter(p => p.valid).map(pt => {
+                  const origIdx = exp.pts.findIndex(p2 => p2 === pt);
+                  return (
+                    <Pressable
+                      key={origIdx}
+                      onPress={() => setSelIdx(selIdx === origIdx ? null : origIdx)}
+                      style={{ position: 'absolute', left: pt.x - 20, top: pt.y - 20, width: 40, height: 40 }}
+                    />
+                  );
+                })}
               </View>
-            )}
 
-            {/* Insights panel */}
-            {hasData && (
-              <View style={{ marginTop: 16 }}>
-                {/* Hit rate */}
-                <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                  <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Helvetica Neue', lineHeight: 60 }}>
-                    {hitRatePct}%
+              {/* Metric pills — below chart */}
+              {renderMetricPills(setMetricId)}
+
+              {/* Selected point tooltip */}
+              {selValue !== null && selDate !== null && (
+                <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>{selDate}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', marginTop: 2 }}>
+                    {fmtVal(selValue)} {metric.unit}
                   </Text>
-                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
-                    of days on target
-                  </Text>
-                </View>
-
-                {/* Stat chips */}
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {[
-                    { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: '#FFF' },
-                    { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: trendPct >= 0 ? '#27AE60' : '#E74C3C' },
-                    { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
-                  ].map((chip, i) => (
-                    <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Helvetica Neue' }}>{chip.value}</Text>
-                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Contextual text */}
-                <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Helvetica Neue', lineHeight: 20 }}>
-                    {hitRatePct >= 70
-                      ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
-                      : hitRatePct >= 40
-                      ? `You're hitting your ${metric.label.toLowerCase()} target ${hitRatePct}% of the time. Small improvements can add up.`
-                      : `Your ${metric.label.toLowerCase()} is below target most days. Focus here to maximize your GLP-1 results.`}
+                  <Text style={{
+                    fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue', marginTop: 2,
+                    color: selValue >= target ? '#27AE60' : '#E74C3C',
+                  }}>
+                    {selValue >= target
+                      ? 'On target ✓'
+                      : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% below target`}
                   </Text>
                 </View>
-              </View>
-            )}
-          </ScrollView>
-        </Animated.View>
+              )}
+
+              {/* Insights panel */}
+              {hasData && (
+                <View style={{ marginTop: 16 }}>
+                  {/* Hit rate */}
+                  <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                    <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Helvetica Neue', lineHeight: 60 }}>
+                      {hitRatePct}%
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+                      of days on target
+                    </Text>
+                  </View>
+
+                  {/* Stat chips */}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[
+                      { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: '#FFF' },
+                      { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: trendPct >= 0 ? '#27AE60' : '#E74C3C' },
+                      { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
+                    ].map((chip, i) => (
+                      <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Helvetica Neue' }}>{chip.value}</Text>
+                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Contextual text */}
+                  <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Helvetica Neue', lineHeight: 20 }}>
+                      {hitRatePct >= 70
+                        ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
+                        : hitRatePct >= 40
+                        ? `You're hitting your ${metric.label.toLowerCase()} target ${hitRatePct}% of the time. Small improvements can add up.`
+                        : `Your ${metric.label.toLowerCase()} is below target most days. Focus here to maximize your GLP-1 results.`}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </Animated.View>
+        </View>
       </Modal>
     </>
   );
@@ -2340,7 +2451,7 @@ export default function InsightsScreen() {
   const todayActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const todaySteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
 
-  // ── Historical aggregations for TrendsCard ─────────────────────────────────
+  // ── Historical aggregations ────────────────────────────────────────────────
   const foodByDate = useMemo(() => {
     const map: Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }> = {};
     foodLogs.forEach(log => {
@@ -2548,6 +2659,7 @@ export default function InsightsScreen() {
     : '-';
 
   return (
+    <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
@@ -2580,14 +2692,13 @@ export default function InsightsScreen() {
               <AIInsightsCard />
 
               {/* ── Lifestyle Trend Card ── */}
-              <View style={{ paddingHorizontal: 16, marginBottom: 4 }}>
-                <LifestyleTrendCard
-                  foodByDate={foodByDate}
-                  activityByDate={activityByDate}
-                  todayStr={todayStr}
-                  targets={targets}
-                />
-              </View>
+              <LifestyleTrendCard
+                foodByDate={foodByDate}
+                activityByDate={activityByDate}
+                todayStr={todayStr}
+                targets={targets}
+                profile={profile}
+              />
 
               <Text style={s.sectionTitle}>Daily Metrics</Text>
               <View style={s.dailyGrid}>
@@ -2771,6 +2882,7 @@ export default function InsightsScreen() {
         </ScrollView>
       </SafeAreaView>
     </Pressable>
+    </TabScreenWrapper>
   );
 }
 

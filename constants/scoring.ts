@@ -986,12 +986,56 @@ function computeFocusStatus(
 
 // ─── Focus Item Builder ───────────────────────────────────────────────────────
 
+/** Returns day-of-year (1–365) for today, used to rotate subtitle tips. */
+function getDayOfYear(date = new Date()): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  return Math.floor(diff / 86_400_000);
+}
+
+/** Picks a pool entry deterministically by day so it rotates daily. */
+function dailyPick<T>(pool: T[], dayOfYear: number): T {
+  return pool[dayOfYear % pool.length];
+}
+
+const PROTEIN_TIPS = [
+  'Try chicken, Greek yogurt, eggs, or cottage cheese',
+  'Small, frequent, high-protein meals work best',
+  'A protein shake is an easy win on busy days',
+  'GLP-1s reduce appetite — front-load protein early',
+];
+
+const HYDRATION_TIPS = [
+  'Keep a water bottle visible at all times',
+  'Try sparkling water if plain water feels hard',
+  'Herbal teas and broth count toward your intake',
+  'Staying hydrated reduces nausea and fatigue',
+];
+
+const FIBER_TIPS = [
+  'Beans, berries, avocado, and oats are great choices',
+  'Fiber slows digestion — space it out to avoid bloating',
+  'Add veggies to your next meal for an easy fiber boost',
+];
+
+const ACTIVITY_TIPS = [
+  'A 10-minute walk after meals improves glucose response',
+  'Resistance training preserves lean mass on GLP-1s',
+  'Even light movement counts — take the stairs',
+];
+
+const SLEEP_TIPS = [
+  'Poor sleep can increase GLP-1 side effects',
+  'Aim for 7–9 hours; avoid screens 30 min before bed',
+];
+
 function buildFocusItem(
   category: FocusCategory,
   actuals: DailyActuals,
   targets: DailyTargets,
   wearable: Partial<WearableData>,
   phase: ShotPhase,
+  dayOfYear = getDayOfYear(),
 ): FocusItem {
   const status = computeFocusStatus(category, actuals, targets, wearable);
   const phaseNote = phase === 'peak' ? ' · Peak GLP-1 day' : '';
@@ -1005,14 +1049,23 @@ function buildFocusItem(
         status,
       };
     case 'hydration': {
-      const pct = Math.round(actuals.waterMl / targets.waterMl * 100);
-      const remainOz = Math.round(Math.max(0, targets.waterMl - actuals.waterMl) / 29.57);
       const loggedOz = Math.round(actuals.waterMl / 29.57);
       const targetOz = Math.round(targets.waterMl / 29.57);
+      const pct = Math.round(actuals.waterMl / targets.waterMl * 100);
+      const label =
+        status === 'completed'
+          ? 'Hydration goal crushed today'
+          : pct >= 75
+          ? 'Almost at your hydration goal'
+          : 'Sip water throughout your day';
+      const subtitle =
+        phase === 'peak'
+          ? 'Electrolytes critical today'
+          : status === 'completed'
+          ? `${targetOz}oz reached — great work`
+          : dailyPick(HYDRATION_TIPS, dayOfYear);
       return {
-        id: 'hydration',
-        label: remainOz > 0 ? `Drink ${remainOz}oz more water` : 'Hit your hydration goal',
-        subtitle: `${pct}% of daily target${phase === 'peak' ? ' · Electrolytes critical today' : phaseNote}`,
+        id: 'hydration', label, subtitle,
         iconName: 'water-outline', iconSet: 'Ionicons',
         status,
         progressPct: Math.min(100, actuals.waterMl / targets.waterMl * 100),
@@ -1020,13 +1073,22 @@ function buildFocusItem(
       };
     }
     case 'protein': {
-      const remainG = Math.round(Math.max(0, targets.proteinG - actuals.proteinG));
-      const tip = phase === 'shot' ? ' · Try a protein shake today' : '';
       const loggedG = Math.round(actuals.proteinG);
+      const pct = actuals.proteinG / targets.proteinG;
+      const label =
+        status === 'completed'
+          ? 'Great job hitting protein today'
+          : pct >= 0.75
+          ? 'Almost at your protein goal'
+          : 'Prioritize protein at every meal';
+      const subtitle =
+        phase === 'shot'
+          ? 'Try a protein shake on shot day'
+          : status === 'completed'
+          ? `${targets.proteinG}g reached — lean mass protected`
+          : dailyPick(PROTEIN_TIPS, dayOfYear);
       return {
-        id: 'protein',
-        label: remainG > 0 ? `Add ${remainG}g protein today` : 'Protein goal reached',
-        subtitle: `Preserves lean muscle on GLP-1${tip}`,
+        id: 'protein', label, subtitle,
         iconName: 'restaurant', iconSet: 'MaterialIcons',
         status,
         progressPct: Math.min(100, actuals.proteinG / targets.proteinG * 100),
@@ -1034,12 +1096,20 @@ function buildFocusItem(
       };
     }
     case 'fiber': {
-      const remainG = Math.round(Math.max(0, targets.fiberG - actuals.fiberG));
       const loggedG = Math.round(actuals.fiberG);
+      const pct = actuals.fiberG / targets.fiberG;
+      const label =
+        status === 'completed'
+          ? 'Fiber goal hit — nice work'
+          : pct >= 0.75
+          ? 'Almost at your fiber goal'
+          : 'Add fiber to your next meal';
+      const subtitle =
+        status === 'completed'
+          ? `${targets.fiberG}g reached — digestion supported`
+          : dailyPick(FIBER_TIPS, dayOfYear);
       return {
-        id: 'fiber',
-        label: remainG > 0 ? `Get ${remainG}g more fiber` : 'Fiber goal complete',
-        subtitle: `Supports digestion · ${targets.fiberG}g daily target`,
+        id: 'fiber', label, subtitle,
         iconName: 'eco', iconSet: 'MaterialIcons',
         status,
         progressPct: Math.min(100, actuals.fiberG / targets.fiberG * 100),
@@ -1047,11 +1117,19 @@ function buildFocusItem(
       };
     }
     case 'activity': {
-      const remainSteps = Math.max(0, targets.steps - actuals.steps);
+      const pct = actuals.steps / targets.steps;
+      const label =
+        status === 'completed'
+          ? 'You got your movement in today'
+          : pct >= 0.75
+          ? 'Almost at your step goal'
+          : 'Get some movement in today';
+      const subtitle =
+        status === 'completed'
+          ? `${actuals.steps.toLocaleString()} steps — well done`
+          : dailyPick(ACTIVITY_TIPS, dayOfYear);
       return {
-        id: 'activity',
-        label: remainSteps > 500 ? `Walk ${remainSteps.toLocaleString()} more steps` : '15-min walk',
-        subtitle: `${actuals.steps.toLocaleString()} of ${targets.steps.toLocaleString()} steps today`,
+        id: 'activity', label, subtitle,
         iconName: 'directions-walk', iconSet: 'MaterialIcons',
         status,
         progressPct: Math.min(100, actuals.steps / targets.steps * 100),
@@ -1061,10 +1139,16 @@ function buildFocusItem(
     case 'sleep': {
       const sleepMin = wearable.sleepMinutes ?? 0;
       const hrs = Math.round(sleepMin / 60 * 10) / 10;
+      const label =
+        status === 'completed'
+          ? 'Sleep goal achieved'
+          : 'Prioritize sleep tonight';
+      const subtitle =
+        status === 'completed'
+          ? `${hrs}h last night — recovery on track`
+          : dailyPick(SLEEP_TIPS, dayOfYear) + phaseNote;
       return {
-        id: 'sleep',
-        label: 'Prioritize sleep tonight',
-        subtitle: `Last night: ${hrs}h · Aim for 7–9h${phaseNote}`,
+        id: 'sleep', label, subtitle,
         iconName: 'moon-outline', iconSet: 'Ionicons',
         status,
         progressPct: Math.min(100, sleepMin / 420 * 100),
@@ -1075,7 +1159,7 @@ function buildFocusItem(
       const recovery = computeRecovery(wearable, phase);
       return {
         id: 'recovery',
-        label: 'Recovery day today',
+        label: 'Recovery day — take it easy',
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
           ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '-'}`
           : 'Connect Apple Health to see recovery details',
@@ -1087,7 +1171,7 @@ function buildFocusItem(
       return {
         id: 'rest',
         label: 'Rest & recover today',
-        subtitle: 'Peak GLP-1 day - light movement only',
+        subtitle: 'Peak GLP-1 day — light movement only',
         iconName: 'self-improvement', iconSet: 'MaterialIcons',
         status,
       };

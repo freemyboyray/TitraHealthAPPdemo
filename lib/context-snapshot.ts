@@ -38,7 +38,9 @@ export function buildContextSnapshot(data: SnapshotInput): string {
     ? Math.floor((Date.now() - new Date(lastInj.injection_date).getTime()) / 86400000)
     : null;
   const freq = data.profile?.injection_frequency_days ?? 7;
+  const isDaily = freq === 1;
   const daysUntilNext = daysSinceInj !== null ? Math.max(0, freq - daysSinceInj) : null;
+  const doseTime = (data.profile as any)?.dose_time ?? null;
 
   // ── Program duration ──────────────────────────────────────────────────────
   const startDate = data.profile?.program_start_date
@@ -83,8 +85,8 @@ USER CONTEXT (as of ${new Date().toLocaleDateString('en-US', { weekday: 'long', 
 - Name: ${data.userName ?? 'User'}
 - Medication: ${data.profile?.medication_type ?? 'GLP-1'} ${lastInj?.dose_mg ? `${lastInj.dose_mg}mg` : ''}
 - Days on program: ${daysSinceStart ?? 'unknown'} (${weeksElapsed ?? '?'} weeks)
-- Last injection: ${daysSinceInj !== null ? `${daysSinceInj} day(s) ago` : 'not logged'}
-- Next injection: ${daysUntilNext !== null ? `in ${daysUntilNext} day(s)` : 'unknown'}
+- Last ${isDaily ? 'dose' : 'injection'}: ${daysSinceInj !== null ? `${daysSinceInj} day(s) ago` : 'not logged'}
+- Next ${isDaily ? 'dose' : 'injection'}: ${isDaily ? (doseTime ? `daily at ${doseTime}` : 'daily') : (daysUntilNext !== null ? `in ${daysUntilNext} day(s)` : 'unknown')}${doseTime ? `\n- Daily dose time: ${doseTime}` : ''}
 
 TODAY'S NUTRITION (${todayFoods.length} items logged):
 - Calories: ${todayCalories} / ${data.userGoals?.daily_calories_target ?? 2000} kcal
@@ -108,7 +110,7 @@ LIFESTYLE SCORE TODAY: ${data.score.total}/100
 ${data.escalationPhase ? `
 PROGRAM PHASE:
 - Escalation phase: ${data.escalationPhase.name} (Week ${data.escalationPhase.programWeek})
-- Injection cycle: ${data.shotPhaseLabel ?? 'unknown'}
+- ${isDaily ? 'Intraday phase' : 'Injection cycle'}: ${data.shotPhaseLabel ?? (isDaily ? 'daily dosing' : 'unknown')}
 - Weekly focus: ${data.escalationPhase.weeklyFocus}
 - BMI: ${data.bmi != null ? data.bmi.toFixed(1) + (data.bmi < 25 ? ' (normal)' : data.bmi < 30 ? ' (overweight)' : data.bmi < 35 ? ' (obesity class I)' : data.bmi < 40 ? ' (obesity class II)' : ' (obesity class III)') : 'not set'}
 - Plasticity window: ${data.isPlasticityWindow ? 'YES - prime habit-building period' : 'no'}${data.foodNoiseScore != null ? `\n- Food noise (last check-in): ${data.foodNoiseScore}/20` : ''}` : ''}

@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 export type AppColors = {
   bg: string;
   surface: string;
+  /** Card background — #111111 dark / #FFFFFF light. Cards stand out from the page bg. */
+  cardBg: string;
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
@@ -26,6 +28,7 @@ export type AppColors = {
 export const darkColors: AppColors = {
   bg: '#000000',
   surface: '#111111',
+  cardBg: '#111111',
   textPrimary: '#FFFFFF',
   textSecondary: '#9A9490',
   textMuted: '#5A5754',
@@ -45,7 +48,8 @@ export const darkColors: AppColors = {
 
 export const lightColors: AppColors = {
   bg: '#FFFFFF',
-  surface: '#F5F5F5',
+  surface: '#F2F2F7',
+  cardBg: '#FFFFFF',
   textPrimary: '#000000',
   textSecondary: '#6B6868',
   textMuted: '#9A9490',
@@ -107,6 +111,33 @@ export const Colors = {
     tabIconSelected: '#fff',
   },
 };
+
+// ─── Card elevation helper ─────────────────────────────────────────────────────
+// Dark: glass shadow. Light: thin border only — no shadow on white backgrounds.
+
+export function cardElevation(isDark: boolean): {
+  shadowColor?: string;
+  shadowOffset?: { width: number; height: number };
+  shadowOpacity?: number;
+  shadowRadius?: number;
+  elevation?: number;
+  borderWidth?: number;
+  borderColor?: string;
+} {
+  if (isDark) {
+    return {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.20,
+      shadowRadius: 20,
+      elevation: 6,
+    };
+  }
+  return {
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.09)',
+  };
+}
 
 export const Fonts = Platform.select({
   ios: {

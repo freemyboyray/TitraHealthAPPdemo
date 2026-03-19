@@ -6,6 +6,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
@@ -14,13 +15,16 @@ const FF = 'Helvetica Neue';
 export type WeeklyCheckinCardProps = {
   /** ISO date string of the last time the unified weekly check-in was completed */
   lastLoggedAt: string | null;
+  /** When true, the card shows "Weekly Review" instead of "Weekly Check-In" */
+  isDaily?: boolean;
 };
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 }
 
-export function WeeklyCheckinCard({ lastLoggedAt }: WeeklyCheckinCardProps) {
+export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardProps) {
+  const cardTitle = isDaily ? 'Weekly Review' : 'Weekly Check-In';
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -31,13 +35,13 @@ export function WeeklyCheckinCard({ lastLoggedAt }: WeeklyCheckinCardProps) {
   if (!isDone) {
     return (
       <TouchableOpacity
-        style={[s.wrap, { shadowColor: ORANGE, shadowOpacity: 0.1 }]}
+        style={s.wrap}
         onPress={() => router.push('/entry/weekly-checkin' as any)}
         activeOpacity={0.8}
       >
         <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-        <GlassBorder r={20} />
+        <GlassBorder r={20} isDark={colors.isDark} />
         <View style={s.inner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
             <View style={s.iconWrap}>
@@ -47,8 +51,8 @@ export function WeeklyCheckinCard({ lastLoggedAt }: WeeklyCheckinCardProps) {
               <View style={s.dueBadge}>
                 <Text style={s.dueText}>DUE THIS WEEK</Text>
               </View>
-              <Text style={s.title}>Weekly Check-In</Text>
-              <Text style={s.subtitle}>7 areas · takes about 3 min</Text>
+              <Text style={s.title}>{cardTitle}</Text>
+              <Text style={s.subtitle}>{isDaily ? '7 areas · takes about 3 min' : '7 areas · takes about 3 min'}</Text>
             </View>
           </View>
           <View style={s.ctaBtn}>
@@ -61,7 +65,11 @@ export function WeeklyCheckinCard({ lastLoggedAt }: WeeklyCheckinCardProps) {
   }
 
   return (
-    <View style={[s.wrap, { shadowColor: '#27AE60', shadowOpacity: 0.12 }]}>
+    <TouchableOpacity
+      style={s.wrap}
+      onPress={() => router.push('/entry/weekly-checkin' as any)}
+      activeOpacity={0.85}
+    >
       <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(39,174,96,0.06)' }]} />
@@ -78,24 +86,34 @@ export function WeeklyCheckinCard({ lastLoggedAt }: WeeklyCheckinCardProps) {
             <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.title}>Weekly Check-In</Text>
+            <Text style={s.title}>{cardTitle}</Text>
             <Text style={s.subtitle}>
               {daysAgo === 0 ? 'Completed today' : daysAgo === 1 ? 'Completed yesterday' : `Completed ${daysAgo} days ago`}
             </Text>
           </View>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          <Text style={s.doneLabel}>Done ✓</Text>
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <TouchableOpacity
-            onPress={() => router.push('/entry/weekly-checkin-history' as any)}
+            style={s.retakeBtn}
+            onPress={() => router.push('/entry/weekly-checkin' as any)}
             activeOpacity={0.7}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Text style={s.viewPastLink}>View Past</Text>
+            <Text style={s.retakeText}>Retake</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              router.push('/entry/weekly-checkin-history' as any);
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Text style={s.viewPastLink}>View History</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -106,9 +124,7 @@ const createStyles = (c: AppColors) => {
       borderRadius: 20,
       overflow: 'hidden',
       backgroundColor: c.surface,
-      shadowOffset: { width: 0, height: 6 },
-      shadowRadius: 20,
-      elevation: 6,
+      ...cardElevation(c.isDark),
     },
     inner: {
       padding: 18,
@@ -145,11 +161,15 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 14, paddingVertical: 9, marginLeft: 12, flexShrink: 0,
     },
     ctaText: { fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: FF },
-    doneLabel: {
-      fontSize: 13, fontWeight: '700', color: '#27AE60', fontFamily: FF,
+    retakeBtn: {
+      borderWidth: 1.5, borderColor: ORANGE, borderRadius: 14,
+      paddingHorizontal: 12, paddingVertical: 6,
+    },
+    retakeText: {
+      fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: FF,
     },
     viewPastLink: {
-      fontSize: 11, fontWeight: '600', color: ORANGE, fontFamily: FF,
+      fontSize: 11, fontWeight: '600', color: w(0.35), fontFamily: FF,
     },
   });
 };

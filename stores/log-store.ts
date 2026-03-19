@@ -131,8 +131,13 @@ export const useLogStore = create<LogStore>((set, get) => ({
     if (!user) { set({ loading: false }); return; }
     const uid = user.id;
 
-    const since90d = new Date(Date.now() - 90 * 86400000).toISOString();
-    const since1y  = new Date(Date.now() - 365 * 86400000).toISOString();
+    const state = get();
+    const programStart = state.profile?.program_start_date;
+    const fallback = new Date(Date.now() - 365 * 86400000).toISOString();
+    const since90d = programStart
+      ? new Date(Math.min(new Date(programStart).getTime(), new Date(fallback).getTime())).toISOString()
+      : fallback;
+    const since1y  = since90d;
 
     try {
       const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn] = await Promise.all([

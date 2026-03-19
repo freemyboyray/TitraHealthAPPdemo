@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
 import type { MetabolicAdaptationResult } from '@/lib/cycle-intelligence';
@@ -177,11 +178,7 @@ const createStyles = (c: AppColors) => {
       borderColor: c.border,
       padding: 20,
       marginBottom: 16,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      elevation: 8,
+      ...cardElevation(c.isDark),
     },
     emptyCard: {
       gap: 10,

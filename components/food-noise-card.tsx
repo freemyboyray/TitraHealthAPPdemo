@@ -6,6 +6,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
@@ -60,13 +61,13 @@ export function FoodNoiseCard({ logs }: Props) {
   if (!logs || logs.length === 0) {
     return (
       <TouchableOpacity
-        style={[s.wrap, { shadowColor: ORANGE, shadowOpacity: 0.08 }]}
+        style={s.wrap}
         onPress={() => router.push('/entry/food-noise-survey' as any)}
         activeOpacity={0.8}
       >
         <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-        <GlassBorder r={20} />
+        <GlassBorder r={20} isDark={colors.isDark} />
         <View style={s.inner}>
           <View style={s.leftRow}>
             <View style={s.iconWrap}>
@@ -93,13 +94,13 @@ export function FoodNoiseCard({ logs }: Props) {
 
   return (
     <TouchableOpacity
-      style={[s.wrap, { shadowColor: latestColor, shadowOpacity: 0.1 }]}
+      style={s.wrap}
       onPress={() => router.push('/entry/food-noise-survey' as any)}
       activeOpacity={0.8}
     >
       <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-      <GlassBorder r={20} />
+      <GlassBorder r={20} isDark={colors.isDark} />
       <View style={s.inner}>
         <View style={s.leftRow}>
           <View style={s.iconWrap}>
@@ -135,11 +136,9 @@ const createStyles = (c: AppColors) => {
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: c.surface,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 20,
-    elevation: 6,
     marginHorizontal: 0,
     marginBottom: 12,
+    ...cardElevation(c.isDark),
   },
   inner: {
     padding: 18,

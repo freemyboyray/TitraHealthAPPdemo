@@ -135,11 +135,14 @@ export default function LogInjectionScreen() {
     return `${brandDoses[0]}mg`;
   })();
 
+  const isOral = profile?.route_of_administration === 'oral';
+
   const [medication, setMedication] = useState(defaultMed);
   const [dose, setDose] = useState(defaultDoseStr);
   const [site, setSite] = useState('Left Abdomen');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null); // oral sema fasting window
 
   async function handleVoiceTranscription(text: string) {
     try {
@@ -174,14 +177,19 @@ export default function LogInjectionScreen() {
 
   async function handleSave() {
     const date = todayString();
+    // For oral drugs: encode empty-stomach response in notes if no other note given
+    const emptyStomachNote = isOral && emptyStomach !== null
+      ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water — absorption may be reduced)')
+      : '';
+    const combinedNotes = [notes.trim(), emptyStomachNote].filter(Boolean).join(' ');
     await addInjectionLog(
       parseFloat(dose),
       date,
       undefined,
-      site,
-      notes.trim() || undefined,
+      isOral ? undefined : site,
+      combinedNotes || undefined,
       medication,
-      batchNumber.trim() || undefined,
+      isOral ? undefined : (batchNumber.trim() || undefined),
     );
     // Keep ProfileContext in sync so cycle-intelligence reads the correct date immediately
     await updateProfile({ lastInjectionDate: date });
@@ -207,7 +215,7 @@ export default function LogInjectionScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.headerTitle}>Log Injection</Text>
+        <Text style={s.headerTitle}>{isOral ? 'Log Dose' : 'Log Injection'}</Text>
 
         <View style={s.headerSpacer} />
       </View>
@@ -267,55 +275,92 @@ export default function LogInjectionScreen() {
           </ScrollView>
         </GlassCard>
 
-        {/* ── Injection Site Card ── */}
-        <GlassCard colors={colors}>
-          <SectionLabel text="INJECTION SITE" />
-          <View style={s.siteGrid}>
-            {SITES.map((siteName) => {
-              const active = siteName === site;
-              return (
+        {/* ── Injection Site Card (injectable only) ── */}
+        {!isOral && (
+          <GlassCard colors={colors}>
+            <SectionLabel text="INJECTION SITE" />
+            <View style={s.siteGrid}>
+              {SITES.map((siteName) => {
+                const active = siteName === site;
+                return (
+                  <TouchableOpacity
+                    key={siteName}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite(siteName); }}
+                    activeOpacity={0.75}
+                    style={[
+                      siteStyles.siteBtn,
+                      active ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        siteStyles.siteBtnText,
+                        active ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive,
+                      ]}
+                    >
+                      {siteName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Rotate suggestion */}
+            <View style={s.rotateRow}>
+              <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
+              <Text style={s.rotateLabel}>ROTATE TO </Text>
+              <Text style={s.rotateValue}>{nextSite}</Text>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ── Empty Stomach Toggle (oral drugs only) ── */}
+        {isOral && (
+          <GlassCard colors={colors}>
+            <SectionLabel text="FASTING WINDOW" />
+            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 14, lineHeight: 19 }}>
+              Did you take your dose on an empty stomach?{'\n'}
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                Oral semaglutide must be taken 30 min before food or water for proper absorption.
+              </Text>
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {([true, false] as const).map((val) => (
                 <TouchableOpacity
-                  key={siteName}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite(siteName); }}
+                  key={String(val)}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEmptyStomach(val); }}
                   activeOpacity={0.75}
                   style={[
                     siteStyles.siteBtn,
-                    active ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
+                    { flex: 1 },
+                    emptyStomach === val ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
                   ]}
                 >
-                  <Text
-                    style={[
-                      siteStyles.siteBtnText,
-                      active ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive,
-                    ]}
-                  >
-                    {siteName}
+                  <Text style={[siteStyles.siteBtnText, emptyStomach === val ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive]}>
+                    {val ? 'Yes — empty stomach' : 'No — had food/water'}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Rotate suggestion */}
-          <View style={s.rotateRow}>
-            <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
-            <Text style={s.rotateLabel}>ROTATE TO </Text>
-            <Text style={s.rotateValue}>{nextSite}</Text>
-          </View>
-        </GlassCard>
+              ))}
+            </View>
+          </GlassCard>
+        )}
 
         {/* ── Batch & Notes Card ── */}
         <GlassCard colors={colors}>
-          <TextInput
-            style={s.textInput}
-            placeholder="Batch # (optional)"
-            placeholderTextColor={colors.textMuted}
-            value={batchNumber}
-            onChangeText={setBatchNumber}
-            maxLength={30}
-            returnKeyType="next"
-          />
-          <View style={s.inputDivider} />
+          {!isOral && (
+            <>
+              <TextInput
+                style={s.textInput}
+                placeholder="Batch # (optional)"
+                placeholderTextColor={colors.textMuted}
+                value={batchNumber}
+                onChangeText={setBatchNumber}
+                maxLength={30}
+                returnKeyType="next"
+              />
+              <View style={s.inputDivider} />
+            </>
+          )}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
             <TextInput
               style={[s.textInput, s.notesInput, { flex: 1 }]}
@@ -344,8 +389,8 @@ export default function LogInjectionScreen() {
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
             <View style={s.saveBtnInner}>
-              <FontAwesome5 name="syringe" size={16} color="#FFF" style={s.saveIcon} />
-              <Text style={s.saveBtnText}>Save Injection</Text>
+              <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={16} color="#FFF" style={s.saveIcon} />
+              <Text style={s.saveBtnText}>{isOral ? 'Save Dose' : 'Save Injection'}</Text>
             </View>
           )}
         </TouchableOpacity>

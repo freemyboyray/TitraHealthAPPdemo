@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import type { ClinicalFlag } from '@/lib/clinical-alerts';
 
@@ -123,11 +124,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.surface,
     borderWidth: 1,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 6,
+    ...cardElevation(c.isDark),
   },
   inner: { padding: 16 },
   headerRow: {

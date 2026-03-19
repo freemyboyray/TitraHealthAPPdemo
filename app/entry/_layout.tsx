@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 
 export default function EntryLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_bottom' }}>
+    <Stack screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
       <Stack.Screen name="log-weight" />
       <Stack.Screen name="side-effects" />
       <Stack.Screen name="log-injection" />

@@ -6,8 +6,8 @@ import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native
 const MEAL_TIPS: Record<ForecastDay['state'], string> = {
   peak_suppression:    'Focus on protein-dense foods. Small, frequent meals work better than large ones on peak days.',
   moderate_suppression:'Good window for protein. Plan your highest-protein meal during this phase.',
-  returning:           'Appetite returning — good day for a fuller, higher-protein meal.',
-  near_baseline:       'Appetite near baseline — aim for a satisfying, balanced meal today.',
+  returning:           'Appetite returning. Good day for a fuller, higher-protein meal.',
+  near_baseline:       'Appetite near baseline. Aim for a satisfying, balanced meal today.',
 };
 
 function formatDayDetailDate(dateStr: string): string {
@@ -16,9 +16,27 @@ function formatDayDetailDate(dateStr: string): string {
 }
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
 import type { ForecastDay, HourBlock } from '@/lib/cycle-intelligence';
+
+function hungerLevelLabel(state: ForecastDay['state']): string {
+  switch (state) {
+    case 'peak_suppression':     return 'LOW';
+    case 'moderate_suppression': return 'BELOW NORMAL';
+    case 'returning':            return 'MODERATE';
+    case 'near_baseline':        return 'NORMAL';
+  }
+}
+
+function hungerLevelFromPhase(phase: HourBlock['phase']): string {
+  switch (phase) {
+    case 'peak':      return 'LOW';
+    case 'post_dose': return 'BELOW NORMAL';
+    case 'trough':    return 'NORMAL';
+  }
+}
 
 const STATE_COLORS: Record<ForecastDay['state'], string> = {
   peak_suppression:    '#E74C3C',
@@ -63,11 +81,6 @@ function ForecastPill({ day, selected, onPress, compact }: ForecastPillProps) {
           ? (day.isShotDay ? 'SHOT\nDAY' : 'TODAY')
           : `D${day.cycleDay}`}
       </Text>
-      {!compact && (
-        <Text style={[s.suppression, day.isToday && s.suppressionToday]}>
-          {day.appetiteSuppressionPct}%
-        </Text>
-      )}
     </Pressable>
   );
 }
@@ -108,13 +121,13 @@ export function AppetiteForecastStrip({
 
   const openDayAiChat = (day: ForecastDay) => {
     const stateDesc =
-      day.state === 'peak_suppression'    ? 'Peak suppression — appetite is significantly reduced' :
-      day.state === 'moderate_suppression' ? 'Moderate suppression — appetite below normal' :
+      day.state === 'peak_suppression'    ? 'Peak suppression: appetite is significantly reduced' :
+      day.state === 'moderate_suppression' ? 'Moderate suppression: appetite below normal' :
       day.state === 'returning'            ? 'Appetite is returning toward baseline' :
       'Appetite near baseline';
     const chipContext = day.isToday
-      ? `Day ${day.cycleDay} of your cycle — Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`
-      : `Day ${day.cycleDay} forecast — Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`;
+      ? `Day ${day.cycleDay} of your cycle. Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`
+      : `Day ${day.cycleDay} forecast. Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`;
     const mealTip = MEAL_TIPS[day.state];
     openAiChat({
       contextLabel: day.isToday ? 'Today\'s Appetite' : `Day ${day.cycleDay} Forecast`,
@@ -219,9 +232,6 @@ export function AppetiteForecastStrip({
                 <Text style={[s.dayLabel, block.isCurrent && s.dayLabelToday, { fontSize: 9 }]}>
                   {block.isCurrent ? 'NOW' : block.label}
                 </Text>
-                <Text style={[s.suppression, block.isCurrent && s.suppressionToday]}>
-                  {block.appetiteSuppressionPct}%
-                </Text>
               </Pressable>
             );
           })}
@@ -237,8 +247,8 @@ export function AppetiteForecastStrip({
             </View>
             <View style={s.dayDetailStats}>
               <View style={s.dayDetailStat}>
-                <Text style={s.dayDetailStatVal}>{currentBlock.appetiteSuppressionPct}%</Text>
-                <Text style={s.dayDetailStatLbl}>Appetite suppressed</Text>
+                <Text style={s.dayDetailStatVal}>{hungerLevelFromPhase(currentBlock.phase)}</Text>
+                <Text style={s.dayDetailStatLbl}>Hunger level</Text>
               </View>
               <View style={s.dayDetailStatDivider} />
               <View style={s.dayDetailStat}>
@@ -246,6 +256,7 @@ export function AppetiteForecastStrip({
                 <Text style={s.dayDetailStatLbl}>Drug level</Text>
               </View>
             </View>
+            <Text style={s.dayDetailSubNote}>~{currentBlock.appetiteSuppressionPct}% below your drug-free appetite</Text>
           </View>
         )}
 
@@ -342,8 +353,8 @@ export function AppetiteForecastStrip({
 
           <View style={s.dayDetailStats}>
             <View style={s.dayDetailStat}>
-              <Text style={s.dayDetailStatVal}>{selectedDay.appetiteSuppressionPct}%</Text>
-              <Text style={s.dayDetailStatLbl}>Appetite suppressed</Text>
+              <Text style={s.dayDetailStatVal}>{hungerLevelLabel(selectedDay.state)}</Text>
+              <Text style={s.dayDetailStatLbl}>Hunger level</Text>
             </View>
             <View style={s.dayDetailStatDivider} />
             <View style={s.dayDetailStat}>
@@ -356,9 +367,10 @@ export function AppetiteForecastStrip({
               <Text style={s.dayDetailStatLbl}>Energy forecast</Text>
             </View>
           </View>
+          <Text style={s.dayDetailSubNote}>~{selectedDay.appetiteSuppressionPct}% below your drug-free appetite</Text>
 
           {selectedDay.isProjected && (
-            <Text style={s.dayDetailProjectedNote}>Projected — assumes injection today</Text>
+            <Text style={s.dayDetailProjectedNote}>Projected (assumes injection today)</Text>
           )}
           <Text style={s.dayDetailTip}>{MEAL_TIPS[selectedDay.state]}</Text>
 
@@ -428,11 +440,7 @@ const createStyles = (c: AppColors) => {
       borderWidth: 0.5,
       borderColor: c.border,
       padding: 18,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      elevation: 8,
+      ...cardElevation(c.isDark),
     },
     header: {
       flexDirection: 'row',
@@ -493,15 +501,6 @@ const createStyles = (c: AppColors) => {
       color: '#FFFFFF',
       fontSize: 9,
       letterSpacing: 0.3,
-    },
-    suppression: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: w(0.45),
-      fontFamily: 'Helvetica Neue',
-    },
-    suppressionToday: {
-      color: 'rgba(255,255,255,0.9)',
     },
     legend: {
       flexDirection: 'row',
@@ -645,6 +644,13 @@ const createStyles = (c: AppColors) => {
       color: c.textSecondary,
       lineHeight: 17,
       fontFamily: 'Helvetica Neue',
+    },
+    dayDetailSubNote: {
+      fontSize: 11,
+      color: c.textSecondary,
+      fontFamily: 'Helvetica Neue',
+      fontStyle: 'italic',
+      opacity: 0.7,
     },
     dayDetailAiBtn: {
       alignSelf: 'flex-start',

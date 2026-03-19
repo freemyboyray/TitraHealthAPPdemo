@@ -19,6 +19,7 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useProfile } from '@/contexts/profile-context';
 import { getEscalationPhase } from '@/lib/escalation-phase';
 import { supabase } from '@/lib/supabase';
+import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 
 type ArticleRow = {
   id: string;
@@ -59,7 +60,7 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'How do GLP-1 agonists work?',
-        a: 'GLP-1 receptor agonists mimic the glucagon-like peptide-1 hormone. They slow gastric emptying, signal fullness to the brain, and help regulate blood sugar — resulting in reduced appetite and significant weight loss over time.',
+        a: 'GLP-1 receptor agonists mimic the glucagon-like peptide-1 hormone. They slow gastric emptying, signal fullness to the brain, and help regulate blood sugar, resulting in reduced appetite and significant weight loss over time.',
       },
       {
         q: 'Tirzepatide vs Semaglutide',
@@ -67,7 +68,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'What is dose escalation and why does it matter?',
-        a: 'Both medications start at a low "starter" dose to minimize side effects, then increase every 4 weeks. This ramp period is when nausea is most common. Never skip ahead — your body needs time to adapt. Rushing escalation is the #1 cause of early dropout from GLP-1 therapy.',
+        a: 'Both medications start at a low "starter" dose to minimize side effects, then increase every 4 weeks. This ramp period is when nausea is most common. Never skip ahead. Your body needs time to adapt. Rushing escalation is the #1 cause of early dropout from GLP-1 therapy.',
       },
       {
         q: 'How long does it take to work?',
@@ -79,7 +80,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'Can I take GLP-1s long-term?',
-        a: 'Yes — and for most people, long-term use is both safe and necessary. GLP-1 medications are treating a chronic condition. The SUSTAIN and SURMOUNT trials showed benefits persisted with continued use. Stopping typically leads to weight regain within 12 months, as the underlying biology doesn\'t change.',
+        a: 'Yes, and for most people, long-term use is both safe and necessary. GLP-1 medications are treating a chronic condition. The SUSTAIN and SURMOUNT trials showed benefits persisted with continued use. Stopping typically leads to weight regain within 12 months, as the underlying biology doesn\'t change.',
       },
     ],
   },
@@ -91,27 +92,27 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'Where are the best injection sites?',
-        a: 'The three approved sites are: (1) Abdomen — at least 2 inches from your navel, (2) Upper thigh — outer/front area, (3) Upper arm — outer area. Rotate sites with each injection to prevent lipohypertrophy (hardened fatty lumps). Never inject into hardened, bruised, or scarred tissue.',
+        a: 'The three approved sites are: (1) Abdomen (at least 2 inches from your navel), (2) Upper thigh (outer/front area), (3) Upper arm (outer area). Rotate sites with each injection to prevent lipohypertrophy (hardened fatty lumps). Never inject into hardened, bruised, or scarred tissue.',
       },
       {
         q: 'How do I inject correctly?',
-        a: 'Steps: (1) Let pen warm to room temp for 30 min, (2) Check the medication window — it should be clear and colorless, (3) Clean site with alcohol swab and let dry, (4) Pinch skin lightly for thin people, (5) Insert at 90°, (6) Press button and hold for 5–10 seconds, (7) Don\'t rub the site. Rubbing can cause bruising and affect absorption.',
+        a: 'Steps: (1) Let pen warm to room temp for 30 min, (2) Check the medication window (it should be clear and colorless), (3) Clean site with alcohol swab and let dry, (4) Pinch skin lightly for thin people, (5) Insert at 90°, (6) Press button and hold for 5–10 seconds, (7) Don\'t rub the site. Rubbing can cause bruising and affect absorption.',
       },
       {
         q: 'How should I store my medication?',
-        a: 'Unopened pens: refrigerate at 36–46°F (2–8°C), away from the freezer element. Never freeze — frozen medication is ruined. In-use pens: can be kept at room temperature (below 77°F/25°C) for up to 56 days (Ozempic), 42 days (Wegovy), or 21 days (Zepbound). Keep away from direct heat and light.',
+        a: 'Unopened pens: refrigerate at 36–46°F (2–8°C), away from the freezer element. Never freeze. Frozen medication is ruined. In-use pens: can be kept at room temperature (below 77°F/25°C) for up to 56 days (Ozempic), 42 days (Wegovy), or 21 days (Zepbound). Keep away from direct heat and light.',
       },
       {
         q: 'What if my pen was left out overnight?',
-        a: 'If below 77°F (25°C): it\'s still usable — just resume your room-temp use window. If above 77°F or left in a hot car: discard the pen. Heat degrades the peptide and the medication becomes less effective or ineffective. Don\'t risk injecting degraded medication.',
+        a: 'If below 77°F (25°C): it\'s still usable. Just resume your room-temp use window. If above 77°F or left in a hot car: discard the pen. Heat degrades the peptide and the medication becomes less effective or ineffective. Don\'t risk injecting degraded medication.',
       },
       {
-        q: 'My injection site is red or has a lump — is this normal?',
-        a: 'Mild redness, swelling, or a small lump at the injection site is common and typically resolves within 1–3 days. It\'s usually a normal immune response. Persistent lumps (lipohypertrophy) form from injecting the same spot repeatedly — always rotate. A warm, spreading redness that grows could indicate infection; contact your doctor.',
+        q: 'My injection site is red or has a lump. Is this normal?',
+        a: 'Mild redness, swelling, or a small lump at the injection site is common and typically resolves within 1–3 days. It\'s usually a normal immune response. Persistent lumps (lipohypertrophy) form from injecting the same spot repeatedly. Always rotate. A warm, spreading redness that grows could indicate infection; contact your doctor.',
       },
       {
         q: 'What is a needle cap/flow check error?',
-        a: 'For the semaglutide pen: always perform a flow check (prime) before your first use of a new pen — hold upright, press button, check that medication appears at the needle tip. Skipping this can result in getting a partial or empty dose. Subsequent injections from the same pen don\'t need a flow check.',
+        a: 'For the semaglutide pen: always perform a flow check (prime) before your first use of a new pen. Hold upright, press button, check that medication appears at the needle tip. Skipping this can result in getting a partial or empty dose. Subsequent injections from the same pen don\'t need a flow check.',
       },
     ],
   },
@@ -123,7 +124,7 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'Why is protein so critical on GLP-1s?',
-        a: 'GLP-1 medications suppress appetite broadly — including protein. Without intentional protein intake, your body loses muscle mass alongside fat (up to 25–40% of weight lost can be lean mass). Aim for 0.7–1g protein per pound of body weight daily. Prioritize protein at every meal — it\'s the single most important dietary intervention on GLP-1 therapy.',
+        a: 'GLP-1 medications suppress appetite broadly, including protein. Without intentional protein intake, your body loses muscle mass alongside fat (up to 25–40% of weight lost can be lean mass). Aim for 0.7–1g protein per pound of body weight daily. Prioritize protein at every meal. It\'s the single most important dietary intervention on GLP-1 therapy.',
       },
       {
         q: 'How much water should I drink?',
@@ -131,7 +132,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'What are the best foods to eat?',
-        a: 'High-protein, nutrient-dense choices: Greek yogurt, eggs, lean meats, fish, shrimp, legumes, cottage cheese, edamame, tofu. Eat small, slow meals. Avoid high-fat or spicy foods near injection day — they slow gastric emptying further and worsen nausea. Fiber-rich vegetables (broccoli, leafy greens) reduce constipation.',
+        a: 'High-protein, nutrient-dense choices: Greek yogurt, eggs, lean meats, fish, shrimp, legumes, cottage cheese, edamame, tofu. Eat small, slow meals. Avoid high-fat or spicy foods near injection day, as they slow gastric emptying further and worsen nausea. Fiber-rich vegetables (broccoli, leafy greens) reduce constipation.',
       },
       {
         q: 'What foods tend to trigger nausea?',
@@ -139,11 +140,11 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'Should I take vitamins or supplements?',
-        a: 'Yes — significantly reduced food intake means micronutrient gaps are common. Priority supplements: (1) Multivitamin daily, (2) B12 — deficiency causes fatigue and nerve issues, especially on low-calorie diets, (3) Vitamin D3 + K2, (4) Iron — especially for women, (5) Zinc — for hair health and immune function, (6) Magnesium citrate — eases constipation and muscle cramps. Discuss with your doctor before starting any supplement.',
+        a: 'Yes, significantly reduced food intake means micronutrient gaps are common. Priority supplements: (1) Multivitamin daily, (2) B12 (deficiency causes fatigue and nerve issues, especially on low-calorie diets), (3) Vitamin D3 + K2, (4) Iron (especially for women), (5) Zinc (for hair health and immune function), (6) Magnesium citrate (eases constipation and muscle cramps). Discuss with your doctor before starting any supplement.',
       },
       {
         q: 'Should I track calories?',
-        a: 'GLP-1s naturally reduce caloric intake — many people eat 30–40% less. Focus on hitting protein and hydration targets first. If you do track, a deficit of 500–750 kcal/day is sustainable. Avoid going below 1,200 kcal (women) or 1,500 kcal (men) without medical guidance — too-low intake accelerates muscle loss and micronutrient deficiency.',
+        a: 'GLP-1s naturally reduce caloric intake. Many people eat 30–40% less. Focus on hitting protein and hydration targets first. If you do track, a deficit of 500–750 kcal/day is sustainable. Avoid going below 1,200 kcal (women) or 1,500 kcal (men) without medical guidance, as too-low intake accelerates muscle loss and micronutrient deficiency.',
       },
     ],
   },
@@ -155,23 +156,23 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'What exercise is best on GLP-1s?',
-        a: 'Resistance training (2–3x/week) is the highest priority — it directly counters the muscle loss that GLP-1-driven caloric restriction can cause. Studies show people who lift while on GLP-1s preserve significantly more lean mass. Add daily walking (7,000–10,000 steps) for cardiovascular health. Even light bodyweight exercises (squats, push-ups) count.',
+        a: 'Resistance training (2–3x/week) is the highest priority. It directly counters the muscle loss that GLP-1-driven caloric restriction can cause. Studies show people who lift while on GLP-1s preserve significantly more lean mass. Add daily walking (7,000–10,000 steps) for cardiovascular health. Even light bodyweight exercises (squats, push-ups) count.',
       },
       {
         q: 'Why does sleep matter so much?',
-        a: 'Poor sleep (under 6 hours) blunts GLP-1 appetite control by up to 30%, increases cortisol (which promotes fat storage and cravings), and impairs muscle protein synthesis. Aim for 7–9 hours. Sleep quality is as important as diet on GLP-1 therapy. If you have untreated sleep apnea, GLP-1 therapy may actually help — significant weight loss often resolves OSA.',
+        a: 'Poor sleep (under 6 hours) blunts GLP-1 appetite control by up to 30%, increases cortisol (which promotes fat storage and cravings), and impairs muscle protein synthesis. Aim for 7–9 hours. Sleep quality is as important as diet on GLP-1 therapy. If you have untreated sleep apnea, GLP-1 therapy may actually help. Significant weight loss often resolves OSA.',
       },
       {
         q: 'How does stress affect my results?',
-        a: 'Chronic stress elevates cortisol, which promotes abdominal fat storage and increases hunger — partially overriding the appetite-suppressing effects of GLP-1 medications. It also disrupts sleep and can trigger emotional eating patterns. Mindfulness, regular movement, and adequate sleep are the best stress management tools.',
+        a: 'Chronic stress elevates cortisol, which promotes abdominal fat storage and increases hunger, partially overriding the appetite-suppressing effects of GLP-1 medications. It also disrupts sleep and can trigger emotional eating patterns. Mindfulness, regular movement, and adequate sleep are the best stress management tools.',
       },
       {
         q: 'Will I lose muscle mass?',
-        a: 'It\'s a real risk — but largely preventable. During rapid weight loss, 25–40% of lost weight can be lean mass (muscle, bone density) without intervention. The solution: (1) Eat 0.7–1g protein per lb body weight daily, (2) Do resistance training 2–3x/week, (3) Avoid going below your protein target even on days you\'re nauseous. Track protein intake — it\'s the single best muscle preservation predictor.',
+        a: 'It\'s a real risk, but largely preventable. During rapid weight loss, 25–40% of lost weight can be lean mass (muscle, bone density) without intervention. The solution: (1) Eat 0.7–1g protein per lb body weight daily, (2) Do resistance training 2–3x/week, (3) Avoid going below your protein target even on days you\'re nauseous. Track protein intake. It\'s the single best muscle preservation predictor.',
       },
       {
         q: 'Can I drink alcohol on GLP-1s?',
-        a: 'GLP-1 medications significantly lower alcohol tolerance — many people are surprised to feel drunk from 1–2 drinks. This is because slowed gastric emptying changes alcohol absorption kinetics. Alcohol also worsens nausea, dehydration, and can undermine weight loss. If you do drink: start with very small amounts, always eat first, and never drink on an empty stomach.',
+        a: 'GLP-1 medications significantly lower alcohol tolerance. Many people are surprised to feel drunk from 1–2 drinks. This is because slowed gastric emptying changes alcohol absorption kinetics. Alcohol also worsens nausea, dehydration, and can undermine weight loss. If you do drink: start with very small amounts, always eat first, and never drink on an empty stomach.',
       },
     ],
   },
@@ -183,23 +184,23 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'What is "food noise" and why does it go quiet?',
-        a: '"Food noise" refers to the constant mental preoccupation with food — thinking about what to eat next, craving specific foods, difficulty resisting urges. GLP-1 receptors exist in the brain\'s reward and appetite centers. When activated, many people report that food noise quiets dramatically — sometimes described as a mental silence they\'ve never experienced before. This is a direct pharmacological effect.',
+        a: '"Food noise" refers to the constant mental preoccupation with food: thinking about what to eat next, craving specific foods, difficulty resisting urges. GLP-1 receptors exist in the brain\'s reward and appetite centers. When activated, many people report that food noise quiets dramatically, sometimes described as a mental silence they\'ve never experienced before. This is a direct pharmacological effect.',
       },
       {
         q: 'Why do I feel emotionally different about food?',
-        a: 'GLP-1 meds often change your relationship with food in ways that go beyond just eating less. Foods that felt like emotional comfort may lose their appeal. This can be disorienting, especially if food was a primary coping mechanism. It\'s worth exploring this with a therapist — many patients find GLP-1 therapy an unexpected window into their emotional eating patterns.',
+        a: 'GLP-1 meds often change your relationship with food in ways that go beyond just eating less. Foods that felt like emotional comfort may lose their appeal. This can be disorienting, especially if food was a primary coping mechanism. It\'s worth exploring this with a therapist. Many patients find GLP-1 therapy an unexpected window into their emotional eating patterns.',
       },
       {
         q: 'Body image concerns after weight loss',
-        a: 'Rapid weight loss can create unexpected challenges: loose skin, feeling disconnected from your body, or not recognizing yourself in the mirror. Body dysmorphia can actually worsen for some patients during rapid loss. Others struggle with "will people treat me differently?" or feelings of identity shift. These are normal and important to process — a therapist familiar with weight loss can be invaluable.',
+        a: 'Rapid weight loss can create unexpected challenges: loose skin, feeling disconnected from your body, or not recognizing yourself in the mirror. Body dysmorphia can actually worsen for some patients during rapid loss. Others struggle with "will people treat me differently?" or feelings of identity shift. These are normal and important to process. A therapist familiar with weight loss can be invaluable.',
       },
       {
         q: 'GLP-1s and addiction / reduced cravings',
-        a: 'Emerging research suggests GLP-1 receptors are involved in the brain\'s reward pathways beyond food — including alcohol and other substance cravings. Several studies show GLP-1 therapy reduces addictive behaviors broadly. This isn\'t fully understood yet, but many patients report reduced cravings for alcohol, smoking, and even compulsive behaviors. Discuss with your doctor if you have a history of addiction.',
+        a: 'Emerging research suggests GLP-1 receptors are involved in the brain\'s reward pathways beyond food, including alcohol and other substance cravings. Several studies show GLP-1 therapy reduces addictive behaviors broadly. This isn\'t fully understood yet, but many patients report reduced cravings for alcohol, smoking, and even compulsive behaviors. Discuss with your doctor if you have a history of addiction.',
       },
       {
         q: 'What if I feel anxious or depressed on GLP-1s?',
-        a: 'Some patients report mood changes — both positive (reduced depression from weight loss) and negative (anxiety, low mood, especially during dose escalation). Rapid metabolic changes and caloric restriction can affect mood. If you notice persistent mood changes, especially depressive thoughts or unusual anxiety, discuss with your prescriber. Don\'t adjust doses without medical guidance.',
+        a: 'Some patients report mood changes, both positive (reduced depression from weight loss) and negative (anxiety, low mood, especially during dose escalation). Rapid metabolic changes and caloric restriction can affect mood. If you notice persistent mood changes, especially depressive thoughts or unusual anxiety, discuss with your prescriber. Don\'t adjust doses without medical guidance.',
       },
     ],
   },
@@ -211,19 +212,19 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'How do I manage nausea?',
-        a: 'Nausea is most common in the first 4–8 weeks or after a dose increase. Practical strategies: eat slowly, take small bites, avoid lying down after eating, stay hydrated, eat a light snack before or after injection. Ginger tea, peppermint, and bland foods (crackers, plain rice) help. If nausea is severe, discuss delaying your dose escalation — this is a valid medical strategy.',
+        a: 'Nausea is most common in the first 4–8 weeks or after a dose increase. Practical strategies: eat slowly, take small bites, avoid lying down after eating, stay hydrated, eat a light snack before or after injection. Ginger tea, peppermint, and bland foods (crackers, plain rice) help. If nausea is severe, discuss delaying your dose escalation. This is a valid medical strategy.',
       },
       {
         q: 'Tips for constipation',
-        a: 'GLP-1s slow gut motility significantly — constipation is one of the most underreported side effects. Increase fiber (aim for 30–35g/day), drink extra water (at least 64 oz), and stay active. Psyllium husk, magnesium citrate (400mg at bedtime), or prune juice can help. Your doctor may recommend a gentle osmotic laxative (MiraLAX) if symptoms persist beyond 1 week.',
+        a: 'GLP-1s slow gut motility significantly. Constipation is one of the most underreported side effects. Increase fiber (aim for 30–35g/day), drink extra water (at least 64 oz), and stay active. Psyllium husk, magnesium citrate (400mg at bedtime), or prune juice can help. Your doctor may recommend a gentle osmotic laxative (MiraLAX) if symptoms persist beyond 1 week.',
       },
       {
         q: 'Why do I feel fatigued?',
-        a: 'Fatigue is common in early weeks as your body adapts to reduced caloric intake, slower digestion, and metabolic changes. Ensure adequate protein, iron, B12, and vitamin D. Fatigue usually resolves by week 4–6. If it persists at higher doses or is severe, discuss with your doctor — it can sometimes indicate you\'re in a caloric deficit that\'s too aggressive.',
+        a: 'Fatigue is common in early weeks as your body adapts to reduced caloric intake, slower digestion, and metabolic changes. Ensure adequate protein, iron, B12, and vitamin D. Fatigue usually resolves by week 4–6. If it persists at higher doses or is severe, discuss with your doctor. It can sometimes indicate you\'re in a caloric deficit that\'s too aggressive.',
       },
       {
         q: 'What about hair loss?',
-        a: 'Temporary hair shedding (telogen effluvium) occurs in 10–30% of patients, typically 3–6 months into treatment, due to rapid caloric restriction or nutritional deficiency — not a direct drug effect. Prioritize protein (the #1 factor), biotin (2,500–5,000 mcg/day), zinc, and iron. Hair typically regrows fully after 6–12 months once nutrition stabilizes.',
+        a: 'Temporary hair shedding (telogen effluvium) occurs in 10–30% of patients, typically 3–6 months into treatment, due to rapid caloric restriction or nutritional deficiency, not a direct drug effect. Prioritize protein (the #1 factor), biotin (2,500–5,000 mcg/day), zinc, and iron. Hair typically regrows fully after 6–12 months once nutrition stabilizes.',
       },
       {
         q: 'Heartburn and acid reflux',
@@ -247,7 +248,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'Can GLP-1s affect fertility?',
-        a: 'GLP-1 medications may actually improve fertility, particularly for women with PCOS — weight loss and improved insulin sensitivity often restore ovulatory cycles. Importantly: if you\'re not intending pregnancy, use effective contraception. GLP-1s are not safe during pregnancy. If you become pregnant while on GLP-1 therapy, stop immediately and contact your OB.',
+        a: 'GLP-1 medications may actually improve fertility, particularly for women with PCOS. Weight loss and improved insulin sensitivity often restore ovulatory cycles. Importantly: if you\'re not intending pregnancy, use effective contraception. GLP-1s are not safe during pregnancy. If you become pregnant while on GLP-1 therapy, stop immediately and contact your OB.',
       },
       {
         q: 'Will I have loose skin after weight loss?',
@@ -255,11 +256,11 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'What happens when I stop GLP-1 therapy?',
-        a: 'The STEP and SURMOUNT extension trials are unambiguous: most people regain 2/3 of lost weight within 12 months of stopping. The underlying biology (set point, appetite regulation) reverts when medication stops. This is not a failure of willpower — it\'s biology. Long-term treatment is the evidence-based standard. Discuss a maintenance strategy with your prescriber before stopping.',
+        a: 'The STEP and SURMOUNT extension trials are unambiguous: most people regain 2/3 of lost weight within 12 months of stopping. The underlying biology (set point, appetite regulation) reverts when medication stops. This is not a failure of willpower. It\'s biology. Long-term treatment is the evidence-based standard. Discuss a maintenance strategy with your prescriber before stopping.',
       },
       {
         q: 'Drug interactions I should know about',
-        a: 'Important interactions: (1) Oral medications (including birth control pills) — GLP-1s slow absorption, potentially reducing effectiveness; take oral meds 1 hour before or 4 hours after injection. (2) Insulin/sulfonylureas — GLP-1s increase hypoglycemia risk; doses may need adjustment. (3) Warfarin — monitor INR more closely. (4) Alcohol — significantly lower tolerance. Always disclose all medications to your prescriber.',
+        a: 'Important interactions: (1) Oral medications (including birth control pills): GLP-1s slow absorption, potentially reducing effectiveness; take oral meds 1 hour before or 4 hours after injection. (2) Insulin/sulfonylureas: GLP-1s increase hypoglycemia risk; doses may need adjustment. (3) Warfarin: monitor INR more closely. (4) Alcohol: significantly lower tolerance. Always disclose all medications to your prescriber.',
       },
     ],
   },
@@ -276,13 +277,13 @@ type MythItem = {
 const MYTHS: MythItem[] = [
   {
     icon: <MaterialIcons name="psychology" size={26} color="#FF742A" />,
-    myth: '"GLP-1s are the easy way out — real weight loss takes willpower."',
-    fact: 'Obesity is a chronic metabolic disease driven by biology, not willpower. GLP-1 medications correct a hormonal dysfunction — just as insulin treats diabetes. Studies show GLP-1 therapy is more effective than lifestyle intervention alone for sustained weight loss.',
+    myth: '"GLP-1s are the easy way out. Real weight loss takes willpower."',
+    fact: 'Obesity is a chronic metabolic disease driven by biology, not willpower. GLP-1 medications correct a hormonal dysfunction, just as insulin treats diabetes. Studies show GLP-1 therapy is more effective than lifestyle intervention alone for sustained weight loss.',
   },
   {
     icon: <MaterialIcons name="restaurant" size={26} color="#FF742A" />,
     myth: '"I can eat whatever I want since the medication controls my appetite."',
-    fact: 'Poor nutrition on GLP-1s leads to muscle loss, micronutrient deficiency, and rebound weight gain. The medication reduces quantity — what you eat determines quality of your results. Protein intake is especially critical for preserving muscle mass.',
+    fact: 'Poor nutrition on GLP-1s leads to muscle loss, micronutrient deficiency, and rebound weight gain. The medication reduces quantity. What you eat determines quality of your results. Protein intake is especially critical for preserving muscle mass.',
   },
   {
     icon: <MaterialCommunityIcons name="scale" size={26} color="#FF742A" />,
@@ -292,17 +293,17 @@ const MYTHS: MythItem[] = [
   {
     icon: <MaterialIcons name="face" size={26} color="#FF742A" />,
     myth: '"Hair loss on GLP-1s is permanent and keeps getting worse."',
-    fact: 'Hair shedding (telogen effluvium) is temporary — caused by rapid caloric restriction, not a direct drug effect. It typically peaks at 3–4 months and fully reverses by 9–12 months. Prioritizing protein and micronutrients (zinc, iron, biotin) significantly reduces severity.',
+    fact: 'Hair shedding (telogen effluvium) is temporary, caused by rapid caloric restriction, not a direct drug effect. It typically peaks at 3–4 months and fully reverses by 9–12 months. Prioritizing protein and micronutrients (zinc, iron, biotin) significantly reduces severity.',
   },
   {
     icon: <MaterialIcons name="sick" size={26} color="#FF742A" />,
-    myth: '"Nausea means the medication is working — more nausea = faster weight loss."',
+    myth: '"Nausea means the medication is working. More nausea = faster weight loss."',
     fact: 'Nausea is a side effect of the medication\'s gut effects, not an indicator of efficacy. Severe nausea often means you\'re eating too much or too fast, or escalating doses too quickly. It has no correlation with weight loss rate.',
   },
   {
     icon: <MaterialIcons name="local-hospital" size={26} color="#FF742A" />,
     myth: '"GLP-1s are only for people with type 2 diabetes."',
-    fact: 'Semaglutide (Wegovy) and tirzepatide (Zepbound) are FDA-approved for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition — regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
+    fact: 'Semaglutide (Wegovy) and tirzepatide (Zepbound) are FDA-approved for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition, regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
   },
   {
     icon: <MaterialIcons name="biotech" size={26} color="#FF742A" />,
@@ -339,8 +340,8 @@ const SYMPTOMS: SymptomItem[] = [
   { category: 'call_doctor', name: 'Yellowing skin/eyes', detail: 'Jaundice can indicate gallbladder disease, which is more common with rapid weight loss. Requires same-day medical evaluation.' },
   { category: 'call_doctor', name: 'Difficulty swallowing', detail: 'Gastroparesis (severe stomach paralysis) can cause this. If you cannot keep liquids down or feel food "stuck," contact your doctor immediately.' },
   { category: 'call_doctor', name: 'Neck lump / throat symptoms', detail: 'While thyroid cancer risk in humans is not established, any new neck lump, difficulty swallowing, or persistent hoarseness should be evaluated by your doctor.' },
-  { category: 'call_doctor', name: 'Signs of hypoglycemia', detail: 'Shakiness, sweating, confusion, rapid heartbeat — especially if you take insulin or sulfonylureas alongside GLP-1. Treat with 15g fast-acting carbs and call your doctor.' },
-  { category: 'call_doctor', name: 'Severe allergic reaction', detail: 'Facial swelling, hives, difficulty breathing — call 911. Rare but serious. Discontinue medication.' },
+  { category: 'call_doctor', name: 'Signs of hypoglycemia', detail: 'Shakiness, sweating, confusion, rapid heartbeat, especially if you take insulin or sulfonylureas alongside GLP-1. Treat with 15g fast-acting carbs and call your doctor.' },
+  { category: 'call_doctor', name: 'Severe allergic reaction', detail: 'Facial swelling, hives, difficulty breathing. Call 911. Rare but serious. Discontinue medication.' },
 ];
 
 // ─── Phase-aware focus card ───────────────────────────────────────────────────
@@ -349,54 +350,54 @@ const PHASE_TIPS: Record<string, { title: string; tips: string[] }> = {
   initiation: {
     title: 'Week 1–4: Building Your Foundation',
     tips: [
-      'Focus on injection consistency — same day, same time each week',
-      'Start tracking protein now even if intake is low — the habit matters',
+      'Focus on injection consistency. Same day, same time each week',
+      'Start tracking protein now even if intake is low. The habit matters',
       'Log every side effect you notice; patterns this early inform your titration speed',
-      'Expect nausea — it\'s the body adapting, not a sign something\'s wrong',
+      'Expect nausea. It\'s the body adapting, not a sign something\'s wrong',
     ],
   },
   low_therapeutic: {
     title: 'Low Therapeutic Phase: Harness the Appetite Window',
     tips: [
-      'Your appetite suppression is kicking in — use this window to establish protein-first eating habits',
-      'Begin resistance training now if you haven\'t — this is the ideal time to build the muscle-preservation habit',
-      'Hydration often falls off as hunger decreases — keep tracking your water intake',
+      'Your appetite suppression is kicking in. Use this window to establish protein-first eating habits',
+      'Begin resistance training now if you haven\'t. This is the ideal time to build the muscle-preservation habit',
+      'Hydration often falls off as hunger decreases. Keep tracking your water intake',
       'Monitor for constipation; increase fiber proactively',
     ],
   },
   mid_therapeutic: {
     title: 'Mid Therapeutic Phase: Optimize Your Routine',
     tips: [
-      'Weight loss rate may be at its peak — protect your muscle with 0.7–1g protein per lb of body weight',
-      'Watch for micronutrient deficiency signs (fatigue, hair shedding, brittle nails) — consider a comprehensive vitamin panel',
-      'This phase is often when food noise is quietest — use the mental clarity to build new food relationships',
+      'Weight loss rate may be at its peak. Protect your muscle with 0.7–1g protein per lb of body weight',
+      'Watch for micronutrient deficiency signs (fatigue, hair shedding, brittle nails). Consider a comprehensive vitamin panel',
+      'This phase is often when food noise is quietest. Use the mental clarity to build new food relationships',
       'Sleep and stress management amplify your results significantly at this phase',
     ],
   },
   high_therapeutic: {
     title: 'High Therapeutic Phase: Sustain and Protect',
     tips: [
-      'At higher doses, GI side effects can re-emerge — eat smaller portions and pace yourself',
+      'At higher doses, GI side effects can re-emerge. Eat smaller portions and pace yourself',
       'Lean mass preservation is the priority; consider working with a registered dietitian',
-      'Check in with your prescriber about lab work (lipids, A1C, liver enzymes) — a good milestone',
+      'Check in with your prescriber about lab work (lipids, A1C, liver enzymes). A good milestone',
       'Build the behavioral infrastructure for when you eventually maintain or taper: meal planning, regular exercise, stress management',
     ],
   },
   high_plus: {
     title: 'Advanced Phase: Think Long-Term',
     tips: [
-      'You\'re in the advanced phase — focus on sustainable lifestyle habits that will outlast the medication',
+      'You\'re in the advanced phase. Focus on sustainable lifestyle habits that will outlast the medication',
       'Consider bone density: weight-bearing exercise is important for women, especially post-menopause',
-      'Re-evaluate protein targets as your body weight changes — recalculate based on current weight',
+      'Re-evaluate protein targets as your body weight changes. Recalculate based on current weight',
       'Discuss a long-term maintenance plan with your prescriber',
     ],
   },
   max_dose: {
     title: 'Maximum Dose: Maintenance Mindset',
     tips: [
-      'At max dose, focus shifts from loss to sustainable maintenance — this is long-term management',
+      'At max dose, focus shifts from loss to sustainable maintenance. This is long-term management',
       'Lifestyle habits now are your insurance policy if medication cost or availability changes',
-      'Prioritize body composition over scale weight — protect muscle, support bone density',
+      'Prioritize body composition over scale weight. Protect muscle, support bone density',
       'Discuss exit strategy or maintenance protocols with your doctor proactively',
     ],
   },
@@ -685,10 +686,10 @@ function SafetyCard() {
 
   const RED_FLAGS: { color: string; text: string }[] = [
     { color: '#E74C3C', text: 'Severe or persistent mid-upper abdominal pain (possible pancreatitis)' },
-    { color: '#E74C3C', text: 'Yellowing of skin or eyes (jaundice — gallbladder concern)' },
+    { color: '#E74C3C', text: 'Yellowing of skin or eyes (jaundice, gallbladder concern)' },
     { color: '#E74C3C', text: 'Cannot keep any liquids down for 24+ hours (dehydration risk)' },
     { color: '#E74C3C', text: 'Signs of severe allergic reaction: facial swelling, hives, difficulty breathing' },
-    { color: '#E74C3C', text: 'Shakiness, confusion, heart pounding (hypoglycemia — especially with insulin)' },
+    { color: '#E74C3C', text: 'Shakiness, confusion, heart pounding (hypoglycemia, especially with insulin)' },
     { color: '#F39C12', text: 'Persistent vomiting lasting more than 2 days at a new dose' },
     { color: '#F39C12', text: 'No bowel movement for 5+ days with significant discomfort' },
     { color: '#F39C12', text: 'New neck lump, difficulty swallowing, or persistent hoarseness' },
@@ -730,7 +731,7 @@ function SafetyCard() {
               </View>
             ))}
             <View style={s.emergencyNote}>
-              <Text style={s.emergencyText}>For severe allergic reactions or difficulty breathing — call 911 immediately. Do not drive yourself.</Text>
+              <Text style={s.emergencyText}>For severe allergic reactions or difficulty breathing. Call 911 immediately. Do not drive yourself.</Text>
             </View>
           </View>
         )}
@@ -901,6 +902,7 @@ export default function EducationScreen() {
   }, []));
 
   return (
+    <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
@@ -951,6 +953,7 @@ export default function EducationScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
+    </TabScreenWrapper>
   );
 }
 

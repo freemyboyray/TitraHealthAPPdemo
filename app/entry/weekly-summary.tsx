@@ -22,7 +22,8 @@ import { useHealthData } from '@/contexts/health-data';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { computeWeeklySummary, type WeeklySummaryData } from '@/lib/weekly-summary';
-import { generateForecastStrip } from '@/lib/cycle-intelligence';
+import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
+import { getScheduleMode } from '@/constants/scoring';
 import { generateWeeklyInsight } from '@/lib/openai';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -225,11 +226,44 @@ export default function WeeklySummaryScreen() {
   const pkComparisonData = useMemo(() => {
     const lastInjection = injectionLogs[0]?.injection_date ?? null;
     const reportedScore = summary?.checkins.appetite ?? null;
-    if (!lastInjection || reportedScore == null || !profile) return null;
+    if (reportedScore == null || !profile) return null;
 
+    const injFreqDays = profile.injectionFrequencyDays ?? 7;
+    const scheduleMode = getScheduleMode(injFreqDays);
+
+    // Adherence streak: count injection logs in the past 7 days
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+    const dosesTaken = injectionLogs.filter(log => {
+      const logMs = new Date(log.injection_date + 'T00:00:00').getTime();
+      return logMs >= sevenDaysAgo;
+    }).length;
+    const adherenceStreak = scheduleMode === 'intraday' ? Math.min(dosesTaken, 7) : null;
+
+    if (scheduleMode === 'intraday') {
+      // Daily drugs: use intraday forecast averaged over all 6 hour-blocks
+      const doseTime = (profile as any).doseTime ?? '08:00';
+      const blocks = generateIntradayForecast(
+        profile.glp1Type,
+        profile.glp1Status,
+        doseTime,
+        profile.doseMg ?? null,
+      );
+      if (blocks.length === 0) return null;
+      const avgSuppression = blocks.reduce((s, b) => s + b.appetiteSuppressionPct, 0) / blocks.length;
+      const predictedScore = Math.min(100, Math.round((avgSuppression / 65) * 100));
+      const delta = reportedScore - predictedScore;
+      const deltaLabel =
+        Math.abs(delta) <= 10 ? 'Control matched expectations'
+        : delta > 10           ? 'Higher than predicted'
+        :                        'Lower than predicted';
+      return { predictedScore, reportedScore, deltaLabel, adherenceStreak, isIntraday: true };
+    }
+
+    // Cycle-day mode (weekly / bi-weekly)
+    if (!lastInjection) return null;
     const strip = generateForecastStrip(
       lastInjection,
-      profile.injectionFrequencyDays ?? 7,
+      injFreqDays,
       profile.glp1Type,
       profile.glp1Status,
       profile.doseMg ?? null,
@@ -246,7 +280,7 @@ export default function WeeklySummaryScreen() {
       : delta > 10           ? 'Higher than predicted'
       :                        'Lower than predicted';
 
-    return { predictedScore, reportedScore, deltaLabel };
+    return { predictedScore, reportedScore, deltaLabel, adherenceStreak: null, isIntraday: false };
   }, [injectionLogs, summary?.checkins.appetite, profile]);
 
   // Mark summary as shown immediately on mount — prevents re-triggering gate
@@ -480,7 +514,9 @@ export default function WeeklySummaryScreen() {
               {pkComparisonData && (
                 <View style={s.pkCompareBlock}>
                   <View style={s.pkCompareRow}>
-                    <Text style={s.pkCompareLabel}>PK model prediction</Text>
+                    <Text style={s.pkCompareLabel}>
+                      {pkComparisonData.isIntraday ? 'Daily medication effect (avg)' : 'PK model prediction'}
+                    </Text>
                     <View style={[s.checkinScore, { backgroundColor: scoreColor(pkComparisonData.predictedScore) + '22' }]}>
                       <Text style={[s.checkinScoreText, { color: scoreColor(pkComparisonData.predictedScore) }]}>
                         {pkComparisonData.predictedScore}
@@ -496,6 +532,11 @@ export default function WeeklySummaryScreen() {
                     </View>
                   </View>
                   <Text style={s.pkDeltaLabel}>{pkComparisonData.deltaLabel}</Text>
+                  {pkComparisonData.adherenceStreak != null && (
+                    <Text style={[s.pkDeltaLabel, { marginTop: 4, fontStyle: 'normal', color: pkComparisonData.adherenceStreak >= 6 ? GREEN : ORANGE }]}>
+                      {`Dose taken ${pkComparisonData.adherenceStreak} of 7 days this week`}
+                    </Text>
+                  )}
                 </View>
               )}
             </SectionCard>

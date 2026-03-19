@@ -1,7 +1,8 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OptionPill } from '@/components/onboarding/option-pill';
@@ -10,6 +11,12 @@ import type { AppColors } from '@/constants/theme';
 import { ActivityLevel, Sex } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
+
+const FREQ_OPTIONS: { label: string; days: number }[] = [
+  { label: 'Every day',    days: 1  },
+  { label: 'Every 7 days', days: 7  },
+  { label: 'Every 14 days', days: 14 },
+];
 
 const ORANGE = '#FF742A';
 
@@ -52,6 +59,21 @@ export default function EditPersonalScreen() {
   const [monthIdx, setMonthIdx] = useState(() => Math.max(0, parseInt(birthdayParts[1] ?? '1') - 1));
   const [dayIdx, setDayIdx] = useState(() => Math.max(0, parseInt(birthdayParts[2] ?? '1') - 1));
 
+  // Medication schedule
+  const [injFreq, setInjFreq] = useState<number>(profile?.injectionFrequencyDays ?? 7);
+  const isCurrentlyDaily = injFreq === 1;
+  const [doseTime, setDoseTime] = useState<Date>(() => {
+    const rawTime = (profile as any)?.doseTime as string | undefined;
+    const d = new Date();
+    if (rawTime) {
+      const [h, m] = rawTime.split(':').map(Number);
+      d.setHours(h ?? 8, m ?? 0, 0, 0);
+    } else {
+      d.setHours(8, 0, 0, 0);
+    }
+    return d;
+  });
+
   const [saving, setSaving] = useState(false);
 
   if (!profile) return null;
@@ -62,10 +84,15 @@ export default function EditPersonalScreen() {
     const m = String(monthIdx + 1).padStart(2, '0');
     const d = String(dayIdx + 1).padStart(2, '0');
     const year = YEARS[yearIdx];
+    const formattedDoseTime = isCurrentlyDaily
+      ? `${String(doseTime.getHours()).padStart(2, '0')}:${String(doseTime.getMinutes()).padStart(2, '0')}`
+      : '';
     await updateProfile({
       sex,
       birthday: `${year}-${m}-${d}`,
       activityLevel,
+      injectionFrequencyDays: injFreq,
+      doseTime: formattedDoseTime,
     });
     router.back();
   }
@@ -123,6 +150,33 @@ export default function EditPersonalScreen() {
           />
         ))}
 
+        {/* Medication Schedule */}
+        <Text style={[s.sectionLabel, { marginTop: 28 }]}>Injection Frequency</Text>
+        {FREQ_OPTIONS.map((o) => (
+          <OptionPill
+            key={o.days}
+            label={o.label}
+            selected={injFreq === o.days}
+            onPress={() => setInjFreq(o.days)}
+          />
+        ))}
+
+        {isCurrentlyDaily && (
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 20 }]}>Daily Dose Time</Text>
+            <Text style={[s.helperText, { marginBottom: 10 }]}>
+              When you usually take your medication. Used for reminders and PK tracking.
+            </Text>
+            <DateTimePicker
+              value={doseTime}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'compact' : 'default'}
+              onChange={(_, date) => { if (date) setDoseTime(date); }}
+              style={{ alignSelf: 'flex-start' }}
+            />
+          </>
+        )}
+
       </ScrollView>
 
       <View style={s.footer}>
@@ -153,6 +207,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 12, fontWeight: '600', color: c.textSecondary,
     textAlign: 'center', marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase',
   },
+  helperText: { fontSize: 13, color: c.textSecondary, lineHeight: 18 },
   footer: { padding: 16, paddingBottom: 8 },
   saveBtn: {
     backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16,

@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -105,7 +106,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
   return (
     <Pressable style={s.wrap} onPress={handleCardPress} onLongPress={handlePress}>
       <BlurView intensity={65} tint={colors.blurTint} style={StyleSheet.absoluteFill} />
-      <GlassBorder r={24} />
+      <GlassBorder r={24} isDark={colors.isDark} />
       <View style={[s.inner, { backgroundColor: colors.surface }]}>
         {/* Header */}
         <View style={s.header}>
@@ -128,7 +129,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
           // Still bootstrapping baseline
           <View style={s.bootstrapState}>
             <Text style={s.bootstrapText}>
-              Building your personal baseline — {eligibleCount}/{BOOTSTRAP_MIN_DAYS} non-peak days recorded
+              Building your personal baseline: {eligibleCount}/{BOOTSTRAP_MIN_DAYS} non-peak days recorded
             </Text>
             <View style={s.progressTrack}>
               <View style={[s.progressFill, { width: `${progressPct * 100}%` as any }]} />
@@ -197,7 +198,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>HRV (Heart Rate Variability)</Text>
                     <Text style={s.expandText}>
-                      Measures milliseconds of variability between heartbeats. Higher = better autonomic recovery. GLP-1 meds transiently suppress HRV at peak concentration (Day 2–3) — this is expected and shown in green.
+                      Measures milliseconds of variability between heartbeats. Higher = better autonomic recovery. GLP-1 meds transiently suppress HRV at peak concentration (Day 2–3). This is expected and shown in green.
                     </Text>
                   </View>
                 </View>
@@ -207,7 +208,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>Resting HR</Text>
                     <Text style={s.expandText}>
-                      Your heart rate at rest. GLP-1 meds mildly elevate RHR by 2–4 bpm at peak drug concentration — a known pharmacological effect, not a concern when classified as "Expected GLP-1 Effect."
+                      Your heart rate at rest. GLP-1 meds mildly elevate RHR by 2–4 bpm at peak drug concentration, a known pharmacological effect, not a concern when classified as "Expected GLP-1 Effect."
                     </Text>
                   </View>
                 </View>
@@ -228,23 +229,23 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
 
                 <View style={s.badgeGuideRow}>
                   <View style={[s.badgeDot, { backgroundColor: '#27AE60' }]} />
-                  <Text style={s.expandText}>Expected GLP-1 Effect — within the predicted range for your cycle phase</Text>
+                  <Text style={s.expandText}>Expected GLP-1 Effect: within the predicted range for your cycle phase</Text>
                 </View>
                 <View style={s.badgeGuideRow}>
                   <View style={[s.badgeDot, { backgroundColor: '#27AE60' }]} />
-                  <Text style={s.expandText}>Better Than Expected — improved beyond typical GLP-1 response</Text>
+                  <Text style={s.expandText}>Better Than Expected: improved beyond typical GLP-1 response</Text>
                 </View>
                 <View style={s.badgeGuideRow}>
                   <View style={[s.badgeDot, { backgroundColor: '#F39C12' }]} />
-                  <Text style={s.expandText}>Mildly Unusual — slightly outside expected range; monitor</Text>
+                  <Text style={s.expandText}>Mildly Unusual: slightly outside expected range; monitor</Text>
                 </View>
                 <View style={s.badgeGuideRow}>
                   <View style={[s.badgeDot, { backgroundColor: '#E74C3C' }]} />
-                  <Text style={s.expandText}>Concerning — significantly outside expected range; ask AI</Text>
+                  <Text style={s.expandText}>Concerning: significantly outside expected range; ask AI</Text>
                 </View>
                 <View style={s.badgeGuideRow}>
                   <View style={[s.badgeDot, { backgroundColor: 'rgba(120,120,128,0.5)' }]} />
-                  <Text style={s.expandText}>Insufficient Data — not enough history yet</Text>
+                  <Text style={s.expandText}>Insufficient Data: not enough history yet</Text>
                 </View>
 
                 <Pressable style={s.askAiBtn} onPress={handlePress}>
@@ -267,14 +268,6 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
   );
 }
 
-const glassShadow = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.08,
-  shadowRadius: 24,
-  elevation: 8,
-};
-
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
@@ -282,7 +275,7 @@ const createStyles = (c: AppColors) => {
       borderRadius: 24,
       overflow: 'hidden',
       marginBottom: 16,
-      ...glassShadow,
+      ...cardElevation(c.isDark),
     },
     inner: {
       borderRadius: 24,

@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, LayoutChangeE
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
 import { localDateStr } from '@/lib/date-utils';
 import { useHealthKitStore } from '@/stores/healthkit-store';
@@ -37,7 +38,7 @@ import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
-import { generateForecastStrip } from '@/lib/cycle-intelligence';
+import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
 import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
 import { MissedShotModal } from '@/components/missed-shot-modal';
 
@@ -72,9 +73,9 @@ const PHASE_COLORS: Record<ShotPhase, string> = {
 
 const PHASE_DESCRIPTIONS: Record<ShotPhase, string> = {
   shot:    'Shot day: highest appetite suppression. Prioritize hydration and injection site rotation.',
-  peak:    'Peak phase: medication at max concentration. Nausea risk is highest — eat small meals.',
+  peak:    'Peak phase: medication at max concentration. Nausea risk is highest. Eat small meals.',
   balance: 'Balance phase: stable medication level. Best window for activity and protein goals.',
-  reset:   'Reset phase: medication tapering. Hunger may increase — focus on habit consistency.',
+  reset:   'Reset phase: medication tapering. Hunger may increase. Focus on habit consistency.',
 };
 
 // Intraday phase display (daily drugs)
@@ -91,9 +92,9 @@ const INTRADAY_PHASE_COLORS: Record<IntradayPhase, string> = {
 };
 
 const INTRADAY_PHASE_DESCRIPTIONS: Record<IntradayPhase, string> = {
-  post_dose: 'Recently dosed — medication absorbing. For oral drugs, avoid food/water for 30 min.',
-  peak:      'Peak window — highest appetite suppression. Best time for protein-rich meals.',
-  trough:    'Approaching trough — hunger may increase before your next dose. Prioritize protein.',
+  post_dose: 'Recently dosed. Medication absorbing. For oral drugs, avoid food/water for 30 min.',
+  peak:      'Peak window. Highest appetite suppression. Best time for protein-rich meals.',
+  trough:    'Approaching trough. Hunger may increase before your next dose. Prioritize protein.',
 };
 
 // ─── Medication Banner ────────────────────────────────────────────────────────
@@ -1013,12 +1014,29 @@ export default function HomeScreen() {
     return display;
   })();
   const medDose = profile.doseMg != null ? `${profile.doseMg}mg` : null;
+
+  // ── Multi-schedule mode ───────────────────────────────────────────────────
+  const injFreqDays = profile.injectionFrequencyDays ?? 7;
+  const scheduleMode = getScheduleMode(injFreqDays);
+  const profileDoseTime = (profile as any).doseTime as string | undefined;
+  const doseTime = profileDoseTime || '08:00';
+  // lastLoggedInjectionDate is defined further down; use effectiveLastInjectionDate here
+  const hSinceDose = scheduleMode === 'intraday' && effectiveLastInjectionDate != null
+    ? hoursSinceDose(effectiveLastInjectionDate, doseTime)
+    : null;
+  const intradayPhase: IntradayPhase | null = scheduleMode === 'intraday' && hSinceDose != null
+    ? getIntradayPhase(hSinceDose, profile.glp1Type ?? 'liraglutide')
+    : null;
+
   const shotPhaseForLabel: ShotPhase =
     dayNum <= 2 ? 'shot' : dayNum <= 4 ? 'peak' : dayNum <= 6 ? 'balance' : 'reset';
   const phaseLabel = buildPhaseLabel(
     shotPhaseForLabel,
     dayNum - 1,
     profile.glp1Type ?? 'semaglutide',
+    injFreqDays,
+    intradayPhase,
+    hSinceDose ?? undefined,
   );
   const phaseOverdue = dayNum > freq;
 
@@ -1111,16 +1129,28 @@ export default function HomeScreen() {
   const lastLoggedInjectionDate = logStore.injectionLogs[0]?.injection_date ?? null;
   const drugName = BRAND_DISPLAY_NAMES[profile.medicationBrand] ?? profile.glp1Type ?? 'your medication';
   const forecastDays = useMemo(
-    () => lastLoggedInjectionDate
+    () => scheduleMode === 'cycle-day' && lastLoggedInjectionDate
       ? generateForecastStrip(
           lastLoggedInjectionDate,
-          profile.injectionFrequencyDays ?? 7,
+          injFreqDays,
           profile.glp1Type,
           profile.glp1Status,
           profile.doseMg ?? null,
         )
       : [],
-    [lastLoggedInjectionDate, profile.injectionFrequencyDays, profile.glp1Type, profile.glp1Status, profile.doseMg],
+    [scheduleMode, lastLoggedInjectionDate, injFreqDays, profile.glp1Type, profile.glp1Status, profile.doseMg],
+  );
+
+  const intradayHourBlocks = useMemo(
+    () => scheduleMode === 'intraday'
+      ? generateIntradayForecast(
+          profile.glp1Type,
+          profile.glp1Status,
+          doseTime,
+          profile.doseMg ?? null,
+        )
+      : [],
+    [scheduleMode, profile.glp1Type, profile.glp1Status, doseTime, profile.doseMg],
   );
 
   // ── Treatment Progress computations ─────────────────────────────────────────
@@ -1163,7 +1193,7 @@ export default function HomeScreen() {
 
   // Raw (uncapped) days until next shot — needed to detect overdue
   const rawDaysUntil = effectiveLastInjectionDate
-    ? (freq ?? 7) - Math.round(
+    ? (freq ?? 7) - Math.floor(
         (today.getTime() - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
       )
     : null;
@@ -1227,6 +1257,7 @@ export default function HomeScreen() {
     : today;
 
   return (
+    <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
       <SafeAreaView style={{ flex: 1 }}>
 
@@ -1372,12 +1403,22 @@ export default function HomeScreen() {
 
                 {/* Phase + medication row */}
                 <View style={s.heroTopRow}>
-                  <View style={[s.heroPhaseBadge, { backgroundColor: PHASE_COLORS[shotPhaseForLabel] + '22' }]}>
-                    <View style={[s.heroPhaseIndicator, { backgroundColor: PHASE_COLORS[shotPhaseForLabel] }]} />
-                    <Text style={[s.heroPhaseText, { color: PHASE_COLORS[shotPhaseForLabel] }]}>
-                      {PHASE_DISPLAY[shotPhaseForLabel].toUpperCase()}
-                    </Text>
-                  </View>
+                  {(() => {
+                    const phaseColor = intradayPhase
+                      ? INTRADAY_PHASE_COLORS[intradayPhase]
+                      : PHASE_COLORS[shotPhaseForLabel];
+                    const phaseLabel = intradayPhase
+                      ? INTRADAY_PHASE_DISPLAY[intradayPhase].toUpperCase()
+                      : PHASE_DISPLAY[shotPhaseForLabel].toUpperCase();
+                    return (
+                      <View style={[s.heroPhaseBadge, { backgroundColor: phaseColor + '22' }]}>
+                        <View style={[s.heroPhaseIndicator, { backgroundColor: phaseColor }]} />
+                        <Text style={[s.heroPhaseText, { color: phaseColor }]}>
+                          {phaseLabel}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                   <Text style={s.heroMedLabel}>
                     {medName}{medDose ? ` · ${medDose}` : ''}
                   </Text>
@@ -1441,7 +1482,9 @@ export default function HomeScreen() {
                         s.heroCycleFill,
                         {
                           width: `${Math.min((displayDayNum / (freq ?? 7)) * 100, 100)}%` as any,
-                          backgroundColor: PHASE_COLORS[shotPhaseForLabel],
+                          backgroundColor: intradayPhase
+                            ? INTRADAY_PHASE_COLORS[intradayPhase]
+                            : PHASE_COLORS[shotPhaseForLabel],
                         },
                       ]} />
                     </View>
@@ -1543,6 +1586,8 @@ export default function HomeScreen() {
               forecastDays={forecastDays}
               appleHealthEnabled={appleHealthEnabled}
               drugName={drugName}
+              hourBlocks={intradayHourBlocks}
+              injFreqDays={injFreqDays}
             />
           )}
 
@@ -1562,7 +1607,7 @@ export default function HomeScreen() {
             return (
               <View style={{ marginBottom: 16 }}>
                 <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
-                <WeeklyCheckinCard lastLoggedAt={lastLoggedAt} />
+                <WeeklyCheckinCard lastLoggedAt={lastLoggedAt} isDaily={scheduleMode === 'intraday'} />
               </View>
             );
           })()}
@@ -1618,6 +1663,7 @@ export default function HomeScreen() {
 
       </SafeAreaView>
     </Pressable>
+    </TabScreenWrapper>
   );
 }
 

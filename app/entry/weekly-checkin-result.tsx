@@ -49,43 +49,43 @@ const DOMAIN_META: Record<DomainKey, { label: string; icon: React.ComponentProps
 function getExplanation(key: DomainKey, score: number): string {
   switch (key) {
     case 'gi_burden':
-      if (score >= 80) return 'Minimal GI symptoms — your body is tolerating the medication well. Continue with your normal targets.';
+      if (score >= 80) return 'Minimal GI symptoms. Your body is tolerating the medication well. Continue with your normal targets.';
       if (score >= 55) return 'Mild GI symptoms are very common on GLP-1, especially after dose increases. Smaller meals, more water, and bland foods help significantly.';
-      if (score >= 30) return 'Moderate GI burden — targets have been adjusted to ease your system. Focus on hydration and light, frequent meals.';
+      if (score >= 30) return 'Moderate GI burden. Targets have been adjusted to ease your system. Focus on hydration and light, frequent meals.';
       return 'Significant GI symptoms are affecting your daily routine. Targets have been reduced. Contact your prescriber if symptoms persist beyond a week.';
 
     case 'energy_mood':
       if (score >= 75) return 'Energy and mood are strong this week. Consistent sleep and protein intake help maintain this through treatment.';
       if (score >= 50) return 'Energy is in a typical range for GLP-1 therapy. Sleep quality and protein are the biggest levers to improve this.';
-      if (score >= 25) return 'Low energy is common during dose-escalation. Prioritize sleep and protein — both directly affect GLP-1 outcomes.';
+      if (score >= 25) return 'Low energy is common during dose-escalation. Prioritize sleep and protein. Both directly affect GLP-1 outcomes.';
       return 'Very low energy or mood for multiple weeks warrants a conversation with your care team.';
 
     case 'appetite':
       if (score >= 75) return 'Excellent appetite control. Stay consistent with protein targets to protect lean mass.';
-      if (score >= 50) return 'Appetite is moderately controlled — normal for early treatment weeks.';
+      if (score >= 50) return 'Appetite is moderately controlled. Normal for early treatment weeks.';
       if (score >= 25) return "Smaller, more frequent meals help GLP-1's gastric emptying mechanism work better.";
       return "Very low appetite may reflect early treatment. Note your injection timing and discuss with your prescriber if it persists.";
 
     case 'food_noise':
-      if (score >= 80) return 'Food noise is minimal — GLP-1 is effectively quieting cravings. This is your prime window to build lasting habits.';
+      if (score >= 80) return 'Food noise is minimal. GLP-1 is effectively quieting cravings. This is your prime window to build lasting habits.';
       if (score >= 55) return 'Mild food thoughts are present. Common in early weeks as the medication builds up.';
       if (score >= 30) return 'Moderate food noise may mean the medication is still titrating. Protein and fiber both help reduce cravings.';
       return "High food noise can indicate the medication hasn't fully taken effect. Discuss with your prescriber if this persists.";
 
     case 'sleep_quality':
       if (score >= 80) return 'Excellent sleep this week. Quality rest amplifies GLP-1\'s metabolic effects and supports lean mass preservation.';
-      if (score >= 55) return 'Decent sleep with some disruption. Even small improvements — consistent bedtime, cool room — meaningfully improve outcomes.';
+      if (score >= 55) return 'Decent sleep with some disruption. Even small improvements like a consistent bedtime and cool room can meaningfully improve outcomes.';
       if (score >= 30) return 'Disrupted sleep reduces satiety hormone effectiveness. Activity targets have been eased to account for lower energy.';
       return "Poor sleep significantly affects weight loss and recovery. If side effects are disturbing your sleep, discuss timing adjustments with your prescriber.";
 
     case 'activity_quality':
       if (score >= 80) return 'Strong activity week. Resistance training and consistent steps are the best way to preserve lean mass on GLP-1. Keep it up.';
       if (score >= 50) return 'Moderate activity is a solid foundation. Adding even one resistance session per week makes a meaningful difference for lean mass.';
-      if (score >= 25) return 'Low activity this week — targets have been adjusted down to stay achievable. Light walks are still beneficial.';
+      if (score >= 25) return 'Low activity this week. Targets have been adjusted down to stay achievable. Light walks are still beneficial.';
       return 'Very low activity reported. Rest is appropriate if symptomatic, but try to include short walks when possible.';
 
     case 'mental_health':
-      if (score >= 80) return 'Good mental health this week. Stable mood supports consistent habits — the foundation of long-term GLP-1 success.';
+      if (score >= 80) return 'Good mental health this week. Stable mood supports consistent habits, the foundation of long-term GLP-1 success.';
       if (score >= 55) return 'Mild mood fluctuations are common during treatment. Protein, exercise, and social connection are evidence-based supports.';
       if (score >= 30) return 'Moderate mood concerns noted. Targets have been gently adjusted. Speaking with a mental health provider is recommended if this continues.';
       return 'Significant mood or anxiety this week. Please consider discussing these results with your healthcare provider. Your targets have been adjusted to reduce pressure.';
@@ -206,7 +206,7 @@ export default function WeeklyCheckinResultScreen() {
       delta:  `${stepsDiff > 0 ? '+' : ''}${stepsDiff.toLocaleString()}`,
       increased: stepsDiff > 0,
       reason: stepsDiff > 0
-        ? 'Higher activity target reflects your strong weekly performance — keep building.'
+        ? 'Higher activity target reflects your strong weekly performance. Keep building.'
         : 'Step target reduced to keep goals realistic given what you reported this week.',
     });
 
@@ -242,7 +242,7 @@ export default function WeeklyCheckinResultScreen() {
       delta:  `${carbsDiff > 0 ? '+' : ''}${carbsDiff}g`,
       increased: carbsDiff > 0,
       reason: carbsDiff > 0
-        ? 'A modest carb boost provides steady fuel. Focus on complex sources — oats, sweet potato, whole grains.'
+        ? 'A modest carb boost provides steady fuel. Focus on complex sources: oats, sweet potato, whole grains.'
         : 'Carb target reduced to lower GI load.',
     });
 
@@ -431,7 +431,7 @@ export default function WeeklyCheckinResultScreen() {
                 No adjustments needed
               </Text>
               <Text style={{ fontSize: 13, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
-                Your scores are in a healthy range — continue with your regular targets.
+                Your scores are in a healthy range. Continue with your regular targets.
               </Text>
             </View>
           </GlassCard>

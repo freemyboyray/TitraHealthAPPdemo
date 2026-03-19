@@ -39,6 +39,10 @@ export default function ScheduleScreen() {
   const [customFreq, setCustomFreq] = useState('');
   const [lastInjDate, setLastInjDate] = useState(new Date());
   const [doseStartDate, setDoseStartDate] = useState(new Date());
+  // dose_time: default to 8:00 AM for daily drugs
+  const [doseTime, setDoseTime] = useState(() => {
+    const d = new Date(); d.setHours(8, 0, 0, 0); return d;
+  });
 
   useEffect(() => {
     if (lockedFreq !== null) setFreq(lockedFreq);
@@ -51,10 +55,14 @@ export default function ScheduleScreen() {
 
   const handleContinue = () => {
     if (!isValid) return;
+    const formattedDoseTime = isDaily
+      ? `${String(doseTime.getHours()).padStart(2, '0')}:${String(doseTime.getMinutes()).padStart(2, '0')}`
+      : '';
     updateDraft({
       injectionFrequencyDays: freqDays as number,
       lastInjectionDate: toDateString(lastInjDate),
       doseStartDate: toDateString(isActive ? doseStartDate : lastInjDate),
+      doseTime: formattedDoseTime,
     });
     router.push('/onboarding/sex');
   };
@@ -132,6 +140,24 @@ export default function ScheduleScreen() {
               style={s.datePicker}
             />
           </View>
+
+          {isDaily && (
+            <>
+              <Text style={s.sectionLabel}>What time do you take your {doseNoun}?</Text>
+              <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
+                We'll send you a daily reminder at this time.
+              </Text>
+              <View style={s.datePickerWrap}>
+                <DateTimePicker
+                  value={doseTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={(_, date) => { if (date) setDoseTime(date); }}
+                  style={s.datePicker}
+                />
+              </View>
+            </>
+          )}
 
           {isActive && (
             <>
