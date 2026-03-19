@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 18, 2026 (rev 12)
+**Last Updated:** March 19, 2026 (rev 13)
 
 ---
 
@@ -134,10 +134,13 @@ TitraHealthAPPdemo/
 │   │   ├── side-effects.tsx     # Log side effects entry
 │   │   ├── side-effect-impact.tsx     # Side effect impact + target adjustments viewer
 │   │   ├── weekly-summary.tsx         # 7-day cycle recap; AI insight; print/share
-│   │   ├── gi-burden-survey.tsx       # Weekly check-in: GI Symptom Burden (5 Qs)
-│   │   ├── activity-quality-survey.tsx # Weekly check-in: Activity & Strength (5 Qs)
-│   │   ├── sleep-quality-survey.tsx   # Weekly check-in: Sleep Quality (5 Qs)
-│   │   └── mental-health-survey.tsx   # Weekly check-in: Mental Health / PHQ-2+GAD-2 (5 Qs)
+│   │   ├── gi-burden-survey.tsx       # Legacy weekly check-in: GI Symptom Burden (5 Qs)
+│   │   ├── activity-quality-survey.tsx # Legacy weekly check-in: Activity & Strength (5 Qs)
+│   │   ├── sleep-quality-survey.tsx   # Legacy weekly check-in: Sleep Quality (5 Qs)
+│   │   ├── mental-health-survey.tsx   # Legacy weekly check-in: Mental Health / PHQ-2+GAD-2 (5 Qs)
+│   │   ├── weekly-checkin.tsx         # Unified 7-domain check-in (gi_burden, energy_mood, appetite, food_noise, sleep_quality, activity_quality, mental_health)
+│   │   ├── weekly-checkin-result.tsx  # Results screen: per-domain status + GLP-1 explanations + adjusted targets via checkin-adjustments.ts
+│   │   └── weekly-checkin-history.tsx # Past check-in sessions list; delete by date; uses usePersonalizationStore
 │   ├── onboarding/
 │   │   ├── _layout.tsx          # Stack navigator (slide_from_right, no header)
 │   │   ├── index.tsx            # Step 1: GLP-1 journey stage
@@ -164,8 +167,10 @@ TitraHealthAPPdemo/
 │   ├── score-ring.tsx           # Animated SVG ring (Reanimated + react-native-svg)
 │   ├── ring-breakdown.tsx       # Tap-to-expand score breakdown sheet
 │   ├── cycle-biometric-card.tsx # CycleIQ biometric intelligence card (HRV/RHR/Sleep; tap-to-expand)
-│   ├── appetite-forecast-strip.tsx # Appetite forecast strip (CycleIQ)
+│   ├── appetite-forecast-strip.tsx # Appetite forecast strip; cycle day-pills for weekly drugs; 6-block intraday view for daily drugs (rev 13)
 │   ├── metabolic-adaptation-card.tsx # Metabolic adaptation card (CycleIQ)
+│   ├── missed-shot-modal.tsx    # Overdue injection modal; question → date-picker flow; logs late injection via addInjectionLog (rev 13)
+│   ├── weekly-checkin-card.tsx  # Home/log card linking to unified weekly check-in (rev 13 revamp)
 │   ├── onboarding/
 │   │   ├── onboarding-header.tsx  # Progress bar (Reanimated width) + back button
 │   │   ├── option-pill.tsx        # Single/multi-select pill button
@@ -260,7 +265,10 @@ Root Stack (GestureHandlerRootView > ProfileProvider > AppWithHealth > ThemeProv
 │   ├── ask-ai
 │   ├── log-activity
 │   ├── log-weight
-│   └── side-effects
+│   ├── side-effects
+│   ├── weekly-checkin
+│   ├── weekly-checkin-result
+│   └── weekly-checkin-history
 ├── score-detail                  ← Modal (Recovery / GLP-1 Amplifier drill-down)
 ├── ai-chat                       ← Modal (GPT-4o-mini chat)
 └── (tabs)                        ← No header
@@ -578,10 +586,13 @@ Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its de
 | Side Effects | `side-effects.tsx` | Side effect type + severity slider. Saves via `useLogStore.addSideEffectLog()` |
 | Side Effect Impact | `side-effect-impact.tsx` | Read-only screen showing how active side effects adjust daily nutrition and activity targets; powered by `computeBaseTargets()` + `applyAdjustments()` from `lib/targets.ts` |
 | Weekly Summary | `weekly-summary.tsx` | 7-day cycle recap: weight delta, avg protein/hydration/steps, food noise trend, weekly check-in scores, GPT-4o-mini narrative insight (`generateWeeklyInsight`). Exportable via `expo-print` + `expo-sharing`. Caches last summary in AsyncStorage. |
-| GI Burden Survey | `gi-burden-survey.tsx` | Weekly check-in: 5 GI symptom questions (Not at all → Extremely). Raw score 0–20 inverted to 0–100. Saved to `weekly_checkins` as `gi_burden`. Unlocks on day 1 of each cycle. |
-| Activity Quality Survey | `activity-quality-survey.tsx` | Weekly check-in: 5 activity/strength questions (Not at all → Always). Raw score 0–20 direct → 0–100. Saved as `activity_quality`. Unlocks day 8. |
-| Sleep Quality Survey | `sleep-quality-survey.tsx` | Weekly check-in: 5 sleep quality questions. Raw 0–20 inverted to 0–100. Saved as `sleep_quality`. Unlocks day 15. |
-| Mental Health Survey | `mental-health-survey.tsx` | Weekly check-in: 5 PHQ-2+GAD-2 adapted questions. Raw 0–20 inverted to 0–100. Saved as `mental_health`. Unlocks day 22. |
+| GI Burden Survey | `gi-burden-survey.tsx` | Legacy survey: 5 GI symptom questions. Saved as `gi_burden`. |
+| Activity Quality Survey | `activity-quality-survey.tsx` | Legacy survey: 5 activity/strength questions. Saved as `activity_quality`. |
+| Sleep Quality Survey | `sleep-quality-survey.tsx` | Legacy survey: 5 sleep quality questions. Saved as `sleep_quality`. |
+| Mental Health Survey | `mental-health-survey.tsx` | Legacy survey: 5 PHQ-2+GAD-2 adapted questions. Saved as `mental_health`. |
+| Weekly Check-In | `weekly-checkin.tsx` | Unified 7-domain check-in (rev 13): `gi_burden`, `energy_mood`, `appetite`, `food_noise`, `sleep_quality`, `activity_quality`, `mental_health`; 3–5 Likert questions per domain; `makeStatus()` maps raw sum to 4 severity tiers; all 7 types saved to `weekly_checkins` in one session. |
+| Weekly Check-In Result | `weekly-checkin-result.tsx` | Post-check-in results (rev 13): per-domain score with GLP-1-specific explanation copy; applies `applyCheckinAdjustments(CheckinScores)` via `lib/checkin-adjustments.ts` to show adjusted daily targets. |
+| Weekly Check-In History | `weekly-checkin-history.tsx` | Session history (rev 13): groups `weekly_checkins` rows by date; supports delete-by-session via `deleteWeeklyCheckinSession(date)`; uses `usePersonalizationStore`. |
 
 ---
 
@@ -613,6 +624,7 @@ export type FullUserProfile = {
   routeOfAdministration: RouteOfAdministration;
   doseMg: number;
   injectionFrequencyDays: number;     // 1 | 7 | 14 | custom
+  doseTime: string;                   // HH:MM (e.g. "08:00") — daily drug dose time; empty for weekly injectables
   lastInjectionDate: string;          // YYYY-MM-DD (also "last dose date" for oral drugs)
   sex: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   birthday: string;                   // YYYY-MM-DD
@@ -659,6 +671,7 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 - `generateIntradayPkCurve(glp1Type)` — 7 values sampled at t = 0.5h, 4h, 8h, 12h, 16h, 20h, 24h for daily drugs (always at steady state)
 - `pkConcentrationPct(tHours, drug, atSteadyState, intervalH)` — normalized 0–100% concentration at any time point
 - `INTRADAY_TIME_LABELS` — `['Dose', '+4h', '+8h', '+12h', '+16h', '+20h', '+24h']` for chart x-axis
+- `DRUG_DOSE_APPETITE_RANGE` — per-drug `DoseAppetiteRange` (`minDoseMg`, `maxDoseMg`, `minSuppPct`, `maxSuppPct`); dose-tier appetite suppression ceiling sourced from SURMOUNT-1 / STEP trial data; used by `computeAppetiteSuppressionPct()` in `lib/cycle-intelligence.ts`
 
 ---
 
@@ -683,6 +696,8 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 - `20260316_garmin_tokens.sql` — adds `garmin_tokens JSONB` to `profiles`; adds `source TEXT DEFAULT 'manual'` to `activity_logs` + `weight_logs`; adds unique constraint `activity_logs_user_date_source_key (user_id, date, source)`; adds partial unique index `weight_logs_garmin_daily_uniq` on `(user_id, source, logged_at::date) WHERE source = 'garmin'`
 - `20260316_new_checkin_types.sql` — documentation marker for 4 new `weekly_checkins` check-in types: `gi_burden`, `activity_quality`, `sleep_quality`, `mental_health` (no schema change; `checkin_type` is TEXT)
 - `20260318_articles.sql` — creates `articles` table (`id UUID PK`, `title`, `subtitle`, `category CHECK IN ('nutrition','medication','lifestyle','mindset','exercise')`, `body_markdown`, `reading_time_minutes`, `published_at`, `phase_focus`, `created_at`); public-read RLS policy; seeds 10 evidence-based full-length articles
+- `20260318_profiles_last_injection_date.sql` — adds `last_injection_date TEXT` (nullable) to `profiles`; shot cycle now survives app reloads; `deleteInjectionLog()` keeps this column in sync with the latest remaining log
+- `20260319_profiles_dose_time.sql` — adds `dose_time TEXT` (nullable) to `profiles`; stores `HH:MM` daily dose time for daily-drug users; used by `hoursSinceDose()` and `generateIntradayForecast()`
 
 ### Scoring Types (implemented)
 
@@ -693,6 +708,8 @@ type DailyTargets = { proteinG: number; waterMl: number; fiberG: number; steps: 
 type DailyActuals = { proteinG: number; waterMl: number; fiberG: number; steps: number; injectionLogged: boolean };
 type WearableData  = { sleepMinutes: number; hrvMs: number; restingHR: number; spo2Pct: number; respRateRpm?: number };
 type ShotPhase     = 'shot' | 'peak' | 'balance' | 'reset';
+type IntradayPhase = 'post_dose' | 'peak' | 'trough';   // daily drugs only
+type ScheduleMode  = 'cycle-day' | 'intraday';           // getScheduleMode(injFreqDays)
 type FocusItem     = { id: string; label: string; subtitle: string; iconName: string; iconSet: 'Ionicons' | 'MaterialIcons'; status: 'completed' | 'active' | 'pending' };
 ```
 
@@ -730,6 +747,28 @@ export interface WeeklySummaryData {
 
 **Key exports:**
 - `computeWeeklySummary(logs, targets)` — pure function aggregating 7-day window ending yesterday from `FoodLog[]`, `WeightLog[]`, `ActivityLog[]`, `SideEffectLog[]`, `WeeklyCheckinRow[]`, and `FoodNoiseLog[]`
+
+### Cycle Intelligence Types (rev 13 additions — `lib/cycle-intelligence.ts`)
+
+```typescript
+export type HourBlock = {
+  blockIndex: number;              // 0–5 (6 four-hour windows across a 24h day)
+  startHour: number;               // 0, 4, 8, 12, 16, 20
+  endHour: number;
+  label: string;                   // "+0–4h", "+4–8h", …
+  appetiteSuppressionPct: number;  // 0–100%, dose-tier scaled via DRUG_DOSE_APPETITE_RANGE
+  pkConcentrationPct: number;      // 0–100%, sampled at block midpoint
+  isCurrent: boolean;              // true for the block containing current time
+  phase: IntradayPhase;            // 'post_dose' | 'peak' | 'trough'
+};
+```
+
+**Key exports (rev 13):**
+- `generateIntradayForecast(glp1Type, glp1Status, doseTime, doseMg?)` — 6 `HourBlock[]` for daily drugs; Tmax-relative phase classification; isCurrent anchored to `doseTime` HH:MM
+- `computeAppetiteSuppressionPct(pkPct, glp1Type, doseMg?)` — linear interpolation from `DRUG_DOSE_APPETITE_RANGE` min→max based on dose tier
+- `glp1HrvOffsetIntraday(phase, glp1Type?)` / `glp1RhrOffsetIntraday(phase, glp1Type?)` — biometric phase offsets for daily drugs (`oral_semaglutide` uses flat steady-state offset; others use peak-phase offset)
+
+---
 
 ### Garmin Integration (implemented — `lib/garmin.ts` + `stores/garmin-store.ts`)
 
@@ -889,6 +928,14 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
   addFoodLog(entry): Promise<void>;
   addActivityLog(entry): Promise<void>;
   addSideEffectLog(entry): Promise<void>;
+  deleteInjectionLog(id): Promise<void>;  // syncs profiles.last_injection_date after deletion
+  weeklyCheckins: Record<
+    'gi_burden' | 'energy_mood' | 'appetite' | 'food_noise' |
+    'activity_quality' | 'sleep_quality' | 'mental_health',
+    WeeklyCheckinRow[]
+  >;
+  fetchWeeklyCheckins(type): Promise<void>;
+  deleteWeeklyCheckinSession(date: string): Promise<void>; // deletes all rows for a calendar date
 }
 ```
 
@@ -930,10 +977,14 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | `MetabolicAdaptationCard` | `components/metabolic-adaptation-card.tsx` | ✅ Built | CycleIQ metabolic adaptation card |
 | Side Effect Impact Screen | `app/entry/side-effect-impact.tsx` | ✅ Built | Shows adjusted targets from active side effects |
 | Weekly Summary Screen | `app/entry/weekly-summary.tsx` | ✅ Built | 7-day recap; AI insight; print/share |
-| GI Burden Survey | `app/entry/gi-burden-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, inverted 0–100) |
-| Activity Quality Survey | `app/entry/activity-quality-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, direct 0–100) |
-| Sleep Quality Survey | `app/entry/sleep-quality-survey.tsx` | ✅ Built | Weekly check-in (5 Qs, inverted 0–100) |
-| Mental Health Survey | `app/entry/mental-health-survey.tsx` | ✅ Built | Weekly check-in PHQ-2+GAD-2 (5 Qs, inverted 0–100) |
+| GI Burden Survey | `app/entry/gi-burden-survey.tsx` | ✅ Built | Legacy check-in (5 Qs, inverted 0–100) |
+| Activity Quality Survey | `app/entry/activity-quality-survey.tsx` | ✅ Built | Legacy check-in (5 Qs, direct 0–100) |
+| Sleep Quality Survey | `app/entry/sleep-quality-survey.tsx` | ✅ Built | Legacy check-in (5 Qs, inverted 0–100) |
+| Mental Health Survey | `app/entry/mental-health-survey.tsx` | ✅ Built | Legacy check-in PHQ-2+GAD-2 (5 Qs, inverted 0–100) |
+| Weekly Check-In | `app/entry/weekly-checkin.tsx` | ✅ Built | Unified 7-domain check-in (rev 13) |
+| Weekly Check-In Result | `app/entry/weekly-checkin-result.tsx` | ✅ Built | Results + adjusted targets (rev 13) |
+| Weekly Check-In History | `app/entry/weekly-checkin-history.tsx` | ✅ Built | Session history + delete (rev 13) |
+| `MissedShotModal` | `components/missed-shot-modal.tsx` | ✅ Built | Overdue injection prompt; date-picker late-log (rev 13) |
 | `BodyDiagram` | Not built | ⬜ Planned | Injection site rotation map |
 
 ---
@@ -1027,6 +1078,15 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **CycleIQ biometric intelligence (rev 12)** — `lib/cycle-intelligence.ts` implements EMA baseline builder (excludes peak/shot days), drug-phase delta application (HRV suppression, RHR elevation at peak), and 5-tier classification engine (`expected_glp1`, `expected_positive`, `mild_unusual`, `concerning`, `insufficient_data`); `stores/biometric-store.ts` persists biometric history and bootstrapping state; `components/cycle-biometric-card.tsx` renders HRV/RHR/Sleep rows with classification badges, tap-to-expand educational panel (`LayoutAnimation.easeInEaseOut`), and long-press AI chat; `components/appetite-forecast-strip.tsx` and `components/metabolic-adaptation-card.tsx` added for Insights tab
 - [x] **Education screen fully built (rev 12)** — `app/(tabs)/explore.tsx` overhauled with 5 novel interactive features: (1) Phase-aware personalized "This Week's Focus" card driven by `getEscalationPhase()` + profile context; (2) horizontally-scrollable Myth vs. Fact card row (7 cards, tap-to-reveal with `LayoutAnimation`); (3) Side Effect Decoder — 20-symptom interactive grid with 3-tier categorisation (Expected/Monitor/Call Doctor), filter bar, and detail panel; (4) collapsible "When to Call Your Doctor" safety card with 9 red-flag warning signs; (5) article library from Supabase `articles` table; 7 deep-dive accordion sections (3 new: Injection Technique & Storage, Mental Health & Food Noise, expanded Nutrition/FAQ); `supabase/migrations/20260318_articles.sql` creates `articles` table + seeds 10 evidence-based full-length articles
 - [x] **Biometric card tap-to-expand (rev 12)** — `CycleBiometricCard` adds `onPress` → `LayoutAnimation.easeInEaseOut` expand toggle; collapsed state shows `↓ Details` chevron + `"Tap for details · Hold for AI"` hint; expanded panel explains baseline methodology (EMA, eligible day count), per-metric GLP-1 pharmacological context (HRV suppression, RHR elevation, sleep), 5-badge classification guide, and "Ask AI" button; long-press AI chat preserved unchanged
+- [x] **Unified weekly check-in flow (rev 13)** — `app/entry/weekly-checkin.tsx` replaces the 4 legacy survey screens with a single 7-domain check-in (`gi_burden`, `energy_mood`, `appetite`, `food_noise`, `sleep_quality`, `activity_quality`, `mental_health`); each domain has 3–5 Likert questions; `makeStatus()` maps raw sum to 4 severity tiers; all 7 rows saved to `weekly_checkins` in one session; `WeeklyCheckinCard` updated to navigate to unified screen with "DUE THIS WEEK" badge / green "Completed" state driven by `lastLoggedAt` prop
+- [x] **Weekly check-in result + history screens (rev 13)** — `weekly-checkin-result.tsx` shows per-domain scores with GLP-1-specific explanation copy and applies `applyCheckinAdjustments(CheckinScores)` from `lib/checkin-adjustments.ts` to display adjusted daily targets; `weekly-checkin-history.tsx` lists past sessions grouped by date and supports delete-by-session via `deleteWeeklyCheckinSession(date)`
+- [x] **Missed shot modal (rev 13)** — `components/missed-shot-modal.tsx` surfaces when injection is overdue; two-mode flow: `question` (did you take it?) → `latePicker` (select actual date via `@react-native-community/datetimepicker`); calls `addInjectionLog()` to log the late dose; `Animated.timing` fade-in/out
+- [x] **Daily drug scoring enhancements (rev 13)** — `constants/scoring.ts`: new `IntradayPhase` (`post_dose | peak | trough`) and `ScheduleMode` (`cycle-day | intraday`) types with `getScheduleMode(injFreqDays)` dispatcher; `hoursSinceDose(lastDoseDate, doseTime)` computes elapsed hours using profile `doseTime` HH:MM; daily-drug path in `computeMedicationScore()` uses strict daily-consistency scoring with streak bonus (3/7/14-day thresholds); `daysSinceInjection()` hardened to handle null, local-midnight parsing, and `injFreqDays` clamp; new `glp1HrvOffsetIntraday()` / `glp1RhrOffsetIntraday()` for biometric phase offsets on daily drugs
+- [x] **Dose appetite range constants (rev 13)** — `constants/drug-pk.ts`: `DoseAppetiteRange` type + `DRUG_DOSE_APPETITE_RANGE` record mapping each `Glp1Type` to clinical min/max dose and appetite suppression ceiling (e.g. semaglutide 22–65%, tirzepatide 24–72%, sourced from SURMOUNT-1 / STEP trial data); used by `computeAppetiteSuppressionPct()` in `lib/cycle-intelligence.ts`
+- [x] **Intraday forecast for daily drugs (rev 13)** — `lib/cycle-intelligence.ts`: `HourBlock` type (6 four-hour windows with `pkConcentrationPct`, `appetiteSuppressionPct`, `phase`, `isCurrent`); `generateIntradayForecast(glp1Type, glp1Status, doseTime, doseMg?)` samples PK at each block midpoint relative to user's `doseTime`; `AppetiteForecastStrip` now accepts `hourBlocks?: HourBlock[]` + `injFreqDays` props — renders 6-block intraday view for daily drugs, day-pill cycle view for weekly/biweekly
+- [x] **Log store expanded to 7 check-in domains + delete session (rev 13)** — `stores/log-store.ts` `weeklyCheckins` record now covers all 7 domains (added `energy_mood`, `appetite`, `food_noise`); `fetchInsightsData()` fetches all 7 in parallel; `deleteWeeklyCheckinSession(date)` deletes all rows for a calendar date; `deleteInjectionLog()` now syncs `profiles.last_injection_date` after deletion
+- [x] **Profile fields: doseTime + last_injection_date persisted (rev 13)** — `FullUserProfile.doseTime` (`HH:MM`) field added; Supabase migrations add `dose_time TEXT` and `last_injection_date TEXT` columns to `profiles`; shot-cycle phase now survives app reloads without needing injection log query at startup
+- [x] **Notifications Expo Go guard (rev 13)** — `lib/notifications.ts` lazy-imports `expo-notifications` via try/catch; module unavailable in Expo Go (requires native dev build) no longer crashes the app
 
 ### In Progress / Partially Done
 
@@ -1097,4 +1157,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 16, 2026 (rev 11). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 19, 2026 (rev 13). It should be updated as features are built and decisions are made.*
