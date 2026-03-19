@@ -1,6 +1,6 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   LayoutAnimation,
@@ -270,42 +270,42 @@ const SECTIONS: Section[] = [
 type MythItem = {
   myth: string;
   fact: string;
-  emoji: string;
+  icon: React.ReactNode;
 };
 
 const MYTHS: MythItem[] = [
   {
-    emoji: '💪',
+    icon: <MaterialIcons name="psychology" size={26} color="#FF742A" />,
     myth: '"GLP-1s are the easy way out — real weight loss takes willpower."',
     fact: 'Obesity is a chronic metabolic disease driven by biology, not willpower. GLP-1 medications correct a hormonal dysfunction — just as insulin treats diabetes. Studies show GLP-1 therapy is more effective than lifestyle intervention alone for sustained weight loss.',
   },
   {
-    emoji: '🍕',
+    icon: <MaterialIcons name="restaurant" size={26} color="#FF742A" />,
     myth: '"I can eat whatever I want since the medication controls my appetite."',
     fact: 'Poor nutrition on GLP-1s leads to muscle loss, micronutrient deficiency, and rebound weight gain. The medication reduces quantity — what you eat determines quality of your results. Protein intake is especially critical for preserving muscle mass.',
   },
   {
-    emoji: '⚖️',
+    icon: <MaterialCommunityIcons name="scale" size={26} color="#FF742A" />,
     myth: '"The weight will stay off permanently once I lose it."',
     fact: 'Weight regain occurs in ~70% of patients within 12 months of stopping GLP-1 therapy. The brain\'s appetite regulation and metabolic set point revert without the medication. Long-term treatment is the evidence-based approach for sustained results.',
   },
   {
-    emoji: '💇',
+    icon: <MaterialIcons name="face" size={26} color="#FF742A" />,
     myth: '"Hair loss on GLP-1s is permanent and keeps getting worse."',
     fact: 'Hair shedding (telogen effluvium) is temporary — caused by rapid caloric restriction, not a direct drug effect. It typically peaks at 3–4 months and fully reverses by 9–12 months. Prioritizing protein and micronutrients (zinc, iron, biotin) significantly reduces severity.',
   },
   {
-    emoji: '🤢',
+    icon: <MaterialIcons name="sick" size={26} color="#FF742A" />,
     myth: '"Nausea means the medication is working — more nausea = faster weight loss."',
     fact: 'Nausea is a side effect of the medication\'s gut effects, not an indicator of efficacy. Severe nausea often means you\'re eating too much or too fast, or escalating doses too quickly. It has no correlation with weight loss rate.',
   },
   {
-    emoji: '🏥',
+    icon: <MaterialIcons name="local-hospital" size={26} color="#FF742A" />,
     myth: '"GLP-1s are only for people with type 2 diabetes."',
     fact: 'Semaglutide (Wegovy) and tirzepatide (Zepbound) are FDA-approved for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition — regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
   },
   {
-    emoji: '🧬',
+    icon: <MaterialIcons name="biotech" size={26} color="#FF742A" />,
     myth: '"GLP-1 medications damage your thyroid or pancreas."',
     fact: 'The thyroid tumor signal seen in rodent studies has not been observed in humans in any clinical trial. The FDA requires a warning on labeling as a precaution, but human evidence for this risk is not established. Pancreatitis risk exists but is rare (~0.1%) and not higher than in the general population with obesity-related risk factors.',
   },
@@ -335,12 +335,12 @@ const SYMPTOMS: SymptomItem[] = [
   { category: 'monitor', name: 'Heartburn / GERD', detail: 'Slowed emptying worsens acid reflux in some patients. OTC antacids can help. Tell your doctor if frequent.' },
   { category: 'monitor', name: 'Mood changes', detail: 'Some patients report low mood or anxiety, especially during dose changes. Monitor and discuss with your prescriber.' },
   { category: 'monitor', name: 'Hair shedding', detail: 'Telogen effluvium peaks at 3–6 months. Usually temporary. Prioritize protein, zinc, iron, biotin.' },
-  { category: 'call_doctor', name: 'Severe abdominal pain', detail: '🚨 Persistent, severe mid-upper abdominal pain radiating to the back may indicate pancreatitis. Stop medication and go to the ER or call your doctor immediately.' },
-  { category: 'call_doctor', name: 'Yellowing skin/eyes', detail: '🚨 Jaundice can indicate gallbladder disease, which is more common with rapid weight loss. Requires same-day medical evaluation.' },
-  { category: 'call_doctor', name: 'Difficulty swallowing', detail: '🚨 Gastroparesis (severe stomach paralysis) can cause this. If you cannot keep liquids down or feel food "stuck," contact your doctor immediately.' },
-  { category: 'call_doctor', name: 'Neck lump / throat symptoms', detail: '🚨 While thyroid cancer risk in humans is not established, any new neck lump, difficulty swallowing, or persistent hoarseness should be evaluated by your doctor.' },
-  { category: 'call_doctor', name: 'Signs of hypoglycemia', detail: '🚨 Shakiness, sweating, confusion, rapid heartbeat — especially if you take insulin or sulfonylureas alongside GLP-1. Treat with 15g fast-acting carbs and call your doctor.' },
-  { category: 'call_doctor', name: 'Severe allergic reaction', detail: '🚨 Facial swelling, hives, difficulty breathing — call 911. Rare but serious. Discontinue medication.' },
+  { category: 'call_doctor', name: 'Severe abdominal pain', detail: 'Persistent, severe mid-upper abdominal pain radiating to the back may indicate pancreatitis. Stop medication and go to the ER or call your doctor immediately.' },
+  { category: 'call_doctor', name: 'Yellowing skin/eyes', detail: 'Jaundice can indicate gallbladder disease, which is more common with rapid weight loss. Requires same-day medical evaluation.' },
+  { category: 'call_doctor', name: 'Difficulty swallowing', detail: 'Gastroparesis (severe stomach paralysis) can cause this. If you cannot keep liquids down or feel food "stuck," contact your doctor immediately.' },
+  { category: 'call_doctor', name: 'Neck lump / throat symptoms', detail: 'While thyroid cancer risk in humans is not established, any new neck lump, difficulty swallowing, or persistent hoarseness should be evaluated by your doctor.' },
+  { category: 'call_doctor', name: 'Signs of hypoglycemia', detail: 'Shakiness, sweating, confusion, rapid heartbeat — especially if you take insulin or sulfonylureas alongside GLP-1. Treat with 15g fast-acting carbs and call your doctor.' },
+  { category: 'call_doctor', name: 'Severe allergic reaction', detail: 'Facial swelling, hives, difficulty breathing — call 911. Rare but serious. Discontinue medication.' },
 ];
 
 // ─── Phase-aware focus card ───────────────────────────────────────────────────
@@ -484,7 +484,7 @@ function MythCard({ item }: { item: MythItem }) {
   return (
     <Pressable style={[s.wrap, glassShadow]} onPress={handlePress}>
       <View style={s.body}>
-        <Text style={s.emoji}>{item.emoji}</Text>
+        <View style={s.iconWrap}>{item.icon}</View>
         <View style={s.labelRow}>
           <View style={[s.labelChip, { backgroundColor: revealed ? 'rgba(39,174,96,0.12)' : 'rgba(231,76,60,0.12)' }]}>
             <Text style={[s.labelText, { color: revealed ? '#27AE60' : '#E74C3C' }]}>
@@ -511,7 +511,7 @@ const createMythCardStyles = (c: AppColors) => {
       borderWidth: 0.5, borderColor: c.border,
       padding: 16, minHeight: 180,
     },
-    emoji: { fontSize: 26, marginBottom: 10 },
+    iconWrap: { marginBottom: 10 },
     labelRow: { flexDirection: 'row', marginBottom: 8 },
     labelChip: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
     labelText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, fontFamily: FF },
@@ -683,16 +683,16 @@ function SafetyCard() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createSafetyStyles(colors), [colors]);
 
-  const RED_FLAGS = [
-    { icon: '🔴', text: 'Severe or persistent mid-upper abdominal pain (possible pancreatitis)' },
-    { icon: '🔴', text: 'Yellowing of skin or eyes (jaundice — gallbladder concern)' },
-    { icon: '🔴', text: 'Cannot keep any liquids down for 24+ hours (dehydration risk)' },
-    { icon: '🔴', text: 'Signs of severe allergic reaction: facial swelling, hives, difficulty breathing' },
-    { icon: '🔴', text: 'Shakiness, confusion, heart pounding (hypoglycemia — especially with insulin)' },
-    { icon: '🟡', text: 'Persistent vomiting lasting more than 2 days at a new dose' },
-    { icon: '🟡', text: 'No bowel movement for 5+ days with significant discomfort' },
-    { icon: '🟡', text: 'New neck lump, difficulty swallowing, or persistent hoarseness' },
-    { icon: '🟡', text: 'Significant mood changes, worsening depression, or unusual anxiety' },
+  const RED_FLAGS: { color: string; text: string }[] = [
+    { color: '#E74C3C', text: 'Severe or persistent mid-upper abdominal pain (possible pancreatitis)' },
+    { color: '#E74C3C', text: 'Yellowing of skin or eyes (jaundice — gallbladder concern)' },
+    { color: '#E74C3C', text: 'Cannot keep any liquids down for 24+ hours (dehydration risk)' },
+    { color: '#E74C3C', text: 'Signs of severe allergic reaction: facial swelling, hives, difficulty breathing' },
+    { color: '#E74C3C', text: 'Shakiness, confusion, heart pounding (hypoglycemia — especially with insulin)' },
+    { color: '#F39C12', text: 'Persistent vomiting lasting more than 2 days at a new dose' },
+    { color: '#F39C12', text: 'No bowel movement for 5+ days with significant discomfort' },
+    { color: '#F39C12', text: 'New neck lump, difficulty swallowing, or persistent hoarseness' },
+    { color: '#F39C12', text: 'Significant mood changes, worsening depression, or unusual anxiety' },
   ];
 
   return (
@@ -725,7 +725,7 @@ function SafetyCard() {
             <View style={s.divider} />
             {RED_FLAGS.map((flag, i) => (
               <View key={i} style={s.flagRow}>
-                <Text style={s.flagIcon}>{flag.icon}</Text>
+                <View style={[s.flagDot, { backgroundColor: flag.color }]} />
                 <Text style={s.flagText}>{flag.text}</Text>
               </View>
             ))}
@@ -756,7 +756,7 @@ const createSafetyStyles = (c: AppColors) => {
     content: {},
     divider: { height: 1, backgroundColor: 'rgba(231,76,60,0.15)', marginVertical: 12 },
     flagRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
-    flagIcon: { fontSize: 12, marginTop: 2 },
+    flagDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0 },
     flagText: { fontSize: 13, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
     emergencyNote: {
       marginTop: 8, borderRadius: 10,

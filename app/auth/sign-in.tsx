@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { makeRedirectUri } from 'expo-auth-session';
+// expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
+let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
+try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useMemo, useState } from 'react';
@@ -20,6 +22,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
+import { useProfile } from '@/contexts/profile-context';
+import { MOCK_PROFILE } from '@/constants/mock-profile';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
@@ -164,6 +168,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
+  const { setProfile } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -186,6 +191,7 @@ export default function SignInScreen() {
 
   // ── Demo login ──────────────────────────────────────────────────────────
   function handleDemoLogin() {
+    setProfile(MOCK_PROFILE);
     setDemoMode(true);
     setSessionLoaded(true);
     router.replace('/(tabs)');
@@ -309,26 +315,11 @@ export default function SignInScreen() {
         return;
       }
 
-      // Implicit flow: tokens arrive in the URL hash
-      const hash = result.url.includes('#') ? result.url.split('#')[1] : '';
-      const hashParams = new URLSearchParams(hash);
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        const { data: sd, error: sessionErr } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (sessionErr) { setError(sessionErr.message); return; }
-        await finishOAuth(sd.session);
-      } else {
-        // PKCE flow: code arrives as a query param - exchange it
-        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
-        if (exchangeErr) { setError(exchangeErr.message); return; }
-        const { data: { session } } = await supabase.auth.getSession();
-        await finishOAuth(session);
-      }
+      // PKCE flow: authorization code arrives as a query param — exchange it for a session
+      const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (exchangeErr) { setError(exchangeErr.message); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      await finishOAuth(session);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {

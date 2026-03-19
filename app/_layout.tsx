@@ -1,5 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
+// expo-notifications requires a dev build; guard so Expo Go doesn't crash.
+let Notifications: typeof import('expo-notifications') | undefined;
+try { Notifications = require('expo-notifications'); } catch {}
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -8,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MOCK_PROFILE } from '@/constants/mock-profile';
+import { cancelAllReminders } from '@/lib/notifications';
 import { HealthProvider } from '@/contexts/health-data';
 import { ProfileProvider, useProfile } from '@/contexts/profile-context';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
@@ -47,6 +50,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (session) {
         loadProfile();
       } else if (_event === 'SIGNED_OUT') {
+        cancelAllReminders().catch(() => {});
         resetProfile();
         router.replace('/auth/sign-in');
       }
@@ -73,8 +77,9 @@ function RootLayoutInner() {
   const { colors } = useAppTheme();
   const router = useRouter();
 
-  // Handle notification deep-link taps
+  // Handle notification deep-link taps (no-op in Expo Go — native module unavailable)
   useEffect(() => {
+    if (!Notifications) return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const url = response.notification.request.content.data?.url as string | undefined;
       if (url) router.push(url as any);

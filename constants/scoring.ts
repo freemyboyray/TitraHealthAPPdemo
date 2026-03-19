@@ -47,6 +47,23 @@ export type WearableData = {
 
 export type ShotPhase = 'shot' | 'peak' | 'balance' | 'reset';
 
+// ─── Intraday Phase Type (daily drugs) ───────────────────────────────────────
+// Replaces cycle-day phase for drugs with injFreqDays === 1.
+// post_dose: within first half of Tmax
+// peak:      between half-Tmax and 2×Tmax (highest appetite suppression)
+// trough:    beyond 2×Tmax (hunger may rise before next dose)
+export type IntradayPhase = 'post_dose' | 'peak' | 'trough';
+
+// ─── Schedule Mode Gate ───────────────────────────────────────────────────────
+// cycle-day: 7d / 14d — phase = function of days since injection
+// intraday:  1d daily — phase = function of hours since dose
+
+export type ScheduleMode = 'cycle-day' | 'intraday';
+
+export function getScheduleMode(injFreqDays: number): ScheduleMode {
+  return injFreqDays === 1 ? 'intraday' : 'cycle-day';
+}
+
 // ─── Program Phase Type ───────────────────────────────────────────────────────
 // 3-tier clinical phase derived from escalation phase name.
 // Drives protein multipliers, calorie adaptation, and activity targets.
@@ -62,17 +79,37 @@ export type InjectionLogForScoring = {
 // ─── Shot Cycle ───────────────────────────────────────────────────────────────
 
 export function daysSinceInjection(
-  lastInjectionDate: string | Date,
+  lastInjectionDate: string | Date | null | undefined,
   refDate?: Date,
+  injFreqDays: number = 7,
 ): number {
-  const last =
+  if (!lastInjectionDate) return injFreqDays;
+  // Parse as local midnight to avoid UTC-offset skew (same logic as Insights page)
+  const lastMs =
     typeof lastInjectionDate === 'string'
-      ? new Date(lastInjectionDate)
-      : lastInjectionDate;
-  const ref = refDate ?? new Date();
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const days = Math.floor((ref.getTime() - last.getTime()) / msPerDay) + 1;
-  return Math.max(1, Math.min(7, days));
+      ? new Date(lastInjectionDate + 'T00:00:00').getTime()
+      : lastInjectionDate.getTime();
+  if (isNaN(lastMs)) return injFreqDays;
+  // Anchor ref to local midnight so timezone doesn't shift the day count
+  const ref = new Date(refDate ?? new Date());
+  ref.setHours(0, 0, 0, 0);
+  const days = Math.round((ref.getTime() - lastMs) / 86400000) + 1;
+  return Math.max(1, Math.min(injFreqDays, days));
+}
+
+/** Hours since last dose (for intraday phase computation on daily drugs). */
+export function hoursSinceDose(
+  lastDoseDate: string | null | undefined,
+  doseTime: string = '08:00',
+): number {
+  if (!lastDoseDate) return 12; // mid-day fallback
+  const [hh, mm] = doseTime.split(':').map(Number);
+  const doseMs = new Date(lastDoseDate + 'T' + doseTime + ':00').getTime();
+  if (isNaN(doseMs)) return 12;
+  const elapsedMs = Date.now() - doseMs;
+  // If negative (dose is in the future today), wrap to yesterday
+  if (elapsedMs < 0) return Math.max(0, (elapsedMs + 86400000) / 3600000);
+  return Math.min(24, elapsedMs / 3600000);
 }
 
 /** Number of calendar days between two injection_date strings (absolute value). */
@@ -269,6 +306,24 @@ export function glp1RhrOffset(phase: ShotPhase): number {
   return 0;
 }
 
+/**
+ * HRV offset for intraday phase (daily drugs).
+ * Liraglutide: intraday peak = −4ms HRV effect.
+ * Oral sema: near-flat steady-state = −4ms all day (flat offset, no phase variation).
+ * Orforglipron: similar to liraglutide.
+ */
+export function glp1HrvOffsetIntraday(phase: IntradayPhase, glp1Type?: string): number {
+  if (glp1Type === 'oral_semaglutide') return 4; // flat steady-state offset
+  if (phase === 'peak') return 4;
+  return 0;
+}
+
+export function glp1RhrOffsetIntraday(phase: IntradayPhase, glp1Type?: string): number {
+  if (glp1Type === 'oral_semaglutide') return -2; // flat steady-state offset
+  if (phase === 'peak') return -2;
+  return 0;
+}
+
 // ─── Scoring Formulas ─────────────────────────────────────────────────────────
 // Adaptive: only includes components where data is actually available.
 // Returns null when no wearable data is present at all.
@@ -414,7 +469,30 @@ export function computeMedicationScore(
   const last = sorted[0];
   if (!last) return 0;
 
-  const daysLate = daysSinceInjection(last.injection_date) - injectionFreqDays;
+  // Daily drug adherence: stricter — each missed day drops 20 points
+  // (daily consistency is critical for oral bioavailability and intraday PK)
+  if (injectionFreqDays === 1) {
+    const today = localDateStr(new Date());
+    const dosedToday = sorted.some(l => l.injection_date === today);
+    if (dosedToday) {
+      // Streak bonus: consecutive daily logs
+      let streak = 1;
+      for (let i = 1; i < sorted.length; i++) {
+        const gap = daysBetween(sorted[i - 1].injection_date, sorted[i].injection_date);
+        if (gap === 1) streak++;
+        else break;
+      }
+      const streakBonus = streak >= 14 ? 10 : streak >= 7 ? 6 : streak >= 3 ? 3 : 0;
+      return Math.min(25 + streakBonus, 35);
+    }
+    // Missed today — check if logged yesterday (1 day late)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dosedYesterday = sorted.some(l => l.injection_date === localDateStr(yesterday));
+    return dosedYesterday ? 10 : 0;
+  }
+
+  const daysLate = daysSinceInjection(last.injection_date, undefined, injectionFreqDays) - injectionFreqDays;
   const injectOnTime =
     daysLate <= 0 ? 20
     : daysLate === 1 ? 15
@@ -808,15 +886,57 @@ export type FocusItem = {
   status: 'completed' | 'active' | 'pending';
   iconName: string;
   iconSet: 'MaterialIcons' | 'Ionicons';
+  progressPct?: number;  // 0–100, omit for binary items (injection)
+  valueLabel?: string;   // e.g. "142 / 180g" or "48 / 64oz"
 };
 
 // ─── Shot Phase Helper ────────────────────────────────────────────────────────
 
-export function getShotPhase(daysSinceShot: number): ShotPhase {
-  if (daysSinceShot <= 2) return 'shot';
-  if (daysSinceShot <= 4) return 'peak';
-  if (daysSinceShot <= 6) return 'balance';
+/**
+ * Returns the cycle-day phase for weekly/bi-weekly drugs.
+ * Thresholds scale proportionally with injFreqDays so 14-day cycles
+ * are not permanently stuck in "shot" phase.
+ *
+ *   shotEnd    ≈ 15% of cycle  (first ~15%)
+ *   peakEnd    ≈ 50% of cycle  (up to ~50%)
+ *   balanceEnd ≈ 85% of cycle  (up to ~85%)
+ *   remainder  = reset phase
+ */
+export function getShotPhase(daysSinceShot: number, injFreqDays: number = 7): ShotPhase {
+  const shotEnd    = Math.max(1, Math.round(injFreqDays * 0.15));
+  const peakEnd    = Math.max(2, Math.round(injFreqDays * 0.50));
+  const balanceEnd = Math.max(3, Math.round(injFreqDays * 0.85));
+  if (daysSinceShot <= shotEnd)    return 'shot';
+  if (daysSinceShot <= peakEnd)    return 'peak';
+  if (daysSinceShot <= balanceEnd) return 'balance';
   return 'reset';
+}
+
+/**
+ * Returns the intraday phase for daily drugs (liraglutide, oral sema, orforglipron).
+ * Uses Tmax-anchored thresholds:
+ *   post_dose: 0 → Tmax * 0.5
+ *   peak:      Tmax * 0.5 → Tmax * 2.0
+ *   trough:    beyond Tmax * 2.0
+ *
+ * Drug-specific Tmax values (hours):
+ *   liraglutide:       11h
+ *   oral_semaglutide:  1h  (near-flat due to 158h t½ — effectively steady state all day)
+ *   orforglipron:      8h
+ */
+export function getIntradayPhase(
+  hoursSince: number,
+  glp1Type: string,
+): IntradayPhase {
+  const tmaxMap: Record<string, number> = {
+    liraglutide:      11,
+    oral_semaglutide:  1,
+    orforglipron:      8,
+  };
+  const tmax = tmaxMap[glp1Type] ?? 8;
+  if (hoursSince < tmax * 0.5) return 'post_dose';
+  if (hoursSince < tmax * 2.0) return 'peak';
+  return 'trough';
 }
 
 // ─── Phase Multipliers ────────────────────────────────────────────────────────
@@ -826,6 +946,16 @@ const PHASE_WEIGHTS: Record<ShotPhase, Partial<Record<FocusCategory, number>>> =
   peak:    { hydration: 2.0, rest: 2.5, recovery: 2.0, sleep: 1.8, protein: 1.0, activity: 0.4, fiber: 0.6 },
   balance: { activity: 1.4, fiber: 1.3, protein: 1.1, hydration: 1.0 },
   reset:   { protein: 1.3, activity: 1.3, hydration: 1.2, sleep: 1.1 },
+};
+
+// Intraday phase weights for daily drugs (liraglutide, oral sema, orforglipron).
+// post_dose: just took medication — hydration + rest priority
+// peak:      optimal satiety window — protein + activity window
+// trough:    hunger may rise before next dose — protein + hydration to buffer
+const INTRADAY_PHASE_WEIGHTS: Record<IntradayPhase, Partial<Record<FocusCategory, number>>> = {
+  post_dose: { hydration: 2.0, injection: 1.0, rest: 1.5, sleep: 1.2, activity: 0.7, protein: 0.9 },
+  peak:      { protein: 1.8, activity: 1.3, hydration: 1.2, fiber: 1.1, sleep: 1.0 },
+  trough:    { protein: 1.5, hydration: 1.3, fiber: 1.2, activity: 1.1, sleep: 1.1 },
 };
 
 // ─── Focus Status Helpers ─────────────────────────────────────────────────────
@@ -877,33 +1007,43 @@ function buildFocusItem(
     case 'hydration': {
       const pct = Math.round(actuals.waterMl / targets.waterMl * 100);
       const remainOz = Math.round(Math.max(0, targets.waterMl - actuals.waterMl) / 29.57);
+      const loggedOz = Math.round(actuals.waterMl / 29.57);
+      const targetOz = Math.round(targets.waterMl / 29.57);
       return {
         id: 'hydration',
         label: remainOz > 0 ? `Drink ${remainOz}oz more water` : 'Hit your hydration goal',
         subtitle: `${pct}% of daily target${phase === 'peak' ? ' · Electrolytes critical today' : phaseNote}`,
         iconName: 'water-outline', iconSet: 'Ionicons',
         status,
+        progressPct: Math.min(100, actuals.waterMl / targets.waterMl * 100),
+        valueLabel: `${loggedOz} / ${targetOz}oz`,
       };
     }
     case 'protein': {
       const remainG = Math.round(Math.max(0, targets.proteinG - actuals.proteinG));
       const tip = phase === 'shot' ? ' · Try a protein shake today' : '';
+      const loggedG = Math.round(actuals.proteinG);
       return {
         id: 'protein',
         label: remainG > 0 ? `Add ${remainG}g protein today` : 'Protein goal reached',
         subtitle: `Preserves lean muscle on GLP-1${tip}`,
         iconName: 'restaurant', iconSet: 'MaterialIcons',
         status,
+        progressPct: Math.min(100, actuals.proteinG / targets.proteinG * 100),
+        valueLabel: `${loggedG} / ${targets.proteinG}g`,
       };
     }
     case 'fiber': {
       const remainG = Math.round(Math.max(0, targets.fiberG - actuals.fiberG));
+      const loggedG = Math.round(actuals.fiberG);
       return {
         id: 'fiber',
         label: remainG > 0 ? `Get ${remainG}g more fiber` : 'Fiber goal complete',
         subtitle: `Supports digestion · ${targets.fiberG}g daily target`,
         iconName: 'eco', iconSet: 'MaterialIcons',
         status,
+        progressPct: Math.min(100, actuals.fiberG / targets.fiberG * 100),
+        valueLabel: `${loggedG} / ${targets.fiberG}g`,
       };
     }
     case 'activity': {
@@ -914,6 +1054,8 @@ function buildFocusItem(
         subtitle: `${actuals.steps.toLocaleString()} of ${targets.steps.toLocaleString()} steps today`,
         iconName: 'directions-walk', iconSet: 'MaterialIcons',
         status,
+        progressPct: Math.min(100, actuals.steps / targets.steps * 100),
+        valueLabel: `${actuals.steps.toLocaleString()} / ${targets.steps.toLocaleString()} steps`,
       };
     }
     case 'sleep': {
@@ -925,6 +1067,8 @@ function buildFocusItem(
         subtitle: `Last night: ${hrs}h · Aim for 7–9h${phaseNote}`,
         iconName: 'moon-outline', iconSet: 'Ionicons',
         status,
+        progressPct: Math.min(100, sleepMin / 420 * 100),
+        valueLabel: `${hrs}h / 7–9h`,
       };
     }
     case 'recovery': {
@@ -959,14 +1103,19 @@ export function generateFocuses(
   daysSinceShot: number,
   programPhase?: ProgramPhase,
   isInjectionDue?: boolean,
+  opts?: {
+    injFreqDays?: number;
+    intradayPhase?: IntradayPhase;
+  },
 ): FocusItem[] {
-  const phase = getShotPhase(daysSinceShot);
+  const injFreqDays = opts?.injFreqDays ?? 7;
+  const scheduleMode = getScheduleMode(injFreqDays);
+  const phase = getShotPhase(daysSinceShot, injFreqDays);
   const recovery = computeRecovery(wearable, phase) ?? 70;
 
   // Injection deficit: only non-zero when the dose is actually due.
-  // isInjectionDue defaults to daysSinceShot >= 7 for backwards compat with
-  // callers that don't pass the flag (e.g. contexts/health-data.tsx).
-  const injDue = isInjectionDue ?? daysSinceShot >= 7;
+  // isInjectionDue defaults to daysSinceShot >= injFreqDays for backwards compat.
+  const injDue = isInjectionDue ?? daysSinceShot >= injFreqDays;
 
   const deficits: Record<FocusCategory, number> = {
     injection: actuals.injectionLogged ? 0 : (injDue ? 100 : 0),
@@ -979,7 +1128,12 @@ export function generateFocuses(
     rest:      phase === 'peak' ? Math.max(0, 65 - recovery) : 0,
   };
 
-  const weights = PHASE_WEIGHTS[phase];
+  // Use intraday weights for daily drugs, cycle-day weights for weekly/bi-weekly
+  const weights: Partial<Record<FocusCategory, number>> =
+    scheduleMode === 'intraday' && opts?.intradayPhase
+      ? INTRADAY_PHASE_WEIGHTS[opts.intradayPhase]
+      : PHASE_WEIGHTS[phase];
+
   const weighted = (Object.keys(deficits) as FocusCategory[]).map((cat) => {
     let mult = weights[cat] ?? 1.0;
     // During titration, boost protein ranking - appetite suppression at escalating doses

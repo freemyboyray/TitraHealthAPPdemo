@@ -20,6 +20,7 @@ import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { getBrandDoses, MedicationBrand } from '@/constants/user-profile';
 
@@ -105,6 +106,7 @@ export default function LogInjectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
+  const { updateProfile } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -171,15 +173,18 @@ export default function LogInjectionScreen() {
   const nextSite = SITES[(SITES.indexOf(site) + 1) % SITES.length];
 
   async function handleSave() {
+    const date = todayString();
     await addInjectionLog(
       parseFloat(dose),
-      todayString(),
+      date,
       undefined,
       site,
       notes.trim() || undefined,
       medication,
       batchNumber.trim() || undefined,
     );
+    // Keep ProfileContext in sync so cycle-intelligence reads the correct date immediately
+    await updateProfile({ lastInjectionDate: date });
     router.back();
   }
 

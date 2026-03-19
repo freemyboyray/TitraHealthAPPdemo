@@ -101,12 +101,13 @@ type LogStore = {
 
   // Weekly Check-ins
   addWeeklyCheckin: (
-    type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health',
+    type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health' | 'food_noise',
     answers: Record<string, number>,
     score: number,
     program_week?: number,
   ) => Promise<void>;
-  fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health') => Promise<void>;
+  fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health' | 'food_noise') => Promise<void>;
+  deleteWeeklyCheckinSession: (date: string) => Promise<void>;
 };
 
 export const useLogStore = create<LogStore>((set, get) => ({
@@ -133,43 +134,49 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const since90d = new Date(Date.now() - 90 * 86400000).toISOString();
     const since1y  = new Date(Date.now() - 365 * 86400000).toISOString();
 
-    const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh] = await Promise.all([
-      supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
-      supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
-      supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
-      supabase.from('activity_logs').select('*').eq('user_id', uid).gte('date', since90d.slice(0, 10)).order('date', { ascending: false }),
-      supabase.from('side_effect_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(50),
-      supabase.from('profiles').select('*').eq('id', uid).single(),
-      supabase.from('user_goals').select('*').eq('user_id', uid).single(),
-      supabase.from('food_noise_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'energy_mood').order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'appetite').order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'gi_burden').order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'activity_quality').order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'sleep_quality').order('logged_at', { ascending: false }).limit(12),
-      supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'mental_health').order('logged_at', { ascending: false }).limit(12),
-    ]);
+    try {
+      const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn] = await Promise.all([
+        supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
+        supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
+        supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
+        supabase.from('activity_logs').select('*').eq('user_id', uid).gte('date', since90d.slice(0, 10)).order('date', { ascending: false }),
+        supabase.from('side_effect_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(50),
+        supabase.from('profiles').select('*').eq('id', uid).single(),
+        supabase.from('user_goals').select('*').eq('user_id', uid).single(),
+        supabase.from('food_noise_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'energy_mood').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'appetite').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'gi_burden').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'activity_quality').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'sleep_quality').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'mental_health').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'food_noise').order('logged_at', { ascending: false }).limit(12),
+      ]);
 
-    set({
-      weightLogs:     w.data   ?? [],
-      injectionLogs:  inj.data ?? [],
-      foodLogs:       f.data   ?? [],
-      activityLogs:   a.data   ?? [],
-      sideEffectLogs: se.data  ?? [],
-      foodNoiseLogs:  (fn.data ?? []) as FoodNoiseLog[],
-      weeklyCheckins: {
-        energy_mood:      (wcEm.data ?? []) as WeeklyCheckinRow[],
-        appetite:         (wcAp.data ?? []) as WeeklyCheckinRow[],
-        gi_burden:        (wcGi.data ?? []) as WeeklyCheckinRow[],
-        activity_quality: (wcAq.data ?? []) as WeeklyCheckinRow[],
-        sleep_quality:    (wcSq.data ?? []) as WeeklyCheckinRow[],
-        mental_health:    (wcMh.data ?? []) as WeeklyCheckinRow[],
-      },
-      profile:        prof.data ?? null,
-      userGoals:      goals.data ?? null,
-      loading:        false,
-      error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
-    });
+      set({
+        weightLogs:     w.data   ?? [],
+        injectionLogs:  inj.data ?? [],
+        foodLogs:       f.data   ?? [],
+        activityLogs:   a.data   ?? [],
+        sideEffectLogs: se.data  ?? [],
+        foodNoiseLogs:  (fn.data ?? []) as FoodNoiseLog[],
+        weeklyCheckins: {
+          energy_mood:      (wcEm.data ?? []) as WeeklyCheckinRow[],
+          appetite:         (wcAp.data ?? []) as WeeklyCheckinRow[],
+          gi_burden:        (wcGi.data ?? []) as WeeklyCheckinRow[],
+          activity_quality: (wcAq.data ?? []) as WeeklyCheckinRow[],
+          sleep_quality:    (wcSq.data ?? []) as WeeklyCheckinRow[],
+          mental_health:    (wcMh.data ?? []) as WeeklyCheckinRow[],
+          food_noise:       (wcFn.data ?? []) as WeeklyCheckinRow[],
+        },
+        profile:        prof.data ?? null,
+        userGoals:      goals.data ?? null,
+        loading:        false,
+        error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
+      });
+    } catch (err) {
+      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load data' });
+    }
   },
 
 
@@ -224,7 +231,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
     if (!user) return;
     const { error } = await supabase.from('injection_logs').delete().eq('id', id).eq('user_id', user.id);
     if (!error) {
-      set(state => ({ injectionLogs: state.injectionLogs.filter(l => l.id !== id) }));
+      const remaining = get().injectionLogs.filter(l => l.id !== id);
+      set({ injectionLogs: remaining });
+      // Keep profiles.last_injection_date in sync with the new most-recent injection
+      const newLastDate = remaining[0]?.injection_date ?? null;
+      await supabase.from('profiles').update({ last_injection_date: newLastDate }).eq('id', user.id);
     }
   },
 
@@ -320,6 +331,28 @@ export const useLogStore = create<LogStore>((set, get) => ({
       }));
     } else {
       set({ loading: false, error: error.message });
+    }
+  },
+
+  deleteWeeklyCheckinSession: async (date: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const dayStart = `${date}T00:00:00.000Z`;
+    const dayEnd   = `${date}T23:59:59.999Z`;
+    const { error } = await supabase
+      .from('weekly_checkins' as any)
+      .delete()
+      .eq('user_id', user.id)
+      .gte('logged_at', dayStart)
+      .lte('logged_at', dayEnd);
+    if (!error) {
+      set(state => {
+        const updated: Record<string, WeeklyCheckinRow[]> = {};
+        for (const key of Object.keys(state.weeklyCheckins)) {
+          updated[key] = state.weeklyCheckins[key].filter(r => !(r.logged_at as string).startsWith(date));
+        }
+        return { weeklyCheckins: updated };
+      });
     }
   },
 

@@ -123,7 +123,7 @@ ${focusList || '• All metrics on track'}
 ${typeContext}
 
 RESPONSE GUIDELINES:
-- Be brief, analytical, and encouraging - lead with the trend or insight, not background
+- Be brief and analytical — no encouragement, lead with the key finding or gap directly
 - Reference the user's specific numbers directly
 - Do NOT make medical diagnoses; recommend consulting their HCP for clinical decisions
 - Keep responses to 1–2 sentences unless the user explicitly asks for more
@@ -240,7 +240,12 @@ export async function parseFoodDescription(
 
   if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
   const data = await res.json();
-  return JSON.parse(data.choices[0].message.content) as ParsedFood;
+  const raw = data.choices?.[0]?.message?.content ?? '';
+  try {
+    return JSON.parse(raw) as ParsedFood;
+  } catch {
+    throw new Error('OpenAI returned non-JSON response for food description');
+  }
 }
 
 // ─── Dynamic Insights (cached per day) ────────────────────────────────────────
@@ -250,7 +255,7 @@ export async function generateDynamicInsights(health: HealthSnapshot): Promise<s
   if (_cache.has(key)) return _cache.get(key) as string;
 
   const systemPrompt = buildSystemPrompt(health);
-  const userPrompt = 'Write 2–3 sentences of personalized insight for me today. Reference my specific numbers and medication phase directly. Plain text only - no bullets, lists, or markdown.';
+  const userPrompt = 'In 1 concise sentence, state the most significant health trend or gap for me today, referencing my specific numbers and medication phase. Plain text only.';
 
   const result = await callOpenAI([{ role: 'user', content: userPrompt }], systemPrompt);
   _cache.set(key, result);
@@ -268,8 +273,8 @@ export async function generateCoachNote(
 
   const systemPrompt = buildSystemPrompt(health, type);
   const userPrompt = type === 'recovery'
-    ? 'Write a 2–3 sentence coaching note explaining what most impacts my Recovery Score today and one specific action I can take based on my current numbers.'
-    : 'Write a 2–3 sentence coaching note explaining what most impacts my GLP-1 Readiness Score today and one specific action I can take based on my current numbers.';
+    ? 'In 1 sentence, state the single biggest factor driving my Recovery Score today and one specific action I can take.'
+    : 'In 1 sentence, state the single biggest factor affecting my GLP-1 Readiness Score today and one specific action I can take.';
 
   const result = await callOpenAI([{ role: 'user', content: userPrompt }], systemPrompt);
   _cache.set(key, result);
@@ -288,9 +293,9 @@ export async function generateLogInsight(
   const systemPrompt = buildSystemPrompt(health);
 
   const prompts: Record<typeof tab, string> = {
-    lifestyle: 'In 2–3 sentences, give me a specific lifestyle insight based on my protein, hydration, steps, and fiber data vs my targets today.',
-    medication: 'In 2–3 sentences, give me an insight about my GLP-1 medication adherence and how my current injection phase affects my body today.',
-    progress: 'In 2–3 sentences, give me a weight progress insight based on my current weight, goal weight, and how long I have been on medication.',
+    lifestyle: 'In 1 concise sentence, state the most significant gap or trend in my protein, hydration, steps, or fiber vs my targets today.',
+    medication: 'In 1 concise sentence, state how my current injection phase is affecting my body and whether my adherence is on track.',
+    progress: 'In 1 concise sentence, state my weight progress toward my goal and whether my current rate is on track given my time on medication.',
   };
 
   const result = await callOpenAI([{ role: 'user', content: prompts[tab] }], systemPrompt);
@@ -336,7 +341,12 @@ export async function parseVoiceLog(
   });
   if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
   const data = await res.json();
-  return JSON.parse(data.choices[0].message.content) as VoiceLogResult;
+  const raw = data.choices?.[0]?.message?.content ?? '';
+  try {
+    return JSON.parse(raw) as VoiceLogResult;
+  } catch {
+    throw new Error('OpenAI returned non-JSON response for voice log');
+  }
 }
 
 // ─── Vision (used by capture-food / scan-food screens) ────────────────────────

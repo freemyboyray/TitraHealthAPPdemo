@@ -16,7 +16,15 @@ export default function EntryLayout() {
       <Stack.Screen name="food-noise-survey" />
       <Stack.Screen name="energy-mood-survey" />
       <Stack.Screen name="appetite-survey" />
+      <Stack.Screen name="gi-burden-survey" />
+      <Stack.Screen name="sleep-quality-survey" />
+      <Stack.Screen name="activity-quality-survey" />
+      <Stack.Screen name="mental-health-survey" />
       <Stack.Screen name="checkin-summary" />
+      <Stack.Screen name="weekly-checkin" />
+      <Stack.Screen name="weekly-checkin-result" />
+      <Stack.Screen name="weekly-checkin-history" />
+      <Stack.Screen name="weekly-summary" />
     </Stack>
   );
 }

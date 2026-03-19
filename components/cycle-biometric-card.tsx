@@ -1,3 +1,4 @@
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
@@ -180,7 +181,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                 <Text style={s.expandSectionTitle}>HOW THIS WORKS</Text>
 
                 <View style={s.expandRow}>
-                  <Text style={s.expandIcon}>📊</Text>
+                  <MaterialIcons name="analytics" size={14} color="rgba(255,255,255,0.5)" />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>Your baseline</Text>
                     <Text style={s.expandText}>
@@ -192,7 +193,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                 <View style={s.expandDivider} />
 
                 <View style={s.expandRow}>
-                  <Text style={s.expandIcon}>❤️</Text>
+                  <Ionicons name="heart" size={14} color="#FF2D55" />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>HRV (Heart Rate Variability)</Text>
                     <Text style={s.expandText}>
@@ -202,7 +203,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                 </View>
 
                 <View style={s.expandRow}>
-                  <Text style={s.expandIcon}>💓</Text>
+                  <Ionicons name="heart-outline" size={14} color="rgba(255,255,255,0.5)" />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>Resting HR</Text>
                     <Text style={s.expandText}>
@@ -212,7 +213,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
                 </View>
 
                 <View style={s.expandRow}>
-                  <Text style={s.expandIcon}>😴</Text>
+                  <Ionicons name="bed-outline" size={14} color="rgba(255,255,255,0.5)" />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.expandText, { fontWeight: '700' }]}>Sleep</Text>
                     <Text style={s.expandText}>

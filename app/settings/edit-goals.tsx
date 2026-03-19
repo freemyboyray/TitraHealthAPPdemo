@@ -38,7 +38,22 @@ export default function EditGoalsScreen() {
 
   if (!profile) return null;
 
-  const currentLbs = profile.weightLbs ?? 180;
+  // Don't allow goal-setting before a real weight is logged — the 0 default
+  // would anchor the slider to a meaningless value.
+  if (!profile.weightLbs) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 12 }}>
+          Log your weight first
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center' }}>
+          Add a weight entry so we can calculate your goal range accurately.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  const currentLbs = profile.weightLbs;
   const minLbs = Math.max(80, Math.round(currentLbs - 80));
   const maxLbs = Math.round(currentLbs - 5);
   const count = maxLbs - minLbs + 1;
@@ -162,9 +177,9 @@ export default function EditGoalsScreen() {
         </View>
 
         <View style={s.markerRow}>
-          <Text style={s.markerText}>🚶 Gentle</Text>
-          <Text style={s.markerText}>🚗 Moderate</Text>
-          <Text style={s.markerText}>🚀 Fast</Text>
+          <Text style={s.markerText}>Gentle</Text>
+          <Text style={s.markerText}>Moderate</Text>
+          <Text style={s.markerText}>Fast</Text>
         </View>
 
       </ScrollView>

@@ -1,15 +1,20 @@
-import * as Notifications from 'expo-notifications';
+// expo-notifications requires a native dev build; guard import so Expo Go doesn't crash.
+let Notifications: typeof import('expo-notifications') | undefined;
+try { Notifications = require('expo-notifications'); } catch {}
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (!Notifications) return false;
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === 'granted') return true;
   const { status } = await Notifications.requestPermissionsAsync();
@@ -24,6 +29,7 @@ export async function scheduleDailyReminder(
   minute: number,
   deepLinkUrl?: string,
 ): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
   await Notifications.scheduleNotificationAsync({
     identifier: id,
@@ -41,14 +47,17 @@ export async function scheduleDailyReminder(
 }
 
 export async function cancelReminder(id: string): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
 }
 
 export async function cancelAllReminders(): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
 export async function scheduleTestNotification(title: string, body: string): Promise<void> {
+  if (!Notifications) return;
   await Notifications.scheduleNotificationAsync({
     content: { title, body },
     trigger: {

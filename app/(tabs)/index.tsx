@@ -1,9 +1,8 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
@@ -13,16 +12,19 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import {
   daysSinceInjection,
   generateFocuses,
-  generateInsights,
+  getScheduleMode,
+  getIntradayPhase,
+  hoursSinceDose,
   type DailyActuals,
   type DailyTargets,
   type FocusItem,
   type ShotPhase,
+  type IntradayPhase,
 } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
-import { generateDynamicInsights } from '@/lib/openai';
+// generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { ClinicalAlertCard, getDismissedFlags } from '@/components/clinical-alert-card';
 import { buildClinicalFlags } from '@/lib/clinical-alerts';
@@ -37,6 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
 import { generateForecastStrip } from '@/lib/cycle-intelligence';
 import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
+import { MissedShotModal } from '@/components/missed-shot-modal';
 
 const ORANGE = '#FF742A';
 
@@ -51,6 +54,46 @@ const MED_BRAND: Record<string, string> = {
   semaglutide: 'Ozempic',
   tirzepatide: 'Zepbound',
   dulaglutide: 'Trulicity',
+};
+
+const PHASE_DISPLAY: Record<ShotPhase, string> = {
+  shot:    'Shot Day',
+  peak:    'Peak Effect',
+  balance: 'Active',
+  reset:   'Fading',
+};
+
+const PHASE_COLORS: Record<ShotPhase, string> = {
+  shot:    '#FF742A',
+  peak:    '#27AE60',
+  balance: '#3B9AE1',
+  reset:   '#F5A623',
+};
+
+const PHASE_DESCRIPTIONS: Record<ShotPhase, string> = {
+  shot:    'Shot day: highest appetite suppression. Prioritize hydration and injection site rotation.',
+  peak:    'Peak phase: medication at max concentration. Nausea risk is highest — eat small meals.',
+  balance: 'Balance phase: stable medication level. Best window for activity and protein goals.',
+  reset:   'Reset phase: medication tapering. Hunger may increase — focus on habit consistency.',
+};
+
+// Intraday phase display (daily drugs)
+const INTRADAY_PHASE_DISPLAY: Record<IntradayPhase, string> = {
+  post_dose: 'Recently Dosed',
+  peak:      'Peak Effect',
+  trough:    'Approaching Trough',
+};
+
+const INTRADAY_PHASE_COLORS: Record<IntradayPhase, string> = {
+  post_dose: '#D4850A',
+  peak:      '#27AE60',
+  trough:    '#F5A623',
+};
+
+const INTRADAY_PHASE_DESCRIPTIONS: Record<IntradayPhase, string> = {
+  post_dose: 'Recently dosed — medication absorbing. For oral drugs, avoid food/water for 30 min.',
+  peak:      'Peak window — highest appetite suppression. Best time for protein-rich meals.',
+  trough:    'Approaching trough — hunger may increase before your next dose. Prioritize protein.',
 };
 
 // ─── Medication Banner ────────────────────────────────────────────────────────
@@ -111,14 +154,30 @@ const glassShadow = {
 
 // ─── Phase Label Builder ──────────────────────────────────────────────────────
 
-function buildPhaseLabel(phase: ShotPhase, daysSinceShot: number, medType: string): string {
-  if (daysSinceShot === 0) return 'Shot Day · Injection logged';
-  if (daysSinceShot === 1) return 'Peak Phase · Day 2 since last shot';
-  if (daysSinceShot === 2) return 'Peak Phase · Day 3 since last shot';
-  if (daysSinceShot === 3) return 'Peak Phase · Day 4 since last shot';
-  if (daysSinceShot <= 5)  return `Balance Phase · Day ${daysSinceShot} since last shot`;
-  if (daysSinceShot === 6) return 'Reset Phase · Day 7 - Injection due tomorrow';
-  if (daysSinceShot >= 7)  return 'Injection Overdue - Consider logging your dose';
+function buildPhaseLabel(
+  phase: ShotPhase,
+  daysSinceShot: number,
+  medType: string,
+  injFreqDays: number = 7,
+  intradayPhase?: IntradayPhase | null,
+  hoursSince?: number,
+): string {
+  // Intraday mode for daily drugs
+  if (intradayPhase != null && hoursSince != null) {
+    const hoursUntilNext = Math.max(0, 24 - hoursSince);
+    const nextDoseLabel = hoursUntilNext < 1
+      ? 'Next dose due now'
+      : `Next dose in ${Math.round(hoursUntilNext)}h`;
+    if (intradayPhase === 'post_dose') return `Recently Dosed · ${nextDoseLabel}`;
+    if (intradayPhase === 'peak')      return `Peak Window · ${nextDoseLabel}`;
+    return `Trough Phase · ${nextDoseLabel}`;
+  }
+  // Cycle-day mode
+  if (daysSinceShot <= 1) return `${PHASE_DISPLAY.shot} · Injection logged`;
+  if (daysSinceShot <= Math.round(injFreqDays * 0.5)) return `Peak Phase · Day ${daysSinceShot} since last shot`;
+  if (daysSinceShot <= Math.round(injFreqDays * 0.85)) return `Balance Phase · Day ${daysSinceShot} since last shot`;
+  if (daysSinceShot < injFreqDays) return `Reset Phase · Injection due in ${injFreqDays - daysSinceShot}d`;
+  if (daysSinceShot >= injFreqDays) return 'Injection Overdue - Consider logging your dose';
   return 'Balance Phase';
 }
 
@@ -137,6 +196,10 @@ function buildDynamicFocusHint(plan: PersonalizedPlan | null): string {
 
 
 // ─── Local date helpers ───────────────────────────────────────────────────────
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear()
@@ -280,48 +343,6 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
 }
 
 
-// ─── Focus Timeline Sub-components ───────────────────────────────────────────
-
-function PulsingDot() {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  const scale = useSharedValue(1);
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(withTiming(1.3, { duration: 700 }), withTiming(1, { duration: 700 })),
-      -1,
-      false,
-    );
-  }, []);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return <Animated.View style={[s.pulsingDot, animStyle]} />;
-}
-
-function StatusIndicator({ status }: { status: 'completed' | 'active' | 'pending' }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  if (status === 'completed') {
-    return (
-      <View style={s.indicatorFilled}>
-        <Ionicons name="checkmark" size={14} color="#FFF" />
-      </View>
-    );
-  }
-  return <View style={s.indicatorEmpty} />;
-}
-
-function TimelineLine({ status }: { status: 'completed' | 'active' | 'pending' }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  if (status === 'completed') {
-    return <View style={[s.timelineLine, { backgroundColor: ORANGE }]} />;
-  }
-  if (status === 'active') {
-    return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: ORANGE }]} />;
-  }
-  return <View style={[s.timelineLine, { borderLeftWidth: 2, borderStyle: 'dashed', borderLeftColor: colors.borderSubtle }]} />;
-}
-
 // ─── Daily Log Summary Card ───────────────────────────────────────────────────
 
 const MEAL_LABELS: Record<string, string> = {
@@ -331,25 +352,31 @@ const MEAL_LABELS: Record<string, string> = {
   snack:     'Snack',
 };
 
-const MEAL_EMOJI: Record<string, string> = {
-  breakfast: '🌅',
-  lunch:     '☀️',
-  dinner:    '🌙',
-  snack:     '🍎',
+type MealIconName = React.ComponentProps<typeof MaterialIcons>['name'];
+const MEAL_ICON: Record<string, MealIconName> = {
+  breakfast: 'free-breakfast',
+  lunch:     'lunch-dining',
+  dinner:    'dinner-dining',
+  snack:     'local-cafe',
 };
 
-function activityEmojiDL(exerciseType: string | null | undefined): string {
+function MealIcon({ mealType, size = 16, color }: { mealType: string; size?: number; color: string }) {
+  const name = MEAL_ICON[(mealType ?? 'snack').toLowerCase()] ?? 'restaurant';
+  return <MaterialIcons name={name} size={size} color={color} />;
+}
+
+function activityIconNameDL(exerciseType: string | null | undefined): React.ComponentProps<typeof MaterialIcons>['name'] {
   const t = (exerciseType ?? '').toLowerCase();
-  if (t.includes('run') || t.includes('jog'))      return '🏃';
-  if (t.includes('walk'))                           return '🚶';
-  if (t.includes('cycl') || t.includes('bike'))    return '🚴';
-  if (t.includes('swim'))                           return '🏊';
-  if (t.includes('yoga') || t.includes('stretch'))  return '🧘';
-  if (t.includes('strength') || t.includes('weight') || t.includes('lift')) return '🏋️';
-  if (t.includes('hike'))                           return '🥾';
-  if (t.includes('dance'))                          return '💃';
-  if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) return '🏅';
-  return '⚡';
+  if (t.includes('run') || t.includes('jog'))      return 'directions-run';
+  if (t.includes('walk'))                           return 'directions-walk';
+  if (t.includes('cycl') || t.includes('bike'))    return 'directions-bike';
+  if (t.includes('swim'))                           return 'pool';
+  if (t.includes('yoga') || t.includes('stretch'))  return 'self-improvement';
+  if (t.includes('strength') || t.includes('weight') || t.includes('lift')) return 'fitness-center';
+  if (t.includes('hike'))                           return 'terrain';
+  if (t.includes('dance'))                          return 'music-note';
+  if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) return 'sports';
+  return 'flash-on';
 }
 
 // ── Style helpers (outside component to avoid recreation) ──────────────────
@@ -511,13 +538,13 @@ function DailyLogSummaryCard({
   const canExpand = !isEmpty && !isFuture;
 
   // ── Compact summary lines ─────────────────────────────────────────────────
-  const summaryParts: string[] = [];
-  if (injectionLog) summaryParts.push(`💉  ${injectionLog.medication_name ?? 'Injection'} ${injectionLog.dose_mg}mg logged`);
-  if (foodLogs.length > 0) summaryParts.push(`🍽️  ${foodLogs.length} meal${foodLogs.length > 1 ? 's' : ''} · ${totalCals} cal`);
-  if (activityLogs.length > 0) summaryParts.push(`${activityEmojiDL(activityLogs[0]?.exercise_type)}  ${activityLogs.length} activit${activityLogs.length > 1 ? 'ies' : 'y'}`);
-  if (weightLog) summaryParts.push(`⚖️  ${weightLog.weight_lbs} lbs`);
-  if (waterOz > 0) summaryParts.push(`💧  ${waterOz} oz water`);
-  if (sideEffectLogs.length > 0) summaryParts.push(`🤢  ${sideEffectLogs.length} side effect${sideEffectLogs.length > 1 ? 's' : ''}`);
+  const summaryRows: { icon: React.ReactNode; label: string }[] = [];
+  if (injectionLog) summaryRows.push({ icon: <FontAwesome5 name="syringe" size={12} color={w(0.45)} />, label: `${injectionLog.medication_name ?? 'Injection'} ${injectionLog.dose_mg}mg logged` });
+  if (foodLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name="restaurant" size={14} color={w(0.45)} />, label: `${foodLogs.length} meal${foodLogs.length > 1 ? 's' : ''} · ${totalCals} cal` });
+  if (activityLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name={activityIconNameDL(activityLogs[0]?.exercise_type)} size={14} color={w(0.45)} />, label: `${activityLogs.length} activit${activityLogs.length > 1 ? 'ies' : 'y'}` });
+  if (weightLog) summaryRows.push({ icon: <MaterialCommunityIcons name="scale" size={14} color={w(0.45)} />, label: `${weightLog.weight_lbs} lbs` });
+  if (waterOz > 0) summaryRows.push({ icon: <Ionicons name="water-outline" size={14} color={w(0.45)} />, label: `${waterOz} oz water` });
+  if (sideEffectLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name="sick" size={14} color={w(0.45)} />, label: `${sideEffectLogs.length} side effect${sideEffectLogs.length > 1 ? 's' : ''}` });
 
   return (
     <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
@@ -549,9 +576,12 @@ function DailyLogSummaryCard({
             ) : isEmpty ? (
               <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
             ) : (
-              <View style={{ gap: 5 }}>
-                {summaryParts.map((part, i) => (
-                  <Text key={i} style={{ fontSize: 14, color: w(0.65), fontFamily: FF }}>{part}</Text>
+              <View style={{ gap: 7 }}>
+                {summaryRows.map((row, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 16, alignItems: 'center' }}>{row.icon}</View>
+                    <Text style={{ fontSize: 14, color: w(0.65), fontFamily: FF }}>{row.label}</Text>
+                  </View>
                 ))}
                 <Text style={{ fontSize: 12, color: w(0.28), marginTop: 4, fontFamily: FF }}>Tap to view details & edit</Text>
               </View>
@@ -585,7 +615,7 @@ function DailyLogSummaryCard({
               <View style={{ marginBottom: 16 }}>
                 <Text style={dlSectionLabel(w)}>Injection</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 10 }}>
-                  <Text style={{ fontSize: 16 }}>💉</Text>
+                  <FontAwesome5 name="syringe" size={14} color={w(0.45)} />
                   <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? 'Injection'} · {injectionLog.dose_mg}mg
                   </Text>
@@ -603,7 +633,7 @@ function DailyLogSummaryCard({
                 {foodLogs.map(f => (
                   <View key={f.id} style={{ paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07) }}>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                      <Text style={{ fontSize: 14, marginTop: 1 }}>{MEAL_EMOJI[(f.meal_type ?? 'snack').toLowerCase()] ?? '🍽️'}</Text>
+                      <MealIcon mealType={f.meal_type ?? 'snack'} size={14} color={w(0.45)} />
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 14, color: w(0.82), fontFamily: FF }} numberOfLines={1}>{f.food_name}</Text>
                         <Text style={{ fontSize: 11, color: w(0.38), marginTop: 2, fontFamily: FF }}>
@@ -630,7 +660,7 @@ function DailyLogSummaryCard({
                 <Text style={dlSectionLabel(w)}>Activity</Text>
                 {activityLogs.map(a => (
                   <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                    <Text style={{ fontSize: 16 }}>{activityEmojiDL(a.exercise_type)}</Text>
+                    <MaterialIcons name={activityIconNameDL(a.exercise_type)} size={16} color={w(0.45)} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, color: w(0.82), fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
                       <Text style={{ fontSize: 11, color: w(0.38), marginTop: 2, fontFamily: FF }}>
@@ -659,7 +689,7 @@ function DailyLogSummaryCard({
               <View style={{ marginBottom: 16 }}>
                 <Text style={dlSectionLabel(w)}>Weight</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>⚖️</Text>
+                  <MaterialCommunityIcons name="scale" size={16} color={w(0.45)} />
                   <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
                   <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                     <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })}>
@@ -678,7 +708,7 @@ function DailyLogSummaryCard({
               <View style={{ marginBottom: 16 }}>
                 <Text style={dlSectionLabel(w)}>Water</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>💧</Text>
+                  <Ionicons name="water-outline" size={16} color="#5B8BF5" />
                   <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
                 </View>
               </View>
@@ -690,9 +720,10 @@ function DailyLogSummaryCard({
                 <Text style={dlSectionLabel(w)}>Side Effects</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
                   {sideEffectLogs.map(se => (
-                    <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(231,76,60,0.1)', borderRadius: 20, paddingLeft: 10, paddingRight: 6, paddingVertical: 5 }}>
+                    <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(231,76,60,0.1)', borderRadius: 20, paddingLeft: 8, paddingRight: 6, paddingVertical: 5 }}>
+                      <MaterialIcons name="sick" size={12} color="#E74C3C" />
                       <Text style={{ fontSize: 12, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
-                        🤢 {se.effect_type.replace(/_/g, ' ')} · {se.severity}/10
+                        {se.effect_type.replace(/_/g, ' ')} · {se.severity}/10
                       </Text>
                       <Pressable hitSlop={6} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))}>
                         <Ionicons name="close-circle" size={14} color="#E74C3C" />
@@ -859,13 +890,13 @@ export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [aiInsights, setAiInsights] = useState<string | null>(null);
-  const [insightsLoading, setInsightsLoading] = useState(false);
   const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
   const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
   const [isLoadingDate, setIsLoadingDate] = useState(false);
   const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
   const [datesWithInjections, setDatesWithInjections] = useState<Set<string>>(new Set());
+  const [missedShotVisible, setMissedShotVisible] = useState(false);
+  const missedShotShownRef = useRef(false);
 
   const biometricStore = useBiometricStore();
 
@@ -919,21 +950,6 @@ export default function HomeScreen() {
       }).filter(f => !dismissedFlags.includes(f.type))
     : [];
 
-  const staticInsights = generateInsights(recoveryScore, supportScore, wearable, actuals, targets);
-
-  useEffect(() => {
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      if (!cancelled && aiInsights === null && !insightsLoading) {
-        setInsightsLoading(true);
-        generateDynamicInsights(healthData)
-          .then(results => { if (!cancelled) setAiInsights(results); })
-          .catch(() => { /* fall back to static */ })
-          .finally(() => { if (!cancelled) setInsightsLoading(false); });
-      }
-    }, 5000); // fallback: give up after 5s via the callOpenAI timeout
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, []);
 
   // Fetch historical snapshot when user navigates to a past date
   useEffect(() => {
@@ -960,24 +976,42 @@ export default function HomeScreen() {
   const dateLabel = `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
   const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
-  const dayNum = daysSinceInjection(profile.lastInjectionDate, selectedDate);
+  // Prefer the most recent logged injection date over the profile field — more
+  // accurate and works even if lastInjectionDate wasn't persisted to Supabase yet.
+  const effectiveLastInjectionDate =
+    logStore.injectionLogs[0]?.injection_date || profile.lastInjectionDate || null;
+
+  const dayNum = daysSinceInjection(effectiveLastInjectionDate, selectedDate);
   const freq = profile.injectionFrequencyDays;
 
   // Medication strip - always relative to today
-  const todayDayNum = daysSinceInjection(profile.lastInjectionDate, today);
-  const daysUntil = (freq ?? 7) - todayDayNum;
+  const todayDayNum = daysSinceInjection(effectiveLastInjectionDate, today);
+  const daysUntil = Math.max(0, (freq ?? 7) - (todayDayNum - 1));
   // Use actuals as source of truth for whether today's injection is already logged.
   // daysSinceInjection is capped at 7 so daysUntil can't go negative — we must
   // distinguish "due and not yet logged" from "due and already logged".
   const todayInjLogged = actuals.injectionLogged;
-  const nextShotLabel = todayInjLogged
-    ? 'Logged today'
-    : daysUntil <= 0
-      ? 'Due today'
-      : daysUntil === 1
-        ? 'Due tomorrow'
-        : `In ${daysUntil} days`;
-  const medName = BRAND_DISPLAY_NAMES[profile.medicationBrand ?? ''] ?? profile.medicationBrand ?? 'GLP-1';
+  const nextShotLabel = !effectiveLastInjectionDate
+    ? 'Log first shot'
+    : todayInjLogged
+      ? 'Logged today'
+      : daysUntil <= 0
+        ? 'Due today'
+        : daysUntil === 1
+          ? 'Due tomorrow'
+          : `In ${daysUntil} days`;
+  const medName = (() => {
+    const display = BRAND_DISPLAY_NAMES[profile.medicationBrand ?? ''];
+    if (!display || display === 'Other') {
+      const type = profile.glp1Type;
+      if (type === 'semaglutide') return 'Semaglutide';
+      if (type === 'tirzepatide') return 'Tirzepatide';
+      if (type === 'liraglutide') return 'Liraglutide';
+      if (type === 'oral_semaglutide') return 'Semaglutide (oral)';
+      return 'GLP-1';
+    }
+    return display;
+  })();
   const medDose = profile.doseMg != null ? `${profile.doseMg}mg` : null;
   const shotPhaseForLabel: ShotPhase =
     dayNum <= 2 ? 'shot' : dayNum <= 4 ? 'peak' : dayNum <= 6 ? 'balance' : 'reset';
@@ -1002,8 +1036,8 @@ export default function HomeScreen() {
   // ── Shot-day injection reminder ──────────────────────────────────────────────
   // Shown on any date that is a confirmed or projected injection day.
   const isShotDay =
-    localDateStr(selectedDate) === profile.lastInjectionDate ||
-    isProjectedShot(profile.lastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate);
+    localDateStr(selectedDate) === effectiveLastInjectionDate ||
+    isProjectedShot(effectiveLastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate);
 
   const displayFocuses: FocusItem[] = (() => {
     if (!isShotDay) return baseFocuses;
@@ -1040,14 +1074,37 @@ export default function HomeScreen() {
   })();
 
   const isProjectedInjectionDay = isFuture
-    ? isProjectedShot(profile.lastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate)
+    ? isProjectedShot(effectiveLastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate)
     : displayActuals.injectionLogged;
 
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const focusSectionLabel = isToday
     ? "Daily Focuses"
     : isFuture
       ? `Planned for ${weekday}`
-      : `${weekday}'s Focuses`;
+      : `Focuses from ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
+
+  const handlePhasePillPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    openAiChat({
+      type: 'metric',
+      contextLabel: PHASE_DISPLAY[shotPhaseForLabel],
+      contextValue: PHASE_DESCRIPTIONS[shotPhaseForLabel],
+      chips: JSON.stringify(['What should I focus on today?', 'How does this phase affect appetite?', 'What are the side effects right now?', 'When is my next shot?']),
+    });
+  };
+
+  const handleBackgroundLongPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    openAiChat({
+      chips: JSON.stringify([
+        'How am I doing overall?',
+        'What should I focus on today?',
+        'Any tips for my current phase?',
+        'Summarize my week',
+      ]),
+    });
+  }, [openAiChat]);
 
   // ── Appetite forecast strip ────────────────────────────────────────────────
   // Use the actual logged injection date — not the profile/mock fallback
@@ -1060,10 +1117,79 @@ export default function HomeScreen() {
           profile.injectionFrequencyDays ?? 7,
           profile.glp1Type,
           profile.glp1Status,
+          profile.doseMg ?? null,
         )
       : [],
-    [lastLoggedInjectionDate, profile.injectionFrequencyDays, profile.glp1Type, profile.glp1Status],
+    [lastLoggedInjectionDate, profile.injectionFrequencyDays, profile.glp1Type, profile.glp1Status, profile.doseMg],
   );
+
+  // ── Treatment Progress computations ─────────────────────────────────────────
+  const referenceTime = isPast ? selectedDate.getTime() : Date.now();
+  const daysOnTreatment = profile.startDate
+    ? Math.floor((referenceTime - new Date(profile.startDate + 'T00:00:00').getTime()) / 86400000)
+    : null;
+  const treatmentDisplayVal = daysOnTreatment != null
+    ? daysOnTreatment >= 14 ? `${Math.floor(daysOnTreatment / 7)}` : `${daysOnTreatment}`
+    : null;
+  const treatmentDisplayLbl = daysOnTreatment != null && daysOnTreatment >= 14
+    ? 'weeks on\ntreatment'
+    : 'days on\ntreatment';
+  const weightLogsArr = logStore.weightLogs ?? [];
+  const selectedDateEndStr = localDateStr(selectedDate);
+  const latestWeight = isPast
+    ? (weightLogsArr.find(w => localDateStr(new Date(w.logged_at)) <= selectedDateEndStr)?.weight_lbs ?? null)
+    : (weightLogsArr[0]?.weight_lbs ?? null);
+  const firstWeight = weightLogsArr.length > 0
+    ? weightLogsArr[weightLogsArr.length - 1].weight_lbs
+    : null;
+  const weightDelta = (firstWeight != null && latestWeight != null)
+    ? latestWeight - firstWeight
+    : null;
+  // Stat 3: % to goal (or lbs to go if no goal set)
+  const goalWeight = (profile as any).goalWeightLbs > 0 ? (profile as any).goalWeightLbs : null;
+  const startWeightForGoal = (profile as any).startWeightLbs > 0
+    ? (profile as any).startWeightLbs
+    : firstWeight;
+  const pctToGoal = (startWeightForGoal != null && goalWeight != null && latestWeight != null && startWeightForGoal !== goalWeight)
+    ? Math.max(0, Math.min(100, Math.round(((startWeightForGoal - latestWeight) / (startWeightForGoal - goalWeight)) * 100)))
+    : null;
+  const lbsToGo = (latestWeight != null && goalWeight != null)
+    ? Math.max(0, latestWeight - goalWeight)
+    : (latestWeight != null && startWeightForGoal != null)
+      ? Math.max(0, startWeightForGoal - latestWeight)
+      : null;
+  const stat3Val = pctToGoal != null ? `${pctToGoal}%` : lbsToGo != null ? lbsToGo.toFixed(1) : '—';
+  const stat3Lbl = pctToGoal != null ? 'to\ngoal' : goalWeight != null ? 'lbs\nto go' : 'lbs\nlost';
+
+  // Raw (uncapped) days until next shot — needed to detect overdue
+  const rawDaysUntil = effectiveLastInjectionDate
+    ? (freq ?? 7) - Math.round(
+        (today.getTime() - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
+      )
+    : null;
+
+  // Missed shot modal — computed props
+  const expectedShotDate = useMemo(() => {
+    if (!effectiveLastInjectionDate) return '';
+    const d = new Date(effectiveLastInjectionDate + 'T00:00:00');
+    d.setDate(d.getDate() + (freq ?? 7));
+    return localDateStr(d);
+  }, [effectiveLastInjectionDate, freq]);
+
+  const overdueDays = (rawDaysUntil != null && rawDaysUntil < 0) ? Math.abs(rawDaysUntil) : 0;
+
+  const lastDoseMg = logStore.injectionLogs[0]?.dose_mg ?? (profile as any).doseMg ?? 0.5;
+
+  // Trigger missed shot modal once per session when overdue
+  useEffect(() => {
+    if (missedShotShownRef.current) return;
+    if (rawDaysUntil == null) return;
+    if (!effectiveLastInjectionDate) return;
+    if (rawDaysUntil >= 0) return;
+    if (todayInjLogged) return;
+    missedShotShownRef.current = true;
+    setMissedShotVisible(true);
+  }, [rawDaysUntil, todayInjLogged, effectiveLastInjectionDate]);
 
   // ── Today's individual log entries (from logStore) ──────────────────────────
   const todayStr = localDateStr();
@@ -1101,7 +1227,7 @@ export default function HomeScreen() {
     : today;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
       <SafeAreaView style={{ flex: 1 }}>
 
         {/* ── Fixed header ── */}
@@ -1110,45 +1236,28 @@ export default function HomeScreen() {
           onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
         >
           <View style={s.headerTopRow}>
-            <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
-              <Text style={s.dateTitle}>{dateLabel}</Text>
-              <Ionicons
-                name={calendarOpen ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.textPrimary}
-                style={{ marginLeft: 6, marginTop: 2 }}
-              />
-            </Pressable>
-          </View>
-          <Text style={s.weekday}>{weekday}</Text>
-
-          {/* ── Medication strip ── */}
-          <View style={s.medStrip}>
-            <View style={s.medPill}>
-              <Text style={s.medPillText}>{medName}{medDose ? ` · ${medDose}` : ''}</Text>
-            </View>
-            <View style={[s.medPill, {
-              backgroundColor: todayInjLogged
-                ? 'rgba(39,174,96,0.15)'
-                : daysUntil <= 0
-                  ? 'rgba(255,116,42,0.15)'
-                  : 'transparent',
-            }]}>
-              <Ionicons
-                name={todayInjLogged ? 'checkmark-circle' : 'calendar-outline'}
-                size={11}
-                color={todayInjLogged ? '#27AE60' : daysUntil <= 0 ? ORANGE : colors.textMuted}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[s.medPillText, todayInjLogged
-                ? { color: '#27AE60', fontWeight: '700' }
-                : daysUntil <= 0
-                  ? { color: ORANGE, fontWeight: '700' }
-                  : {},
-              ]}>
-                {nextShotLabel}
+            {/* Left: greeting */}
+            <View style={{ flex: 1 }}>
+              <Text style={s.greetingLabel}>Welcome,</Text>
+              <Text style={s.greetingName}>
+                {logStore.profile?.full_name?.split(' ')[0] ?? 'there'}!
               </Text>
             </View>
+            {/* Right: date + weekday */}
+            <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
+              <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={s.dateTitle}>{dateLabel}</Text>
+                  <Ionicons
+                    name={calendarOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.textPrimary}
+                    style={{ marginLeft: 5, marginTop: 2 }}
+                  />
+                </View>
+                <Text style={s.weekday}>{weekday}</Text>
+              </View>
+            </Pressable>
           </View>
 
           {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
@@ -1163,16 +1272,23 @@ export default function HomeScreen() {
 
         {/* ── Calendar dropdown overlay ── */}
         {calendarOpen && (
-          <CalendarDropdown
-            selectedDate={selectedDate}
-            onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
-            top={headerHeight}
-            minDate={calMinDate}
-            lastInjectionDate={profile.lastInjectionDate}
-            injectionFrequencyDays={profile.injectionFrequencyDays}
-            datesWithLogs={datesWithLogs}
-            datesWithInjections={datesWithInjections}
-          />
+          <>
+            {/* Full-screen backdrop — tapping it closes the calendar */}
+            <Pressable
+              style={[StyleSheet.absoluteFillObject, { zIndex: 199 }]}
+              onPress={() => setCalendarOpen(false)}
+            />
+            <CalendarDropdown
+              selectedDate={selectedDate}
+              onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
+              top={headerHeight}
+              minDate={calMinDate}
+              lastInjectionDate={effectiveLastInjectionDate}
+              injectionFrequencyDays={profile.injectionFrequencyDays}
+              datesWithLogs={datesWithLogs}
+              datesWithInjections={datesWithInjections}
+            />
+          </>
         )}
 
         <ScrollView
@@ -1183,6 +1299,160 @@ export default function HomeScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
+          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
+
+          {/* ── Viewing History Banner ── */}
+          {isPast && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'rgba(255,116,42,0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,116,42,0.4)',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              marginBottom: 14,
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>
+                {`Viewing ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
+              </Text>
+              <Pressable onPress={() => { setSelectedDate(new Date()); setCalendarOpen(false); }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: FF }}>
+                  Back to today
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* ── First-Use Checklist ── */}
+          {logStore.injectionLogs.length === 0 && logStore.weightLogs.length === 0 && (
+            <View style={[s.cardWrap, { marginBottom: 20 }]}>
+              <View style={[s.cardBody, { backgroundColor: colors.surface, padding: 20 }]}>
+                <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '700', letterSpacing: 2, fontFamily: FF, marginBottom: 8 }}>
+                  GET STARTED
+                </Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', fontFamily: FF, marginBottom: 4 }}>
+                  Set up your journey
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: FF, marginBottom: 16 }}>
+                  Complete these steps to unlock your personalized phase tracking.
+                </Text>
+                {[
+                  { label: 'Log your first injection', done: logStore.injectionLogs.length > 0 },
+                  { label: 'Log your starting weight', done: logStore.weightLogs.length > 0 },
+                ].map((item, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11,
+                      backgroundColor: item.done ? ORANGE : 'transparent',
+                      borderWidth: 2, borderColor: item.done ? ORANGE : 'rgba(255,255,255,0.3)',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {item.done && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    </View>
+                    <Text style={{ color: item.done ? colors.textSecondary : colors.textPrimary, fontSize: 14, fontFamily: FF, textDecorationLine: item.done ? 'line-through' : 'none' }}>
+                      {item.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ── Treatment Hero Card ── */}
+          <Pressable
+            style={[s.cardWrap, { marginBottom: 20 }]}
+            onLongPress={handlePhasePillPress}
+            delayLongPress={500}
+          >
+            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
+              <View style={s.heroCard}>
+
+                {/* Phase + medication row */}
+                <View style={s.heroTopRow}>
+                  <View style={[s.heroPhaseBadge, { backgroundColor: PHASE_COLORS[shotPhaseForLabel] + '22' }]}>
+                    <View style={[s.heroPhaseIndicator, { backgroundColor: PHASE_COLORS[shotPhaseForLabel] }]} />
+                    <Text style={[s.heroPhaseText, { color: PHASE_COLORS[shotPhaseForLabel] }]}>
+                      {PHASE_DISPLAY[shotPhaseForLabel].toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={s.heroMedLabel}>
+                    {medName}{medDose ? ` · ${medDose}` : ''}
+                  </Text>
+                </View>
+
+                {/* Stats row */}
+                <View style={s.heroStats}>
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatVal}>
+                      {treatmentDisplayVal ?? '—'}
+                    </Text>
+                    <Text style={s.heroStatLbl}>{treatmentDisplayLbl}</Text>
+                  </View>
+                  <View style={s.heroStatDiv} />
+                  <View style={s.heroStat}>
+                    <Text style={[s.heroStatVal, weightDelta != null && { color: weightDelta <= 0 ? '#27AE60' : '#E53E3E' }]}>
+                      {weightDelta != null ? `${weightDelta > 0 ? '+' : ''}${weightDelta.toFixed(1)}` : '—'}
+                    </Text>
+                    <Text style={s.heroStatLbl}>
+                      {isPast
+                        ? `lbs since\nstart (${MONTHS[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()})`
+                        : 'lbs since\nstart'}
+                    </Text>
+                  </View>
+                  <View style={s.heroStatDiv} />
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatVal}>{stat3Val}</Text>
+                    <Text style={s.heroStatLbl}>{stat3Lbl}</Text>
+                  </View>
+                </View>
+
+                {/* Cycle day progress bar */}
+                {effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
+                  (() => {
+                    // Shot-day override: show start of new cycle instead of end of old one
+                    const displayDayNum = (!todayInjLogged && rawDaysUntil === 0) ? 1 : todayDayNum;
+                    return (
+                  <View style={s.heroCycleRow}>
+                    <View style={s.heroCycleLabels}>
+                      <Text style={s.heroCycleLbl}>Day {displayDayNum} of {freq ?? 7}</Text>
+                      <Text style={[
+                        s.heroCycleLbl,
+                        !todayInjLogged && rawDaysUntil != null && rawDaysUntil < 0 && { color: '#E74C3C' },
+                        !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
+                      ]}>
+                        {todayInjLogged
+                          ? 'Injected today ✓'
+                          : rawDaysUntil == null
+                            ? `In ${daysUntil} days`
+                            : rawDaysUntil < 0
+                              ? 'Past due'
+                              : rawDaysUntil === 0
+                                ? 'Shot day'
+                                : rawDaysUntil === 1
+                                  ? 'Shot tomorrow'
+                                  : `In ${rawDaysUntil} days`}
+                      </Text>
+                    </View>
+                    <View style={s.heroCycleBar}>
+                      <View style={[
+                        s.heroCycleFill,
+                        {
+                          width: `${Math.min((displayDayNum / (freq ?? 7)) * 100, 100)}%` as any,
+                          backgroundColor: PHASE_COLORS[shotPhaseForLabel],
+                        },
+                      ]} />
+                    </View>
+                  </View>
+                    );
+                  })()
+                )}
+
+              </View>
+            </View>
+          </Pressable>
 
           {/* ── Daily Focuses ── */}
           <View style={s.focusCard}>
@@ -1191,258 +1461,113 @@ export default function HomeScreen() {
               <View style={s.focusCardHeader}>
                 <Text style={[s.sectionTitle, { marginBottom: 0 }]}>{focusSectionLabel}</Text>
                 <View style={s.focusCountBadge}>
-                  <Text style={s.focusCountText}>{(displayFocuses ?? []).length} Tasks</Text>
+                  <Text style={s.focusCountText}>
+                    {`${(displayFocuses ?? []).length} ${isToday ? 'priorities' : 'tasks'}`}
+                  </Text>
                 </View>
               </View>
 
-              {/* Timeline items - tap any to open AI chat with context */}
+              {/* Coaching cards - long-press any to open AI chat */}
               {(displayFocuses ?? []).map((item, index) => {
                 const isLast = index === (displayFocuses ?? []).length - 1;
                 const handleFocusPress = () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  openAiChat({ type: 'focus', contextLabel: item.label, contextValue: item.subtitle, chips: JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']) });
+                  openAiChat({ type: 'focus', contextLabel: item.label, contextValue: item.subtitle, seedMessage: `I'm working on: ${item.label}. ${item.subtitle}. What's the most important thing I should know?`, chips: JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']) });
                 };
                 return (
-                  <Pressable key={item.id} style={s.focusTimelineItem} onLongPress={handleFocusPress}>
-                    {/* Left: indicator + connector */}
-                    <View style={s.focusIndicatorCol}>
-                      <StatusIndicator status={item.status} />
-                      {!isLast && <TimelineLine status={item.status} />}
-                    </View>
-                    {/* Right: label + subtitle */}
-                    <View style={[s.focusContent, !isLast && s.focusContentSpaced]}>
-                      <Text style={[
-                        s.focusLabel,
-                        item.status === 'completed' && s.focusLabelDone,
-                      ]}>
-                        {item.label}
-                      </Text>
-                      <Text style={s.focusSubtitle}>{item.subtitle}</Text>
-                    </View>
-                  </Pressable>
+                  <React.Fragment key={item.id}>
+                    <Pressable style={s.focusRow} onLongPress={handleFocusPress} delayLongPress={400}>
+                      {/* Icon */}
+                      <View style={[s.focusIconWrap, item.status === 'completed' && s.focusIconDone]}>
+                        {item.iconSet === 'MaterialIcons'
+                          ? <MaterialIcons name={item.iconName as any} size={18} color={item.status === 'completed' ? 'rgba(255,116,42,0.4)' : ORANGE} />
+                          : <Ionicons name={item.iconName as any} size={18} color={item.status === 'completed' ? 'rgba(255,116,42,0.4)' : ORANGE} />
+                        }
+                      </View>
+                      {/* Text + progress bar */}
+                      <View style={s.focusBody}>
+                        <View style={s.focusLabelRow}>
+                          <Text style={[s.focusLabel, item.status === 'completed' && s.focusLabelDone]}>
+                            {item.label}
+                          </Text>
+                          {item.status === 'completed' && (
+                            <Ionicons name="checkmark-circle" size={16} color={ORANGE} />
+                          )}
+                        </View>
+                        <Text style={s.focusSubtitle}>{item.subtitle}</Text>
+
+                        {/* Progress bar — only for non-binary items */}
+                        {item.progressPct != null && (
+                          <View style={s.focusBarTrack}>
+                            <View style={[
+                              s.focusBarFill,
+                              { width: `${item.progressPct}%` as any },
+                              item.status === 'completed' && s.focusBarDone,
+                            ]} />
+                          </View>
+                        )}
+
+                        {/* Value label */}
+                        {item.valueLabel != null && (
+                          <Text style={s.focusValueLabel}>{item.valueLabel}</Text>
+                        )}
+
+                        {/* Binary injection pill */}
+                        {item.id === 'injection' && item.progressPct == null && (
+                          <View style={[s.injectionPill, item.status === 'completed' && s.injectionPillDone]}>
+                            <Text style={[s.injectionPillText, item.status === 'completed' && { color: '#4CAF50' }]}>
+                              {item.status === 'completed' ? 'Logged' : 'Tap to log'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </Pressable>
+                    {!isLast && <View style={s.focusDivider} />}
+                  </React.Fragment>
                 );
               })}
+
+              {/* AI chat hint */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10 }}>
+                <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: FF }}>
+                  Hold any card to ask AI
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* ── Appetite & Energy Forecast Strip ── */}
-          <AppetiteForecastStrip
-            forecastDays={forecastDays}
-            appleHealthEnabled={appleHealthEnabled}
-            drugName={drugName}
-          />
+          {/* ── Appetite & Energy Forecast Strip (today only) ── */}
+          {isToday && (
+            <AppetiteForecastStrip
+              forecastDays={forecastDays}
+              appleHealthEnabled={appleHealthEnabled}
+              drugName={drugName}
+            />
+          )}
 
-          {/* ── AI Insights ── */}
-          <Pressable
-            style={[s.cardWrap, { marginBottom: 24 }]}
-            onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat(aiInsights ? { contextLabel: 'Today\'s Insight', contextValue: aiInsights.slice(0, 80), seedMessage: aiInsights, chips: JSON.stringify(['Tell me more', 'What should I do?', 'How does this affect my goals?']) } : { contextLabel: 'Daily Insights', contextValue: 'Ask me anything about your health progress today', chips: JSON.stringify(['How am I doing today?', 'What should I focus on?', 'Any tips for my phase?']) }); }}
-          >
-            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
-              <View style={{ padding: 20 }}>
-                <View style={s.insightsHead}>
-                  <Text style={s.insightsTitle}>Insights</Text>
-                </View>
-                {insightsLoading && !aiInsights ? (
-                  <View style={{ gap: 10 }}>
-                    {[0.95, 0.80, 0.65].map((w, i) => (
-                      <View key={i} style={{ height: 14, borderRadius: 7, backgroundColor: colors.borderSubtle, width: `${w * 100}%` as any }} />
-                    ))}
-                  </View>
-                ) : aiInsights ? (
-                  <Text style={s.insightsParagraph}>{aiInsights}</Text>
-                ) : (
-                  <Text style={s.insightsParagraph}>
-                    {staticInsights.map(b => b.text).join(' ')}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </Pressable>
+          {/* ── Weekly Check-In (today only) ── */}
+          {isToday && (() => {
+            // Read directly from logStore so deletion updates the card synchronously,
+            // without waiting for the async personalization plan recompute.
+            const allLoggedAts = Object.values(logStore.weeklyCheckins)
+              .flat()
+              .map(r => r.logged_at as string)
+              .filter(Boolean);
 
-          {/* ── Weekly Check-Ins Carousel ── */}
-          {(() => {
-            const wc = plan?.weeklyCheckins;
-            const programDay = dayNum;
-
-            // Food Noise: raw 0–20 lower=better → normalized inverted to 0–100
-            const rawFoodNoise = wc?.foodNoise.score ?? null;
-            const foodNoiseDisplay = rawFoodNoise != null
-              ? Math.round((1 - rawFoodNoise / 20) * 100)
+            const lastLoggedAt = allLoggedAts.length > 0
+              ? allLoggedAts.reduce((a, b) => (a > b ? a : b))
               : null;
-            const foodNoiseLabel = rawFoodNoise != null
-              ? (rawFoodNoise <= 4 ? 'Minimal' : rawFoodNoise <= 9 ? 'Mild' : rawFoodNoise <= 14 ? 'Moderate' : 'High')
-              : '';
-
-            const energyMoodScore = wc?.energyMood.score ?? null;
-            const energyMoodLoggedAt = wc?.energyMood.loggedAt ?? null;
-            const energyMoodRaw = (logStore.weeklyCheckins?.['energy_mood']?.[0] as any)?.answers
-              ? Object.values((logStore.weeklyCheckins?.['energy_mood']?.[0] as any).answers as Record<string, number>).reduce((a: number, b: number) => a + b, 0)
-              : null;
-            const energyMoodLabel = energyMoodScore != null
-              ? (energyMoodScore >= 75 ? 'Strong' : energyMoodScore >= 50 ? 'Moderate' : energyMoodScore >= 25 ? 'Low' : 'Very Low')
-              : '';
-
-            const appetiteScore = wc?.appetite.score ?? null;
-            const appetiteLoggedAt = wc?.appetite.loggedAt ?? null;
-            const appetiteRaw = (logStore.weeklyCheckins?.['appetite']?.[0] as any)?.answers
-              ? Object.values((logStore.weeklyCheckins?.['appetite']?.[0] as any).answers as Record<string, number>).reduce((a: number, b: number) => a + b, 0)
-              : null;
-            const appetiteLabel = appetiteScore != null
-              ? (appetiteScore >= 75 ? 'Well Controlled' : appetiteScore >= 50 ? 'Moderate' : appetiteScore >= 25 ? 'Mild Control' : 'Low Control')
-              : '';
-
-            const giBurdenScore = wc?.giBurden.score ?? null;
-            const giBurdenLoggedAt = wc?.giBurden.loggedAt ?? null;
-            const giBurdenLabel = giBurdenScore != null
-              ? (giBurdenScore >= 75 ? 'Minimal' : giBurdenScore >= 50 ? 'Mild' : giBurdenScore >= 25 ? 'Moderate' : 'Severe')
-              : '';
-
-            const activityQualityScore = wc?.activityQuality.score ?? null;
-            const activityQualityLoggedAt = wc?.activityQuality.loggedAt ?? null;
-            const activityQualityLabel = activityQualityScore != null
-              ? (activityQualityScore >= 75 ? 'High' : activityQualityScore >= 50 ? 'Moderate' : activityQualityScore >= 20 ? 'Low' : 'Very Low')
-              : '';
-
-            const sleepQualityScore = wc?.sleepQuality.score ?? null;
-            const sleepQualityLoggedAt = wc?.sleepQuality.loggedAt ?? null;
-            const sleepQualityLabel = sleepQualityScore != null
-              ? (sleepQualityScore >= 75 ? 'Excellent' : sleepQualityScore >= 50 ? 'Good' : sleepQualityScore >= 25 ? 'Disrupted' : 'Poor')
-              : '';
-
-            const mentalHealthScore = wc?.mentalHealth.score ?? null;
-            const mentalHealthLoggedAt = wc?.mentalHealth.loggedAt ?? null;
-            const mentalHealthLabel = mentalHealthScore != null
-              ? (mentalHealthScore >= 75 ? 'Stable' : mentalHealthScore >= 50 ? 'Mild' : mentalHealthScore >= 25 ? 'Moderate' : 'Significant')
-              : '';
-
-            const CHECKIN_CONFIG = [
-              {
-                type: 'food_noise' as const,
-                label: 'Food Noise',
-                subtitle: 'Weekly  ·  GLP-1 response',
-                unlocksDay: 1,
-                route: '/entry/food-noise-survey',
-                lastScore: foodNoiseDisplay,
-                lastLoggedAt: wc?.foodNoise.loggedAt ?? null,
-                sparklineData: foodNoiseLogs.slice(0, 3).map(l => Math.round((1 - l.score / 20) * 100)).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=food_noise&score=${foodNoiseDisplay ?? 0}&rawScore=${rawFoodNoise ?? 0}&label=${encodeURIComponent(foodNoiseLabel)}`,
-              },
-              {
-                type: 'gi_burden' as const,
-                label: 'GI Symptoms',
-                subtitle: 'Weekly  ·  Side effect burden',
-                unlocksDay: 1,
-                route: '/entry/gi-burden-survey',
-                lastScore: giBurdenScore,
-                lastLoggedAt: giBurdenLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['gi_burden'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=gi_burden&score=${giBurdenScore ?? 0}&rawScore=0&label=${encodeURIComponent(giBurdenLabel)}`,
-              },
-              {
-                type: 'energy_mood' as const,
-                label: 'Energy & Mood',
-                subtitle: 'Weekly  ·  Wellbeing',
-                unlocksDay: 8,
-                route: '/entry/energy-mood-survey',
-                lastScore: energyMoodScore,
-                lastLoggedAt: energyMoodLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['energy_mood'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=energy_mood&score=${energyMoodScore ?? 0}&rawScore=${energyMoodRaw ?? 0}&label=${encodeURIComponent(energyMoodLabel)}`,
-              },
-              {
-                type: 'activity_quality' as const,
-                label: 'Activity',
-                subtitle: 'Weekly  ·  Lean mass preservation',
-                unlocksDay: 8,
-                route: '/entry/activity-quality-survey',
-                lastScore: activityQualityScore,
-                lastLoggedAt: activityQualityLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['activity_quality'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=activity_quality&score=${activityQualityScore ?? 0}&rawScore=0&label=${encodeURIComponent(activityQualityLabel)}`,
-              },
-              {
-                type: 'appetite' as const,
-                label: 'Appetite & Satiety',
-                subtitle: 'Weekly  ·  GLP-1 response',
-                unlocksDay: 15,
-                route: '/entry/appetite-survey',
-                lastScore: appetiteScore,
-                lastLoggedAt: appetiteLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['appetite'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=appetite&score=${appetiteScore ?? 0}&rawScore=${appetiteRaw ?? 0}&label=${encodeURIComponent(appetiteLabel)}`,
-              },
-              {
-                type: 'sleep_quality' as const,
-                label: 'Sleep Quality',
-                subtitle: 'Weekly  ·  Recovery',
-                unlocksDay: 15,
-                route: '/entry/sleep-quality-survey',
-                lastScore: sleepQualityScore,
-                lastLoggedAt: sleepQualityLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['sleep_quality'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=sleep_quality&score=${sleepQualityScore ?? 0}&rawScore=0&label=${encodeURIComponent(sleepQualityLabel)}`,
-              },
-              {
-                type: 'mental_health' as const,
-                label: 'Mental Health',
-                subtitle: 'Weekly  ·  PHQ-2 + GAD-2',
-                unlocksDay: 22,
-                route: '/entry/mental-health-survey',
-                lastScore: mentalHealthScore,
-                lastLoggedAt: mentalHealthLoggedAt,
-                sparklineData: (logStore.weeklyCheckins?.['mental_health'] ?? []).slice(0, 3).map(l => l.score).reverse(),
-                summaryRoute: `/entry/checkin-summary?type=mental_health&score=${mentalHealthScore ?? 0}&rawScore=0&label=${encodeURIComponent(mentalHealthLabel)}`,
-              },
-            ];
-
-            // Show card if programDay meets unlock threshold (0 = no injection logged yet → show all)
-            const unlockedCards = CHECKIN_CONFIG.filter(c => programDay === 0 || programDay >= c.unlocksDay);
-
-            function daysSinceDate(dateStr: string): number {
-              return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-            }
-
-            const pendingCards = unlockedCards.filter(c =>
-              c.lastLoggedAt == null || daysSinceDate(c.lastLoggedAt) > 6,
-            );
-
-            if (unlockedCards.length === 0) return null;
 
             return (
               <View style={{ marginBottom: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Weekly Check-Ins</Text>
-                </View>
-                {pendingCards.length === 0 ? (
-                  <View style={{ padding: 16, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#27AE60' }}>All done this week</Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                      Check back next week for your next check-ins.
-                    </Text>
-                  </View>
-                ) : (
-                <FlatList
-                  data={pendingCards}
-                  keyExtractor={item => item.type}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingRight: 20 }}
-                  renderItem={({ item }) => (
-                    <WeeklyCheckinCard
-                      label={item.label}
-                      subtitle={item.subtitle}
-                      lastScore={item.lastScore}
-                      lastLoggedAt={item.lastLoggedAt}
-                      route={item.route}
-                      summaryRoute={item.summaryRoute}
-                      sparklineData={item.sparklineData}
-                    />
-                  )}
-                />
-                )}
+                <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
+                <WeeklyCheckinCard lastLoggedAt={lastLoggedAt} />
               </View>
             );
           })()}
+
+
 
 
           {/* ── Shot Day Banner (future projected injection days) ── */}
@@ -1479,10 +1604,20 @@ export default function HomeScreen() {
             }}
           />
 
+          </Pressable>
         </ScrollView>
 
+        <MissedShotModal
+          visible={missedShotVisible}
+          onClose={() => setMissedShotVisible(false)}
+          expectedShotDate={expectedShotDate}
+          overdueDays={overdueDays}
+          lastDoseMg={lastDoseMg}
+          addInjectionLog={logStore.addInjectionLog}
+        />
+
       </SafeAreaView>
-    </View>
+    </Pressable>
   );
 }
 
@@ -1496,10 +1631,12 @@ const createStyles = (c: AppColors) => {
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
-  dateTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  dateTitle: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  weekday: { fontSize: 13, fontWeight: '500', color: c.textMuted, marginBottom: 8, fontFamily: 'Helvetica Neue' },
-  medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  dateTitleRow: { alignItems: 'flex-end' },
+  dateTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.2, fontFamily: 'Helvetica Neue', textAlign: 'right' },
+  weekday: { fontSize: 12, fontWeight: '500', color: c.textMuted, marginTop: 2, fontFamily: 'Helvetica Neue', textAlign: 'right' },
+  greetingLabel: { fontSize: 13, fontWeight: '500', color: c.textMuted, fontFamily: 'Helvetica Neue', marginBottom: 2 },
+  greetingName: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
@@ -1514,11 +1651,100 @@ const createStyles = (c: AppColors) => {
   cardWrap: { borderRadius: 28, ...glassShadow },
   cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
 
-  // Insights card
+  // Insights card (kept for DailyLogSummaryCard insightsTitle usage)
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   insightsTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
   shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Helvetica Neue' },
   insightsParagraph: { fontSize: 15, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'Helvetica Neue' },
+
+  // Treatment Hero card
+  heroCard: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    gap: 16,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heroPhaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  heroPhaseIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  heroPhaseText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    fontFamily: 'Helvetica Neue',
+  },
+  heroMedLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: c.textSecondary,
+    fontFamily: 'Helvetica Neue',
+  },
+  heroStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  heroStatDiv: {
+    width: StyleSheet.hairlineWidth,
+    height: 40,
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+  },
+  heroStatVal: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: c.textPrimary,
+    fontFamily: 'Helvetica Neue',
+    letterSpacing: -0.5,
+  },
+  heroStatLbl: {
+    fontSize: 11,
+    color: c.textSecondary,
+    textAlign: 'center',
+    lineHeight: 14,
+    fontFamily: 'Helvetica Neue',
+  },
+  heroCycleRow: {
+    gap: 8,
+  },
+  heroCycleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroCycleLbl: {
+    fontSize: 11,
+    color: c.textSecondary,
+    fontFamily: 'Helvetica Neue',
+  },
+  heroCycleBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    overflow: 'hidden',
+  },
+  heroCycleFill: {
+    height: 4,
+    borderRadius: 2,
+  },
 
   // Section title
   sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
@@ -1530,24 +1756,28 @@ const createStyles = (c: AppColors) => {
     fontSize: 11, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
   },
 
-  // Focus timeline card
+  // Focus coaching cards
   focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
   focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, padding: 22 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.45), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
-  focusTimelineItem: { flexDirection: 'row', alignItems: 'flex-start' },
-  focusIndicatorCol: { width: 24, alignItems: 'center', marginRight: 16 },
-  focusContent: { flex: 1 },
-  focusContentSpaced: { paddingBottom: 28 },
-  focusLabel: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
-  focusLabelMuted: { color: w(0.45) },
+  focusRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
+  focusIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
+  focusIconDone: { backgroundColor: 'rgba(255,116,42,0.06)' },
+  focusBody: { flex: 1 },
+  focusLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
+  focusLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue', flex: 1 },
   focusLabelDone: { color: w(0.35), textDecorationLine: 'line-through' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.45), marginTop: 3, lineHeight: 17, fontFamily: 'Helvetica Neue' },
-  indicatorFilled: { width: 24, height: 24, borderRadius: 12, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  indicatorEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: w(0.35), alignItems: 'center', justifyContent: 'center' },
-  pulsingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ORANGE },
-  timelineLine: { position: 'absolute', top: 28, bottom: 0, left: 11, width: 2 },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.45), lineHeight: 17, marginBottom: 10, fontFamily: 'Helvetica Neue' },
+  focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.1), overflow: 'hidden', marginBottom: 6 },
+  focusBarFill: { height: 4, borderRadius: 2, backgroundColor: ORANGE },
+  focusBarDone: { backgroundColor: '#4CAF50' },
+  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.4), letterSpacing: 0.3, fontFamily: 'Helvetica Neue' },
+  injectionPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,116,42,0.12)', marginTop: 4 },
+  injectionPillDone: { backgroundColor: 'rgba(76,175,80,0.12)' },
+  injectionPillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
+  focusDivider: { height: 0.5, backgroundColor: w(0.08), marginLeft: 50 },
 
   // Escalation Phase Banner
   phaseBanner: {

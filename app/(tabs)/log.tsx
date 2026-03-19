@@ -1,8 +1,9 @@
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,7 +21,7 @@ import { useUiStore } from '@/stores/ui-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useBiometricStore } from '@/stores/biometric-store';
-import { getShotPhase } from '@/constants/scoring';
+import { getShotPhase, type DailyTargets } from '@/constants/scoring';
 import {
   computeCycleIntelligence,
   computeMetabolicAdaptationScore,
@@ -199,32 +200,166 @@ function last7DayLabels(): string[] {
   return Array.from({ length: 7 }, (_, i) => days[(todayIdx - 6 + i + 7) % 7]);
 }
 
-function weightDataForPeriod(logs: WeightLog[], period: '7D' | '30D' | '90D' | '1Y'): number[] {
-  const days = { '7D': 7, '30D': 30, '90D': 90, '1Y': 365 }[period];
+type WeightPoint = { weight: number; date: string };
+
+function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '90D' | 'MAX'): WeightPoint[] {
+  if (period === 'MAX') {
+    const sorted = [...logs]
+      .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
+      .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
+    return sorted.length >= 2 ? sorted : [];
+  }
+  const days = { '7D': 7, '14D': 14, '30D': 30, '90D': 90 }[period];
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const filtered = logs
     .filter(l => l.logged_at >= since)
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
-    .map(l => l.weight_lbs);
+    .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
   return filtered.length >= 2 ? filtered : [];
 }
 
-function emojiIcon(emoji: string) {
-  return <Text style={{ fontSize: 20, lineHeight: 24 }}>{emoji}</Text>;
+function niceYTicks(minW: number, maxW: number, count = 4): number[] {
+  const range = maxW - minW || 10;
+  const step = Math.ceil(range / (count - 1) / 5) * 5;
+  const start = Math.floor(minW / 5) * 5;
+  return Array.from({ length: count }, (_, i) => start + i * step).filter(v => v <= maxW + step);
 }
 
-function activityEmoji(exerciseType: string | null | undefined): string {
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const cp1x = pts[i].x + (pts[i + 1].x - pts[i].x) / 3;
+    const cp1y = pts[i].y;
+    const cp2x = pts[i + 1].x - (pts[i + 1].x - pts[i].x) / 3;
+    const cp2y = pts[i + 1].y;
+    d += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pts[i + 1].x} ${pts[i + 1].y}`;
+  }
+  return d;
+}
+
+function xAxisLabels(data: WeightPoint[], period: string, plotW: number): { x: number; label: string }[] {
+  if (data.length < 2) return [];
+  const maxLabels = 5;
+  const step = Math.max(1, Math.floor((data.length - 1) / (maxLabels - 1)));
+  const indices: number[] = [];
+  for (let i = 0; i < data.length; i += step) indices.push(i);
+  if (indices[indices.length - 1] !== data.length - 1) indices.push(data.length - 1);
+
+  return indices.map(i => {
+    const d = new Date(data[i].date);
+    let label: string;
+    if (period === 'MAX') {
+      label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    } else if (period === '7D' || period === '14D') {
+      label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } else {
+      label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    const x = (plotW / (data.length - 1)) * i;
+    return { x, label };
+  });
+}
+
+// ─── Lifestyle Trend helpers ──────────────────────────────────────────────────
+
+type FoodByDate = Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }>;
+type ActivityByDate = Record<string, { steps: number; calories: number }>;
+
+type MetricConfig = {
+  id: string;
+  label: string;
+  unit: string;
+  color: string;
+  getTarget: (t: DailyTargets) => number;
+  getValue: (f: FoodByDate, a: ActivityByDate, d: string) => number | null;
+};
+
+const LIFESTYLE_METRICS: MetricConfig[] = [
+  { id: 'protein',    label: 'Protein',    unit: 'g',     color: '#FF742A', getTarget: t => t.proteinG,             getValue: (f, _, d) => f[d]?.protein ?? null },
+  { id: 'carbs',      label: 'Carbs',      unit: 'g',     color: '#5B8BF5', getTarget: t => t.carbsG,               getValue: (f, _, d) => f[d]?.carbs ?? null },
+  { id: 'fat',        label: 'Fat',        unit: 'g',     color: '#F6CB45', getTarget: t => t.fatG,                 getValue: (f, _, d) => f[d]?.fat ?? null },
+  { id: 'fiber',      label: 'Fiber',      unit: 'g',     color: '#27AE60', getTarget: t => t.fiberG,               getValue: (f, _, d) => f[d]?.fiber ?? null },
+  { id: 'hydration',  label: 'Hydration',  unit: 'oz',    color: '#5BC4F5', getTarget: t => Math.round(t.waterMl / 29.57), getValue: (f, _, d) => (f[d] as any)?.water ?? null },
+  { id: 'calories',   label: 'Calories',   unit: 'kcal',  color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
+  { id: 'steps',      label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
+  { id: 'active_cal', label: 'Active Cal', unit: 'kcal',  color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
+];
+
+const LT_TML = 8, LT_TMR = 8, LT_TMT = 8, LT_TMB = 20;
+const LT_COMPACT_H = 88;
+const LT_EXP_H = 190;
+const LT_PERIODS: { label: string; days: number }[] = [
+  { label: '7D', days: 7 },
+  { label: '14D', days: 14 },
+  { label: '30D', days: 30 },
+  { label: '90D', days: 90 },
+];
+
+function ltComputeChart(
+  values: (number | null)[],
+  target: number,
+  chartH: number,
+  plotW: number,
+): { linePath: string; areaPath: string; goalY: number; pts: { x: number; y: number; valid: boolean }[] } {
+  if (plotW <= 0 || values.length === 0) return { linePath: '', areaPath: '', goalY: 0, pts: [] };
+  const nonNull = values.filter(v => v !== null) as number[];
+  if (nonNull.length === 0) return { linePath: '', areaPath: '', goalY: 0, pts: [] };
+  const maxVal = Math.max(...nonNull, target * 1.1, 1);
+  const xStep = plotW / Math.max(values.length - 1, 1);
+  const plotH = chartH - LT_TMT - LT_TMB;
+  const pts = values.map((v, i) => ({
+    x: LT_TML + xStep * i,
+    y: LT_TMT + plotH * (1 - (v ?? 0) / maxVal),
+    valid: v !== null,
+  }));
+  const rawGoalY = LT_TMT + plotH * (1 - target / maxVal);
+  const goalY = Math.max(LT_TMT, Math.min(LT_TMT + plotH, rawGoalY));
+  const validPts = pts.filter(p => p.valid);
+  let linePath = '';
+  let inSeg = false;
+  pts.forEach(p => {
+    if (p.valid) { linePath += inSeg ? ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}` : `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; inSeg = true; }
+    else inSeg = false;
+  });
+  const areaPath = validPts.length >= 2
+    ? `${linePath} L ${validPts[validPts.length - 1].x.toFixed(1)} ${(chartH - LT_TMB).toFixed(1)} L ${validPts[0].x.toFixed(1)} ${(chartH - LT_TMB).toFixed(1)} Z`
+    : '';
+  return { linePath, areaPath, goalY, pts };
+}
+
+function ltXLabels(dates: string[], plotW: number, periodDays: number): { x: number; label: string }[] {
+  if (dates.length < 2 || plotW <= 0) return [];
+  const maxL = periodDays <= 7 ? 7 : periodDays <= 14 ? 7 : 5;
+  const step = Math.max(1, Math.ceil((dates.length - 1) / (maxL - 1)));
+  const indices: number[] = [];
+  for (let i = 0; i < dates.length; i += step) indices.push(i);
+  if (indices[indices.length - 1] !== dates.length - 1) indices.push(dates.length - 1);
+  const xStep = plotW / Math.max(dates.length - 1, 1);
+  return indices.map(i => {
+    const d = new Date(dates[i] + 'T12:00:00');
+    const label = periodDays <= 7
+      ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]
+      : `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`;
+    return { x: LT_TML + xStep * i, label };
+  });
+}
+
+const ORANGE_LOG = '#FF742A';
+
+function activityIcon(exerciseType: string | null | undefined): React.ReactNode {
   const t = (exerciseType ?? '').toLowerCase();
-  if (t.includes('run') || t.includes('jog'))     return '🏃';
-  if (t.includes('walk'))                          return '🚶';
-  if (t.includes('cycl') || t.includes('bike'))   return '🚴';
-  if (t.includes('swim'))                          return '🏊';
-  if (t.includes('yoga') || t.includes('stretch')) return '🧘';
-  if (t.includes('strength') || t.includes('weight') || t.includes('lift')) return '🏋️';
-  if (t.includes('hike'))                          return '🥾';
-  if (t.includes('dance'))                         return '💃';
-  if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) return '🏅';
-  return '⚡';
+  let name: React.ComponentProps<typeof MaterialIcons>['name'] = 'flash-on';
+  if (t.includes('run') || t.includes('jog'))      name = 'directions-run';
+  else if (t.includes('walk'))                      name = 'directions-walk';
+  else if (t.includes('cycl') || t.includes('bike')) name = 'directions-bike';
+  else if (t.includes('swim'))                      name = 'pool';
+  else if (t.includes('yoga') || t.includes('stretch')) name = 'self-improvement';
+  else if (t.includes('strength') || t.includes('weight') || t.includes('lift')) name = 'fitness-center';
+  else if (t.includes('hike'))                      name = 'terrain';
+  else if (t.includes('dance'))                     name = 'music-note';
+  else if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) name = 'sports';
+  return <MaterialIcons name={name} size={20} color={ORANGE_LOG} />;
 }
 
 function foodToEntry(f: FoodLog): LogEntry {
@@ -233,7 +368,7 @@ function foodToEntry(f: FoodLog): LogEntry {
   return {
     id: f.id, timestamp: fmtDateTime(f.logged_at), title: f.food_name,
     details, impact, impactStatus: 'positive',
-    icon: emojiIcon('🍽️'),
+    icon: <MaterialIcons name="restaurant" size={20} color={ORANGE_LOG} />,
   };
 }
 
@@ -246,7 +381,7 @@ function activityToEntry(a: ActivityLog): LogEntry {
   return {
     id: a.id, timestamp: fmtDateOnly(a.date), title: a.exercise_type ?? 'Activity',
     details, impact, impactStatus: 'positive',
-    icon: emojiIcon(activityEmoji(a.exercise_type)),
+    icon: activityIcon(a.exercise_type),
   };
 }
 
@@ -259,7 +394,7 @@ function injectionToEntry(inj: InjectionLog): LogEntry {
     id: inj.id, timestamp: fmtDateOnly(inj.injection_date),
     title: `${medName} ${inj.dose_mg}mg`,
     details, impact: `Next injection in 7 days - rotate to ${next}`, impactStatus: 'neutral',
-    icon: emojiIcon('💉'),
+    icon: <FontAwesome5 name="syringe" size={18} color={ORANGE_LOG} />,
   };
 }
 
@@ -272,7 +407,7 @@ function weightToEntry(log: WeightLog, prevLog?: WeightLog): LogEntry {
     details: `${log.weight_lbs} lbs · ${deltaStr} from last entry`,
     impact: delta <= 0 ? deltaStr : `Up ${Math.abs(delta)} lbs`,
     impactStatus: delta < 0 ? 'positive' : delta > 0 ? 'negative' : 'neutral',
-    icon: emojiIcon('⚖️'),
+    icon: <MaterialCommunityIcons name="scale" size={20} color={ORANGE_LOG} />,
   };
 }
 
@@ -364,7 +499,7 @@ function AIInsightsCardShell({ text, loading, onLongPress }: { text: string | nu
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onLongPress?.(); }} disabled={loading || !onLongPress}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.aiContent}>
-          <Text style={[s.aiLabel, { color: colors.textPrimary, fontSize: 17, fontWeight: '700', letterSpacing: -0.3, textTransform: 'none', marginBottom: 10 }]}>Insights</Text>
+          <Text style={[s.aiLabel, { color: colors.textPrimary, fontSize: 17, fontWeight: '700', letterSpacing: -0.3, textTransform: 'none', marginBottom: 10 }]}>Analysis</Text>
           {loading ? (
             <View style={{ gap: 7 }}>
               <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.borderSubtle, width: '88%' }} />
@@ -394,7 +529,10 @@ function AIInsightsCard() {
 
 // ─── Metric card (Calories / Steps) ──────────────────────────────────────────
 
-function MetricCard({ value, label, ringColor }: { value: string; label: string; ringColor: string }) {
+function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
+  value: string; label: string; ringColor: string;
+  emptyCtaLabel?: string; onEmptyCta?: () => void;
+}) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
@@ -414,6 +552,58 @@ function MetricCard({ value, label, ringColor }: { value: string; label: string;
             </View>
           </View>
           <Text style={s.metricLabel}>{label}</Text>
+          {value === '-' && emptyCtaLabel && onEmptyCta && (
+            <Pressable
+              onPress={onEmptyCta}
+              style={{ marginTop: 8, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>
+                {emptyCtaLabel}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Activity daily card (fits in dailyGrid, ring replaces icon) ─────────────
+
+function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
+  value: string; label: string; ringColor: string;
+  emptyCtaLabel?: string; onEmptyCta?: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const { openAiChat } = useUiStore();
+  const isEmpty = value === '-';
+
+  const handleAskAI = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    openAiChat({ type: 'metric', contextLabel: label, contextValue: value,
+      chips: JSON.stringify(['Is this on track for my goals?', 'How can I improve this?', 'How does GLP-1 affect this?']) });
+  };
+
+  return (
+    <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI} delayLongPress={400}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+        <View style={s.dailyInner}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <RingIndicator size={64} strokeWidth={5} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
+            <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'Helvetica Neue' }}>
+                {isEmpty ? '–' : value}
+              </Text>
+            </View>
+          </View>
+          <Text style={s.dailyLabel}>{label}</Text>
+          {isEmpty && emptyCtaLabel && onEmptyCta && (
+            <Pressable onPress={onEmptyCta} style={{ marginTop: 8, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>{emptyCtaLabel}</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </Pressable>
@@ -441,9 +631,9 @@ const statusStyle: Record<Status, { bg: string; text: string }> = {
 };
 
 function DailyMetricCard({
-  icon, label, value, change, status,
+  icon, label, value, change, status, pct,
 }: {
-  icon: React.ReactNode; label: string; value: string; change: string; status: Status;
+  icon: React.ReactNode; label: string; value: string; change: string; status: Status; pct: number;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -454,21 +644,41 @@ function DailyMetricCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     openAiChat({ type: 'metric', contextLabel: label, contextValue: `${value} · ${change}`, chips: JSON.stringify(['Is this on track?', 'How can I improve this?', `Why is my ${label.toLowerCase()} important on GLP-1?`]) });
   };
+  const trackColor = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   return (
     <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI}>
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
-          <View style={s.dailyTopRow}>
-            <View style={s.dailyIconWrap}>{icon}</View>
-            <View style={[s.changeBadge, { backgroundColor: ss.bg }]}>
-              <Text style={[s.changeText, { color: ss.text }]}>{change}</Text>
-            </View>
-          </View>
+          <View style={s.dailyIconWrap}>{icon}</View>
           <Text style={s.dailyLabel}>{label}</Text>
           <Text style={s.dailyValue}>{value}</Text>
+          <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, marginTop: 6, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.min(pct, 1) * 100}%`, height: 3, borderRadius: 2, backgroundColor: ss.text }} />
+          </View>
         </View>
       </View>
     </Pressable>
+  );
+}
+
+// ─── Wearables connect prompt ──────────────────────────────────────────────────
+
+function WearablesConnectPrompt() {
+  const { colors } = useAppTheme();
+  return (
+    <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
+      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Helvetica Neue' }}>
+        Connect wearables in Settings to unlock deeper insights — resting heart rate, HRV, sleep, and more.
+      </Text>
+      <Pressable
+        onPress={() => router.push('/settings')}
+        style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,116,42,0.12)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 }}
+      >
+        <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>
+          Go to Settings
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -1082,203 +1292,188 @@ function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: s
 const WEIGHT_CHART_HEIGHT = 130;
 
 const PERIOD_SUBTITLES: Record<string, string> = {
-  '7D': 'Last 7 days', '30D': 'Last 30 days', '90D': 'Last 3 months', '1Y': 'Last year',
+  '7D': 'Last 7 days', '14D': 'Last 14 days', '30D': 'Last 30 days', '90D': 'Last 3 months', 'MAX': 'All time',
 };
 
-const PERIOD_PROJ_WEEKS: Record<string, number> = { '7D': 1, '30D': 4, '90D': 13, '1Y': 52 };
+const ML = 52; // margin left (Y-axis labels)
+const MR = 12; // margin right
+const MT = 10; // margin top
+const MB = 28; // margin bottom (X-axis labels)
 
-function WeightChartCard({ datasets, currentWeight, projection, programWeek, chartHeight = WEIGHT_CHART_HEIGHT }: {
-  datasets: Record<string, number[]>;
+function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false }: {
+  datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
-  projection?: WeightProjection | null;
-  programWeek?: number;
   chartHeight?: number;
+  inline?: boolean;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const [activePeriod, setActivePeriod] = useState<'7D' | '30D' | '90D' | '1Y'>('90D');
-  const [chartWidth, setChartWidth] = useState(0);
+  const [activePeriod, setActivePeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
+  const [svgWidth, setSvgWidth] = useState(0);
 
-  const onLayout = (e: LayoutChangeEvent) => setChartWidth(e.nativeEvent.layout.width);
+  const onLayout = (e: LayoutChangeEvent) => setSvgWidth(e.nativeEvent.layout.width);
 
   const data = datasets[activePeriod];
   const hasData = data && data.length >= 2;
-  const n = hasData ? data.length : 0;
-  const colW = chartWidth > 0 && n > 0 ? chartWidth / n : 0;
 
-  // Projection slice: clip curve to the active period's week span
-  const pw = programWeek ?? 1;
-  const periodWeeks = PERIOD_PROJ_WEEKS[activePeriod] ?? 13;
-  const projStartWeek = Math.max(0, pw - periodWeeks);
-  const projSlice = projection?.curve.filter(p => p.week >= projStartWeek && p.week <= pw) ?? [];
-  const projWeights = projSlice.map(p => p.weightLbs);
+  const svgH = chartHeight + MT + MB;
+  const plotW = Math.max(0, svgWidth - ML - MR);
+  const plotH = chartHeight;
 
-  // Unified y-range covering both actual and projected weights
-  const allForRange = [...(hasData ? data : []), ...projWeights];
-  const minW = allForRange.length > 0 ? Math.min(...allForRange) : 0;
-  const maxW = allForRange.length > 0 ? Math.max(...allForRange) + 5 : 5;
-  const range = maxW - minW || 1;
+  // Y range
+  const weights = hasData ? data.map(d => d.weight) : [];
+  const rawMin = hasData ? Math.min(...weights) : 0;
+  const rawMax = hasData ? Math.max(...weights) : 10;
+  const padding = Math.max(5, (rawMax - rawMin) * 0.15);
+  const minW = rawMin - padding;
+  const maxW = rawMax + padding;
+  const yRange = maxW - minW || 1;
 
-  const toY = (v: number) => chartHeight - ((v - minW) / range) * chartHeight;
-  const points = hasData ? data.map((v, i) => ({ x: colW * i + colW / 2, y: toY(v) })) : [];
+  const toX = (i: number) => ML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
+  const toY = (w: number) => MT + plotH - ((w - minW) / yRange) * plotH;
+
+  const points = hasData ? data.map((d, i) => ({ x: toX(i), y: toY(d.weight) })) : [];
+
+  const linePath = smoothPath(points);
+  const areaPath = points.length >= 2
+    ? `${linePath} L ${points[points.length - 1].x} ${MT + plotH} L ${points[0].x} ${MT + plotH} Z`
+    : '';
+
+  const yTicks = hasData ? niceYTicks(rawMin, rawMax) : [];
+  const xLabels = hasData && svgWidth > 0 ? xAxisLabels(data, activePeriod, plotW) : [];
   const lastPt = points[points.length - 1];
 
-  // Projection points mapped to same chart width
-  const projN = projSlice.length;
-  const projPoints = projN > 1
-    ? projSlice.map((p, i) => ({ x: (chartWidth / (projN - 1)) * i, y: toY(p.weightLbs) }))
-    : [];
-
-  const displayWeight = currentWeight ?? (hasData ? data[data.length - 1] : null);
-  const PERIODS = ['7D', '30D', '90D', '1Y'] as const;
+  const displayWeight = currentWeight ?? (hasData ? data[data.length - 1].weight : null);
+  const PERIODS = ['7D', '14D', '30D', '90D', 'MAX'] as const;
   const { openAiChat } = useUiStore();
+
+  const chartContent = (
+    <>
+      {!inline && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <View>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+            <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
+          </View>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
+            {displayWeight != null ? `${displayWeight} lbs` : '-'}
+          </Text>
+        </View>
+      )}
+
+      <View style={s.progPeriodRow}>
+        {PERIODS.map((p) => {
+          const isActive = activePeriod === p;
+          return (
+            <Pressable
+              key={p}
+              style={[s.progPeriodBtn, isActive && s.progPeriodBtnActive]}
+              onPress={(e) => { e.stopPropagation(); setActivePeriod(p); }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            >
+              <Text style={[s.progPeriodLabel, isActive && s.progPeriodLabelActive]}>{p}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={{ height: svgH }} onLayout={onLayout}>
+        {!hasData ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={s.chartMuted}>Log weight entries to see your chart</Text>
+          </View>
+        ) : svgWidth > 0 && (
+          <Svg width={svgWidth} height={svgH}>
+            <Defs>
+              <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={ORANGE} stopOpacity="0.28" />
+                <Stop offset="1" stopColor={ORANGE} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+
+            {/* Y-axis gridlines + labels */}
+            {yTicks.map((tick) => {
+              const y = toY(tick);
+              return (
+                <React.Fragment key={`y-${tick}`}>
+                  <Line
+                    x1={ML} y1={y} x2={ML + plotW} y2={y}
+                    stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
+                  />
+                  <SvgText
+                    x={ML - 6} y={y + 4}
+                    fontSize={10} fill="rgba(255,255,255,0.35)"
+                    textAnchor="end" fontFamily="Helvetica Neue"
+                  >
+                    {Math.round(tick)}
+                  </SvgText>
+                </React.Fragment>
+              );
+            })}
+
+            {/* X-axis labels */}
+            {xLabels.map(({ x, label }) => (
+              <React.Fragment key={`x-${label}-${x}`}>
+                <Line
+                  x1={ML + x} y1={MT} x2={ML + x} y2={MT + plotH}
+                  stroke="rgba(255,255,255,0.05)" strokeWidth={1}
+                />
+                <SvgText
+                  x={ML + x} y={MT + plotH + 18}
+                  fontSize={9} fill="rgba(255,255,255,0.35)"
+                  textAnchor="middle" fontFamily="Helvetica Neue"
+                >
+                  {label}
+                </SvgText>
+              </React.Fragment>
+            ))}
+
+            {/* Area fill */}
+            {areaPath ? (
+              <Path d={areaPath} fill="url(#areaGrad)" />
+            ) : null}
+
+            {/* Line */}
+            {linePath ? (
+              <Path d={linePath} stroke={ORANGE} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            ) : null}
+
+            {/* Data dots */}
+            {points.slice(0, -1).map((pt, i) => (
+              <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} />
+            ))}
+
+            {/* Last point — double ring */}
+            {lastPt && (
+              <>
+                <Circle cx={lastPt.x} cy={lastPt.y} r={9} fill="rgba(255,116,42,0.2)" />
+                <Circle cx={lastPt.x} cy={lastPt.y} r={5.5} fill={ORANGE} />
+              </>
+            )}
+          </Svg>
+        )}
+      </View>
+
+      {hasData && svgWidth > 0 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+          <Text style={s.progGoalLabel}>START ({data[0].weight} lbs)</Text>
+          <Text style={[s.progGoalLabel, { color: ORANGE, fontWeight: '700' }]}>
+            CURRENT ({data[data.length - 1].weight} lbs)
+          </Text>
+        </View>
+      )}
+    </>
+  );
+
+  if (inline) {
+    return chartContent;
+  }
 
   return (
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '-'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) }); }}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
-              <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
-            </View>
-            <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
-              {displayWeight != null ? `${displayWeight} lbs` : '-'}
-            </Text>
-          </View>
-
-          <View style={s.progPeriodRow}>
-            {PERIODS.map((p) => {
-              const isActive = activePeriod === p;
-              return (
-                <Pressable
-                  key={p}
-                  style={[s.progPeriodBtn, isActive && s.progPeriodBtnActive]}
-                  onPress={(e) => { e.stopPropagation(); setActivePeriod(p); }}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                >
-                  <Text style={[s.progPeriodLabel, isActive && s.progPeriodLabelActive]}>{p}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={{ height: chartHeight }} onLayout={onLayout}>
-            {!hasData ? (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={s.chartMuted}>Log weight entries to see your chart</Text>
-              </View>
-            ) : chartWidth > 0 && (
-              <>
-                {points.map((pt, i) => (
-                  <View
-                    key={`wa-${i}`}
-                    style={{
-                      position: 'absolute', left: colW * i, width: colW,
-                      top: pt.y, bottom: 0,
-                      backgroundColor: 'rgba(255,116,42,0.08)',
-                    }}
-                  />
-                ))}
-
-                {points.slice(0, -1).map((pt, i) => {
-                  const next = points[i + 1];
-                  const dx = next.x - pt.x;
-                  const dy = next.y - pt.y;
-                  const length = Math.sqrt(dx * dx + dy * dy);
-                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                  const midX = (pt.x + next.x) / 2;
-                  const midY = (pt.y + next.y) / 2;
-                  return (
-                    <View
-                      key={`wl-${i}`}
-                      style={{
-                        position: 'absolute', width: length, height: 2.5,
-                        backgroundColor: ORANGE,
-                        left: midX - length / 2, top: midY - 1.25,
-                        transform: [{ rotate: `${angle}deg` }],
-                        borderRadius: 2,
-                      }}
-                    />
-                  );
-                })}
-
-                {points.slice(0, -1).map((pt, i) => (
-                  <View
-                    key={`wd-${i}`}
-                    style={{
-                      position: 'absolute', width: 8, height: 8, borderRadius: 4,
-                      backgroundColor: ORANGE, left: pt.x - 4, top: pt.y - 4,
-                    }}
-                  />
-                ))}
-
-                {lastPt && (
-                  <>
-                    <View style={[s.progCurrentDotRing, { left: lastPt.x - 9, top: lastPt.y - 9 }]} />
-                    <View style={{
-                      position: 'absolute', width: 12, height: 12, borderRadius: 6,
-                      backgroundColor: ORANGE, left: lastPt.x - 6, top: lastPt.y - 6,
-                    }} />
-                  </>
-                )}
-
-                {/* Dashed projection line - every other segment drawn to simulate dashes */}
-                {projPoints.slice(0, -1).map((pt, i) => {
-                  if (i % 2 !== 0) return null;
-                  const next = projPoints[i + 1];
-                  const dx = next.x - pt.x;
-                  const dy = next.y - pt.y;
-                  const length = Math.sqrt(dx * dx + dy * dy);
-                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                  const midX = (pt.x + next.x) / 2;
-                  const midY = (pt.y + next.y) / 2;
-                  return (
-                    <View
-                      key={`proj-${i}`}
-                      style={{
-                        position: 'absolute',
-                        width: length * 0.6,
-                        height: 1.5,
-                        backgroundColor: 'rgba(255,116,42,0.45)',
-                        left: midX - (length * 0.6) / 2,
-                        top: midY - 0.75,
-                        transform: [{ rotate: `${angle}deg` }],
-                        borderRadius: 1,
-                      }}
-                    />
-                  );
-                })}
-
-                <Text style={[s.progGoalLabel, { position: 'absolute', left: 0, top: 2 }]}>
-                  START ({data[0]})
-                </Text>
-              </>
-            )}
-          </View>
-
-          {hasData && chartWidth > 0 && (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A3735' }} />
-                <Text style={s.progGoalLabel}>START</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                {projPoints.length > 1 && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
-                      <View style={{ width: 5, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,116,42,0.45)' }} />
-                      <View style={{ width: 5, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,116,42,0.45)' }} />
-                    </View>
-                    <Text style={[s.progGoalLabel, { color: 'rgba(255,116,42,0.6)' }]}>PROJECTED</Text>
-                  </View>
-                )}
-                <Text style={[s.progGoalLabel, { color: ORANGE, fontWeight: '700' }]}>
-                  CURRENT ({data[data.length - 1]})
-                </Text>
-              </View>
-            </View>
-          )}
+          {chartContent}
         </View>
       </View>
     </Pressable>
@@ -1291,7 +1486,7 @@ function WeightProjectionCard({
   projection, datasets, currentWeight, programWeek,
 }: {
   projection: WeightProjection | null;
-  datasets: Record<string, number[]>;
+  datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
   programWeek?: number;
 }) {
@@ -1329,47 +1524,43 @@ function WeightProjectionCard({
 
   return (
     <>
-      <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => setExpanded(true)}>
+      <Pressable
+        style={[s.cardWrap, { marginBottom: 16 }]}
+        onPress={() => setExpanded(true)}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          openAiChat({
+            type: 'metric',
+            contextLabel: 'Weight Journey',
+            contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
+            chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
+          });
+        }}
+        delayLongPress={400}
+      >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
             {/* Header row */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="expand-outline" size={12} color={w(0.3)} />
-                <Text style={[s.chartMuted, { fontSize: 10 }]}>Tap to see chart</Text>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
+                  {currentWeight != null ? `${currentWeight} lbs` : '-'}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="expand-outline" size={11} color={w(0.3)} />
+                  <Text style={[s.chartMuted, { fontSize: 10 }]}>Tap for full view</Text>
+                </View>
               </View>
             </View>
 
-            {!projection ? (
-              <Text style={[s.chartMuted, { textAlign: 'center', paddingVertical: 12 }]}>
-                Log 2+ weight entries to see your projection
-              </Text>
-            ) : (
-              <>
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
-                  <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>WEEKLY RATE</Text>
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
-                      {projection.weeklyLossRateLbs > 0 ? `-${projection.weeklyLossRateLbs}` : '0'}
-                      <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                    <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>GOAL DATE</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
-                    <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
-                  </View>
-                </View>
-                {projection.plateauRisk !== 'none' && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-                    <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Helvetica Neue' }}>{plateauLabel}</Text>
-                    </View>
-                  </View>
-                )}
-              </>
-            )}
+            {/* Always-visible chart */}
+            <WeightChartCard
+              datasets={datasets}
+              currentWeight={currentWeight}
+              chartHeight={130}
+              inline
+            />
           </View>
         </View>
       </Pressable>
@@ -1409,8 +1600,6 @@ function WeightProjectionCard({
               <WeightChartCard
                 datasets={datasets}
                 currentWeight={currentWeight}
-                projection={projection}
-                programWeek={programWeek}
                 chartHeight={220}
               />
 
@@ -1472,6 +1661,72 @@ function WeightProjectionCard({
   );
 }
 
+// ─── Weight goal card ─────────────────────────────────────────────────────────
+
+function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
+  projection: WeightProjection | null;
+  currentWeight: number | null;
+  goalWeight: number | null;
+  toGoalPct: number | null;
+}) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const plateauColor = projection?.plateauRisk === 'detected' ? '#FF3B30' : '#FF9500';
+  const plateauLabel = projection?.plateauRisk === 'detected' ? 'PLATEAU DETECTED' : 'PLATEAU APPROACHING';
+  const goalDateLabel = projection
+    ? new Date(projection.projectedGoalDate + 'T00:00:00')
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+
+  return (
+    <View style={[s.cardWrap, { marginBottom: 16 }]}>
+      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+        <View style={{ padding: 18 }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue', marginBottom: 14 }}>Goal Progress</Text>
+
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: projection?.plateauRisk && projection.plateauRisk !== 'none' ? 12 : 0 }}>
+            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>GOAL WEIGHT</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+                {goalWeight != null ? `${goalWeight}` : '-'}
+                {goalWeight != null && <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs</Text>}
+              </Text>
+              {toGoalPct != null && (
+                <>
+                  <View style={[s.progBar, { marginTop: 8 }]}>
+                    <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
+                  </View>
+                  <Text style={{ fontSize: 11, color: w(0.4), fontFamily: 'Helvetica Neue', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
+                </>
+              )}
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>PROJECTED DATE</Text>
+              {goalDateLabel ? (
+                <>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection!.weeksToGoal} wks away</Text>
+                </>
+              ) : (
+                <Text style={{ fontSize: 12, color: w(0.35), fontFamily: 'Helvetica Neue', marginTop: 4 }}>Log 2+ weights to unlock</Text>
+              )}
+            </View>
+          </View>
+
+          {projection?.plateauRisk != null && projection.plateauRisk !== 'none' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Helvetica Neue' }}>⚠ {plateauLabel}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Progress stat card ───────────────────────────────────────────────────────
 
 function ProgressStatCard({
@@ -1515,12 +1770,37 @@ const EFFECT_LABELS: Record<string, string> = {
   bloating: 'Bloating', hair_loss: 'Hair Loss', other: 'Other',
 };
 
-const EFFECT_ICONS: Record<string, string> = {
-  nausea: '🤢', vomiting: '🤮', fatigue: '😴', constipation: '😣',
-  diarrhea: '🚽', headache: '🤕', injection_site: '💉', appetite_loss: '🍽️',
-  dehydration: '💧', dizziness: '😵', muscle_loss: '💪', heartburn: '🔥',
-  food_noise: '🧠', sulfur_burps: '💨', bloating: '😮', hair_loss: '💇', other: '⚠️',
+type EffectIconDef =
+  | { set: 'MaterialIcons'; name: React.ComponentProps<typeof MaterialIcons>['name'] }
+  | { set: 'Ionicons'; name: React.ComponentProps<typeof Ionicons>['name'] }
+  | { set: 'FontAwesome5'; name: React.ComponentProps<typeof FontAwesome5>['name'] };
+
+const EFFECT_ICONS: Record<string, EffectIconDef> = {
+  nausea:         { set: 'MaterialIcons', name: 'sick' },
+  vomiting:       { set: 'MaterialIcons', name: 'sick' },
+  fatigue:        { set: 'Ionicons',      name: 'bed-outline' },
+  constipation:   { set: 'MaterialIcons', name: 'accessibility' },
+  diarrhea:       { set: 'Ionicons',      name: 'water-outline' },
+  headache:       { set: 'MaterialIcons', name: 'psychology' },
+  injection_site: { set: 'FontAwesome5',  name: 'syringe' },
+  appetite_loss:  { set: 'MaterialIcons', name: 'no-meals' },
+  dehydration:    { set: 'Ionicons',      name: 'water-outline' },
+  dizziness:      { set: 'MaterialIcons', name: 'loop' },
+  muscle_loss:    { set: 'MaterialIcons', name: 'fitness-center' },
+  heartburn:      { set: 'MaterialIcons', name: 'local-fire-department' },
+  food_noise:     { set: 'MaterialIcons', name: 'psychology' },
+  sulfur_burps:   { set: 'MaterialIcons', name: 'air' },
+  bloating:       { set: 'MaterialIcons', name: 'air' },
+  hair_loss:      { set: 'MaterialIcons', name: 'face' },
+  other:          { set: 'Ionicons',      name: 'warning-outline' },
 };
+
+function EffectIcon({ type, size = 22, color }: { type: string; size?: number; color: string }) {
+  const def = EFFECT_ICONS[type] ?? { set: 'Ionicons', name: 'warning-outline' } as EffectIconDef;
+  if (def.set === 'MaterialIcons') return <MaterialIcons name={def.name as any} size={size} color={color} />;
+  if (def.set === 'FontAwesome5') return <FontAwesome5 name={def.name as any} size={size - 4} color={color} />;
+  return <Ionicons name={def.name as any} size={size} color={color} />;
+}
 
 function severityColor(avg: number): string {
   if (avg <= 3) return '#27AE60';
@@ -1571,19 +1851,20 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
 
           {top.length === 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 18 }}>✅</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
               <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'Helvetica Neue' }}>No side effects logged recently</Text>
             </View>
           ) : (
             top.map((item, i) => {
               const color = severityColor(item.avgSev);
-              const icon = EFFECT_ICONS[item.type] ?? '⚠️';
               const name = EFFECT_LABELS[item.type] ?? item.type;
               return (
                 <View key={item.type}>
                   {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: w(0.06), marginVertical: 10 }} />}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={{ fontSize: 22, width: 30, textAlign: 'center' }}>{icon}</Text>
+                    <View style={{ width: 30, alignItems: 'center' }}>
+                      <EffectIcon type={item.type} size={22} color={color} />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{name}</Text>
                       <Text style={{ fontSize: 12, color: w(0.4), fontFamily: 'Helvetica Neue', marginTop: 2 }}>
@@ -1690,6 +1971,338 @@ function ProgAIInsightsCard() {
   return <AIInsightsCardShell text={text} loading={loading || text === null} onLongPress={handlePress} />;
 }
 
+// ─── LifestyleTrendCard ────────────────────────────────────────────────────────
+
+function LifestyleTrendCard({
+  foodByDate,
+  activityByDate,
+  todayStr,
+  targets,
+}: {
+  foodByDate: FoodByDate;
+  activityByDate: ActivityByDate;
+  todayStr: string;
+  targets: DailyTargets;
+}) {
+  const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const [metricId, setMetricId] = useState('protein');
+  const [periodDays, setPeriodDays] = useState(7);
+  const [expanded, setExpanded] = useState(false);
+  const [compactW, setCompactW] = useState(0);
+  const [expW, setExpW] = useState(0);
+  const [selIdx, setSelIdx] = useState<number | null>(null);
+
+  const sheetY = useRef(new Animated.Value(0)).current;
+
+  const dismiss = () => {
+    Animated.timing(sheetY, { toValue: screenHeight, duration: 220, useNativeDriver: true }).start(() => {
+      sheetY.setValue(0);
+      setExpanded(false);
+      setSelIdx(null);
+    });
+  };
+
+  const panRef = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
+    onPanResponderMove: (_, gs) => { if (gs.dy > 0) sheetY.setValue(gs.dy); },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80 || gs.vy > 0.5) dismiss();
+      else Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+    },
+  })).current;
+
+  const metric = LIFESTYLE_METRICS.find(m => m.id === metricId) ?? LIFESTYLE_METRICS[0];
+
+  const { dates, values, target, hitRate, average, trendPct, bestStreak } = useMemo(() => {
+    const ds = Array.from({ length: periodDays }, (_, i) => {
+      const d = new Date(todayStr + 'T12:00:00');
+      d.setDate(d.getDate() - (periodDays - 1 - i));
+      return d.toISOString().slice(0, 10);
+    });
+    const vs = ds.map(d => metric.getValue(foodByDate, activityByDate, d));
+    const tgt = metric.getTarget(targets);
+    const withData = vs.filter(v => v !== null) as number[];
+    const hr = withData.length ? withData.filter(v => v >= tgt).length / withData.length : 0;
+    const avg = withData.length ? withData.reduce((s, v) => s + v, 0) / withData.length : 0;
+    const mid = Math.floor(withData.length / 2);
+    const firstHalf = mid > 0 ? withData.slice(0, mid).reduce((s, v) => s + v, 0) / mid : 0;
+    const secondHalf = mid > 0 ? withData.slice(mid).reduce((s, v) => s + v, 0) / (withData.length - mid) : 0;
+    const tp = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
+    let cur = 0, best = 0;
+    vs.forEach(v => { if (v !== null && v >= tgt) { cur++; best = Math.max(best, cur); } else cur = 0; });
+    return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best };
+  }, [periodDays, todayStr, metric, foodByDate, activityByDate, targets]);
+
+  const hasData = values.some(v => v !== null);
+
+  const compact = useMemo(
+    () => ltComputeChart(values, target, LT_COMPACT_H, Math.max(0, compactW - LT_TML - LT_TMR)),
+    [values, target, compactW],
+  );
+  const exp = useMemo(
+    () => ltComputeChart(values, target, LT_EXP_H, Math.max(0, expW - LT_TML - LT_TMR)),
+    [values, target, expW],
+  );
+  const compactLabels = useMemo(
+    () => ltXLabels(dates, Math.max(0, compactW - LT_TML - LT_TMR), periodDays),
+    [dates, compactW, periodDays],
+  );
+  const expLabels = useMemo(
+    () => ltXLabels(dates, Math.max(0, expW - LT_TML - LT_TMR), periodDays),
+    [dates, expW, periodDays],
+  );
+
+  const hitRateColor = hitRate >= 0.7 ? '#27AE60' : hitRate >= 0.4 ? '#F6CB45' : '#E74C3C';
+  const hitRatePct = Math.round(hitRate * 100);
+  const fmtVal = (v: number) =>
+    metric.unit === 'kcal' || metric.unit === 'steps' ? Math.round(v).toLocaleString() : v.toFixed(0);
+  const trendSign = trendPct >= 0 ? '+' : '';
+  const selValue = selIdx !== null ? values[selIdx] : null;
+  const selDate = selIdx !== null ? dates[selIdx] : null;
+
+  function renderMetricPills(onSelect: (id: string) => void) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 6, paddingRight: 4 }}
+        style={{ marginBottom: 8 }}
+      >
+        {LIFESTYLE_METRICS.map(m => (
+          <Pressable
+            key={m.id}
+            onPress={() => { onSelect(m.id); setSelIdx(null); }}
+            style={{
+              paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
+              backgroundColor: metricId === m.id ? m.color : 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <Text style={{
+              fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
+              color: metricId === m.id ? '#FFF' : 'rgba(255,255,255,0.45)',
+            }}>
+              {m.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    );
+  }
+
+  function renderPeriodTabs() {
+    return (
+      <View style={{ flexDirection: 'row', gap: 4, marginBottom: 8 }}>
+        {LT_PERIODS.map(p => (
+          <Pressable
+            key={p.label}
+            onPress={() => setPeriodDays(p.days)}
+            style={{
+              paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+              backgroundColor: periodDays === p.days ? 'rgba(255,255,255,0.15)' : 'transparent',
+            }}
+          >
+            <Text style={{
+              fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
+              color: periodDays === p.days ? '#FFF' : 'rgba(255,255,255,0.35)',
+            }}>
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
+  function renderChart(
+    chartH: number,
+    data: ReturnType<typeof ltComputeChart>,
+    w: number,
+    labels: { x: number; label: string }[],
+    gradId: string,
+  ) {
+    if (!hasData) {
+      return (
+        <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' }}>
+            Start logging to see data
+          </Text>
+        </View>
+      );
+    }
+    if (w <= 0) return <View style={{ height: chartH }} />;
+    const plotH = chartH - LT_TMT - LT_TMB;
+    return (
+      <Svg width={w} height={chartH}>
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={metric.color} stopOpacity="0.18" />
+            <Stop offset="1" stopColor={metric.color} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        {data.areaPath ? <Path d={data.areaPath} fill={`url(#${gradId})`} /> : null}
+        {data.linePath ? (
+          <Path d={data.linePath} stroke={metric.color} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        ) : null}
+        {data.goalY > 0 && data.goalY >= LT_TMT && data.goalY <= LT_TMT + plotH && (
+          <Line
+            x1={LT_TML} y1={data.goalY} x2={w - LT_TMR} y2={data.goalY}
+            stroke="#FFFFFF" strokeWidth={1} strokeDasharray="4,3" strokeOpacity="0.4"
+          />
+        )}
+        {labels.map((lbl, i) => (
+          <SvgText key={i} x={lbl.x} y={chartH - 4} fontSize={8} fill="rgba(255,255,255,0.35)" textAnchor="middle" fontFamily="Helvetica Neue">
+            {lbl.label}
+          </SvgText>
+        ))}
+      </Svg>
+    );
+  }
+
+  return (
+    <>
+      {/* ── Compact Card ── */}
+      <Pressable
+        onPress={() => setExpanded(true)}
+        style={{
+          borderRadius: 16,
+          backgroundColor: 'rgba(255,255,255,0.06)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.1)',
+          padding: 14,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            {renderMetricPills(setMetricId)}
+          </View>
+          <Ionicons name="expand-outline" size={16} color="rgba(255,255,255,0.35)" style={{ marginLeft: 8, marginTop: 4 }} />
+        </View>
+        {renderPeriodTabs()}
+        <View style={{ height: LT_COMPACT_H }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
+          {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+            Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
+          </Text>
+          {hasData && (
+            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${hitRateColor}22` }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: hitRateColor, fontFamily: 'Helvetica Neue' }}>
+                {hitRatePct}% on target
+              </Text>
+            </View>
+          )}
+        </View>
+      </Pressable>
+
+      {/* ── Expanded Modal ── */}
+      <Modal visible={expanded} transparent animationType="none" onRequestClose={dismiss}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={dismiss} />
+        <Animated.View
+          style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            height: screenHeight * 0.82,
+            backgroundColor: '#111',
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            transform: [{ translateY: sheetY }],
+            paddingBottom: insets.bottom,
+          }}
+          {...panRef.panHandlers}
+        >
+          <View style={{ alignItems: 'center', paddingTop: 12, marginBottom: 4 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+          </View>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', textAlign: 'center', marginBottom: 14 }}>
+            {metric.label} Trend
+          </Text>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}>
+            {renderMetricPills(setMetricId)}
+            {renderPeriodTabs()}
+
+            {/* Chart + tappable point overlays */}
+            <View style={{ position: 'relative' }}>
+              <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
+                {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
+              </View>
+              {hasData && exp.pts.filter(p => p.valid).map(pt => {
+                const origIdx = exp.pts.findIndex(p2 => p2 === pt);
+                return (
+                  <Pressable
+                    key={origIdx}
+                    onPress={() => setSelIdx(selIdx === origIdx ? null : origIdx)}
+                    style={{ position: 'absolute', left: pt.x - 20, top: pt.y - 20, width: 40, height: 40 }}
+                  />
+                );
+              })}
+            </View>
+
+            {/* Selected point tooltip */}
+            {selValue !== null && selDate !== null && (
+              <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>{selDate}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', marginTop: 2 }}>
+                  {fmtVal(selValue)} {metric.unit}
+                </Text>
+                <Text style={{
+                  fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue', marginTop: 2,
+                  color: selValue >= target ? '#27AE60' : '#E74C3C',
+                }}>
+                  {selValue >= target
+                    ? 'On target ✓'
+                    : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% below target`}
+                </Text>
+              </View>
+            )}
+
+            {/* Insights panel */}
+            {hasData && (
+              <View style={{ marginTop: 16 }}>
+                {/* Hit rate */}
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Helvetica Neue', lineHeight: 60 }}>
+                    {hitRatePct}%
+                  </Text>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+                    of days on target
+                  </Text>
+                </View>
+
+                {/* Stat chips */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[
+                    { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: '#FFF' },
+                    { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: trendPct >= 0 ? '#27AE60' : '#E74C3C' },
+                    { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
+                  ].map((chip, i) => (
+                    <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Helvetica Neue' }}>{chip.value}</Text>
+                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Contextual text */}
+                <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Helvetica Neue', lineHeight: 20 }}>
+                    {hitRatePct >= 70
+                      ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
+                      : hitRatePct >= 40
+                      ? `You're hitting your ${metric.label.toLowerCase()} target ${hitRatePct}% of the time. Small improvements can add up.`
+                      : `Your ${metric.label.toLowerCase()} is below target most days. Focus here to maximize your GLP-1 results.`}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
+      </Modal>
+    </>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function InsightsScreen() {
@@ -1703,6 +2316,17 @@ export default function InsightsScreen() {
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
   const [activeTab, setActiveTab] = useState<Tab>('medication');
+  const { openAiChat } = useUiStore();
+
+  const handleBackgroundLongPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const tabChips: Record<string, string[]> = {
+      medication: ['Explain my drug levels', 'When should I inject?', 'What side effects should I watch for?', 'Is my medication working?'],
+      lifestyle: ['How am I doing on nutrition?', 'Am I active enough?', 'What lifestyle changes matter most?', 'What do my biometrics show?'],
+      progress: ['Am I on pace for my goal?', 'Is my weight loss healthy?', 'When will I reach my goal?', 'How does my progress compare?'],
+    };
+    openAiChat({ chips: JSON.stringify(tabChips[activeTab] ?? tabChips.medication) });
+  }, [openAiChat, activeTab]);
 
   // ── Today filters ──────────────────────────────────────────────────────────
   const todayStr = localDateStr();
@@ -1715,6 +2339,31 @@ export default function InsightsScreen() {
   const todayCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
   const todayActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const todaySteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
+
+  // ── Historical aggregations for TrendsCard ─────────────────────────────────
+  const foodByDate = useMemo(() => {
+    const map: Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }> = {};
+    foodLogs.forEach(log => {
+      const date = log.logged_at.slice(0, 10);
+      if (!map[date]) map[date] = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: 0 };
+      map[date].protein  += log.protein_g;
+      map[date].carbs    += log.carbs_g;
+      map[date].fat      += log.fat_g;
+      map[date].calories += log.calories;
+      map[date].fiber    += log.fiber_g;
+    });
+    return map;
+  }, [foodLogs]);
+
+  const activityByDate = useMemo(() => {
+    const map: Record<string, { steps: number; calories: number }> = {};
+    activityLogs.forEach(log => {
+      if (!map[log.date]) map[log.date] = { steps: 0, calories: 0 };
+      map[log.date].steps    += log.steps ?? 0;
+      map[log.date].calories += log.active_calories ?? 0;
+    });
+    return map;
+  }, [activityLogs]);
 
   const proteinPct = targets.proteinG > 0 ? Math.round((todayProteinG / targets.proteinG) * 100) : 0;
   const fiberPct = targets.fiberG > 0 ? Math.round((todayFiberG / targets.fiberG) * 100) : 0;
@@ -1846,11 +2495,19 @@ export default function InsightsScreen() {
     ? goalProgress(startWeight, currentWeight, goalWeight)
     : null;
 
-  const weightDatasets: Record<string, number[]> = {
-    '7D': weightDataForPeriod(weightLogs, '7D'),
+  const weightLost = startWeight != null && currentWeight != null && startWeight > currentWeight
+    ? Math.round((startWeight - currentWeight) * 10) / 10
+    : null;
+  const weightLostPct = weightLost != null && startWeight
+    ? Math.round((weightLost / startWeight) * 1000) / 10
+    : null;
+
+  const weightDatasets: Record<string, WeightPoint[]> = {
+    '7D':  weightDataForPeriod(weightLogs, '7D'),
+    '14D': weightDataForPeriod(weightLogs, '14D'),
     '30D': weightDataForPeriod(weightLogs, '30D'),
     '90D': weightDataForPeriod(weightLogs, '90D'),
-    '1Y': weightDataForPeriod(weightLogs, '1Y'),
+    'MAX': weightDataForPeriod(weightLogs, 'MAX'),
   };
 
   // ── Weight projection ──────────────────────────────────────────────────────
@@ -1891,7 +2548,7 @@ export default function InsightsScreen() {
     : '-';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -1901,6 +2558,7 @@ export default function InsightsScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
+          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
           {/* ── Header ── */}
           <View style={s.header}>
@@ -1909,22 +2567,25 @@ export default function InsightsScreen() {
 
           {/* ── Segmented Control ── */}
           <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
+            <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
+            <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue' }}>
+              Hold any card to ask AI
+            </Text>
+          </View>
 
           {/* ── Lifestyle content ── */}
           {activeTab === 'lifestyle' && (
             <>
               <AIInsightsCard />
 
-              <View style={s.metricsRow}>
-                <MetricCard
-                  value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
-                  label="Calories Burned"
-                  ringColor={ORANGE}
-                />
-                <MetricCard
-                  value={todaySteps > 0 ? todaySteps.toLocaleString() : '-'}
-                  label="Daily Steps"
-                  ringColor={colors.textPrimary}
+              {/* ── Lifestyle Trend Card ── */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 4 }}>
+                <LifestyleTrendCard
+                  foodByDate={foodByDate}
+                  activityByDate={activityByDate}
+                  todayStr={todayStr}
+                  targets={targets}
                 />
               </View>
 
@@ -1935,50 +2596,71 @@ export default function InsightsScreen() {
                   label="Protein" value={`${todayProteinG}/${targets.proteinG}g`}
                   change={`${proteinPct}%`}
                   status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
+                  pct={proteinPct / 100}
                 />
                 <DailyMetricCard
                   icon={<Ionicons name="leaf-outline" size={20} color={ORANGE} />}
                   label="Fiber" value={`${todayFiberG}/${targets.fiberG}g`}
                   change={`${fiberPct}%`}
                   status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
+                  pct={fiberPct / 100}
                 />
                 <DailyMetricCard
                   icon={<Ionicons name="water-outline" size={20} color={ORANGE} />}
                   label="Hydration" value={`${waterOz}/${waterTargetOz}oz`}
                   change={`${waterPct}%`}
                   status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
+                  pct={waterPct / 100}
                 />
                 <DailyMetricCard
                   icon={<MaterialIcons name="grain" size={20} color={ORANGE} />}
                   label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
                   change={`${carbsPct}%`}
                   status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
+                  pct={carbsPct / 100}
+                />
+                <ActivityDailyCard
+                  value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
+                  label="Calories Burned"
+                  ringColor={ORANGE}
+                  emptyCtaLabel="Log Activity"
+                  onEmptyCta={() => router.push('/entry/log-activity')}
+                />
+                <ActivityDailyCard
+                  value={todaySteps > 0 ? todaySteps.toLocaleString() : '-'}
+                  label="Daily Steps"
+                  ringColor={colors.textPrimary}
+                  emptyCtaLabel="Log Activity"
+                  onEmptyCta={() => router.push('/entry/log-activity')}
                 />
               </View>
+
+              {/* ── Wearables ── */}
+              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Wearables</Text>
+              {!appleHealthEnabled ? (
+                <WearablesConnectPrompt />
+              ) : (
+                <View style={s.hmGrid}>
+                    {((): HealthMetric[] => {
+                      const rhrVal   = hkStore.restingHR ?? null;
+                      const hrvVal   = hkStore.hrv ?? null;
+                      const hkSleep  = hkStore.sleepHours ?? null;
+                      const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : null;
+                      const hkGlucose = hkStore.bloodGlucose ?? null;
+
+                      const metrics: HealthMetric[] = [
+                        { id: 'rhr',  label: 'Resting HR',  value: rhrVal  != null ? String(rhrVal)  : 'No data', unit: rhrVal  != null ? 'bpm' : '', status: rhrVal  != null ? hmRhrStatus(rhrVal)   : 'normal', iconSet: 'Ionicons',      iconName: 'heart-outline', rangeLabel: rhrVal  != null ? hmRhrLabel(rhrVal)   : '-', gaugePosition: hmGaugePos('rhr',   rhrVal) },
+                        { id: 'hrv',  label: 'HRV',          value: hrvVal  != null ? String(hrvVal)  : 'No data', unit: hrvVal  != null ? 'ms'  : '', status: hrvVal  != null ? hmHrvStatus(hrvVal)   : 'normal', iconSet: 'MaterialIcons', iconName: 'show-chart',    rangeLabel: hrvVal  != null ? hmHrvLabel(hrvVal)   : '-', gaugePosition: hmGaugePos('hrv',   hrvVal) },
+                        { id: 'sleep',label: 'Sleep',        value: sleepMin != null ? fmtSleep(sleepMin) : 'No data', unit: '', status: sleepMin != null ? hmSleepStatus(sleepMin) : 'normal', iconSet: 'Ionicons',      iconName: 'moon-outline',  rangeLabel: sleepMin != null ? hmSleepLabel(sleepMin) : '-', gaugePosition: hmGaugePos('sleep', sleepMin) },
+                        { id: 'spo2', label: 'SpO₂',         value: '98', unit: '%', status: 'good', iconSet: 'MaterialIcons', iconName: 'bloodtype',    rangeLabel: 'Normal', gaugePosition: hmGaugePos('spo2', 98) },
+                        { id: 'temp', label: 'Temp',          value: '98.4', unit: '°F', status: 'normal', iconSet: 'MaterialIcons', iconName: 'thermostat',   rangeLabel: 'Normal', gaugePosition: hmGaugePos('temp', 98.4) },
+                      ];
+                      if (hkGlucose != null) metrics.push({ id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL', status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', hkGlucose) });
+                      return metrics;
+                    })().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
+                  </View>
+              )}
               <RecentLogsCard entries={lifestyleLogs} />
-
-              {/* ── Health Monitor ── */}
-              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Monitor</Text>
-              <View style={s.hmGrid}>
-                {((): HealthMetric[] => {
-                  const noData = !appleHealthEnabled;
-                  const rhrVal   = appleHealthEnabled ? hkStore.restingHR ?? null : null;
-                  const hrvVal   = appleHealthEnabled ? hkStore.hrv ?? null : null;
-                  const hkSleep  = appleHealthEnabled ? hkStore.sleepHours ?? null : null;
-                  const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : null;
-                  const hkGlucose = appleHealthEnabled ? hkStore.bloodGlucose ?? null : null;
-
-                  const metrics: HealthMetric[] = [
-                    { id: 'rhr',  label: 'Resting HR',  value: rhrVal  != null ? String(rhrVal)  : 'No data', unit: rhrVal  != null ? 'bpm' : '', status: rhrVal  != null ? hmRhrStatus(rhrVal)   : 'normal', iconSet: 'Ionicons',      iconName: 'heart-outline', rangeLabel: rhrVal  != null ? hmRhrLabel(rhrVal)   : '-', gaugePosition: hmGaugePos('rhr',   rhrVal) },
-                    { id: 'hrv',  label: 'HRV',          value: hrvVal  != null ? String(hrvVal)  : 'No data', unit: hrvVal  != null ? 'ms'  : '', status: hrvVal  != null ? hmHrvStatus(hrvVal)   : 'normal', iconSet: 'MaterialIcons', iconName: 'show-chart',    rangeLabel: hrvVal  != null ? hmHrvLabel(hrvVal)   : '-', gaugePosition: hmGaugePos('hrv',   hrvVal) },
-                    { id: 'sleep',label: 'Sleep',        value: sleepMin != null ? fmtSleep(sleepMin) : 'No data', unit: '', status: sleepMin != null ? hmSleepStatus(sleepMin) : 'normal', iconSet: 'Ionicons',      iconName: 'moon-outline',  rangeLabel: sleepMin != null ? hmSleepLabel(sleepMin) : '-', gaugePosition: hmGaugePos('sleep', sleepMin) },
-                    { id: 'spo2', label: 'SpO₂',         value: noData ? 'No data' : '98', unit: noData ? '' : '%', status: 'good', iconSet: 'MaterialIcons', iconName: 'bloodtype',    rangeLabel: noData ? '-' : 'Normal', gaugePosition: noData ? null : hmGaugePos('spo2', 98) },
-                    { id: 'temp', label: 'Temp',          value: noData ? 'No data' : '98.4', unit: noData ? '' : '°F', status: 'normal', iconSet: 'MaterialIcons', iconName: 'thermostat',   rangeLabel: noData ? '-' : 'Normal', gaugePosition: noData ? null : hmGaugePos('temp', 98.4) },
-                  ];
-                  if (hkGlucose != null) metrics.push({ id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL', status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', hkGlucose) });
-                  return metrics;
-                })().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
-              </View>
             </>
           )}
 
@@ -1997,10 +2679,15 @@ export default function InsightsScreen() {
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
               />
-              <CycleBiometricCard
-                result={cycleIntelligenceResult}
-                cycleiqContext={cycleiqContextStr}
-              />
+              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Wearables</Text>
+              {!appleHealthEnabled ? (
+                <WearablesConnectPrompt />
+              ) : (
+                <CycleBiometricCard
+                  result={cycleIntelligenceResult}
+                  cycleiqContext={cycleiqContextStr}
+                />
+              )}
               <Text style={s.sectionTitle}>Injection Details</Text>
               <View style={[s.dailyGrid, { marginBottom: 24 }]}>
                 <InjectionCard
@@ -2044,6 +2731,12 @@ export default function InsightsScreen() {
                 currentWeight={currentWeight}
                 programWeek={programWeek}
               />
+              <WeightGoalCard
+                projection={projection ?? null}
+                currentWeight={currentWeight}
+                goalWeight={goalWeight}
+                toGoalPct={toGoalPct}
+              />
               <MetabolicAdaptationCard result={metabolicAdaptationResult} />
               <View style={s.dailyGrid}>
                 <ProgressStatCard
@@ -2057,14 +2750,15 @@ export default function InsightsScreen() {
                     </View>
                   )}
                 </ProgressStatCard>
+
                 <ProgressStatCard
-                  icon={<Ionicons name="flag-outline" size={20} color={ORANGE} />}
-                  label="To Goal"
-                  value={toGoalPct != null ? `${toGoalPct}%` : '-'}
+                  icon={<MaterialIcons name="trending-down" size={20} color={ORANGE} />}
+                  label="Lost So Far"
+                  value={weightLost != null ? `${weightLost} lbs` : '-'}
                 >
-                  {toGoalPct != null && (
-                    <View style={s.progBar}>
-                      <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
+                  {weightLostPct != null && weightLostPct > 0 && (
+                    <View style={[s.changeBadge, { backgroundColor: statusStyle.positive.bg }]}>
+                      <Text style={[s.changeText, { color: statusStyle.positive.text }]}>↓ {weightLostPct}% of body wt</Text>
                     </View>
                   )}
                 </ProgressStatCard>
@@ -2073,9 +2767,10 @@ export default function InsightsScreen() {
             </>
           )}
 
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </Pressable>
   );
 }
 
@@ -2103,7 +2798,7 @@ const createStyles = (c: AppColors) => {
   aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
 
   // Metrics row
-  metricsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  metricsRow: { flexDirection: 'row', gap: 20, marginBottom: 24, paddingHorizontal: 4 },
   metricWrap: { flex: 1, borderRadius: 22 },
   metricInner: { padding: 18, alignItems: 'center' },
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },

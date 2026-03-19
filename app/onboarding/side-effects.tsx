@@ -1,3 +1,4 @@
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,13 +11,14 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const OPTIONS: { value: SideEffect; label: string; icon: string }[] = [
-  { value: 'nausea', label: 'Nausea', icon: '🤢' },
-  { value: 'fatigue', label: 'Fatigue', icon: '😴' },
-  { value: 'hair_loss', label: 'Hair Loss', icon: '💇' },
-  { value: 'constipation', label: 'Constipation', icon: '😬' },
-  { value: 'bloating', label: 'Bloating', icon: '🫠' },
-  { value: 'sulfur_burps', label: 'Sulfur Burps', icon: '💨' },
+const SE_ICON_COLOR = 'rgba(255,255,255,0.7)';
+const OPTIONS: { value: SideEffect; label: string; icon: React.ReactNode }[] = [
+  { value: 'nausea',       label: 'Nausea',        icon: <MaterialIcons name="sick"          size={20} color={SE_ICON_COLOR} /> },
+  { value: 'fatigue',      label: 'Fatigue',        icon: <Ionicons      name="bed-outline"   size={20} color={SE_ICON_COLOR} /> },
+  { value: 'hair_loss',    label: 'Hair Loss',      icon: <MaterialIcons name="face"          size={20} color={SE_ICON_COLOR} /> },
+  { value: 'constipation', label: 'Constipation',   icon: <MaterialIcons name="accessibility" size={20} color={SE_ICON_COLOR} /> },
+  { value: 'bloating',     label: 'Bloating',       icon: <MaterialIcons name="air"           size={20} color={SE_ICON_COLOR} /> },
+  { value: 'sulfur_burps', label: 'Sulfur Burps',   icon: <MaterialIcons name="air"           size={20} color={SE_ICON_COLOR} /> },
 ];
 
 export default function SideEffectsScreen() {
@@ -53,7 +55,8 @@ export default function SideEffectsScreen() {
             {OPTIONS.map((o) => (
               <OptionPill
                 key={o.value}
-                label={`${o.icon}  ${o.label}`}
+                label={o.label}
+                icon={o.icon}
                 selected={selected.includes(o.value)}
                 onPress={() => toggle(o.value)}
               />

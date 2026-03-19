@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,11 +20,12 @@ const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; icon: string; subtitle: string }[] = [
-  { value: 'sedentary',   label: 'Sedentary',      icon: '🧍', subtitle: 'Mostly seated, little exercise' },
-  { value: 'light',       label: 'Lightly Active',  icon: '🚶', subtitle: 'Some walking or light movement' },
-  { value: 'active',      label: 'Active',           icon: '🏃', subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active',      icon: '⚡', subtitle: 'Intense exercise or very physical job' },
+const ACTIVITY_ICON_COLOR = 'rgba(255,255,255,0.7)';
+const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; icon: React.ReactNode; subtitle: string }[] = [
+  { value: 'sedentary',   label: 'Sedentary',      icon: <MaterialIcons name="event-seat"      size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active',  icon: <MaterialIcons name="directions-walk" size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',           icon: <MaterialIcons name="directions-run"  size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',      icon: <MaterialIcons name="flash-on"        size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Intense exercise or very physical job' },
 ];
 
 const MONTHS = [
@@ -114,7 +115,8 @@ export default function EditPersonalScreen() {
         {ACTIVITY_OPTIONS.map((o) => (
           <OptionPill
             key={o.value}
-            label={`${o.icon}  ${o.label}`}
+            label={o.label}
+            icon={o.icon}
             subtitle={o.subtitle}
             selected={activityLevel === o.value}
             onPress={() => setActivityLevel(o.value)}

@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,11 +11,12 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const OPTIONS: { value: ActivityLevel; label: string; icon: string; subtitle: string }[] = [
-  { value: 'sedentary', label: 'Sedentary', icon: '🧍', subtitle: 'Mostly seated, little exercise' },
-  { value: 'light', label: 'Lightly Active', icon: '🚶', subtitle: 'Some walking or light movement' },
-  { value: 'active', label: 'Active', icon: '🏃', subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active', icon: '⚡', subtitle: 'Intense exercise or very physical job' },
+const ACTIVITY_ICON_COLOR = 'rgba(255,255,255,0.7)';
+const OPTIONS: { value: ActivityLevel; label: string; icon: React.ReactNode; subtitle: string }[] = [
+  { value: 'sedentary',   label: 'Sedentary',      icon: <MaterialIcons name="event-seat"    size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active',  icon: <MaterialIcons name="directions-walk" size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',           icon: <MaterialIcons name="directions-run"  size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',      icon: <MaterialIcons name="flash-on"        size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Intense exercise or very physical job' },
 ];
 
 export default function ActivityScreen() {
@@ -45,7 +47,8 @@ export default function ActivityScreen() {
             {OPTIONS.map((o) => (
               <OptionPill
                 key={o.value}
-                label={`${o.icon}  ${o.label}`}
+                label={o.label}
+                icon={o.icon}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
                 onPress={() => setSelected(o.value)}

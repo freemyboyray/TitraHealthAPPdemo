@@ -1,41 +1,73 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
 
+const MEAL_TIPS: Record<ForecastDay['state'], string> = {
+  peak_suppression:    'Focus on protein-dense foods. Small, frequent meals work better than large ones on peak days.',
+  moderate_suppression:'Good window for protein. Plan your highest-protein meal during this phase.',
+  returning:           'Appetite returning — good day for a fuller, higher-protein meal.',
+  near_baseline:       'Appetite near baseline — aim for a satisfying, balanced meal today.',
+};
+
+function formatDayDetailDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
-import type { ForecastDay } from '@/lib/cycle-intelligence';
+import type { ForecastDay, HourBlock } from '@/lib/cycle-intelligence';
 
 const STATE_COLORS: Record<ForecastDay['state'], string> = {
   peak_suppression:    '#E74C3C',
-  moderate_suppression: '#FF742A',
-  returning:           '#F39C12',
+  moderate_suppression: '#D4850A',   // amber — distinct from pillToday orange (#FF742A)
+  returning:           '#C9A227',    // golden yellow
   near_baseline:       '#27AE60',
 };
 
 type ForecastPillProps = {
   day: ForecastDay;
+  selected: boolean;
   onPress: () => void;
+  compact?: boolean;
 };
 
-function ForecastPill({ day, onPress }: ForecastPillProps) {
+function ForecastPill({ day, selected, onPress, compact }: ForecastPillProps) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const dotColor = STATE_COLORS[day.state];
+  const stateColor = STATE_COLORS[day.state];
 
   return (
     <Pressable
-      style={[s.pill, day.isToday && s.pillToday]}
+      style={[
+        s.pill,
+        compact && { paddingHorizontal: 2, paddingVertical: 8 },
+        day.isToday && {
+          backgroundColor: stateColor,
+          borderColor: '#FF742A',
+          borderWidth: 2,
+          paddingVertical: 14,
+        },
+        selected && !day.isToday && {
+          borderColor: '#FF742A',
+          borderWidth: 1.5,
+        },
+      ]}
       onPress={onPress}
     >
-      <View style={[s.stateDot, { backgroundColor: dotColor }]} />
-      <Text style={[s.dayLabel, day.isToday && s.dayLabelToday]}>
-        D{day.cycleDay}
+      <View style={[s.stateDot, { backgroundColor: day.isToday ? 'rgba(255,255,255,0.85)' : stateColor }]} />
+      <Text style={[s.dayLabel, day.isToday && s.dayLabelToday, compact && { fontSize: 9 }]}>
+        {day.isToday
+          ? (day.isShotDay ? 'SHOT\nDAY' : 'TODAY')
+          : `D${day.cycleDay}`}
       </Text>
-      <Text style={[s.suppression, day.isToday && s.suppressionToday]}>
-        {day.appetiteSuppressionPct}%
-      </Text>
+      {!compact && (
+        <Text style={[s.suppression, day.isToday && s.suppressionToday]}>
+          {day.appetiteSuppressionPct}%
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -44,19 +76,37 @@ type AppetiteForecastStripProps = {
   forecastDays: ForecastDay[];
   appleHealthEnabled: boolean;
   drugName: string;
+  /** Intraday hour blocks — when provided, renders the daily drug view instead of day-pills */
+  hourBlocks?: HourBlock[];
+  injFreqDays?: number;
+};
+
+const PHASE_BLOCK_COLORS: Record<HourBlock['phase'], string> = {
+  post_dose: '#D4850A',
+  peak:      '#E74C3C',
+  trough:    '#27AE60',
 };
 
 export function AppetiteForecastStrip({
   forecastDays,
   drugName,
+  hourBlocks,
+  injFreqDays = 7,
 }: AppetiteForecastStripProps) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { openAiChat } = useUiStore();
   const [isExpanded, setIsExpanded] = useState(false);
+  const todayDay = forecastDays.find(d => d.isToday) ?? null;
+  const [selectedDay, setSelectedDay] = useState<ForecastDay | null>(todayDay);
 
   const handleDayPress = (day: ForecastDay) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSelectedDay(prev => (prev?.cycleDay === day.cycleDay ? null : day));
+  };
+
+  const openDayAiChat = (day: ForecastDay) => {
     const stateDesc =
       day.state === 'peak_suppression'    ? 'Peak suppression — appetite is significantly reduced' :
       day.state === 'moderate_suppression' ? 'Moderate suppression — appetite below normal' :
@@ -65,12 +115,7 @@ export function AppetiteForecastStrip({
     const chipContext = day.isToday
       ? `Day ${day.cycleDay} of your cycle — Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`
       : `Day ${day.cycleDay} forecast — Appetite ~${day.appetiteSuppressionPct}% suppressed. ${stateDesc}.`;
-    const mealTip =
-      day.state === 'peak_suppression'    ? 'Focus on protein-dense foods. Small, frequent meals work better than large ones.' :
-      day.state === 'moderate_suppression' ? 'Good day for protein meals. Plan your highest-protein meal for this window.' :
-      day.state === 'returning'            ? 'Appetite returning — good day for a larger protein meal.' :
-      'Appetite near baseline — great day for a complete, satisfying meal.';
-
+    const mealTip = MEAL_TIPS[day.state];
     openAiChat({
       contextLabel: day.isToday ? 'Today\'s Appetite' : `Day ${day.cycleDay} Forecast`,
       contextValue: chipContext,
@@ -85,12 +130,17 @@ export function AppetiteForecastStrip({
   };
 
   const buildForecastContext = () => {
+    if (hourBlocks && hourBlocks.length > 0) {
+      const current = hourBlocks.find(b => b.isCurrent);
+      const lines = hourBlocks.map(b => `${b.label}: ${b.appetiteSuppressionPct}%`).join(', ');
+      return `Today's ${drugName} intraday appetite curve:\n${lines}\nCurrent window (${current?.label ?? 'unknown'}): ~${current?.appetiteSuppressionPct ?? '?'}% suppressed.`;
+    }
     const today = forecastDays.find(d => d.isToday);
     const lines = forecastDays.map(d => `Day ${d.cycleDay}: ${d.appetiteSuppressionPct}%`).join(', ');
     const todayLine = today
       ? `Today (Day ${today.cycleDay}): ~${today.appetiteSuppressionPct}% appetite suppressed.`
       : '';
-    return `Today is Day ${today?.cycleDay ?? '?'} of your ${drugName} cycle.\n7-day appetite suppression forecast:\n${lines}\n${todayLine}`;
+    return `Today is Day ${today?.cycleDay ?? '?'} of your ${drugName} ${injFreqDays}-day cycle.\n${injFreqDays}-day appetite suppression forecast:\n${lines}\n${todayLine}`;
   };
 
   const handleCardPress = () => {
@@ -129,16 +179,104 @@ export function AppetiteForecastStrip({
     });
   };
 
+  // ── Intraday (daily drug) mode ────────────────────────────────────────────────
+  if (hourBlocks && hourBlocks.length > 0) {
+    const currentBlock = hourBlocks.find(b => b.isCurrent) ?? null;
+    const cycleLabel = 'Today\'s Appetite Curve';
+    const cycleSubtitle = 'Daily dose · 4-hour windows';
+    return (
+      <Pressable
+        style={s.container}
+        onPress={handleCardPress}
+        onLongPress={handleLongPress}
+        delayLongPress={500}
+      >
+        <View style={s.header}>
+          <Text style={s.title}>Appetite Forecast</Text>
+          <View style={s.headerRight}>
+            <Text style={s.chevron}>{isExpanded ? '↑ Details' : '↓ Details'}</Text>
+            <Text style={s.subtitle}>  {cycleSubtitle}</Text>
+          </View>
+        </View>
+        <View style={[s.pills, { gap: 3 }]}>
+          {hourBlocks.map(block => {
+            const blockColor = PHASE_BLOCK_COLORS[block.phase];
+            return (
+              <Pressable
+                key={block.blockIndex}
+                style={[
+                  s.pill,
+                  block.isCurrent && {
+                    backgroundColor: blockColor,
+                    borderColor: '#FF742A',
+                    borderWidth: 2,
+                    paddingVertical: 14,
+                  },
+                ]}
+                onPress={() => {}}
+              >
+                <View style={[s.stateDot, { backgroundColor: block.isCurrent ? 'rgba(255,255,255,0.85)' : blockColor }]} />
+                <Text style={[s.dayLabel, block.isCurrent && s.dayLabelToday, { fontSize: 9 }]}>
+                  {block.isCurrent ? 'NOW' : block.label}
+                </Text>
+                <Text style={[s.suppression, block.isCurrent && s.suppressionToday]}>
+                  {block.appetiteSuppressionPct}%
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {currentBlock && (
+          <View style={s.dayDetail}>
+            <View style={s.dayDetailHeader}>
+              <View style={[s.dayDetailDot, { backgroundColor: PHASE_BLOCK_COLORS[currentBlock.phase] }]} />
+              <Text style={s.dayDetailTitle}>
+                {'Now · '}{currentBlock.phase === 'post_dose' ? 'Post-Dose' : currentBlock.phase === 'peak' ? 'Peak Window' : 'Approaching Trough'}
+              </Text>
+            </View>
+            <View style={s.dayDetailStats}>
+              <View style={s.dayDetailStat}>
+                <Text style={s.dayDetailStatVal}>{currentBlock.appetiteSuppressionPct}%</Text>
+                <Text style={s.dayDetailStatLbl}>Appetite suppressed</Text>
+              </View>
+              <View style={s.dayDetailStatDivider} />
+              <View style={s.dayDetailStat}>
+                <Text style={s.dayDetailStatVal}>{currentBlock.pkConcentrationPct}%</Text>
+                <Text style={s.dayDetailStatLbl}>Drug level</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={s.legend}>
+          {(['post_dose', 'peak', 'trough'] as const).map(phase => (
+            <View key={phase} style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: PHASE_BLOCK_COLORS[phase] }]} />
+              <Text style={s.legendLabel}>
+                {phase === 'post_dose' ? 'Post-Dose' : phase === 'peak' ? 'Peak' : 'Trough'}
+              </Text>
+            </View>
+          ))}
+        </View>
+        {!isExpanded && <Text style={s.hintText}>Tap for details · Hold for AI</Text>}
+      </Pressable>
+    );
+  }
+
   // ── Empty state ──────────────────────────────────────────────────────────────
   if (forecastDays.length === 0) {
+    const cycleLabel = injFreqDays === 1 ? '24-hour curve' : `${injFreqDays}-day cycle`;
     return (
       <View style={s.container}>
         <View style={s.header}>
           <Text style={s.title}>Appetite Forecast</Text>
-          <Text style={s.subtitle}>7-day cycle</Text>
+          <Text style={s.subtitle}>{cycleLabel}</Text>
         </View>
         <Text style={s.emptyBody}>
-          Log your first injection to unlock your 7-day forecast.
+          {injFreqDays === 1
+            ? 'Log your first dose to unlock today\'s intraday forecast.'
+            : `Log your first injection to unlock your ${injFreqDays}-day forecast.`}
         </Text>
         <Text style={s.emptyNote}>
           {'How it works: This forecast uses the pharmacokinetic (PK) model for '}
@@ -150,6 +288,7 @@ export function AppetiteForecastStrip({
   }
 
   // ── Populated state ──────────────────────────────────────────────────────────
+  const cycleSubtitleLabel = `${injFreqDays}-day cycle`;
   const injectionDate = (() => {
     const today = forecastDays.find(d => d.isToday);
     if (!today) return null;
@@ -170,20 +309,64 @@ export function AppetiteForecastStrip({
         <Text style={s.title}>Appetite Forecast</Text>
         <View style={s.headerRight}>
           <Text style={s.chevron}>{isExpanded ? '↑ Details' : '↓ Details'}</Text>
-          <Text style={s.subtitle}>  7-day cycle</Text>
+          <Text style={s.subtitle}>  {cycleSubtitleLabel}</Text>
         </View>
       </View>
 
-      {/* Pills */}
-      <View style={s.pills}>
+      {/* Pills — compact for 14-day cycles */}
+      <View style={[s.pills, injFreqDays > 7 && { gap: 2 }]}>
         {forecastDays.map(day => (
           <ForecastPill
             key={day.cycleDay}
             day={day}
+            selected={selectedDay?.cycleDay === day.cycleDay}
             onPress={() => handleDayPress(day)}
+            compact={injFreqDays > 7}
           />
         ))}
       </View>
+
+      {/* Day Detail Panel */}
+      {selectedDay && (
+        <View style={s.dayDetail}>
+          <View style={s.dayDetailHeader}>
+            <View style={[s.dayDetailDot, { backgroundColor: STATE_COLORS[selectedDay.state] }]} />
+            <Text style={s.dayDetailTitle}>
+              {selectedDay.isToday ? 'Today' : formatDayDetailDate(selectedDay.dateStr)}
+              {' · '}{selectedDay.label}
+            </Text>
+            <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setSelectedDay(null); }}>
+              <Text style={s.dayDetailClose}>✕</Text>
+            </Pressable>
+          </View>
+
+          <View style={s.dayDetailStats}>
+            <View style={s.dayDetailStat}>
+              <Text style={s.dayDetailStatVal}>{selectedDay.appetiteSuppressionPct}%</Text>
+              <Text style={s.dayDetailStatLbl}>Appetite suppressed</Text>
+            </View>
+            <View style={s.dayDetailStatDivider} />
+            <View style={s.dayDetailStat}>
+              <Text style={s.dayDetailStatVal}>{selectedDay.pkConcentrationPct}%</Text>
+              <Text style={s.dayDetailStatLbl}>Drug level</Text>
+            </View>
+            <View style={s.dayDetailStatDivider} />
+            <View style={s.dayDetailStat}>
+              <Text style={s.dayDetailStatVal}>{selectedDay.energyForecastPct}%</Text>
+              <Text style={s.dayDetailStatLbl}>Energy forecast</Text>
+            </View>
+          </View>
+
+          {selectedDay.isProjected && (
+            <Text style={s.dayDetailProjectedNote}>Projected — assumes injection today</Text>
+          )}
+          <Text style={s.dayDetailTip}>{MEAL_TIPS[selectedDay.state]}</Text>
+
+          <Pressable style={s.dayDetailAiBtn} onPress={() => openDayAiChat(selectedDay)}>
+            <Text style={s.dayDetailAiBtnText}>Ask AI about this day →</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Legend */}
       <View style={s.legend}>
@@ -206,7 +389,7 @@ export function AppetiteForecastStrip({
           <View style={s.expandSection}>
             <Text style={s.expandSectionTitle}>HOW THIS WORKS</Text>
             <View style={s.expandRow}>
-              <Text style={s.expandIcon}>📊</Text>
+              <MaterialIcons name="analytics" size={14} color="rgba(255,255,255,0.5)" />
               <Text style={s.expandText}>
                 {'Data source: Based on your last logged injection'}
                 {injectionDate ? ` (${injectionDate})` : ''}
@@ -214,7 +397,7 @@ export function AppetiteForecastStrip({
               </Text>
             </View>
             <View style={s.expandRow}>
-              <Text style={s.expandIcon}>🍽</Text>
+              <MaterialIcons name="restaurant" size={14} color="rgba(255,255,255,0.5)" />
               <Text style={s.expandText}>
                 Appetite connection: GLP-1 receptor activity follows the drug concentration curve. At peak concentration (typically Day 2–3 for weekly injectables), appetite suppression reaches 50–60%. By injection day, it returns toward baseline.
               </Text>
@@ -295,11 +478,6 @@ const createStyles = (c: AppColors) => {
       borderColor: c.border,
       gap: 4,
     },
-    pillToday: {
-      backgroundColor: '#FF742A',
-      borderColor: '#FF742A',
-      paddingVertical: 14,
-    },
     stateDot: {
       width: 7,
       height: 7,
@@ -313,6 +491,8 @@ const createStyles = (c: AppColors) => {
     },
     dayLabelToday: {
       color: '#FFFFFF',
+      fontSize: 9,
+      letterSpacing: 0.3,
     },
     suppression: {
       fontSize: 11,
@@ -397,6 +577,82 @@ const createStyles = (c: AppColors) => {
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
+      fontFamily: 'Helvetica Neue',
+    },
+    dayDetail: {
+      marginTop: 10,
+      padding: 14,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      borderRadius: 14,
+      gap: 10,
+    },
+    dayDetailHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    dayDetailDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    dayDetailTitle: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textPrimary,
+      fontFamily: 'Helvetica Neue',
+    },
+    dayDetailClose: {
+      fontSize: 13,
+      color: c.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
+      fontFamily: 'Helvetica Neue',
+    },
+    dayDetailStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    dayDetailStat: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 3,
+    },
+    dayDetailStatDivider: {
+      width: StyleSheet.hairlineWidth,
+      height: 28,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+    },
+    dayDetailStatVal: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: c.textPrimary,
+      fontFamily: 'Helvetica Neue',
+    },
+    dayDetailStatLbl: {
+      fontSize: 10,
+      color: c.textSecondary,
+      fontFamily: 'Helvetica Neue',
+      textAlign: 'center',
+    },
+    dayDetailProjectedNote: {
+      fontSize: 11,
+      color: '#FF742A',
+      fontFamily: 'Helvetica Neue',
+      fontStyle: 'italic',
+    },
+    dayDetailTip: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 17,
+      fontFamily: 'Helvetica Neue',
+    },
+    dayDetailAiBtn: {
+      alignSelf: 'flex-start',
+    },
+    dayDetailAiBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#FF742A',
       fontFamily: 'Helvetica Neue',
     },
     emptyBody: {

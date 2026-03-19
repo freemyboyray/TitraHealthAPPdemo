@@ -1,5 +1,9 @@
-import { glp1HrvOffset, glp1RhrOffset, type ShotPhase } from '@/constants/scoring';
-import { pkConcentrationPct } from '@/constants/drug-pk';
+import {
+  glp1HrvOffset, glp1RhrOffset,
+  glp1HrvOffsetIntraday, glp1RhrOffsetIntraday,
+  type ShotPhase, type IntradayPhase,
+} from '@/constants/scoring';
+import { pkConcentrationPct, DRUG_DOSE_APPETITE_RANGE } from '@/constants/drug-pk';
 import type { Glp1Type, Glp1Status } from '@/constants/user-profile';
 import { localDateStr } from '@/lib/date-utils';
 import type { ActivityLog, WeightLog } from '@/stores/log-store';
@@ -33,7 +37,76 @@ export type ForecastDay = {
   state: 'peak_suppression' | 'moderate_suppression' | 'returning' | 'near_baseline';
   label: string;
   isToday: boolean;
+  isShotDay: boolean;
+  isProjected: boolean;
 };
+
+// ─── Intraday Hour Block (daily drugs) ───────────────────────────────────────
+
+export type HourBlock = {
+  blockIndex: number;       // 0–5 (0 = dose time, 5 = last 4h window before next dose)
+  startHour: number;        // 0, 4, 8, 12, 16, 20
+  endHour: number;          // 4, 8, 12, 16, 20, 24
+  label: string;            // e.g. "0–4h"
+  appetiteSuppressionPct: number;
+  pkConcentrationPct: number;
+  isCurrent: boolean;
+  phase: 'post_dose' | 'peak' | 'trough';
+};
+
+/**
+ * Generates 6 four-hour blocks representing the intraday PK curve for daily drugs.
+ * Uses the midpoint of each block (t = 2, 6, 10, 14, 18, 22h) to sample PK level.
+ * @param doseTime HH:MM string of the daily dose time (e.g. "08:00")
+ */
+export function generateIntradayForecast(
+  glp1Type: Glp1Type,
+  glp1Status: Glp1Status,
+  doseTime: string = '08:00',
+  doseMg?: number | null,
+): HourBlock[] {
+  const [hh, mm] = doseTime.split(':').map(Number);
+  const intervalH = 24;
+  const atSteadyState = glp1Status === 'active';
+  const now = new Date();
+  const doseDate = new Date(now);
+  doseDate.setHours(hh, mm ?? 0, 0, 0);
+  // If dose time is in the future today, use yesterday's dose
+  if (doseDate > now) doseDate.setDate(doseDate.getDate() - 1);
+  const hoursSinceDoseNow = (now.getTime() - doseDate.getTime()) / 3600000;
+
+  // Drug-specific Tmax for phase classification
+  const tmaxMap: Record<string, number> = {
+    liraglutide: 11, oral_semaglutide: 1, orforglipron: 8,
+  };
+  const tmax = tmaxMap[glp1Type] ?? 8;
+
+  return Array.from({ length: 6 }, (_, i) => {
+    const startHour = i * 4;
+    const endHour   = startHour + 4;
+    const midpoint  = startHour + 2; // sample PK at block midpoint
+
+    const pkPct = Math.round(pkConcentrationPct(midpoint, glp1Type, atSteadyState, intervalH));
+    const appetiteSuppressionPct = computeAppetiteSuppressionPct(pkPct, glp1Type, doseMg);
+    const isCurrent = hoursSinceDoseNow >= startHour && hoursSinceDoseNow < endHour;
+
+    let phase: HourBlock['phase'];
+    if (midpoint < tmax * 0.5)       phase = 'post_dose';
+    else if (midpoint < tmax * 2.0)  phase = 'peak';
+    else                              phase = 'trough';
+
+    return {
+      blockIndex: i,
+      startHour,
+      endHour,
+      label: `+${startHour}–${endHour}h`,
+      appetiteSuppressionPct,
+      pkConcentrationPct: pkPct,
+      isCurrent,
+      phase,
+    };
+  });
+}
 
 export type MetabolicAdaptationResult = {
   hasEnoughData: boolean;
@@ -63,10 +136,27 @@ export type CycleIntelligenceResult = {
 };
 
 // ─── Appetite suppression % from PK concentration ─────────────────────────────
-// Linear map: pkPct=0 → 5% suppression (near-baseline), pkPct=100 → 58% (peak)
+// Linear map: pkPct=0 → 5% suppression (near-baseline), pkPct=100 → ceiling (peak)
+// Ceiling is dose-tier scaled; thresholds scale with ceiling so all four states
+// remain reachable even on starter doses.
 
-export function computeAppetiteSuppressionPct(pkPct: number): number {
-  return Math.round(5 + (pkPct / 100) * 53);
+function computeSuppressionCeiling(glp1Type: Glp1Type, doseMg?: number | null): number {
+  const range = DRUG_DOSE_APPETITE_RANGE[glp1Type];
+  const dose = doseMg ?? range.maxDoseMg;
+  const clamped = Math.max(range.minDoseMg, Math.min(range.maxDoseMg, dose));
+  const tierFraction = (range.maxDoseMg - range.minDoseMg) > 0
+    ? (clamped - range.minDoseMg) / (range.maxDoseMg - range.minDoseMg)
+    : 1.0;
+  return range.minSuppPct + tierFraction * (range.maxSuppPct - range.minSuppPct);
+}
+
+export function computeAppetiteSuppressionPct(
+  pkPct: number,
+  glp1Type: Glp1Type,
+  doseMg?: number | null,
+): number {
+  const ceiling = computeSuppressionCeiling(glp1Type, doseMg);
+  return Math.round(5 + (pkPct / 100) * (ceiling - 5));
 }
 
 // ─── Energy forecast % from PK concentration ──────────────────────────────────
@@ -83,6 +173,7 @@ export function generateForecastStrip(
   injFreqDays: number,
   glp1Type: Glp1Type,
   glp1Status: Glp1Status,
+  doseMg?: number | null,
 ): ForecastDay[] {
   if (!lastInjectionDate) return [];
 
@@ -90,24 +181,33 @@ export function generateForecastStrip(
   today.setHours(0, 0, 0, 0);
   const todayStr = localDateStr(today);
 
-  const displayDays = Math.min(injFreqDays, 7);
+  const lastInjDate = new Date(lastInjectionDate + 'T00:00:00');
+  const nextShotDate = new Date(lastInjDate.getTime() + injFreqDays * 86400000);
+  const shotDue = today >= nextShotDate;
+  const anchorDateStr = shotDue ? todayStr : lastInjectionDate;
+  const isProjected = shotDue;
+
+  const displayDays = injFreqDays; // show full cycle (7 or 14 pills)
   const intervalH = injFreqDays * 24;
   const atSteadyState = glp1Status === 'active';
 
   return Array.from({ length: displayDays }, (_, i) => {
-    const injDate = new Date(lastInjectionDate + 'T00:00:00');
+    const injDate = new Date(anchorDateStr + 'T00:00:00');
     const dayDate = new Date(injDate.getTime() + i * 86400000);
     const dateStr = localDateStr(dayDate);
     const tHours = (i + 1) * 24; // day 1 = 24h post-injection
 
     const pkPct = Math.round(pkConcentrationPct(tHours, glp1Type, atSteadyState, intervalH));
-    const appetiteSuppressionPct = computeAppetiteSuppressionPct(pkPct);
+    const appetiteSuppressionPct = computeAppetiteSuppressionPct(pkPct, glp1Type, doseMg);
     const energyForecastPct = computeEnergyForecastPct(pkPct);
 
+    // Thresholds expressed as fractions of the dose-scaled ceiling so users on
+    // starter doses still cycle through all four gradient phases.
+    const ceiling = computeSuppressionCeiling(glp1Type, doseMg);
     const state: ForecastDay['state'] =
-      appetiteSuppressionPct >= 60 ? 'peak_suppression'
-      : appetiteSuppressionPct >= 40 ? 'moderate_suppression'
-      : appetiteSuppressionPct >= 20 ? 'returning'
+      appetiteSuppressionPct >= ceiling * 0.85 ? 'peak_suppression'
+      : appetiteSuppressionPct >= ceiling * 0.60 ? 'moderate_suppression'
+      : appetiteSuppressionPct >= ceiling * 0.35 ? 'returning'
       : 'near_baseline';
 
     const stateLabels: Record<ForecastDay['state'], string> = {
@@ -126,6 +226,8 @@ export function generateForecastStrip(
       state,
       label: stateLabels[state],
       isToday: dateStr === todayStr,
+      isShotDay: i === 0 && dateStr === todayStr,
+      isProjected,
     };
   });
 }
@@ -149,6 +251,8 @@ export function classifyBiometricDeviation(
   baseline: number | null,
   phase: ShotPhase | null,
   metric: 'hrv' | 'rhr' | 'sleep',
+  intradayPhase?: IntradayPhase | null,
+  glp1Type?: string,
 ): MetricInterpretation {
   if (actual === null || baseline === null) {
     return {
@@ -170,12 +274,16 @@ export function classifyBiometricDeviation(
 
   switch (metric) {
     case 'hrv':
-      expectedDelta = phase ? -glp1HrvOffset(phase) : 0;
+      expectedDelta = intradayPhase != null
+        ? -glp1HrvOffsetIntraday(intradayPhase, glp1Type)
+        : phase ? -glp1HrvOffset(phase) : 0;
       tolerance = HRV_TOLERANCE;
       higherIsBetter = true;
       break;
     case 'rhr':
-      expectedDelta = phase ? -glp1RhrOffset(phase) : 0;
+      expectedDelta = intradayPhase != null
+        ? -glp1RhrOffsetIntraday(intradayPhase, glp1Type)
+        : phase ? -glp1RhrOffset(phase) : 0;
       tolerance = RHR_TOLERANCE;
       higherIsBetter = false;
       break;

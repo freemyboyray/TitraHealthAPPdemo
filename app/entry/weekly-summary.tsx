@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
-import * as Print from 'expo-print';
+// expo-print requires a dev build; guard so Expo Go doesn't crash.
+let Print: typeof import('expo-print') | undefined;
+try { Print = require('expo-print'); } catch {}
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +22,7 @@ import { useHealthData } from '@/contexts/health-data';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { computeWeeklySummary, type WeeklySummaryData } from '@/lib/weekly-summary';
+import { generateForecastStrip } from '@/lib/cycle-intelligence';
 import { generateWeeklyInsight } from '@/lib/openai';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -200,7 +203,7 @@ export default function WeeklySummaryScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
   const { targets } = useHealthData();
-  const { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs } = useLogStore();
+  const { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs, injectionLogs } = useLogStore();
   const { setLastWeeklySummaryDate } = usePreferencesStore();
   const { openAiChat } = useUiStore();
 
@@ -209,6 +212,42 @@ export default function WeeklySummaryScreen() {
   const [aiLoading, setAiLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
   const computedRef = useRef(false);
+
+  // Guard: profile required for AI insight + PDF export. Show loading until ready.
+  if (!profile) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={ORANGE} />
+      </View>
+    );
+  }
+
+  const pkComparisonData = useMemo(() => {
+    const lastInjection = injectionLogs[0]?.injection_date ?? null;
+    const reportedScore = summary?.checkins.appetite ?? null;
+    if (!lastInjection || reportedScore == null || !profile) return null;
+
+    const strip = generateForecastStrip(
+      lastInjection,
+      profile.injectionFrequencyDays ?? 7,
+      profile.glp1Type,
+      profile.glp1Status,
+      profile.doseMg ?? null,
+    );
+    if (strip.length === 0) return null;
+
+    const avgSuppression = strip.reduce((s, d) => s + d.appetiteSuppressionPct, 0) / strip.length;
+    // Map to 0–100 using 65 as universal denominator; cap at 100 (tirzepatide ceiling is 72)
+    const predictedScore = Math.min(100, Math.round((avgSuppression / 65) * 100));
+
+    const delta = reportedScore - predictedScore;
+    const deltaLabel =
+      Math.abs(delta) <= 10 ? 'Control matched expectations'
+      : delta > 10           ? 'Higher than predicted'
+      :                        'Lower than predicted';
+
+    return { predictedScore, reportedScore, deltaLabel };
+  }, [injectionLogs, summary?.checkins.appetite, profile]);
 
   // Mark summary as shown immediately on mount — prevents re-triggering gate
   useEffect(() => {
@@ -261,6 +300,7 @@ export default function WeeklySummaryScreen() {
 
   const handleExportPdf = async () => {
     if (!summary || !profile) return;
+    if (!Print) { console.warn('expo-print not available in Expo Go'); return; }
     setPdfLoading(true);
     try {
       const html = buildPdfHtml(summary, aiInsight, profile.medicationBrand, profile.doseMg);
@@ -435,6 +475,27 @@ export default function WeeklySummaryScreen() {
                       </View>
                     ))
                   }
+                </View>
+              )}
+              {pkComparisonData && (
+                <View style={s.pkCompareBlock}>
+                  <View style={s.pkCompareRow}>
+                    <Text style={s.pkCompareLabel}>PK model prediction</Text>
+                    <View style={[s.checkinScore, { backgroundColor: scoreColor(pkComparisonData.predictedScore) + '22' }]}>
+                      <Text style={[s.checkinScoreText, { color: scoreColor(pkComparisonData.predictedScore) }]}>
+                        {pkComparisonData.predictedScore}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={s.pkCompareRow}>
+                    <Text style={s.pkCompareLabel}>Reported appetite control</Text>
+                    <View style={[s.checkinScore, { backgroundColor: scoreColor(pkComparisonData.reportedScore) + '22' }]}>
+                      <Text style={[s.checkinScoreText, { color: scoreColor(pkComparisonData.reportedScore) }]}>
+                        {pkComparisonData.reportedScore}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={s.pkDeltaLabel}>{pkComparisonData.deltaLabel}</Text>
                 </View>
               )}
             </SectionCard>
@@ -626,6 +687,32 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   checkinPillLabel: { fontSize: 13, color: c.textPrimary, fontFamily: FF },
   checkinScore: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   checkinScoreText: { fontSize: 12, fontWeight: '700', fontFamily: FF },
+
+  // PK comparison
+  pkCompareBlock: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: c.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+    gap: 6,
+  },
+  pkCompareRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pkCompareLabel: {
+    fontSize: 13,
+    color: c.textSecondary,
+    fontFamily: FF,
+  },
+  pkDeltaLabel: {
+    fontSize: 11,
+    color: c.textSecondary,
+    fontFamily: FF,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
 
   // Side effects
   seChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

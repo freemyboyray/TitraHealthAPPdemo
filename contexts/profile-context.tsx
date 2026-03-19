@@ -10,6 +10,7 @@ import { computeBaseTargets } from '@/lib/targets';
 import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = '@titrahealth_profile';
+const DRAFT_KEY   = '@titrahealth_profile_draft';
 
 // ─── Context Type ─────────────────────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ type ProfileContextValue = {
   completeOnboarding: () => Promise<void>;
   resetProfile: () => Promise<void>;
   updateProfile: (fields: Partial<FullUserProfile>) => Promise<void>;
+  /** Directly set the in-memory profile (e.g. demo mode). */
+  setProfile: (p: FullUserProfile | null) => void;
   isLoading: boolean;
 };
 
@@ -43,7 +46,8 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     initialDoseMg:          row.initial_dose_mg ?? null,
     doseStartDate:          row.dose_start_date ?? '',
     injectionFrequencyDays: row.injection_frequency_days ?? 7,
-    lastInjectionDate: '',
+    doseTime:               row.dose_time ?? '',
+    lastInjectionDate: row.last_injection_date ?? '',
     sex: row.sex ?? 'prefer_not_to_say',
     birthday: row.dob ?? '',
     age: row.dob
@@ -94,7 +98,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // 2. If empty + session exists → try Supabase profiles table
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          // Rehydrate draft so returning users don't lose onboarding progress
+          const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
+          if (draftJson) setDraft(JSON.parse(draftJson) as ProfileDraft);
+          return;
+        }
 
         const { data: row } = await supabase
           .from('profiles')
@@ -107,6 +116,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const reconstructed = mapSupabaseToProfile(row);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reconstructed));
           setProfile(reconstructed);
+        } else {
+          // No completed profile yet — rehydrate in-progress draft
+          const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
+          if (draftJson) setDraft(JSON.parse(draftJson) as ProfileDraft);
         }
       } finally {
         setIsLoading(false);
@@ -117,7 +130,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateDraft = (fields: Partial<FullUserProfile>) => {
-    setDraft((prev) => ({ ...prev, ...fields }));
+    setDraft((prev) => {
+      const next = { ...prev, ...fields };
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   };
 
   const completeOnboarding = async () => {
@@ -129,6 +146,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } as FullUserProfile;
 
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(complete));
+    await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(complete);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -140,6 +158,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         dose_mg:                  complete.doseMg,
         medication_type:          complete.glp1Type,
         injection_frequency_days: complete.injectionFrequencyDays,
+        dose_time:                complete.doseTime || null,
         program_start_date:       complete.startDate,
         start_weight_lbs:         complete.startWeightLbs,
         goal_weight_lbs:          complete.goalWeightLbs,
@@ -156,6 +175,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         unit_system:              complete.unitSystem,
         initial_dose_mg:          complete.initialDoseMg,
         dose_start_date:          complete.doseStartDate || null,
+        last_injection_date:      complete.lastInjectionDate || null,
       });
 
       // 2. Upsert user_goals (computed from Mifflin-St Jeor base targets)
@@ -190,7 +210,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.glp1Status              !== undefined) row.glp1_status               = fields.glp1Status;
       if (fields.initialDoseMg           !== undefined) row.initial_dose_mg           = fields.initialDoseMg;
       if (fields.injectionFrequencyDays  !== undefined) row.injection_frequency_days  = fields.injectionFrequencyDays;
+      if (fields.doseTime                !== undefined) row.dose_time                 = fields.doseTime || null;
       if (fields.doseStartDate           !== undefined) row.dose_start_date           = fields.doseStartDate;
+      if (fields.lastInjectionDate       !== undefined) row.last_injection_date       = fields.lastInjectionDate || null;
       if (fields.sex                     !== undefined) row.sex                       = fields.sex;
       if (fields.birthday                !== undefined) row.dob                       = fields.birthday;
       if (fields.unitSystem              !== undefined) row.unit_system               = fields.unitSystem;
@@ -233,6 +255,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const resetProfile = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(null);
     setDraft({});
     const { data: { user } } = await supabase.auth.getUser();
@@ -243,7 +266,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider
-      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, isLoading }}>
+      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, setProfile, isLoading }}>
       {children}
     </ProfileContext.Provider>
   );

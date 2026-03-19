@@ -61,6 +61,28 @@ export const DRUG_DEFAULT_FREQ_DAYS: Record<Glp1Type, number> = {
   orforglipron:     1,
 };
 
+// ─── Dose-tier appetite suppression ceiling ───────────────────────────────────
+
+export type DoseAppetiteRange = {
+  minDoseMg:  number;
+  maxDoseMg:  number;
+  minSuppPct: number;  // suppression ceiling at starter dose (peak-PK)
+  maxSuppPct: number;  // suppression ceiling at maintenance dose (peak-PK)
+};
+
+// Clinical basis: starter doses produce ~30–50% of maintenance appetite suppression.
+// minSuppPct = ceiling at minimum labelled dose (≈ 33% of maxSuppPct).
+// Tirzepatide ceiling higher (dual GIP/GLP-1 agonism, SURMOUNT-1 data).
+// Oral semaglutide: lower starter ceiling (poor bioavailability at 1.5mg, SNAC-mediated).
+export const DRUG_DOSE_APPETITE_RANGE: Record<Glp1Type, DoseAppetiteRange> = {
+  semaglutide:      { minDoseMg:  0.25, maxDoseMg:  2.4, minSuppPct: 22, maxSuppPct: 65 },
+  tirzepatide:      { minDoseMg:  2.5,  maxDoseMg: 15.0, minSuppPct: 24, maxSuppPct: 72 },
+  dulaglutide:      { minDoseMg:  0.75, maxDoseMg:  4.5, minSuppPct: 18, maxSuppPct: 55 },
+  liraglutide:      { minDoseMg:  0.6,  maxDoseMg:  3.0, minSuppPct: 18, maxSuppPct: 60 },
+  oral_semaglutide: { minDoseMg:  1.5,  maxDoseMg: 25.0, minSuppPct: 14, maxSuppPct: 65 },
+  orforglipron:     { minDoseMg: 12.0,  maxDoseMg: 36.0, minSuppPct: 22, maxSuppPct: 68 },
+};
+
 // ─── Bateman equation helpers ─────────────────────────────────────────────────
 
 function singleC(t: number, ka: number, ke: number): number {

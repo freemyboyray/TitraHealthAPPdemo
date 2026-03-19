@@ -101,9 +101,9 @@ export default function GoalSpeedScreen() {
 
         {/* Track markers */}
         <View style={s.markerRow}>
-          <Text style={s.markerText}>🚶 Gentle</Text>
-          <Text style={s.markerText}>🚗 Moderate</Text>
-          <Text style={s.markerText}>🚀 Fast</Text>
+          <Text style={s.markerText}>Gentle</Text>
+          <Text style={s.markerText}>Moderate</Text>
+          <Text style={s.markerText}>Fast</Text>
         </View>
 
         <View style={s.spacer} />

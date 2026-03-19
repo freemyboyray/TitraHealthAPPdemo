@@ -193,7 +193,6 @@ export function AiChatOverlay() {
   const inputRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
   const wasOpenRef = useRef(false);
-  const seedSentRef = useRef(false);
 
   // ─── History state ────────────────────────────────────────────────────────
   const [showHistory, setShowHistory] = useState(false);
@@ -211,23 +210,14 @@ export function AiChatOverlay() {
   useEffect(() => {
     if (aiChatOpen && !wasOpenRef.current) {
       setMessages([]);
-      setInputText('');
+      setInputText(aiChatParams.seedMessage ?? '');
       setPendingImage(null);
       setShowHistory(false);
       setResumedFrom(null);
       setPillVisible(!!aiChatParams.contextLabel);
-      seedSentRef.current = false;
     }
     wasOpenRef.current = aiChatOpen;
   }, [aiChatOpen]);
-
-  // Auto-send seed message after state resets
-  useEffect(() => {
-    if (aiChatOpen && aiChatParams.seedMessage && !seedSentRef.current && messages.length === 0) {
-      seedSentRef.current = true;
-      sendMessage(aiChatParams.seedMessage);
-    }
-  }, [aiChatOpen, aiChatParams.seedMessage]);
 
   // ─── Auto-focus ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -503,6 +493,35 @@ export function AiChatOverlay() {
               )}
             </ScrollView>
 
+            {/* Suggestion chips — shown only when conversation is empty */}
+            {messages.length === 0 && !loading && aiChatParams.chips && (() => {
+              let parsed: string[] = [];
+              try { parsed = JSON.parse(aiChatParams.chips); } catch {}
+              if (!parsed.length) return null;
+              return (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ maxHeight: 48, marginBottom: 6 }}
+                  contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center' }}
+                >
+                  {parsed.map((chip, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => setInputText(chip)}
+                      style={{
+                        backgroundColor: 'rgba(255,116,42,0.12)',
+                        borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)',
+                        borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+                      }}
+                    >
+                      <Text style={{ color: '#FF742A', fontSize: 13, fontWeight: '600' }}>{chip}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              );
+            })()}
+
             {/* Input card - pinned at bottom */}
             <Animated.View
               style={[s.inputWrapper, { marginBottom: Math.max(insets.bottom, 12) + 4, transform: [{ translateY: inputTranslateY }] }]}
@@ -550,7 +569,7 @@ export function AiChatOverlay() {
                           <Ionicons name="camera-outline" size={22} color={iconColor} />
                         </TouchableOpacity>
                         <TouchableOpacity activeOpacity={0.7} style={s.iconBtn} onPress={handlePickLibrary}>
-                          <MaterialIcons name="attach-file" size={22} color={iconColor} />
+                          <MaterialIcons name="photo-library" size={22} color={iconColor} />
                         </TouchableOpacity>
                       </View>
                       <TouchableOpacity

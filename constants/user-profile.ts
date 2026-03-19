@@ -64,6 +64,7 @@ export type FullUserProfile = {
   initialDoseMg: number | null;     // dose they started on
   doseStartDate: string;            // YYYY-MM-DD, when they started current dose
   injectionFrequencyDays: number;   // 1 | 7 | 14 | custom
+  doseTime: string;                 // HH:MM (e.g. "08:00") — daily drug dose time; empty for weekly
   lastInjectionDate: string;        // YYYY-MM-DD (also used as "last dose date" for oral)
   sex: Sex;
   birthday: string;                 // YYYY-MM-DD
