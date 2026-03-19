@@ -2,7 +2,7 @@
 
 **Project:** TitraHealthAPPdemo
 **Platform:** iOS / Android (React Native + Expo)
-**Last Updated:** March 19, 2026 (rev 13)
+**Last Updated:** March 19, 2026 (rev 14)
 
 ---
 
@@ -178,7 +178,8 @@ TitraHealthAPPdemo/
 │   │   └── wheel-picker.tsx       # Snap-scroll FlatList wheel picker
 │   └── ui/
 │       ├── collapsible.tsx        # Expand/collapse section
-│       ├── glass-border.tsx       # Shared dark-glass border primitive (4-sided rgba values)
+│       ├── glass-border.tsx       # Shared dark-glass border primitive (4-sided rgba values; isDark prop)
+│       ├── tab-screen-wrapper.tsx # Animated fade+scale wrapper for tab screens (Reanimated, useFocusEffect)
 │       ├── icon-symbol.tsx        # Cross-platform icon bridge
 │       └── icon-symbol.ios.tsx    # iOS SF Symbols version
 ├── contexts/
@@ -304,7 +305,8 @@ All screens use a runtime theme system. The active palette is provided via `cont
 | Token | Dark value | Light value | Usage |
 |---|---|---|---|
 | `bg` | `#000000` | `#FFFFFF` | Screen background |
-| `surface` | `#111111` | `#F5F5F5` | Card / sheet surface |
+| `surface` | `#111111` | `#F2F2F7` | Card / sheet surface |
+| `cardBg` | `#111111` | `#FFFFFF` | Card backgrounds (stand out from page bg in light mode) |
 | `textPrimary` | `#FFFFFF` | `#000000` | All primary text |
 | `textSecondary` | `#9A9490` | `#6B6868` | Subtitles, labels |
 | `textMuted` | `#5A5754` | `#9A9490` | Placeholders, disabled |
@@ -350,6 +352,9 @@ Container (shadow + borderRadius)
 ```
 
 Shadow: `shadowColor '#000000', offset {0,8}, opacity 0.08–0.12, radius 24, elevation 8`
+
+**`cardElevation(isDark)` helper** (`constants/theme.ts` — rev 14):
+Returns a shadow/border style object to use on any card container. Dark mode: `shadowColor #000`, offset `{0,6}`, opacity 0.20, radius 20, elevation 6. Light mode: `borderWidth 1`, `borderColor rgba(0,0,0,0.09)` (no shadow — avoids ugly box-shadow on white). Replaces ad-hoc inline shadow objects across all card components.
 
 ### Onboarding — Dark, consistent with main app
 
@@ -960,7 +965,8 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Splash Gate | `app/index.tsx` | ✅ Complete | Session + profile gate, brand splash |
 | `ScoreRing` | `components/score-ring.tsx` | ✅ Complete | Animated SVG arc; message text conditionally rendered |
 | `RingBreakdown` | `components/ring-breakdown.tsx` | ✅ Complete | Tap-to-expand breakdown sheet |
-| `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Complete | Reusable dark-glass border primitive |
+| `GlassBorder` | `components/ui/glass-border.tsx` | ✅ Complete | Reusable dark-glass border primitive; `isDark` prop added (rev 14) |
+| `TabScreenWrapper` | `components/ui/tab-screen-wrapper.tsx` | ✅ Complete | Animated fade-in + scale-up (220ms Reanimated2) on tab focus; instant reset on blur (rev 14) |
 | Home Dashboard | `app/(tabs)/index.tsx` | ✅ Built | Data-driven; quarter-arc rings; AI insights; help button |
 | `RingsExplainerModal` | inline in `app/(tabs)/index.tsx` | ✅ Built | "How Your Rings Work" slide-up modal |
 | `AddEntrySheet` | `components/add-entry-sheet.tsx` | ✅ Built | All 10 items; DESCRIBE FOOD AI parser inline; SIDE EFFECTS button restored (rev 8) |
@@ -1087,6 +1093,13 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Log store expanded to 7 check-in domains + delete session (rev 13)** — `stores/log-store.ts` `weeklyCheckins` record now covers all 7 domains (added `energy_mood`, `appetite`, `food_noise`); `fetchInsightsData()` fetches all 7 in parallel; `deleteWeeklyCheckinSession(date)` deletes all rows for a calendar date; `deleteInjectionLog()` now syncs `profiles.last_injection_date` after deletion
 - [x] **Profile fields: doseTime + last_injection_date persisted (rev 13)** — `FullUserProfile.doseTime` (`HH:MM`) field added; Supabase migrations add `dose_time TEXT` and `last_injection_date TEXT` columns to `profiles`; shot-cycle phase now survives app reloads without needing injection log query at startup
 - [x] **Notifications Expo Go guard (rev 13)** — `lib/notifications.ts` lazy-imports `expo-notifications` via try/catch; module unavailable in Expo Go (requires native dev build) no longer crashes the app
+- [x] **`TabScreenWrapper` (rev 14)** — `components/ui/tab-screen-wrapper.tsx`; `Animated.View` (Reanimated2) wrapping each tab screen; `useFocusEffect` drives `opacity` 0→1 and `scale` 0.97→1 over 220ms with `Easing.out(Easing.quad)` on focus; instant reset on blur; applied to Settings tab (and intended for all tab root screens)
+- [x] **`cardElevation()` helper (rev 14)** — `constants/theme.ts`; exported function accepting `isDark: boolean`; dark mode returns `shadowColor #000`, offset `{0,6}`, opacity 0.20, radius 20, elevation 6; light mode returns `borderWidth 1, borderColor rgba(0,0,0,0.09)` (no shadow); replaces all inline shadow objects in `ClinicalAlertCard`, `FoodNoiseCard`, and other card components
+- [x] **`cardBg` color token + light surface fix (rev 14)** — `constants/theme.ts`; new `cardBg` token (`#111111` dark / `#FFFFFF` light) for card backgrounds that must stand out from the page bg in light mode; light mode `surface` updated `#F5F5F5` → `#F2F2F7` to match iOS system grouped background
+- [x] **`GlassBorder` `isDark` prop (rev 14)** — `components/ui/glass-border.tsx` now accepts an `isDark` prop so consumers can pass the theme flag directly rather than inferring it; `FoodNoiseCard` and other consumers updated
+- [x] **Focus card copy overhaul (rev 14)** — `constants/scoring.ts`; `buildFocusItem()` now produces context-sensitive `label` (e.g. "Almost at your protein goal" vs "Great job hitting protein today") and `subtitle` based on completion status and shot phase; daily-rotating tip pools added (`PROTEIN_TIPS`, `HYDRATION_TIPS`, `FIBER_TIPS`, `ACTIVITY_TIPS`, `SLEEP_TIPS`); `getDayOfYear()` + `dailyPick()` rotate subtitles deterministically by calendar day so each focus shows a different evidence-based tip each day; `buildFocusItem` accepts optional `dayOfYear` for testability
+- [x] **Context snapshot daily drug awareness (rev 14)** — `lib/context-snapshot.ts`; detects `injFreqDays === 1` (daily drug); "last injection / next injection" labels replaced with "last dose / next dose" for daily drugs; `doseTime` (`HH:MM`) surfaced as "daily at HH:MM" for next-dose field; intraday phase label replaces "injection cycle" label in program phase block; AI coaching context now correctly describes oral/daily-injectable users
+- [x] **Edit Personal screen: injection frequency + dose time (rev 14)** — `app/settings/edit-personal.tsx`; added "Injection Frequency" section with `OptionPill` row (Every day / Every 7 days / Every 14 days); daily drug users see a `DateTimePicker` (time mode) to set their `doseTime`; `updateProfile()` saves `injectionFrequencyDays` and `doseTime` (empty string for weekly injectables); `@react-native-community/datetimepicker` used (already installed for `MissedShotModal`)
 
 ### In Progress / Partially Done
 
@@ -1157,4 +1170,4 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 
 ---
 
-*This document reflects the state of the codebase as of March 19, 2026 (rev 13). It should be updated as features are built and decisions are made.*
+*This document reflects the state of the codebase as of March 19, 2026 (rev 14). It should be updated as features are built and decisions are made.*
