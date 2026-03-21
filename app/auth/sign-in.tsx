@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as AppleAuthentication from 'expo-apple-authentication';
 // expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
 let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
@@ -181,7 +180,6 @@ export default function SignInScreen() {
   const [rememberMe, setRememberMe]       = useState(false);
   const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
 
   function handleTabChange(t: 'login' | 'register') {
@@ -351,43 +349,6 @@ export default function SignInScreen() {
     }
   }
 
-  // ── Apple Sign In ───────────────────────────────────────────────────────
-  async function handleAppleSignIn() {
-    if (!checkSupabaseConfigured()) return;
-    if (Platform.OS !== 'ios') {
-      setError('Apple Sign In is only available on iOS.');
-      return;
-    }
-    const available = await AppleAuthentication.isAvailableAsync();
-    if (!available) {
-      setError('Apple Sign In requires iOS 13+ on a real device.');
-      return;
-    }
-    setAppleLoading(true);
-    setError(null);
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      const { identityToken } = credential;
-      if (!identityToken) throw new Error('No identity token returned from Apple.');
-      const { data, error: err } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: identityToken,
-      });
-      if (err) { setError(err.message); return; }
-      await finishOAuth(data.session);
-    } catch (e: any) {
-      if (e.code !== 'ERR_REQUEST_CANCELED') {
-        setError(e.message ?? 'Apple sign-in failed.');
-      }
-    } finally {
-      setAppleLoading(false);
-    }
-  }
 
   const isLogin = activeTab === 'login';
   const headline = isLogin ? 'Welcome back' : 'Create account';
@@ -525,24 +486,6 @@ export default function SignInScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Apple - iOS only */}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={s.socialBtn}
-                  onPress={handleAppleSignIn}
-                  activeOpacity={0.85}
-                  disabled={appleLoading}
-                >
-                  {appleLoading ? (
-                    <ActivityIndicator size="small" color={INPUT_TEXT} />
-                  ) : (
-                    <>
-                      <Ionicons name="logo-apple" size={20} color={INPUT_TEXT} />
-                      <Text style={s.socialBtnText}>Apple</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Demo link */}

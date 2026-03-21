@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titrahealth.app",
-      "buildNumber": "2",
+      "buildNumber": "5",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
         "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
@@ -22,8 +22,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true,
-        "com.apple.developer.Sign-in-with-Apple": "Default"
+        "com.apple.developer.healthkit": true
       }
     },
     "android": {
@@ -77,7 +76,6 @@
         }
       ],
       "react-native-health-connect",
-      "expo-apple-authentication",
       "@react-native-community/datetimepicker",
       [
         "expo-notifications",
