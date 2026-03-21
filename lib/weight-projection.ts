@@ -13,7 +13,7 @@ export type PlateauRisk = 'none' | 'approaching' | 'detected';
 export type WeightProjection = {
   lossToDateLbs: number;
   lossToDatePct: number;
-  weeklyLossRateLbs: number;   // linear regression over last 4 weight logs
+  weeklyLossRateLbs: number;   // total avg rate since program start (lossToDate / programWeek)
   earlyResponderFlag: boolean; // >= 5% loss by week 12
   confidenceLevel: ConfidenceLevel;
   projectedTotalLossLbs: number;
@@ -118,7 +118,7 @@ export function computeWeightProjection(params: {
     ? Math.round((lossToDateLbs / startWeightLbs) * 1000) / 10
     : 0;
 
-  // 3. Linear regression over last 4 weight logs (most recent first → sort by date asc)
+  // 3. Linear regression over last 4 weight logs (used for trend/plateau detection)
   const sorted4 = [...weightLogHistory]
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
     .slice(-4);
@@ -138,8 +138,13 @@ export function computeWeightProjection(params: {
     ? Math.min(3.0, Math.round(Math.abs(slope) * 7 * 10) / 10)
     : 0;
 
-  // Use regression if valid, else fall back to onboarding target
-  const weeklyLossRateLbs = regressionRate > 0 ? regressionRate : targetWeeklyLossLbs;
+  // Total average rate since program start (stable, clinically meaningful)
+  const totalAvgRateLbs = programWeek > 0
+    ? Math.round((lossToDateLbs / programWeek) * 10) / 10
+    : 0;
+
+  // Primary: total avg rate since start; fallback: regression; last resort: target
+  const weeklyLossRateLbs = totalAvgRateLbs > 0 ? totalAvgRateLbs : regressionRate > 0 ? regressionRate : targetWeeklyLossLbs;
 
   // 4. Early responder flag
   const earlyResponderFlag = programWeek >= 12 && lossToDatePct >= 5;

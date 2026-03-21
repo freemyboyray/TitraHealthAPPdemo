@@ -332,18 +332,12 @@ function ltComputeChart(
     valid: v !== null,
   }));
 
-  const validSegments: { x: number; y: number }[][] = [];
-  let seg: { x: number; y: number }[] = [];
-  pts.forEach(p => {
-    if (p.valid) { seg.push({ x: p.x, y: p.y }); }
-    else if (seg.length) { validSegments.push(seg); seg = []; }
-  });
-  if (seg.length) validSegments.push(seg);
-
-  const linePath = validSegments.map(s => smoothPath(s)).join(' ');
-
   const allValid = pts.filter(p => p.valid);
-  const areaPath = allValid.length >= 2
+  // Connect all valid points into one continuous line (skip null gaps between logged days)
+  const linePath = smoothPath(allValid.map(p => ({ x: p.x, y: p.y })));
+
+  // Guard: only produce areaPath when linePath starts with M (valid SVG), never a bare L
+  const areaPath = linePath && allValid.length >= 2
     ? `${linePath} L ${allValid[allValid.length - 1].x.toFixed(1)} ${(LT_TMT + plotH).toFixed(1)} L ${allValid[0].x.toFixed(1)} ${(LT_TMT + plotH).toFixed(1)} Z`
     : '';
 
@@ -723,6 +717,9 @@ function MedAIInsightsCard() {
 
 const CHART_HEIGHT = 110;
 const EXP_CHART_HEIGHT = 220;
+const ML = 40; // left margin for Y-axis labels
+const MR = 8;  // right margin
+const MT = 8;  // top margin
 
 // ── PK tier info ──────────────────────────────────────────────────────────────
 function pkTierInfo(pct: number): { label: string; color: string; body: string } {
@@ -876,6 +873,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     return (
       <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 24, alignItems: 'center' }]}>
+          <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 2, fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
           <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 4 }]}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
           <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first injection</Text>
           <Text style={[s.chartMuted, { textAlign: 'center', marginTop: 4 }]}>Your medication level curve will appear here</Text>
@@ -888,14 +886,17 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const colW = chartWidth > 0 ? chartWidth / n : 0;
   const expColW = expChartWidth > 0 ? expChartWidth / n : 0;
 
+  const plotW = chartWidth > 0 ? chartWidth - ML - MR : 0;
+  const expPlotW = expChartWidth > 0 ? expChartWidth - ML - MR : 0;
+
   const points = chartData.map((v, i) => ({
-    x: colW * i + colW / 2,
-    y: CHART_HEIGHT - (v / 100) * CHART_HEIGHT,
+    x: chartWidth > 0 ? ML + (n > 1 ? (plotW / (n - 1)) * i : plotW / 2) : 0,
+    y: MT + (CHART_HEIGHT - MT) * (1 - v / 100),
   }));
 
   const expPoints = chartData.map((v, i) => ({
-    x: expColW * i + expColW / 2,
-    y: EXP_CHART_HEIGHT - (v / 100) * EXP_CHART_HEIGHT,
+    x: expChartWidth > 0 ? ML + (n > 1 ? (expPlotW / (n - 1)) * i : expPlotW / 2) : 0,
+    y: MT + (EXP_CHART_HEIGHT - MT) * (1 - v / 100),
   }));
 
   const currentLevel = currentConcentrationPct ?? (chartData[chartData.length - 1] ?? 0);
@@ -910,88 +911,80 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const peakInfo = pkPeakEffectsExplain(glp1Type);
   const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
 
-  // Render chart internals (used in both compact and expanded views)
+  // Render chart internals as SVG (used in both compact and expanded views)
   function renderChartInternals(pts: { x: number; y: number }[], chartH: number, cW: number, cWFull: number) {
+    if (cWFull <= 0 || pts.length === 0) return null;
+    const plotH = chartH - MT;
+    const yTicks = [0, 25, 50, 75, 100];
+    const linePath = smoothPath(pts);
+    const firstPt = pts[0];
+    const lastPt = pts[pts.length - 1];
+    const areaPath = pts.length >= 2
+      ? `${linePath} L ${lastPt.x} ${chartH} L ${firstPt.x} ${chartH} Z`
+      : '';
+    const nowX = currentCyclePct != null ? ML + currentCyclePct * (cWFull - ML - MR) : null;
+    const nowY = currentConcentrationPct != null ? MT + plotH * (1 - currentConcentrationPct / 100) : null;
     return (
-      <>
-        {pts.map((pt, i) => (
-          <View
-            key={`area-${i}`}
-            style={{
-              position: 'absolute',
-              left: cW * i,
-              width: cW,
-              top: pt.y,
-              bottom: 0,
-              backgroundColor: 'rgba(255,116,42,0.08)',
-            }}
-          />
-        ))}
+      <Svg width={cWFull} height={chartH}>
+        <Defs>
+          <LinearGradient id="pkGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={ORANGE} stopOpacity="0.14" />
+            <Stop offset="1" stopColor={ORANGE} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
 
-        {pts.slice(0, -1).map((pt, i) => {
-          const next = pts[i + 1];
-          const dx = next.x - pt.x;
-          const dy = next.y - pt.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-          const midX = (pt.x + next.x) / 2;
-          const midY = (pt.y + next.y) / 2;
+        {/* Y-axis gridlines + labels */}
+        {yTicks.map(tick => {
+          const y = MT + plotH * (1 - tick / 100);
           return (
-            <View
-              key={`line-${i}`}
-              style={{
-                position: 'absolute',
-                width: length,
-                height: 2.5,
-                backgroundColor: ORANGE,
-                left: midX - length / 2,
-                top: midY - 1.25,
-                transform: [{ rotate: `${angle}deg` }],
-                borderRadius: 2,
-              }}
-            />
+            <React.Fragment key={`y-${tick}`}>
+              <Line
+                x1={ML} y1={y} x2={cWFull - MR} y2={y}
+                stroke="rgba(255,255,255,0.07)" strokeWidth={1} strokeDasharray="3,4"
+              />
+              <SvgText
+                x={ML - 5} y={y + 3.5}
+                fontSize={9} fill="rgba(255,255,255,0.35)"
+                textAnchor="end" fontFamily="Helvetica Neue"
+              >
+                {tick}%
+              </SvgText>
+            </React.Fragment>
           );
         })}
 
-        {currentCyclePct != null && cWFull > 0 && (() => {
-          const markerX = currentCyclePct * cWFull;
-          const markerConc = currentConcentrationPct ?? 0;
-          const markerY = chartH - (markerConc / 100) * chartH;
-          return (
-            <>
-              <View style={{
-                position: 'absolute',
-                left: markerX - 0.75,
-                top: 0, bottom: 0, width: 1.5,
-                backgroundColor: 'rgba(255,255,255,0.3)',
-                zIndex: 5,
-              }} />
-              <View style={{
-                position: 'absolute',
-                left: markerX - 18,
-                top: Math.max(2, markerY - 22),
-                width: 36,
-                alignItems: 'center',
-                backgroundColor: colors.isDark ? 'rgba(0,0,0,0.72)' : 'rgba(255,255,255,0.85)',
-                borderRadius: 5,
-                paddingHorizontal: 3,
-                paddingVertical: 2,
-                zIndex: 10,
-              }}>
-                <Text style={{ fontSize: 9, fontWeight: '700', color: ORANGE, letterSpacing: 0.5 }}>NOW</Text>
-              </View>
-              <View style={{
-                position: 'absolute',
-                width: 10, height: 10, borderRadius: 5,
-                backgroundColor: '#FFFFFF',
-                borderWidth: 2, borderColor: ORANGE,
-                left: markerX - 5, top: markerY - 5,
-                zIndex: 6,
-              }} />
-            </>
-          );
-        })()}
-      </>
+        {/* Area fill */}
+        {areaPath.length > 0 && <Path d={areaPath} fill="url(#pkGrad)" />}
+
+        {/* Line */}
+        {linePath.length > 0 && (
+          <Path d={linePath} stroke={ORANGE} strokeWidth={2} fill="none"
+            strokeLinecap="round" strokeLinejoin="round" />
+        )}
+
+        {/* Data dots */}
+        {pts.map((pt, i) => (
+          <Circle key={i} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} opacity={0.8} />
+        ))}
+
+        {/* NOW marker */}
+        {nowX != null && nowY != null && (
+          <>
+            <Line
+              x1={nowX} y1={0} x2={nowX} y2={chartH}
+              stroke="rgba(255,255,255,0.3)" strokeWidth={1.5}
+            />
+            <Circle cx={nowX} cy={nowY} r={5} fill="#FFFFFF" stroke={ORANGE} strokeWidth={2} />
+            <SvgText
+              x={nowX} y={Math.max(14, nowY - 8)}
+              fontSize={9} fontWeight="700" fill={ORANGE}
+              textAnchor="middle" fontFamily="Helvetica Neue"
+            >
+              NOW
+            </SvgText>
+          </>
+        )}
+      </Svg>
     );
   }
 
@@ -1005,7 +998,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={s.chartMuted}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+              <Text style={[s.chartMuted, { fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
               {!isDailyDrug && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Ionicons name="expand-outline" size={12} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
@@ -1013,6 +1006,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 </View>
               )}
             </View>
+            <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4, marginBottom: 2, gap: 8 }}>
               <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
               {concentrationDisplay && (
@@ -1024,22 +1018,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             </Text>
 
             <View style={{ height: CHART_HEIGHT }} onLayout={onLayout}>
-              {chartWidth > 0 && (
-                <>
-                  {renderChartInternals(points, CHART_HEIGHT, colW, chartWidth)}
-                  {points.map((pt, i) => (
-                    <View
-                      key={`dot-${i}`}
-                      style={{
-                        position: 'absolute',
-                        width: 8, height: 8, borderRadius: 4,
-                        backgroundColor: ORANGE,
-                        left: pt.x - 4, top: pt.y - 4,
-                      }}
-                    />
-                  ))}
-                </>
-              )}
+              {chartWidth > 0 && renderChartInternals(points, CHART_HEIGHT, colW, chartWidth)}
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
@@ -1096,7 +1075,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Medication Level</Text>
+                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Drug Concentration</Text>
                   <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
                 </View>
                 <Pressable onPress={dismissSheet} hitSlop={12}>
@@ -2238,7 +2217,11 @@ function LifestyleTrendCard({
           </>
         )}
 
-        {/* Colored dot for last valid data point */}
+        {/* Dots for all valid data points */}
+        {data.pts.filter(p => p.valid).map((pt, i) => (
+          <Circle key={i} cx={pt.x} cy={pt.y} r={3} fill={metric.color} opacity={0.7} />
+        ))}
+        {/* Highlighted dot for last valid data point */}
         {lastValidPt && (
           <>
             <Circle cx={lastValidPt.x} cy={lastValidPt.y} r={7} fill={`${metric.color}33`} />

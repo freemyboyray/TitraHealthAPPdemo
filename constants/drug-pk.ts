@@ -33,12 +33,12 @@ export const DRUG_PK: Record<Glp1Type, DrugPkParams> = {
 };
 
 export const DRUG_HALF_LIFE_LABEL: Record<Glp1Type, string> = {
-  semaglutide:      '7-day half-life',
-  tirzepatide:      '5-day half-life',
-  dulaglutide:      '5-day half-life',
-  liraglutide:      '13-hour half-life',
-  oral_semaglutide: '7-day half-life',
-  orforglipron:     '2.5-day half-life',
+  semaglutide:      '7-day cycle',
+  tirzepatide:      '5-day cycle',
+  dulaglutide:      '5-day cycle',
+  liraglutide:      '13h daily',
+  oral_semaglutide: '7-day cycle (oral)',
+  orforglipron:     '2.5-day cycle',
 };
 
 // Whether the drug is taken orally (drives chart/UX branches)

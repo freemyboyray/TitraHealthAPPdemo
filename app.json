@@ -1,16 +1,17 @@
 {
   "expo": {
-    "name": "TitraHealthAPPdemo",
-    "slug": "TitraHealthAPPdemo",
+    "name": "Titra Health",
+    "slug": "titra-health",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "titrahealthappdemo",
+    "scheme": "titrahealth",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.TitraHealthAPPdemo",
+      "bundleIdentifier": "com.titrahealth.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
         "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
@@ -97,6 +98,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "976538a1-cd7e-45ef-bea0-97e59e88fc27"
+      }
+    },
+    "owner": "ibm7862"
   }
 }

@@ -174,40 +174,53 @@ export function HealthProvider({
   }, [hkSteps]);
 
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
-  useEffect(() => {
-    async function fetchTodayActuals() {
-      const todayStr = localDateStr();    // local YYYY-MM-DD (date-only fields)
-      const localMidnight = new Date();
-      localMidnight.setHours(0, 0, 0, 0); // local midnight → correct UTC boundary for food_logs
+  async function fetchTodayActuals() {
+    const todayStr = localDateStr();    // local YYYY-MM-DD (date-only fields)
+    const localMidnight = new Date();
+    localMidnight.setHours(0, 0, 0, 0); // local midnight → correct UTC boundary for food_logs
 
-      // Load water from AsyncStorage (not in Supabase)
-      const storedWater = await AsyncStorage.getItem(todayWaterKey());
-      const waterMl = storedWater ? parseFloat(storedWater) : 0;
+    // Load water from AsyncStorage (not in Supabase)
+    const storedWater = await AsyncStorage.getItem(todayWaterKey());
+    const waterMl = storedWater ? parseFloat(storedWater) : 0;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Unauthenticated: still apply any logged water
-        if (waterMl > 0) {
-          dispatch({ type: 'FETCH_ACTUALS', actuals: { ...ZERO_ACTUALS, waterMl } });
-        }
-        return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      // Unauthenticated: still apply any logged water
+      if (waterMl > 0) {
+        dispatch({ type: 'FETCH_ACTUALS', actuals: { ...ZERO_ACTUALS, waterMl } });
       }
-
-      const [foodRes, actRes, injRes] = await Promise.all([
-        supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
-        supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
-        supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
-      ]);
-      const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
-      const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
-      const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
-      const injectionLogged = (injRes.data ?? []).length > 0;
-      dispatch({
-        type: 'FETCH_ACTUALS',
-        actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
-      });
+      return;
     }
+
+    const [foodRes, actRes, injRes] = await Promise.all([
+      supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
+      supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
+      supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
+    ]);
+    const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
+    const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+    const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
+    const injectionLogged = (injRes.data ?? []).length > 0;
+    dispatch({
+      type: 'FETCH_ACTUALS',
+      actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
+    });
+  }
+
+  // Run on mount (may be a no-op if session not yet restored from AsyncStorage)
+  useEffect(() => {
     fetchTodayActuals();
+  }, []);
+
+  // Re-run whenever auth session is confirmed — catches the case where the session
+  // is restored from AsyncStorage after the initial mount fetch already ran as unauthenticated.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        fetchTodayActuals();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Persist water to AsyncStorage whenever it changes

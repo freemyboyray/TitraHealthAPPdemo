@@ -1,7 +1,7 @@
-// Routes all FatSecret calls through the deployed Supabase edge function
-// (supabase/functions/fatsecret) so credentials stay server-side.
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const EDGE_URL = `${SUPABASE_URL}/functions/v1/fatsecret`;
+// Routes all FatSecret calls through the Fly.io proxy so credentials stay
+// server-side and the outbound IP is static (required for FatSecret IP whitelist).
+const PROXY_URL = process.env.EXPO_PUBLIC_FATSECRET_PROXY_URL ?? '';
+const PROXY_SECRET = process.env.EXPO_PUBLIC_FATSECRET_PROXY_SECRET ?? '';
 
 export type ServingOption = { label: string; grams: number };
 
@@ -22,12 +22,16 @@ export type FoodResult = {
 // ─── Edge function proxy ───────────────────────────────────────────────────────
 
 async function callEdge(params: Record<string, string>): Promise<unknown> {
-  const url = new URL(EDGE_URL);
+  const url = new URL(PROXY_URL);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Edge function error: ${res.status}`);
+  const res = await fetch(url.toString(), {
+    headers: {
+      'x-proxy-secret': PROXY_SECRET,
+    },
+  });
+  if (!res.ok) throw new Error(`Proxy error: ${res.status}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error);
   return json;
@@ -105,7 +109,8 @@ export async function searchFatSecret(query: string): Promise<FoodResult[]> {
         ...macros,
       };
     });
-  } catch {
+  } catch (e) {
+    console.warn('[FatSecret] search failed:', e);
     return [];
   }
 }
@@ -134,7 +139,8 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
       ...macros,
       serving_options: options.length > 0 ? options : undefined,
     };
-  } catch {
+  } catch (e) {
+    console.warn('[FatSecret] food detail failed:', e);
     return null;
   }
 }
@@ -163,7 +169,8 @@ export async function lookupFatSecretBarcode(barcode: string): Promise<FoodResul
       ...macros,
       serving_options: options.length > 0 ? options : undefined,
     };
-  } catch {
+  } catch (e) {
+    console.warn('[FatSecret] barcode lookup failed:', e);
     return null;
   }
 }

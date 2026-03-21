@@ -319,9 +319,23 @@ export default function SignInScreen() {
         return;
       }
 
-      // PKCE flow: authorization code arrives as a query param — exchange it for a session
-      const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(result.url);
-      if (exchangeErr) { setError(exchangeErr.message); return; }
+      // Implicit flow: tokens arrive in the URL fragment (#access_token=...&refresh_token=...)
+      const url = result.url;
+      const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
+      const params = Object.fromEntries(new URLSearchParams(fragment));
+      const accessToken = params['access_token'];
+      const refreshToken = params['refresh_token'];
+
+      if (!accessToken) {
+        setError('Google sign-in failed: no token returned. Check Supabase redirect URL config.');
+        return;
+      }
+
+      const { error: sessionErr } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken ?? '',
+      });
+      if (sessionErr) { setError(sessionErr.message); return; }
       const { data: { session } } = await supabase.auth.getSession();
       await finishOAuth(session);
     } catch (e) {

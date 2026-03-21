@@ -15,6 +15,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    flowType: 'pkce',
+    // PKCE verifier is lost when the app is backgrounded during OAuth browser flow;
+    // implicit flow returns tokens directly in the redirect URL fragment, avoiding the exchange.
+    flowType: 'implicit',
   },
 });

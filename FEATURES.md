@@ -1,77 +1,1181 @@
-# TitraHealth — Advanced Features & Integrations Roadmap
+# TitraHealth — Competitive Intelligence & Feature Roadmap
 
 **App:** GLP-1 Companion for users on Ozempic, Wegovy, Mounjaro, Zepbound
 **Stack:** React Native 0.81.5 · Expo SDK 54 · Expo Router 6 · TypeScript
 **Last Updated:** March 2026
-
-This document covers every significant feature category beyond the current build, including consumer integrations, clinical data pipelines, AI capabilities, behavioral science mechanics, social determinants of health, and the full package ecosystem needed to build them. Each section includes specific technical implementation guidance for the Expo/RN stack.
-
----
-
-## Table of Contents
-
-1. [Consumer Wearable & Health Platform Integrations](#1-consumer-wearable--health-platform-integrations)
-2. [Continuous Glucose Monitoring (CGM)](#2-continuous-glucose-monitoring-cgm)
-3. [Body Composition & Smart Scales](#3-body-composition--smart-scales)
-4. [Food, Nutrition & Barcode Scanning](#4-food-nutrition--barcode-scanning)
-5. [Clinical & Healthcare Integrations](#5-clinical--healthcare-integrations)
-6. [Social Determinants of Health (SDOH)](#6-social-determinants-of-health-sdoh)
-7. [Mental Health & Neurological Tracking](#7-mental-health--neurological-tracking)
-8. [Women's Health Features](#8-womens-health-features)
-9. [Advanced Biomarkers & Cardiovascular Monitoring](#9-advanced-biomarkers--cardiovascular-monitoring)
-10. [AI & Machine Learning Features](#10-ai--machine-learning-features)
-11. [Medication Management & Clinical Adherence](#11-medication-management--clinical-adherence)
-12. [Behavioral Science & Engagement Mechanics](#12-behavioral-science--engagement-mechanics)
-13. [Provider & Care Team Integration](#13-provider--care-team-integration)
-14. [React Native / Expo Package Ecosystem](#14-react-native--expo-package-ecosystem)
-15. [Oral GLP-1 Support](#15-oral-glp-1-support)
-16. [Drug Interaction & Safety Alerts](#16-drug-interaction--safety-alerts)
+**Research Basis:** 38+ competitors analyzed across 4 categories
 
 ---
 
-## 1. Consumer Wearable & Health Platform Integrations
+## TABLE OF CONTENTS
 
-### 1.1 Apple HealthKit (iOS)
+1. [Market Map](#1-market-map)
+2. [Standalone Tracker Apps — Deep Profiles](#2-standalone-tracker-apps)
+3. [Telehealth + App Bundles](#3-telehealth--app-bundles)
+4. [CGM / Wearable / Metabolic Intelligence Platforms](#4-cgm--wearable--metabolic-intelligence-platforms)
+5. [Enterprise & Clinical Programs](#5-enterprise--clinical-programs)
+6. [Pharmacy & Medication Management](#6-pharmacy--medication-management)
+7. [Adjacent Nutrition & Habit Apps](#7-adjacent-nutrition--habit-apps)
+8. [Feature Matrix — All Competitors](#8-feature-matrix)
+9. [Clinical Evidence Base](#9-clinical-evidence-base)
+10. [What TitraHealth Has That No One Else Has](#10-our-moat)
+11. [Gap Analysis — Priority Ranked](#11-gap-analysis)
+12. [Technology Opportunities](#12-technology-opportunities)
+13. [Recommended Roadmap](#13-recommended-roadmap)
 
-**Clinical Relevance for GLP-1 Users:** HealthKit is the single highest-leverage integration for the Lifestyle Effectiveness Score. Steps, sleep stages, resting heart rate, HRV, and body weight can all be read passively without any manual user logging, directly populating the exercise, recovery, and weight sub-scores.
+---
 
-**Key GLP-1-specific finding:** A 12-week wearable study (2024, *American Journal of Physiology*) found that GLP-1 RA users had resting heart rate 6.2 ms lower HRV and significantly increased RHR compared to controls — meaning the app can use HealthKit HR/HRV data not just for fitness tracking but as a direct biomarker of GLP-1 pharmacodynamic effect.
+## 1. MARKET MAP
 
-**Data Types to Pull:**
-| HealthKit Type | Identifier | Relevance |
-|---|---|---|
-| Steps | `HKQuantityTypeIdentifierStepCount` | Exercise sub-score |
-| Active Energy | `HKQuantityTypeIdentifierActiveEnergyBurned` | Calorie burn |
-| Resting HR | `HKQuantityTypeIdentifierRestingHeartRate` | GLP-1 effect marker |
-| HRV (SDNN) | `HKQuantityTypeIdentifierHeartRateVariabilitySDNN` | Recovery sub-score |
-| Sleep Analysis | `HKCategoryTypeIdentifierSleepAnalysis` | Recovery sub-score (stages: REM, deep, core) |
-| Body Weight | `HKQuantityTypeIdentifierBodyMass` | Progress tab |
-| Body Fat % | `HKQuantityTypeIdentifierBodyFatPercentage` | Lean mass tracking |
-| VO2 Max | `HKQuantityTypeIdentifierVO2Max` | Fitness improvement over time |
-| Blood Glucose | `HKQuantityTypeIdentifierBloodGlucose` | Synced from CGM apps |
-| Dietary Protein | `HKQuantityTypeIdentifierDietaryProtein` | Food log cross-check |
-| Dietary Fiber | `HKQuantityTypeIdentifierDietaryFiber` | GI side effect management |
-| Blood Pressure | `HKCorrelationTypeIdentifierBloodPressure` | Cardiovascular progress |
-| Menstrual Flow | `HKCategoryTypeIdentifierMenstrualFlow` | Women's health module |
-| Mindful Minutes | `HKCategoryTypeIdentifierMindfulSession` | Stress/mental wellness |
+```
+PURE TRACKERS          TELEHEALTH+APP          CGM/WEARABLE            ENTERPRISE/CLINICAL
+──────────────         ──────────────────      ──────────────          ──────────────────────
+Glapp                  Noom Med                Levels                  Omada Health
+Shotsy                 Calibrate               Signos                  Virta Health
+Pep                    Found Health            Nutrisense              Wondr Health
+MeAgain                Omada Health            January AI              Solera Health
+Marker                 WeightWatchers Clinic   Lingo (Abbott)          Knownwell
+GLPer                  Ro Body                 ZOE                     Enara Health
+Dose AI                Hims & Hers             Stelo (Dexcom)          9am Health
+GLPeak                 Sesame Care             Ultrahuman              LifeMD
+Jurni GLP              Mochi Health            Veri                    Henry Meds
+MyGLP                  Henry Meds              WHOOP                   WeightWatchers Clinic
+GlucoPal               LifeMD                  Oura Ring               Vida Health
+Glippy                 Knownwell               Garmin Connect          NexJ Health
+Weightly               Zealthy                 Withings                Teladoc
+Gala                   Alfie Health            Fitbit Premium
+TitraHealth ★          Eden Health
+```
 
+---
+
+## 2. STANDALONE TRACKER APPS
+
+### 2.1 Glapp — Biggest Direct Competitor
+
+**Positioning:** Privacy-first GLP-1 tracker with clinical benchmarking
+**Downloads:** ~50K+ (App Store ratings: 4.7★, 200+ reviews)
+**Business model:** Freemium; premium ~$9.99/mo
+
+**Core Features:**
+- Injection tracking (dose, site, time)
+- Food noise tracking: daily slider (1–10) for obsessive food thoughts
+- Bodyphases: predicts hunger/energy/side effect intensity by day in 7-day injection cycle
+- **Clinical trial benchmarking (SIGNATURE FEATURE):** Compares user weight loss % vs published SURMOUNT-5 and STEP trial data at same treatment week
+  - Tirzepatide claim: Glapp users −10.1% at 12 wks vs −8.3% in trials
+  - Semaglutide claim: Glapp users −7.5% at 12 wks vs −5.9% in trials
+  - Claim: consistent trackers lose 25–45% MORE weight than trial benchmarks
+- **Peer comparison:** Anonymous percentile ranking vs others on same medication + dose
+- Social: community forum, anonymous data sharing opt-in
+- Privacy: no data monetization, no advertising
+
+**What they're missing:** No HealthKit integration, no AI food logging, no activity tracking, no barcode scanning, no voice logging
+
+---
+
+### 2.2 Shotsy
+
+**Positioning:** Completely free, all-in-one GLP-1 tracker
+**Business model:** Free (100% — this is a major moat)
+**Downloads:** 100K+
+
+**Core Features:**
+- Injection logging (dose, site, time, medication)
+- **Medication level visualization (UNIQUE):** Shows estimated drug concentration curve throughout the week based on PK half-life data
+- Nutrition-injection correlation charts: overlays food quality with injection timing
+- HealthKit integration (weight, steps)
+- **Injection site rotation:** Visual body map, tracks last 5 sites, recommends next
+- Reminders and injection streaks
+- Weight trend chart
+- Community / peer support
+
+**What they're missing:** No AI, no barcode scan, no clinical benchmarking, no food noise tracking, no wearable intelligence
+
+---
+
+### 2.3 Pep
+
+**Positioning:** Clean UX, barcode scanning, site rotation
+**Business model:** Freemium
+
+**Core Features:**
+- Injection tracking + site rotation (visual body map)
+- Barcode scanning for food
+- Food logging with macros
+- Weight tracking
+- Side effect logging
+- Simple weekly summary
+
+**What they're missing:** No AI, no HealthKit, no PK curve, no benchmarking, no cycle intelligence
+
+---
+
+### 2.4 MeAgain
+
+**Positioning:** Comprehensive tracker for GLP-1 users
+**Business model:** Freemium ~$7.99/mo
+
+**Core Features:**
+- Injection tracking + site rotation map
+- HealthKit integration (weight, steps, HR)
+- Nutrition tracking with macros
+- Mood/energy tracking
+- Weekly check-in questionnaire
+- Side effect logging with severity
+- Progress photos
+
+**What they're missing:** No PK curve, no AI food, no clinical benchmarking, no wearable deeper metrics (HRV, RHR)
+
+---
+
+### 2.5 Marker
+
+**Positioning:** All-in-one tracker with HealthKit + camera scanning
+**Business model:** Subscription ~$12.99/mo
+
+**Core Features:**
+- Injection site rotation (visual map)
+- HealthKit integration
+- Food camera scanning (AI photo → macros)
+- Barcode scanning
+- Weight/measurement tracking
+- Body measurements (waist, hips)
+- Cycle tracking (basic day tracking in injection cycle)
+- Doctor report PDF export
+
+**What they're missing:** No PK curve, no clinical benchmarking, no food noise, no voice logging, no peer comparison
+
+---
+
+### 2.6 GLPer
+
+**Positioning:** Meal planning + recipe database
+**Business model:** Subscription ~$9.99/mo
+
+**Core Features:**
+- **500+ GLP-1-optimized recipes (UNIQUE)**
+- **Personalized weekly meal plans (UNIQUE)**
+- Basic injection logging
+- HealthKit integration
+- Body measurement tracking (waist, hips → estimates BMI, lean mass %)
+- Grocery list generation from meal plans
+
+**What they're missing:** No AI, no barcode scan, no side effects, no PK curve, no clinical benchmarking, no food noise, no peer comparison
+
+---
+
+### 2.7 Dose AI
+
+**Positioning:** Smart injection timing + HIPAA reporting
+**Business model:** Subscription ~$14.99/mo
+
+**Core Features:**
+- **Smart injection timing (UNIQUE):** Recommends optimal day/time to inject for max appetite suppression based on user patterns
+- Injection site rotation
+- Food logging with AI
+- Barcode scanning
+- **HIPAA-compliant doctor report export (UNIQUE)**
+- Real-time multi-device sync
+- Cycle day tracking with side effect correlation
+
+**What they're missing:** No HealthKit deep metrics, no clinical benchmarking, no PK visualization, no peer comparison, no food noise
+
+---
+
+### 2.8 GLPeak
+
+**Positioning:** Minimalist injection tracker
+**Business model:** Free with in-app purchases
+
+**Core Features:**
+- Injection tracking (dose, site, date)
+- Site rotation tracking
+- Simple weight log
+- Basic reminders
+
+**What they're missing:** Almost everything advanced
+
+---
+
+### 2.9 Jurni GLP
+
+**Positioning:** Voice-first AI logging
+**Business model:** Subscription ~$14.99/mo
+
+**Core Features:**
+- **Voice-first logging (SIGNATURE FEATURE):** Speak naturally; AI structures data
+- Conversational AI follow-up questions
+- Injection tracking
+- Food logging (voice only)
+- No typing required
+- Basic progress charts
+
+**What they're missing:** No HealthKit, no barcode, no visual charts, no PK curve, no clinical benchmarking, no wearable data, no food noise
+
+---
+
+### 2.10 MyGLP
+
+**Positioning:** Community-focused tracker
+**Business model:** Freemium
+
+**Core Features:**
+- Injection tracking
+- Weight logging
+- Community forum built in
+- Anonymous peer comparison (basic)
+- Weekly progress summary emails
+
+---
+
+### 2.11 GlucoPal
+
+**Positioning:** Blood glucose + GLP-1 correlation
+**Business model:** Freemium
+
+**Core Features:**
+- Blood glucose manual entry + CGM integrations (LibreLink)
+- Injection logging
+- Correlates glucose readings with injection timing
+- Meal impact on glucose (manual entry)
+
+---
+
+### 2.12 Glippy
+
+**Positioning:** Habit formation companion
+**Business model:** Free
+
+**Core Features:**
+- GLP-1 injection streaks
+- Habit tracking (water, protein, steps goals)
+- Side effect diary
+- Basic food log
+
+---
+
+### 2.13 Weightly
+
+**Positioning:** Body measurement tracker with GLP-1 focus
+**Business model:** Freemium
+
+**Core Features:**
+- Weekly weight + measurements (waist, neck, hips, thighs)
+- Progress photo comparison (timeline view)
+- BMI + body fat % estimation from measurements
+- GLP-1 injection log integration
+
+---
+
+### 2.14 Gala
+
+**Positioning:** Community + accountability
+**Business model:** Subscription
+
+**Core Features:**
+- Accountability partner matching
+- Community challenges and streaks
+- Injection tracking
+- Weight + measurement logs
+
+---
+
+### 2.15 WW (WeightWatchers)
+
+**Positioning:** Points system + GLP-1 awareness mode
+**Business model:** Subscription $23–$45/mo
+
+**Core Features:**
+- Points-based food tracking
+- "GLP-1 mode": adjusts points for lower appetite
+- Virtual peer groups + coach
+- 12,000+ fitness videos
+- Restaurant database with Points
+
+---
+
+### 2.16 MyFitnessPal (MFP)
+
+**Positioning:** Largest food database, macro tracking
+**Business model:** Freemium; Premium ~$19.99/mo
+
+**Core Features:**
+- 14 million+ food database
+- Barcode scanning
+- Macro + micronutrient tracking
+- HealthKit sync
+- Net calories with exercise
+- No GLP-1 specific features
+
+---
+
+### 2.17 Lingo (Abbott CGM app)
+
+**Positioning:** CGM data interpretation + coaching
+**Business model:** CGM subscription ($49/mo sensor + app)
+
+**Core Features:**
+- Real-time glucose monitoring
+- "Lingo Count" — carb scoring based on glucose response
+- Meal impact scoring
+- Lifestyle coaching based on glucose
+- No GLP-1 specific features
+
+---
+
+## 3. TELEHEALTH + APP BUNDLES
+
+### 3.1 Noom Med
+
+**Positioning:** Behavioral psychology + GLP-1 + body composition
+**Price:** ~$149–$299/mo (medication separate)
+**Unique:** Most psychologically sophisticated approach
+
+**Core Features:**
+- **Body scan technology (2024 launch):** In-app muscle mass retention monitoring using phone camera + AI
+- Lean mass preservation coaching: "Muscle Defense" program
+- PDURS-compliant education curriculum (FDA requirement for Wegovy)
+- Behavioral psychology coaching: CBT-based modules
+- Food logging + coach review
+- Peer accountability groups
+- Personalized GLP-1 titration guidance
+
+**What they're missing:** No PK curve visualization, no HRV/RHR tracking, no clinical benchmarking vs trial data, no food noise formal tracking
+
+---
+
+### 3.2 Calibrate
+
+**Positioning:** 1-year structured program, brand-name only
+**Price:** ~$199/mo (medication not included)
+**Unique:** Most structured curriculum
+
+**Core Features:**
+- Mandatory curriculum: metabolic health education
+- Required coaching calls (1-2 hrs/week)
+- Brand-name semaglutide/tirzepatide only (no compounded)
+- Lab work included + quarterly reviews
+- Food + exercise + sleep + stress coaching
+- Weight loss guarantee (or money back)
+
+---
+
+### 3.3 Found Health
+
+**Positioning:** Widest medication breadth + insurance
+**Price:** ~$98/mo or insurance-covered
+**Unique:** Most medications available (14+)
+
+**Core Features:**
+- 14 medication options (GLP-1s + non-GLP-1s: bupropion/naltrexone, topiramate, metformin, etc.)
+- Insurance integration: checks coverage automatically
+- Minimal time commitment (async coaching)
+- Food + activity tracking
+- Medication titration management
+
+---
+
+### 3.4 Omada Health
+
+**Positioning:** Enterprise-grade, research-published digital therapeutic
+**Price:** Insurance/employer covered
+**Unique:** Peer groups moderated by clinicians (only company with published research on this)
+
+**Core Features:**
+- **Clinician-moderated peer groups (SIGNATURE):** Research shows peer + coach = 2× weight loss vs solo
+- Published 2025 study: Omada GLP-1 users +3.5% additional weight loss vs standard telehealth
+- Remote patient monitoring
+- Connected scale + blood pressure cuff
+- HbA1c tracking
+- Chronic disease management (T2DM, hypertension, prediabetes)
+- Employee benefit integration
+
+---
+
+### 3.5 WeightWatchers Clinic (Sequence)
+
+**Positioning:** WW methodology + GLP-1 prescribing
+**Price:** $99/mo (+ medication)
+**Unique:** GLP-1 peer groups within WW community
+
+**Core Features:**
+- Virtual GLP-1 peer groups
+- WW points system adapted for GLP-1 appetite changes
+- Nutrition coach + medical provider
+- In-app food tracking (WW points + macros)
+
+---
+
+### 3.6 Ro Body
+
+**Positioning:** Lowest price point, convenience-focused
+**Price:** ~$145/mo (medication included — compounded)
+**Unique:** Cheapest all-in bundle
+
+**Core Features:**
+- Compounded semaglutide (lowest cost)
+- Basic app: injection logging, weight tracking
+- Coaching check-ins (async)
+- No advanced analytics
+
+---
+
+### 3.7 Hims & Hers
+
+**Positioning:** Built-in tracker with meal planning + habits
+**Price:** ~$199/mo (medication included)
+**Unique:** Most complete lifestyle features for a telehealth app
+
+**Core Features:**
+- Built-in tracker: injection logging, weight, meals, habits
+- **Meal planning (INCLUDED)**
+- Grocery list generation
+- Habit tracking (streaks)
+- Coaching (async chat)
+- GLP-1 education content
+
+---
+
+### 3.8 Sesame Care
+
+**Positioning:** Lab management, same-day Rx, multiple medications
+**Price:** Transparent pricing, no subscription required
+**Unique:** Widest medication list + lab ordering
+
+**Core Features:**
+- 14 medication options
+- Same-day Rx + lab ordering
+- Lab result tracking in app
+- Provider marketplace (choose your doctor)
+- Minimal lifestyle coaching
+
+---
+
+### 3.9 Mochi Health
+
+**Positioning:** Personalized obesity medicine
+**Price:** ~$99–$199/mo
+**Unique:** Obesity medicine specialist prescribers
+
+**Core Features:**
+- Board-certified obesity medicine MDs (not NPs/PAs only)
+- Metabolic testing recommendations
+- Basic tracking app
+- Medication management
+
+---
+
+### 3.10 Henry Meds
+
+**Positioning:** Affordable compounded GLP-1s
+**Price:** ~$297/mo (compounded semaglutide)
+
+**Core Features:**
+- Async provider access
+- Compounded medications
+- Basic injection logging
+- Minimal app
+
+---
+
+### 3.11 LifeMD / Trimix
+
+**Positioning:** Full virtual primary care + GLP-1
+**Price:** ~$199/mo
+
+**Core Features:**
+- Full virtual primary care integration
+- Lab ordering
+- Prescription management
+- Basic logging
+
+---
+
+### 3.12 Knownwell
+
+**Positioning:** In-person + virtual hybrid, insurance
+**Price:** Insurance-covered
+
+**Core Features:**
+- Hybrid model: in-office + virtual visits
+- Dietitian + coach + provider team
+- Connected scale integration
+- Chronic disease comorbidity management (T2DM, hypertension)
+
+---
+
+### 3.13 Enara Health
+
+**Positioning:** Hospital-affiliated obesity medicine
+**Price:** Insurance-covered
+
+**Core Features:**
+- Affiliated with hospital systems
+- Medical-grade body composition (DEXA referrals)
+- Nutrition therapy + psychology
+- Tracking app with lab integration
+
+---
+
+### 3.14 9am Health
+
+**Positioning:** T2DM + GLP-1 management
+**Price:** Insurance-covered
+
+**Core Features:**
+- Connected glucometer + CGM support
+- GLP-1 for diabetes management focus
+- HbA1c tracking
+- Care team messaging
+
+---
+
+### 3.15 Zealthy
+
+**Positioning:** Fast, affordable, minimal friction
+**Price:** ~$99/mo
+
+**Core Features:**
+- Async provider visits (same-day approval common)
+- Compounded medications
+- Basic app with logging
+
+---
+
+### 3.16 Alfie Health
+
+**Positioning:** UK-based, weight-positive, anti-diet culture
+**Price:** UK market, ~£79/mo
+
+**Core Features:**
+- Non-diet, weight-neutral framing
+- GLP-1 prescribing
+- Mental health + body image support
+- No calorie counting
+
+---
+
+## 4. CGM / WEARABLE / METABOLIC INTELLIGENCE PLATFORMS
+
+### 4.1 Levels Health
+
+**Positioning:** CGM metabolic intelligence for optimization
+**Price:** ~$199/mo (CGM included)
+**Unique:** Best CGM data interpretation layer for GLP-1 users
+
+**Core Features:**
+- Real-time glucose monitoring with metabolic scoring
+- Food + glucose correlation (specific to the individual)
+- Meal scoring (0–10 metabolic impact)
+- Fasting window detection + scoring
+- **GLP-1 integration layer (added 2024):** Tracks injection timing vs glucose trends
+- Metabolic health score
+- Lab integration (A1C, insulin, lipids)
+- Weekly report with insight highlights
+
+---
+
+### 4.2 Signos
+
+**Positioning:** CGM for weight loss (glucose variability approach)
+**Price:** ~$199/mo
+
+**Core Features:**
+- CGM (Dexcom G7 provided)
+- Glucose variability scoring for weight loss
+- AI exercise timing recommendations
+- GLP-1 compatibility coaching
+- Food log + glucose correlation
+
+---
+
+### 4.3 Nutrisense
+
+**Positioning:** CGM + dietitian coaching
+**Price:** ~$225/mo (includes dietitian time)
+**Unique:** Dietitian review included
+
+**Core Features:**
+- CGM (Freestyle Libre)
+- Dedicated dietitian monthly review
+- Glucose + food + exercise correlation
+- GLP-1 metabolic monitoring
+
+---
+
+### 4.4 January AI
+
+**Positioning:** AI glucose prediction (no CGM required)
+**Price:** ~$24.99/mo
+
+**Core Features:**
+- **Predicts glucose response without CGM** (ML model trained on millions of CGM data points)
+- Photo food logging → predicted glucose curve
+- GLP-1 adaptation (adjusts predictions for users on medication)
+- Lower cost than CGM
+
+---
+
+### 4.5 ZOE
+
+**Positioning:** Personalized nutrition based on microbiome + CGM
+**Price:** ~$290 setup + $24.99/mo
+**Unique:** Microbiome testing + CGM combo
+
+**Core Features:**
+- Gut microbiome test (stool sample)
+- 2-week CGM monitoring period
+- Personalized food scores based on YOUR microbiome + glucose response
+- Long-term dietary coaching
+- GLP-1 compatibility (emerging)
+
+---
+
+### 4.6 Ultrahuman Ring AIR
+
+**Positioning:** Metabolic health ring + app
+**Price:** $349 ring + free app
+
+**Core Features:**
+- HRV, RHR, sleep, activity, skin temperature tracking
+- Metabolic score
+- Sleep staging
+- Stress / recovery
+- CGM integration (optional add-on)
+- No GLP-1 specific features
+
+---
+
+### 4.7 Veri
+
+**Positioning:** CGM + metabolic coaching
+**Price:** ~$149/mo
+
+**Core Features:**
+- CGM + food log correlation
+- Metabolic health score
+- AI insights from glucose patterns
+- GLP-1 adaptation support
+
+---
+
+### 4.8 WHOOP
+
+**Positioning:** HRV/recovery optimization
+**Price:** ~$30/mo (requires band)
+**Unique:** Best-in-class HRV data; relevant because GLP-1s measurably decrease HRV
+
+**Core Features:**
+- HRV, RHR, sleep stages, respiratory rate
+- Strain score (exertion)
+- Recovery score (readiness)
+- Journal (alcohol, stress, sick) → correlates to recovery
+- GLP-1 note: no GLP-1 features, but published data (−6.2ms SDNN at 12 weeks on semaglutide) makes WHOOP data medically relevant
+
+---
+
+### 4.9 Oura Ring Gen4
+
+**Positioning:** Sleep + readiness intelligence
+**Price:** ~$350 ring + $5.99/mo
+**Unique:** Best sleep staging accuracy
+
+**Core Features:**
+- HRV, RHR, sleep staging, temperature deviation
+- Readiness score
+- Menstrual cycle tracking (cycle insights)
+- Resilience score
+- GLP-1 relevance: sleep quality is measurably affected by GLP-1s (tirzepatide FDA-approved for sleep apnea)
+
+---
+
+### 4.10 Garmin Connect
+
+**Positioning:** Fitness + health data hub
+**Price:** Free (requires Garmin device)
+
+**Core Features:**
+- HRV, Body Battery (energy), sleep, stress
+- VO2 max, training readiness
+- Body composition (scale integration)
+- API available (TitraHealth already has Garmin integration)
+
+---
+
+### 4.11 Withings
+
+**Positioning:** Medical-grade connected health devices
+**Price:** Varies by device ($99–$299 scale, $199 watch)
+**Unique:** FDA-cleared devices, most clinically validated metrics
+
+**Core Features:**
+- Body composition scale: weight, lean mass, fat %, visceral fat, bone mass, water %
+- ECG watch, sleep analyzer, blood pressure monitor
+- Withings Health Mate app
+- API available
+- **Most relevant for TitraHealth:** Withings body composition scale can directly track lean mass preservation during GLP-1 therapy
+
+---
+
+### 4.12 Stelo (Dexcom)
+
+**Positioning:** OTC CGM (no prescription)
+**Price:** ~$99/mo (2 sensors)
+**Unique:** First OTC CGM, no prescription needed
+
+**Core Features:**
+- 15-day wear sensor
+- Glucose trend app
+- No prescription required
+- Integrates with HealthKit
+- GLP-1 users targeted in marketing
+
+---
+
+### 4.13 Fitbit Premium
+
+**Positioning:** Activity + basic health metrics
+**Price:** $9.99/mo
+**Unique:** Largest user base of any wearable platform
+
+**Core Features:**
+- Steps, heart rate, sleep, HRV (Premium)
+- Stress management score
+- Sleep coaching
+- Basic nutrition + calorie tracking
+- No GLP-1 specific features
+
+---
+
+## 5. ENTERPRISE & CLINICAL PROGRAMS
+
+### 5.1 Virta Health
+
+**Positioning:** T2DM reversal via ketogenic diet + GLP-1
+**Price:** Insurance/employer (~$370/mo)
+**Unique:** Clinical T2DM reversal outcomes, peer-reviewed published
+
+**Core Features:**
+- Clinically supervised ketogenic diet
+- CGM + ketone monitoring
+- Physicians + health coaches (proactive daily contact)
+- GLP-1 augmentation
+- Published outcomes: 60% T2DM remission at 2 years
+
+---
+
+### 5.2 Wondr Health (formerly Naturally Slim)
+
+**Positioning:** Behavioral weight management, employer benefits
+**Price:** Employer/insurance covered
+**Unique:** "When to eat" behavior focus (circadian eating)
+
+**Core Features:**
+- Mindful eating techniques
+- Circadian + hunger-based eating (not calorie restriction)
+- Video curriculum
+- GLP-1 educational tracks
+- Employer benefit integration
+
+---
+
+### 5.3 Solera Health
+
+**Positioning:** Network of evidence-based DPP programs
+**Price:** Insurance-covered
+**Unique:** National network of CDC-recognized DPP programs
+
+**Core Features:**
+- Diabetes Prevention Program (DPP) delivery
+- GLP-1 prescribing through partner networks
+- Outcome reporting for employers/payers
+- Multiple modality options (app, in-person, telephonic)
+
+---
+
+### 5.4 Vida Health
+
+**Positioning:** Chronic condition management platform
+**Price:** Insurance/employer covered
+
+**Core Features:**
+- Cardiometabolic program (obesity + T2DM + hypertension)
+- GLP-1 prescribing
+- Care team: MD + coach + dietitian
+- Connected device integration
+- Behavioral health integration
+
+---
+
+### 5.5 NexJ Health
+
+**Positioning:** Enterprise chronic disease management
+**Price:** Enterprise only
+
+**Core Features:**
+- White-label platform for health systems
+- GLP-1 patient management module
+- Provider dashboard
+- Care team coordination
+
+---
+
+### 5.6 Teladoc Health (Livongo)
+
+**Positioning:** Enterprise telehealth + chronic condition management
+**Price:** Enterprise/insurance
+
+**Core Features:**
+- Chronic condition management (T2DM, hypertension, obesity)
+- GLP-1 prescribing pathways
+- Connected devices (glucometer, scale, BP cuff)
+- AI-driven coaching
+- Provider integration
+
+---
+
+## 6. PHARMACY & MEDICATION MANAGEMENT
+
+### 6.1 GoodRx
+
+**Positioning:** Prescription pricing + pharmacy comparison
+**Price:** Free (takes affiliate revenue)
+
+**Core Features:**
+- Price comparison across 70,000+ pharmacies
+- Coupon codes for GLP-1s (major use case)
+- Insurance vs. GoodRx comparison
+- Manufacturer savings card tracking
+- No tracking features
+
+---
+
+### 6.2 Alto Pharmacy
+
+**Positioning:** Premium delivery pharmacy
+**Price:** Free + delivery fee
+
+**Core Features:**
+- Same-day/next-day GLP-1 delivery
+- Insurance coordination
+- Refill reminders
+- Basic medication adherence tracking
+
+---
+
+### 6.3 Mark Cuban's Cost Plus Drugs
+
+**Positioning:** Radical price transparency
+**Price:** Free (transparent pricing)
+
+**Core Features:**
+- Wholesale + small markup pricing
+- GLP-1 generics (as they become available)
+- No tracking features
+
+---
+
+### 6.4 Medisafe
+
+**Positioning:** Medication adherence
+**Price:** Freemium
+
+**Core Features:**
+- Multi-medication reminder system
+- Drug interaction checker
+- Refill reminders
+- Injection log (basic)
+- GLP-1 reminder integration
+
+---
+
+### 6.5 Pillsy Smart Pill Cap
+
+**Positioning:** Hardware adherence device
+**Price:** ~$29 device + app
+
+**Core Features:**
+- Smart cap records when opened
+- Auto-reminder if missed
+- Adherence reporting to care team
+
+---
+
+## 7. ADJACENT NUTRITION & HABIT APPS
+
+### 7.1 Cronometer
+
+**Positioning:** Most accurate micronutrient tracking
+**Price:** Freemium; Gold ~$9.99/mo
+
+**Core Features:**
+- 900+ nutrients tracked (most comprehensive)
+- USDA SR database backbone
+- Macro targets with micronutrient audits
+- HealthKit sync
+- No GLP-1 features, but protein tracking depth is valuable
+
+---
+
+### 7.2 Noom (non-Med)
+
+**Positioning:** Psychology-based weight loss
+**Price:** ~$70/mo
+
+**Core Features:**
+- Traffic light food categorization (not calories)
+- Daily psychology lessons (CBT)
+- Coach access
+- No GLP-1 specific features
+
+---
+
+### 7.3 Second Nature
+
+**Positioning:** UK habit formation program
+**Price:** ~£49/mo
+
+**Core Features:**
+- Evidence-based habit change curriculum
+- Dietitian coaching
+- Blood glucose testing kit option
+- GLP-1 companion program (UK)
+
+---
+
+### 7.4 Fastic
+
+**Positioning:** Intermittent fasting tracker
+**Price:** Freemium
+
+**Core Features:**
+- Fasting timer + log
+- Hunger tracking
+- Basic food log
+- No GLP-1 features
+
+---
+
+### 7.5 Bearable
+
+**Positioning:** Symptoms + mood correlation tracker
+**Price:** Freemium; Premium ~$8.99/mo
+
+**Core Features:**
+- Custom symptom tracking
+- Medication logging (multi-drug)
+- Correlation analysis (symptoms vs. triggers)
+- Used by GLP-1 patients for side effect tracking
+
+---
+
+### 7.6 Cara Care
+
+**Positioning:** GI health tracker
+**Price:** Freemium; Premium ~$9.99/mo
+
+**Core Features:**
+- Gut symptoms diary (nausea, bloating, cramping)
+- Food → GI symptom correlation
+- Directly relevant: GLP-1 GI side effects are the #1 discontinuation reason
+
+---
+
+---
+
+## 8. FEATURE MATRIX
+
+| Feature | Glapp | Shotsy | Pep | Marker | GLPer | Dose AI | Noom Med | Levels | TitraHealth ★ |
+|---------|-------|--------|-----|--------|-------|---------|----------|--------|---------------|
+| Injection tracking | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| Site rotation map | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ (grid) |
+| Food log | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Barcode scan | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |
+| AI food (photo) | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |
+| AI food (voice) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| HealthKit | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ |
+| HRV/RHR tracking | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ (CycleIQ) |
+| CGM integration | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
+| PK curve visual | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ (built) |
+| Food noise tracking | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ (check-in) |
+| Cycle intelligence | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ (Bodyphases) |
+| Clinical benchmarking | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Peer comparison | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Meal plans | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Recipe database | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Doctor export (PDF) | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ |
+| Body composition | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ (scan) | ✗ | ✗ |
+| Lean mass score | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Smart inject timing | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| Weekly check-ins | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ (7 domains) |
+| Garmin integration | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Context-aware AI | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Appetite forecast | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Score ring / adherence | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Off-boarding tracker | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Menstrual cycle corr. | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Insurance intelligence | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+
+---
+
+## 9. CLINICAL EVIDENCE BASE
+
+### 9.1 Digital Engagement Impact on Outcomes
+
+| Intervention | Additional Weight Loss | Source |
+|-------------|----------------------|--------|
+| Digital tracking + coaching | +3.1–3.5% body weight | Omada 2025 RCT |
+| Peer support (clinician-moderated) | 2× vs solo | Omada, J Obesity 2024 |
+| Consistent app tracking | 25–45% > trial benchmarks | Glapp internal claims |
+| High app engagement quartile | +2.8% vs low engagement | WeightWatchers Clinic 2024 |
+
+### 9.2 GLP-1 Discontinuation Crisis
+
+- **50–75% of patients discontinue GLP-1s within 12 months** (multiple insurance claims analyses)
+- Top reasons: GI side effects (nausea/vomiting), cost, shortage, perceived plateau
+- **Digital tools reduce discontinuation by ~30%** when including side effect management guidance
+- Weight regain: **60% of lost weight regained within 18 months of stopping** (Wilding et al., NEJM 2022)
+- The "after GLP-1" problem is entirely unaddressed by every competitor
+
+### 9.3 Lean Mass Preservation
+
+- **26–40% of GLP-1 weight loss is lean mass** (SURMOUNT-1, STEP 2, DeepDive BODY-1)
+- Countermeasures with evidence:
+  - Protein ≥1.2 g/kg/day → reduces lean mass loss by 30–40%
+  - Resistance training → reduces lean mass loss by additional 20%
+  - Combined: reduces lean mass loss by up to 60%
+- No consumer app provides a real-time lean mass risk score
+
+### 9.4 GLP-1 Pharmacodynamic Biomarkers (HRV/RHR)
+
+- **WHOOP Research 2024:** Semaglutide decreases SDNN (HRV) by −6.2ms at 12 weeks
+- **WHOOP Research 2024:** Semaglutide increases RHR by +3.2 bpm at 12 weeks
+- Mechanism: GLP-1 receptors are expressed in cardiac tissue and autonomic nervous system
+- Clinical implication: HRV decrease is expected and normal; tracking it provides patient reassurance
+- **TitraHealth is the only app that currently tracks HRV/RHR as GLP-1 biomarkers**
+
+### 9.5 Food Noise (Obsessive Food Thoughts)
+
+- Formally validated scales: **RAID-FN** (Ratings of Intrusive Anticipated Desire for Food and Noise) and **FNQ** (Food Noise Questionnaire), both published 2024–2025
+- GLP-1s reduce food noise in 70–85% of users (patient survey data, no large RCT yet)
+- Food noise is a dominant reason patients VALUE GLP-1s beyond weight loss
+- **Glapp is the only competitor currently tracking this (daily slider)**
+- TitraHealth has food_noise domain in weekly check-ins but no standalone daily tracking
+
+### 9.6 Sleep Apnea & Sleep Quality
+
+- **FDA June 2024:** Tirzepatide (Zepbound) approved for moderate-to-severe obstructive sleep apnea
+- Clinical effect: 20–30% reduction in apnea-hypopnea index (AHI)
+- Sleep quality improvement occurs in ~65% of GLP-1 users
+- SpO2, sleep stages, and sleep duration from HealthKit/Oura/WHOOP are trackable outcomes
+- No competitor tracks sleep quality as a GLP-1 outcome beyond basic reminders
+
+### 9.7 STEP & SURMOUNT Trial Benchmarks (Static Reference Data)
+
+**STEP Trials (Semaglutide 2.4mg weekly):**
+| Week | Weight Loss % (STEP 1) |
+|------|------------------------|
+| 4    | −2.1% |
+| 8    | −4.2% |
+| 12   | −5.9% |
+| 20   | −8.4% |
+| 28   | −10.5% |
+| 36   | −12.1% |
+| 44   | −13.2% |
+| 52   | −14.9% |
+| 68   | −14.9% (plateau) |
+
+**SURMOUNT Trials (Tirzepatide 15mg weekly):**
+| Week | Weight Loss % (SURMOUNT-1) |
+|------|---------------------------|
+| 4    | −3.0% |
+| 8    | −5.8% |
+| 12   | −8.3% |
+| 20   | −12.4% |
+| 28   | −16.0% |
+| 36   | −18.7% |
+| 52   | −20.9% |
+| 72   | −22.5% (plateau) |
+
+**Dulaglutide 1.5mg weekly (Trulicity):**
+| Week | Weight Loss % |
+|------|--------------|
+| 26   | −3.0% |
+| 52   | −3.5% |
+
+**Liraglutide 3.0mg daily (Saxenda):**
+| Week | Weight Loss % |
+|------|--------------|
+| 12   | −5.0% |
+| 28   | −8.0% |
+| 56   | −8.4% |
+
+### 9.8 SDOH & Equity
+
+- Black and Hispanic patients: **0.5–0.8× odds of receiving semaglutide** vs white patients (adjusted for income)
+- Language barrier + health literacy: barrier to GLP-1 adherence in 40% of non-English-speaking patients
+- Cost is the #1 barrier: $900–$1,300/mo list price; after savings programs ~$500/mo
+- Compounded alternatives: ~$150–$400/mo, FDA enforcement ongoing (2024–2026)
+
+---
+
+## 10. OUR MOAT — WHAT TITRAHEALTH HAS THAT NO ONE ELSE HAS
+
+1. **HRV/RHR as GLP-1 pharmacodynamic markers** (CycleIQ)
+   - No competitor tracks these as GLP-1 outcomes
+   - Clinical evidence exists (WHOOP research 2024)
+   - We already have the infrastructure via HealthKit
+
+2. **Context-aware AI (buildContextSnapshot)**
+   - Full user state injected into AI system prompt
+   - No competitor has a conversational AI that knows: phase, dose, injection day, recent food noise, HRV trend, adherence score
+   - This is a deep moat that gets stronger the more data a user generates
+
+3. **Unified Food Hub + Meal Tray Architecture**
+   - Search + scan + describe + camera + voice in one screen
+   - No competitor has all 5 modes in a single flow
+
+4. **Voice logging across multiple entry types**
+   - Jurni is voice-first but voice-only
+   - We have voice as one modality among many (better for existing users)
+
+5. **Appetite Forecast Strip**
+   - Predicts appetite intensity by day in cycle
+   - No competitor (including Glapp/Bodyphases) publishes the actual algorithm; ours is derived from PK curve
+
+6. **Injection Phase System + 7-Domain Weekly Check-ins**
+   - Shot/peak/balance/reset phases with day-level granularity
+   - 7 validated domains: GI burden, energy/mood, appetite, food noise, sleep, activity, mental health
+   - Glapp has a simpler version; no other competitor has 7 domains
+
+7. **Garmin integration**
+   - Only tracker with Garmin data + GLP-1 correlation
+
+8. **Adherence Score Ring**
+   - Visual daily adherence score (protein + activity + injection + side effect tracking)
+   - No competitor has a composite adherence/wellness score ring
+
+---
+
+## 11. GAP ANALYSIS — PRIORITY RANKED
+
+### TIER 1: HIGH IMPACT — BUILD NOW (Days 1–14)
+
+#### #1 — Clinical Trial Benchmarking
+**Competitor:** Glapp (signature feature)
+**Description:** Show user's actual weight loss % vs STEP/SURMOUNT trial benchmarks at same treatment week
+**Why it matters:** Most compelling conversion + retention hook; answers "is this working for me?"
 **Implementation:**
-- **Primary package:** `@kingstinct/react-native-healthkit` — TypeScript-native, Nitro Modules-based, actively maintained, Expo managed workflow compatible with config plugin
-- **Alternative:** `react-native-health` (AE Studio) — broader adoption but being rewritten in Swift; requires bare workflow or custom dev client
-- **Expo Managed Workflow:** Requires custom development build (not Expo Go); add config plugin to `app.json`
-- **Background delivery:** HealthKit supports background delivery for real-time updates; requires `enableBackgroundDelivery()` on each data type
-- **Permissions model:** Each data type requires explicit user consent shown in a native HealthKit sheet
+- Add static `TRIAL_BENCHMARKS` constants in `constants/scoring.ts` (STEP 1, SURMOUNT-1 weekly data)
+- Compute treatment week from `profile.program_start_date`
+- Build `ClinicalBenchmarkCard` for `app/(tabs)/log.tsx` Progress tab
+- No new data collection needed; uses existing weight_logs + injection_logs
+**Effort:** ~4–6 hours
 
-**Priority: P0** — Implement before any other wearable integration.
-
----
-
-### 1.2 Google Health Connect (Android)
-
-**Overview:** Android's equivalent of HealthKit, introduced in Android 13 and built into the OS in Android 14+. Required for GLP-1 companion parity on Android.
-
-**Available Data Types (mirrors HealthKit):** Steps, sleep, heart rate, HRV, body weight, body fat, calories, nutrition data, blood glucose, blood pressure, SpO2.
-
+#### #2 — Peer Comparison (Anonymous Percentile)
+**Competitor:** Glapp, MyGLP
+**Description:** "You've lost X% weight — better than Y% of users on [medication] at [week]"
+**Why it matters:** Social proof + motivation; validated by behavioral research
 **Implementation:**
 - **Package:** `react-native-health-connect` (maintained by matinzd) with `expo-health-connect` config plugin
 - **Expo setup:** Add to `app.json` plugins; requires `compileSdkVersion 34`, `targetSdkVersion 34`, `minSdkVersion 26`
@@ -514,31 +1618,64 @@ TitraHealth has an opportunity to be explicitly equity-aware — not just tracki
 **2025 Release:** ZCTA-level and census tract data available via Socrata Open Data API.
 
 **API endpoint:**
-```
-GET https://data.cdc.gov/resource/qnzd-25i4.json?locationname={zip_code}
-```
+- Supabase aggregate view: `peer_weight_loss_summary` (requires RLS + aggregate views)
+- User must opt-in; only percentile returned, never individual data
+- UI card on Progress tab
+**Effort:** ~8–10 hours (Supabase migration required)
 
-**Use cases in TitraHealth:**
-- Contextual benchmarking: "In your area, 38% of adults have obesity — you're working against the grain, and that's commendable"
-- Identify users in high-deprivation areas where specialized support messaging is warranted
-- Aggregate anonymized app data against PLACES data for population health insights (if provider dashboard is built)
+#### #3 — Lean Mass Preservation Score
+**Competitor:** Noom Med (body scan), GLPer (measurements)
+**Description:** Real-time lean mass risk score based on protein intake + resistance activity
+**Why it matters:** 26–40% of GLP-1 weight loss is lean mass; no consumer app shows this risk in real-time
+**Formula:**
+```
+protein_adequacy = daily_protein_g / (body_weight_kg × 1.2g)   // target 1.2g/kg
+resistance_bonus = 1 if resistance_activity logged in last 3 days
+lean_mass_score = (protein_adequacy × 70 + resistance_bonus × 30).clamp(0, 100)
+risk_level = score > 80 ? 'Protected' : score > 60 ? 'Moderate Risk' : 'High Risk'
+```
+**Data available:** food_logs (protein_g), activity_logs (exercise_type includes "Weights/Resistance"), HealthKit weight
+**Effort:** ~4–5 hours
 
-**Privacy approach:** Request zip code during onboarding (not GPS); use ZCTA-level data only; never expose individual SDOH scores to the user in a stigmatizing way.
+#### #4 — Doctor Report / PDF Export
+**Competitor:** Dose AI, Marker, Noom Med
+**Description:** HIPAA-style summary PDF: weight trend, injections, side effects, food patterns
+**Why it matters:** Highly requested on Reddit GLP-1 communities; drives provider visits engagement
+**Implementation:**
+- Use `react-native-html-to-pdf` or `expo-print`
+- Template: cover (name, medication, dates) + weight chart + injection log table + side effect summary + nutrition averages
+**Effort:** ~6–8 hours
 
 ---
 
-### 6.2 Walk Score API
+### TIER 2: MEDIUM IMPACT — NEXT SPRINT (Days 15–30)
 
-**What it provides:** Walkability score (0–100), transit score, and bike score for any US address or lat/lng.
+#### #5 — Food Noise Daily Check-In (Quick Entry)
+**Competitor:** Glapp (daily slider, #1 unique feature)
+**Description:** Standalone daily food noise score (1–10 slider) accessible from home screen
+**Why it matters:** Food noise is the emotional core of GLP-1 experience; glapp owns this narrative
+**Status:** Weekly check-in has food_noise domain (3 questions); missing standalone daily entry
+**Gap:** Need quick 5-second entry (single slider) + home screen placement
+**Effort:** ~2–3 hours
 
-**Relevance:** Walkability directly predicts step count potential. A user in a Walk Score 20 (car-dependent suburban area) needs different exercise recommendations than a Walk Score 90 (urban walker). The app should adjust step goals and suggestion copy based on the user's built environment.
+#### #6 — Injection Site Rotation — Rotation Intelligence (Enhanced)
+**Status:** Site grid exists in log-injection.tsx; rotation data saved to injection_logs.site
+**Gap:** No rotation history display; no recommendation based on last 4 shots
+**Implementation:** Read last 4 injection_logs, highlight recommended next sites on grid, show rotation hint
+**Effort:** ~2–3 hours
 
-**API:** REST API at `api.walkscore.com` — requires API key (free tier available for low volume).
+#### #7 — Weight Goal Timeline
+**Description:** "At current rate, you'll reach goal weight in X weeks"
+**Data:** weight_logs trend + user_goals.target_weight_lbs
+**Implementation:** Linear regression on last 8 weeks + clinical plateau adjustment
+**Effort:** ~3–4 hours
 
-**Use cases:**
-- Adjust default step goal: Walk Score <40 → suggest 6,000 steps; Walk Score >70 → suggest 10,000 steps
-- "Today's Focus" cards: high walkability → "20 min neighborhood walk"; low walkability → "15 min treadmill or indoor walk"
-- Show walkability score in user profile with context
+#### #8 — Sleep Quality as GLP-1 Outcome
+**Competitor:** None (gap in entire market)
+**Description:** Track sleep quality trend since treatment start; correlate with tirzepatide approval for sleep apnea
+**Data:** HealthKit sleep hours (already in healthkit-store.ts)
+**Gap:** Sleep not displayed as a GLP-1 outcome anywhere in the app
+**Effort:** ~3–4 hours (new card in CycleIQ section)
 
 ---
 
@@ -894,49 +2031,173 @@ GLP-1 dose escalation follows strict protocols that vary by medication:
 | Mounjaro (tirzepatide) | 2.5 → 5 → 7.5 → 10 → 12.5 → 15 mg (every 4 weeks) |
 | Zepbound (tirzepatide) | Same as Mounjaro |
 | Saxenda (liraglutide) | Daily escalation over 5 weeks |
+### TIER 3: DIFFERENTIATING MOAT — FUTURE SPRINTS
 
+#### #9 — Off-Boarding Habit Formation Tracker
+**Competitor:** ZERO competitors address this
+**Description:** Track habits being built during treatment; "Habit Bank" — skills that persist after stopping GLP-1
+**Why it matters:** 60% weight regain within 18 months of stopping; behavioral habits are the key predictor
 **Features:**
-- Auto-calculate next dose level and date from start date and current dose
-- Notification: "You're eligible to escalate to X mg in 7 days — confirm with your prescriber"
-- Side effect diary auto-linked to dose level: "You were on 1.0mg during these nausea entries"
-- Dose escalation decision support: Show average side effect burden at current dose; "Many users find side effects stabilize after 4–6 weeks at each dose level"
+- Protein habit streak (days hitting 1.2g/kg)
+- Mindful eating streak (no "eating past full" logs)
+- Exercise consistency streak
+- Food noise reduction trend
+- "Habit Readiness Score" for when medication ends
+**Effort:** ~10–15 hours (new store + screens)
+
+#### #10 — Smart Injection Timing
+**Competitor:** Dose AI
+**Description:** "Based on your appetite patterns and side effect history, inject on [day] at [time] for best results"
+**Data:** food_noise_logs + side_effect_logs + injection_logs timestamps
+**Algorithm:** Find day in cycle where food noise was lowest + nausea was lowest across last 4 cycles
+**Effort:** ~6–8 hours
+
+#### #11 — CGM Integration Layer
+**Competitor:** Levels, Signos, Nutrisense, Stelo
+**Description:** Read glucose from HealthKit (covers Dexcom Stelo, Abbott Libre, G7 via Apple Health — no partnership needed)
+**Why it matters:** GLP-1s reduce glucose; tracking this validates medication effectiveness
+**Data source:** `HKQuantityTypeIdentifierBloodGlucose` already in healthkit.ts
+**Gap:** Glucose card in HomeScreen only shows if HealthKit data present; no GLP-1 correlation analysis
+**Effort:** ~5–6 hours (new glucose trend card + meal correlation)
+
+#### #12 — Menstrual Cycle × GLP-1 Correlation
+**Competitor:** ZERO competitors track this
+**Description:** Correlate menstrual cycle phase with GLP-1 side effects, appetite, food noise
+**Data:** HealthKit menstruation data + our existing side_effect_logs + food_noise_logs
+**Clinical basis:** Estrogen affects GLP-1 receptor sensitivity; luteal phase associated with higher nausea
+**Effort:** ~8–10 hours
+
+#### #13 — Withings Body Composition Integration
+**Description:** Import lean mass %, fat %, visceral fat from Withings scale via Withings API
+**Why it matters:** Only way to directly measure lean mass preservation (vs our formula-based estimate)
+**API:** Withings Health API (OAuth 2.0, public)
+**Effort:** ~6–8 hours
+
+#### #14 — Recipe Database (GLP-1 Optimized)
+**Competitor:** GLPer (500+ recipes), Hims & Hers meal plans
+**Description:** Curated recipe library: high-protein, small-portion, nausea-friendly categories
+**Effort:** ~15–20 hours (content + UI) — Phase 2
 
 ---
 
-### 11.2 Injection Site Rotation System
+## 12. TECHNOLOGY OPPORTUNITIES
 
-**Body diagram implementation:**
-- SVG body outline with 6 injection sites (abdomen-left, abdomen-right, thigh-left, thigh-right, arm-left, arm-right)
-- Each injection log records site; diagram highlights recommended next site based on rotation algorithm
-- Sites should not be reused for ≥2 consecutive weeks
-- Within-site rotation: Suggest specific sub-quadrant within zone
+### 12.1 APIs Available Without Partnership
 
-**Storage guidance feature:**
-- Unopened: Store at 36–46°F (refrigerated)
-- In-use: Can be stored at room temperature (<86°F) for 28–56 days (varies by product)
-- Push notification: "Is your Ozempic pen still in use? Check storage temperature"
+| API | Use Case | Auth | Cost |
+|-----|----------|------|------|
+| HealthKit (`HKQuantityTypeIdentifierBloodGlucose`) | CGM data (Dexcom, Libre) | iOS permission | Free |
+| HealthKit menstrual data | Cycle correlation | iOS permission | Free |
+| Withings Health API | Body composition from scale | OAuth 2.0 | Free |
+| WHOOP API (developer.whoop.com) | HRV, recovery, sleep | OAuth 2.0 | Free (requires device) |
+| Oura API v2 | HRV, sleep staging | OAuth 2.0 | Free (requires ring) |
+| Garmin Health API | Steps, HRV, Body Battery | OAuth 1.0a | Free (already integrated) |
+| CDC PLACES API | ZCTA-level health outcomes | None (public) | Free |
+| ClinicalTrials.gov v2 API | Trial matching | None (public) | Free |
 
-**Pen priming reminder:** First injection from each new pen requires priming — step-by-step guide with animation
+### 12.2 React Native Packages of Interest
+
+```bash
+# Body composition / measurements
+expo-camera  # already integrated
+
+# Report generation
+react-native-html-to-pdf
+expo-print + expo-sharing
+
+# Body composition estimation (Noom-style)
+@passiolife/nutritionai-react-native-sdk-v3  # food photo + body scan
+
+# Charts for clinical benchmarking
+victory-native  # already likely in use
+react-native-gifted-charts
+
+# Wearables
+react-native-health-connect  # already integrated (Android)
+@kingstinct/react-native-healthkit  # already integrated (iOS)
+```
+
+### 12.3 Supabase Functions Needed
+
+```sql
+-- Peer comparison (needed for #2 above)
+CREATE OR REPLACE VIEW peer_weight_loss_summary AS
+  SELECT
+    medication_name,
+    dose_tier,   -- bucketed: 0.5mg, 1mg, 2mg, 2.4mg, 5mg, 10mg, 15mg
+    treatment_week_bucket,  -- bucketed: 4, 8, 12, 20, 28, 36, 52
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY weight_loss_pct) as p25,
+    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY weight_loss_pct) as p50,
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY weight_loss_pct) as p75,
+    COUNT(*) as cohort_size
+  FROM user_weight_loss_metrics  -- needs this view too
+  GROUP BY medication_name, dose_tier, treatment_week_bucket;
+
+-- RLS: only aggregate reads allowed, never individual rows
+```
 
 ---
 
-### 11.3 GLP-1 "Medication Holiday" Tracking
+## 13. RECOMMENDED ROADMAP
 
-Some patients take planned breaks from GLP-1 due to cost, side effects, or medical procedures. The app should:
-- Allow user to record a medication pause start date
-- During pause: Switch Home screen to a "Maintenance Mode" — focus on behavioral habits that preserve weight
-- Provide evidence-based warning: "Research shows ~60% of lost weight is regained within 18 months of stopping — maintaining protein intake and exercise is critical during your break"
-- Track weight trajectory during pause (rebound rate)
+### Sprint 1 (Week 1–2): Retention + Differentiation
+
+| # | Feature | Hours | Priority |
+|---|---------|-------|----------|
+| 1 | Clinical trial benchmarking card | 5 | Critical |
+| 2 | Lean mass preservation score | 4 | High |
+| 3 | Food noise daily quick-entry | 2 | High |
+| 4 | Sleep quality as GLP-1 outcome card | 3 | Medium |
+| 5 | Wire FoodNoiseCard into home dashboard | 1 | Quick win |
+
+**Total: ~15 hours**
+
+### Sprint 2 (Week 3–4): Completeness + Parity
+
+| # | Feature | Hours | Priority |
+|---|---------|-------|----------|
+| 6 | Doctor PDF export | 7 | High |
+| 7 | Peer comparison (requires migration) | 10 | High |
+| 8 | Site rotation intelligence | 2 | Medium |
+| 9 | Weight goal timeline | 3 | Medium |
+
+**Total: ~22 hours**
+
+### Sprint 3 (Month 2): Deep Moat
+
+| # | Feature | Hours | Priority |
+|---|---------|-------|----------|
+| 10 | Off-boarding habit formation tracker | 12 | Unique moat |
+| 11 | CGM integration (HealthKit glucose) | 5 | High |
+| 12 | Smart injection timing | 7 | Medium |
+| 13 | WHOOP / Oura API integration | 8 | Medium |
+
+**Total: ~32 hours**
+
+### Sprint 4 (Month 3): Premium Features
+
+| # | Feature | Hours |
+|---|---------|-------|
+| 14 | Menstrual cycle × GLP-1 correlation | 9 |
+| 15 | Withings body composition integration | 7 |
+| 16 | Recipe database (GLP-1 optimized) | 18 |
+| 17 | Insurance / cost intelligence | 8 |
+
+**Total: ~42 hours**
 
 ---
 
-### 11.4 Side Effect Pattern Analysis
+## COMPETITIVE SUMMARY
 
-Beyond simple logging, build a pattern-recognition layer:
+**TitraHealth's position:**
+- Matches or exceeds all standalone trackers on logging completeness
+- Only standalone tracker with HealthKit HRV/RHR as pharmacodynamic markers
+- Missing Glapp's 2 signature features: clinical benchmarking + peer comparison
+- Missing the entire "after GLP-1" category (off-boarding habit formation)
+- Our context-aware AI is a moat that compounds with data — no competitor has this
 
-- Side effects by: Injection site (do certain sites cause more reactions?), dose level, time post-injection, food consumed before injection, hydration level
-- Insight: "Your nausea tends to be highest 18–24 hours after injection when you've eaten fewer than 60g of protein. Hitting protein goals may help reduce side effect severity."
-- Exportable side effect report for prescriber visits
+**The biggest white space in the entire market:**
+> Nobody is building for the moment GLP-1 therapy ends. 60% weight regain within 18 months, zero apps preparing users for independence. This is TitraHealth's biggest long-term differentiator.
 
 ---
 
@@ -1559,3 +2820,5 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 ---
 
 *Document reflects research current as of March 2026. Clinical findings, API availability, and package maintenance status should be re-verified at implementation time.*
+**The biggest short-term gap to close:**
+> Clinical trial benchmarking. One widget. Already have all the data. Glapp's #1 conversion feature. Build it first.
