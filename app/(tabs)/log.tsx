@@ -1298,10 +1298,10 @@ const PERIOD_SUBTITLES: Record<string, string> = {
   '7D': 'Last 7 days', '14D': 'Last 14 days', '30D': 'Last 30 days', '90D': 'Last 3 months', 'MAX': 'All time',
 };
 
-const ML = 52; // margin left (Y-axis labels)
-const MR = 12; // margin right
-const MT = 10; // margin top
-const MB = 28; // margin bottom (X-axis labels)
+const WML = 52; // margin left (Y-axis labels)
+const WMR = 12; // margin right
+const WMT = 10; // margin top
+const WMB = 28; // margin bottom (X-axis labels)
 
 function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false }: {
   datasets: Record<string, WeightPoint[]>;
@@ -1319,8 +1319,8 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   const data = datasets[activePeriod];
   const hasData = data && data.length >= 2;
 
-  const svgH = chartHeight + MT + MB;
-  const plotW = Math.max(0, svgWidth - ML - MR);
+  const svgH = chartHeight + WMT + WMB;
+  const plotW = Math.max(0, svgWidth - WML - WMR);
   const plotH = chartHeight;
 
   // Y range
@@ -1332,14 +1332,14 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   const maxW = rawMax + padding;
   const yRange = maxW - minW || 1;
 
-  const toX = (i: number) => ML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
-  const toY = (w: number) => MT + plotH - ((w - minW) / yRange) * plotH;
+  const toX = (i: number) => WML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
+  const toY = (w: number) => WMT + plotH - ((w - minW) / yRange) * plotH;
 
   const points = hasData ? data.map((d, i) => ({ x: toX(i), y: toY(d.weight) })) : [];
 
   const linePath = smoothPath(points);
   const areaPath = points.length >= 2
-    ? `${linePath} L ${points[points.length - 1].x} ${MT + plotH} L ${points[0].x} ${MT + plotH} Z`
+    ? `${linePath} L ${points[points.length - 1].x} ${WMT + plotH} L ${points[0].x} ${WMT + plotH} Z`
     : '';
 
   const yTicks = hasData ? niceYTicks(rawMin, rawMax) : [];
@@ -1400,11 +1400,11 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
               return (
                 <React.Fragment key={`y-${tick}`}>
                   <Line
-                    x1={ML} y1={y} x2={ML + plotW} y2={y}
+                    x1={WML} y1={y} x2={WML + plotW} y2={y}
                     stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
                   />
                   <SvgText
-                    x={ML - 6} y={y + 4}
+                    x={WML - 6} y={y + 4}
                     fontSize={10} fill="rgba(255,255,255,0.35)"
                     textAnchor="end" fontFamily="Helvetica Neue"
                   >
@@ -1418,11 +1418,11 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
             {xLabels.map(({ x, label }) => (
               <React.Fragment key={`x-${label}-${x}`}>
                 <Line
-                  x1={ML + x} y1={MT} x2={ML + x} y2={MT + plotH}
+                  x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
                   stroke="rgba(255,255,255,0.05)" strokeWidth={1}
                 />
                 <SvgText
-                  x={ML + x} y={MT + plotH + 18}
+                  x={WML + x} y={WMT + plotH + 18}
                   fontSize={9} fill="rgba(255,255,255,0.35)"
                   textAnchor="middle" fontFamily="Helvetica Neue"
                 >

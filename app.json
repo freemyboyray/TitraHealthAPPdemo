@@ -11,14 +11,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titrahealth.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
         "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
         "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
         "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging.",
         "NSCameraUsageDescription": "TitraHealth uses your camera to photograph food for nutritional analysis.",
-        "NSPhotoLibraryUsageDescription": "TitraHealth accesses your photo library to select food images for nutritional analysis."
+        "NSPhotoLibraryUsageDescription": "TitraHealth accesses your photo library to select food images for nutritional analysis.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
@@ -68,7 +69,13 @@
           }
         }
       ],
-      "@kingstinct/react-native-healthkit",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
+          "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health."
+        }
+      ],
       "react-native-health-connect",
       "expo-apple-authentication",
       "@react-native-community/datetimepicker",
