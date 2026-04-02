@@ -85,6 +85,10 @@ export type FullUserProfile = {
   cravingDays: string[];            // ['monday', 'wednesday', ...]
   sideEffects: SideEffect[];
   onboardingCompletedAt: string;
+  tosAcceptedAt?: string;           // ISO 8601 timestamp
+  tosVersion?: string;              // e.g. '1.0'
+  privacyAcceptedAt?: string;       // ISO 8601 timestamp
+  privacyVersion?: string;          // e.g. '1.0'
 };
 
 export type ProfileDraft = Partial<FullUserProfile>;

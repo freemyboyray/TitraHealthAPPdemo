@@ -33,4 +33,8 @@ export const MOCK_PROFILE: FullUserProfile = {
   cravingDays: ['friday', 'saturday'],
   sideEffects: [],
   onboardingCompletedAt: '2024-01-01T00:00:00.000Z',
+  tosAcceptedAt: '2024-01-01T00:00:00.000Z',
+  tosVersion: '1.0',
+  privacyAcceptedAt: '2024-01-01T00:00:00.000Z',
+  privacyVersion: '1.0',
 };

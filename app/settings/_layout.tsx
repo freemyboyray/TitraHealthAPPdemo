@@ -8,6 +8,8 @@ export default function SettingsLayout() {
       <Stack.Screen name="edit-body" />
       <Stack.Screen name="edit-goals" />
       <Stack.Screen name="edit-personal" />
+      <Stack.Screen name="legal" />
+      <Stack.Screen name="export-report" />
     </Stack>
   );
 }

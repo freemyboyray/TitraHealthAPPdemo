@@ -61,7 +61,7 @@ export default function BodyScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={7} total={12} onBack={() => router.back()} />
+        <OnboardingHeader step={8} total={13} onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Your Height & Weight</Text>

@@ -43,7 +43,7 @@ export const useUserStore = create<UserStore>((set) => ({
         .from('profiles')
         .insert({
           id: user.id,
-          full_name: (user.user_metadata?.full_name as string) ?? null,
+          username: (user.user_metadata?.username as string) ?? null,
         })
         .select()
         .single();

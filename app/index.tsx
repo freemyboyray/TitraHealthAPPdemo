@@ -8,6 +8,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { useUserStore } from '@/stores/user-store';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { TOS_VERSION } from '@/constants/legal';
 
 export default function Index() {
   const { colors } = useAppTheme();
@@ -28,6 +29,12 @@ export default function Index() {
     if (isLoading) return;
     if (!profile) {
       router.replace('/onboarding');
+      return;
+    }
+
+    // TOS version gate: require acceptance of current TOS version
+    if (profile.tosVersion !== TOS_VERSION) {
+      router.replace('/tos-update' as any);
       return;
     }
 

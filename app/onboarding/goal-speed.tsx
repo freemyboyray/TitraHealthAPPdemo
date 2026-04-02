@@ -60,7 +60,7 @@ export default function GoalSpeedScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={11} total={12} onBack={() => router.back()} />
+        <OnboardingHeader step={12} total={13} onBack={() => router.back()} />
 
         <Text style={s.title}>How quickly do you want to reach your goal?</Text>
         <Text style={s.subtitle}>

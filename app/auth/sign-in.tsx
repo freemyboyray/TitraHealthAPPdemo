@@ -177,7 +177,7 @@ export default function SignInScreen() {
   );
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
-  const [name, setName]                   = useState('');
+  const [username, setUsername]             = useState('');
   const [rememberMe, setRememberMe]       = useState(false);
   const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -230,9 +230,13 @@ export default function SignInScreen() {
   // ── Email sign-up ───────────────────────────────────────────────────────
   async function handleSignUp() {
     const trimmedEmail = email.trim();
-    const trimmedName  = name.trim();
-    if (!trimmedName || !trimmedEmail || !password) {
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername || !trimmedEmail || !password) {
       setError('Please fill in all fields.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmedUsername)) {
+      setError('Username must be 3-20 characters (letters, numbers, underscores).');
       return;
     }
     if (password.length < 6) {
@@ -246,7 +250,7 @@ export default function SignInScreen() {
     const { data, error: err } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: { data: { full_name: trimmedName } },
+      options: { data: { username: trimmedUsername } },
     });
 
     if (err) {
@@ -257,7 +261,7 @@ export default function SignInScreen() {
 
     if (data.session) {
       setSession(data.session);
-      await supabase.from('profiles').upsert({ id: data.user!.id, full_name: trimmedName });
+      await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
       await loadProfile();
       router.replace('/onboarding');
     } else {
@@ -414,12 +418,12 @@ export default function SignInScreen() {
             {!isLogin && (
               <PillInput
                 icon="person-outline"
-                placeholder="Full Name"
-                value={name}
-                onChangeText={setName}
-                textContentType="name"
-                autoComplete="name"
-                autoCapitalize="words"
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
+                textContentType="username"
+                autoComplete="username"
+                autoCapitalize="none"
               />
             )}
 

@@ -75,6 +75,10 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     cravingDays: row.craving_days ?? [],
     sideEffects: row.initial_side_effects ?? [],
     onboardingCompletedAt: row.program_start_date ?? new Date().toISOString(),
+    tosAcceptedAt: row.tos_accepted_at ?? undefined,
+    tosVersion: row.tos_version ?? undefined,
+    privacyAcceptedAt: row.privacy_accepted_at ?? undefined,
+    privacyVersion: row.privacy_version ?? undefined,
   };
 }
 
@@ -176,6 +180,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         initial_dose_mg:          complete.initialDoseMg,
         dose_start_date:          complete.doseStartDate || null,
         last_injection_date:      complete.lastInjectionDate || null,
+        tos_accepted_at:          complete.tosAcceptedAt || null,
+        tos_version:              complete.tosVersion || null,
+        privacy_accepted_at:      complete.privacyAcceptedAt || null,
+        privacy_version:          complete.privacyVersion || null,
       });
 
       // 2. Upsert user_goals (computed from Mifflin-St Jeor base targets)
@@ -213,6 +221,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.doseTime                !== undefined) row.dose_time                 = fields.doseTime || null;
       if (fields.doseStartDate           !== undefined) row.dose_start_date           = fields.doseStartDate;
       if (fields.lastInjectionDate       !== undefined) row.last_injection_date       = fields.lastInjectionDate || null;
+      if (fields.tosAcceptedAt           !== undefined) row.tos_accepted_at           = fields.tosAcceptedAt;
+      if (fields.tosVersion              !== undefined) row.tos_version               = fields.tosVersion;
+      if (fields.privacyAcceptedAt       !== undefined) row.privacy_accepted_at       = fields.privacyAcceptedAt;
+      if (fields.privacyVersion          !== undefined) row.privacy_version           = fields.privacyVersion;
       if (fields.sex                     !== undefined) row.sex                       = fields.sex;
       if (fields.birthday                !== undefined) row.dob                       = fields.birthday;
       if (fields.unitSystem              !== undefined) row.unit_system               = fields.unitSystem;

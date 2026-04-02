@@ -100,7 +100,7 @@ export default function SettingsScreen() {
     ]);
   }
 
-  const displayName = authProfile?.full_name ?? 'You';
+  const displayName = (authProfile as any)?.username ?? (authProfile as any)?.full_name ?? 'You';
   const displayEmail = session?.user.email ?? '';
 
   return (
@@ -268,6 +268,39 @@ export default function SettingsScreen() {
               ios_backgroundColor="#333"
             />
           </View>
+        </View>
+
+        {/* Section label */}
+        <Text style={s.sectionLabel}>LEGAL</Text>
+
+        <View style={s.card}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
+                <Ionicons name="document-text-outline" size={18} color="#5856D6" />
+              </View>
+              <Text style={s.rowLabel}>Terms & Privacy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {/* Section label */}
+        <Text style={s.sectionLabel}>DATA</Text>
+
+        <View style={s.card}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                <Ionicons name="download-outline" size={18} color="#34C759" />
+              </View>
+              <View>
+                <Text style={s.rowLabel}>Export Health Report</Text>
+                <Text style={s.rowSub}>PDF for your physician</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
         </View>
 
         <View style={{ flex: 1, minHeight: 40 }} />
