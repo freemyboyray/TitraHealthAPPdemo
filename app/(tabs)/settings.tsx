@@ -105,43 +105,36 @@ export default function SettingsScreen() {
   function handleDeleteAccount() {
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account and all associated health data. This action cannot be undone.',
+      'This will permanently delete your account and all health data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete My Account',
+          text: 'Delete Everything',
           style: 'destructive',
-          onPress: () => confirmDeleteAccount(),
-        },
-      ],
-    );
-  }
-
-  async function confirmDeleteAccount() {
-    Alert.prompt(
-      'Confirm Deletion',
-      'Type DELETE to permanently delete your account.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async (value?: string) => {
-            if (value?.toUpperCase() !== 'DELETE') {
-              Alert.alert('Cancelled', 'You must type DELETE to confirm.');
-              return;
-            }
-            setDeleting(true);
-            try {
-              await deleteAccount();
-            } catch {
-              setDeleting(false);
-              Alert.alert('Error', 'Failed to delete account. Please try again.');
-            }
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              'All your medication logs, weight history, food logs, and health data will be permanently erased.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      await deleteAccount();
+                    } catch (e: any) {
+                      setDeleting(false);
+                      Alert.alert('Error', e.message ?? 'Failed to delete account. Please try again.');
+                    }
+                  },
+                },
+              ],
+            );
           },
         },
       ],
-      'plain-text',
     );
   }
 
@@ -315,7 +308,23 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section label */}
+        {/* Provider Report row */}
+        <View style={s.card}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/entry/provider-report' as any)}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <Ionicons name="document-text-outline" size={18} color={ORANGE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Provider Report</Text>
+                <Text style={s.rowSub}>Generate a clinical PDF for your doctor</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {/* LEGAL section */}
         <Text style={s.sectionLabel}>LEGAL</Text>
 
         <View style={s.card}>
@@ -330,18 +339,21 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
-        {/* Section label */}
-        <Text style={s.sectionLabel}>DATA</Text>
+        {/* ACCOUNT section */}
+        <Text style={s.sectionLabel}>ACCOUNT</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)}>
+          <Pressable
+            style={s.cardRow}
+            onPress={handleDeleteAccount}
+          >
             <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <Ionicons name="download-outline" size={18} color="#34C759" />
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
+                <Ionicons name="trash-outline" size={18} color="#FF453A" />
               </View>
-              <View>
-                <Text style={s.rowLabel}>Export Health Report</Text>
-                <Text style={s.rowSub}>PDF for your physician</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.rowLabel, { color: '#FF453A' }]}>Delete Account</Text>
+                <Text style={s.rowSub}>Permanently delete all your data</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

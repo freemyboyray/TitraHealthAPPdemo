@@ -77,18 +77,36 @@ export async function scheduleTestNotification(title: string, body: string): Pro
  * @param doseTime     "HH:MM" — used for daily drugs; for weekly the reminder fires at 9:00 AM
  * @param drugName     Display name of the medication
  * @param lastInjectionDate  YYYY-MM-DD of the last injection (used to compute next shot date for weekly drugs)
+ * @param content      Optional personalized content from reminder-content.ts
  */
 export async function scheduleDoseReminder(
   injFreqDays: number,
   doseTime: string = '09:00',
   drugName: string = 'GLP-1',
   lastInjectionDate?: string | null,
+  content?: {
+    dailyTitle: string;
+    dailyBody: string;
+    shotDayTitle: string;
+    shotDayBody: string;
+    eveTitle: string;
+    eveBody: string;
+  },
 ): Promise<void> {
   if (!Notifications) return;
 
   const DAILY_ID   = 'dose_reminder_daily';
   const WEEKLY_ID  = 'dose_reminder_weekly';
   const WEEKLY_EVE = 'dose_reminder_weekly_eve';
+
+  const c = content ?? {
+    dailyTitle: 'Time for your daily dose',
+    dailyBody: 'Log your dose after taking it to keep your cycle accurate.',
+    shotDayTitle: 'Today is your injection day',
+    shotDayBody: 'Log your shot to keep your cycle on track.',
+    eveTitle: 'Injection tomorrow',
+    eveBody: 'Your injection is due tomorrow. Prepare your injection and rotation site.',
+  };
 
   if (injFreqDays === 1) {
     // Daily: cancel weekly reminder, set daily reminder at doseTime
@@ -97,8 +115,8 @@ export async function scheduleDoseReminder(
     const [h, m] = doseTime.split(':').map(Number);
     await scheduleDailyReminder(
       DAILY_ID,
-      `Time to take your ${drugName}`,
-      'Log your dose after taking it to keep your cycle accurate.',
+      c.dailyTitle,
+      c.dailyBody,
       h,
       m ?? 0,
       'titrahealth://entry/log-injection',
@@ -120,8 +138,8 @@ export async function scheduleDoseReminder(
       await Notifications.scheduleNotificationAsync({
         identifier: WEEKLY_ID,
         content: {
-          title: `${drugName} injection day`,
-          body: 'Today is your injection day. Log your shot to keep your cycle on track.',
+          title: c.shotDayTitle,
+          body: c.shotDayBody,
           data: { url: 'titrahealth://entry/log-injection' },
         },
         trigger: {
@@ -140,8 +158,8 @@ export async function scheduleDoseReminder(
       await Notifications.scheduleNotificationAsync({
         identifier: WEEKLY_EVE,
         content: {
-          title: 'Injection tomorrow',
-          body: `Your ${drugName} injection is due tomorrow. Prepare your injection and rotation site.`,
+          title: c.eveTitle,
+          body: c.eveBody,
           data: { url: 'titrahealth://entry/log-injection' },
         },
         trigger: {

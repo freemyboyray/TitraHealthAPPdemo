@@ -73,6 +73,10 @@ export function buildSystemPrompt(
 
   const startDateObj = new Date(profile.startDate);
   const daysOnMed = Math.max(1, Math.floor((Date.now() - startDateObj.getTime()) / 86400000));
+  const weeksOnMed = daysOnMed / 7;
+  const totalLost = (profile.startWeightLbs ?? profile.weightLbs) - profile.weightLbs;
+  const weeklyRate = weeksOnMed > 0 ? totalLost / weeksOnMed : 0;
+  const remaining = profile.weightLbs - profile.goalWeightLbs;
 
   const waterOz = Math.round(actuals.waterMl / 29.57);
   const targetWaterOz = Math.round(targets.waterMl / 29.57);
@@ -96,6 +100,15 @@ USER PROFILE:
 - Current weight: ${Math.round(profile.weightLbs)} lbs (${Math.round(profile.weightKg)} kg)
 - Goal weight: ${profile.goalWeightLbs} lbs
 - Side effects reported: ${profile.sideEffects.length > 0 ? profile.sideEffects.join(', ') : 'none'}
+
+WEIGHT PROGRESS:
+- Start weight: ${Math.round(profile.startWeightLbs ?? profile.weightLbs)} lbs
+- Current weight: ${Math.round(profile.weightLbs)} lbs
+- Total lost: ${totalLost.toFixed(1)} lbs
+- Weeks on medication: ${weeksOnMed.toFixed(1)}
+- Weekly loss rate: ${weeklyRate.toFixed(2)} lbs/wk
+- Target weekly loss: ${profile.targetWeeklyLossLbs ?? 1.0} lbs/wk
+- Remaining to goal: ${remaining.toFixed(1)} lbs
 
 SHOT CYCLE:
 - Last injection: ${profile.lastInjectionDate}
@@ -257,7 +270,7 @@ export async function generateLogInsight(
   const prompts: Record<typeof tab, string> = {
     lifestyle: 'In 1 concise sentence, state the most significant gap or trend in my protein, hydration, steps, or fiber vs my targets today.',
     medication: 'In 1 concise sentence, state how my current injection phase is affecting my body and whether my adherence is on track.',
-    progress: 'In 1 concise sentence, state my weight progress toward my goal and whether my current rate is on track given my time on medication.',
+    progress: 'In 1 concise sentence, summarize my weight progress: total lost, weekly rate, and whether I am on track to reach my goal. Reference the WEIGHT PROGRESS data provided. Never say I have not reported weight loss if start weight and current weight differ.',
   };
 
   const result = await callOpenAI([{ role: 'user', content: prompts[tab] }], systemPrompt);

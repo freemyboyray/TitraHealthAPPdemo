@@ -38,6 +38,7 @@ import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
+import { syncNotifications } from '@/stores/reminders-store';
 import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
 import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
 import { MissedShotModal } from '@/components/missed-shot-modal';
@@ -904,7 +905,7 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     hkStore.fetchAll();
     personalizationStore.fetchAndRecompute();
-    logStore.fetchInsightsData();
+    logStore.fetchInsightsData().then(() => syncNotifications());
     getDismissedFlags().then(setDismissedFlags);
 
     // Fetch dates that have logged data (last 90 days) for calendar dot indicators

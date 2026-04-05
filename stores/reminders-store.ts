@@ -6,6 +6,13 @@ import {
   cancelReminder,
   scheduleDailyReminder,
 } from '../lib/notifications';
+import {
+  buildReminderContent,
+  type ReminderContext,
+  type ReminderSlot,
+} from '../lib/reminder-content';
+import { useLogStore } from './log-store';
+import { useUserStore } from './user-store';
 
 export type ReminderType = 'meals' | 'weight' | 'sideEffects' | 'dailyPlan';
 
@@ -27,11 +34,8 @@ type RemindersStore = {
   reset(): void;
 };
 
-// Notification metadata per reminder slot
-const REMINDER_META: Record<
-  string,
-  { title: string; body: string; deepLink: string }
-> = {
+// Default fallback content (used if personalization returns null unexpectedly)
+const DEFAULT_CONTENT: Record<ReminderSlot, { title: string; body: string; deepLink: string }> = {
   meals_morning: {
     title: 'Log Your Breakfast',
     body: 'Tap to log what you had this morning.',
@@ -64,52 +68,79 @@ function parseHHMM(hhmm: string): { hour: number; minute: number } {
   return { hour: h ?? 8, minute: m ?? 0 };
 }
 
-async function syncNotifications(state: RemindersStore) {
-  if (!state.masterEnabled) {
+/** Gather current store data for personalization. */
+function gatherContext(): ReminderContext {
+  const logState = useLogStore.getState();
+  const userState = useUserStore.getState();
+  return {
+    foodLogs: logState.foodLogs,
+    weightLogs: logState.weightLogs,
+    sideEffectLogs: logState.sideEffectLogs,
+    injectionLogs: logState.injectionLogs,
+    activityLogs: logState.activityLogs,
+    profile: userState.profile ?? logState.profile,
+    userGoals: logState.userGoals,
+  };
+}
+
+async function scheduleSlot(
+  slot: ReminderSlot,
+  hhmm: string,
+  ctx: ReminderContext,
+): Promise<void> {
+  const content = buildReminderContent(slot, ctx);
+
+  if (content === null) {
+    // Smart suppression: user already logged — skip this reminder
+    await cancelReminder(slot);
+    return;
+  }
+
+  const { hour, minute } = parseHHMM(hhmm);
+  await scheduleDailyReminder(slot, content.title, content.body, hour, minute, content.deepLink);
+}
+
+/** Sync all notification slots with personalized content. Exported for foreground resync. */
+export async function syncNotifications(state?: RemindersStore): Promise<void> {
+  const s = state ?? useRemindersStore.getState();
+
+  if (!s.masterEnabled) {
     await cancelAllReminders();
     return;
   }
 
+  const ctx = gatherContext();
+
   // meals
-  if (state.meals.enabled && state.meals.times[0]) {
-    const { hour, minute } = parseHHMM(state.meals.times[0]);
-    const m = REMINDER_META.meals_morning;
-    await scheduleDailyReminder('meals_morning', m.title, m.body, hour, minute, m.deepLink);
+  if (s.meals.enabled && s.meals.times[0]) {
+    await scheduleSlot('meals_morning', s.meals.times[0], ctx);
   } else {
     await cancelReminder('meals_morning');
   }
 
-  if (state.meals.enabled && state.meals.times[1]) {
-    const { hour, minute } = parseHHMM(state.meals.times[1]);
-    const m = REMINDER_META.meals_evening;
-    await scheduleDailyReminder('meals_evening', m.title, m.body, hour, minute, m.deepLink);
+  if (s.meals.enabled && s.meals.times[1]) {
+    await scheduleSlot('meals_evening', s.meals.times[1], ctx);
   } else {
     await cancelReminder('meals_evening');
   }
 
   // weight
-  if (state.weight.enabled && state.weight.times[0]) {
-    const { hour, minute } = parseHHMM(state.weight.times[0]);
-    const m = REMINDER_META.weight_morning;
-    await scheduleDailyReminder('weight_morning', m.title, m.body, hour, minute, m.deepLink);
+  if (s.weight.enabled && s.weight.times[0]) {
+    await scheduleSlot('weight_morning', s.weight.times[0], ctx);
   } else {
     await cancelReminder('weight_morning');
   }
 
   // side effects
-  if (state.sideEffects.enabled && state.sideEffects.times[0]) {
-    const { hour, minute } = parseHHMM(state.sideEffects.times[0]);
-    const m = REMINDER_META.side_effects_evening;
-    await scheduleDailyReminder('side_effects_evening', m.title, m.body, hour, minute, m.deepLink);
+  if (s.sideEffects.enabled && s.sideEffects.times[0]) {
+    await scheduleSlot('side_effects_evening', s.sideEffects.times[0], ctx);
   } else {
     await cancelReminder('side_effects_evening');
   }
 
   // daily plan
-  if (state.dailyPlan.enabled && state.dailyPlan.times[0]) {
-    const { hour, minute } = parseHHMM(state.dailyPlan.times[0]);
-    const m = REMINDER_META.daily_plan_morning;
-    await scheduleDailyReminder('daily_plan_morning', m.title, m.body, hour, minute, m.deepLink);
+  if (s.dailyPlan.enabled && s.dailyPlan.times[0]) {
+    await scheduleSlot('daily_plan_morning', s.dailyPlan.times[0], ctx);
   } else {
     await cancelReminder('daily_plan_morning');
   }

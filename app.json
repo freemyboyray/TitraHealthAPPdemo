@@ -11,10 +11,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titrahealth.app",
-      "buildNumber": "5",
+      "buildNumber": "8",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
-        "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
+        "NSHealthShareUsageDescription": "TitraHealth reads your steps, heart rate, HRV, sleep, weight, blood glucose, and nutrition from Apple Health to display health trends alongside your medication journey.",
+        "NSHealthUpdateUsageDescription": "TitraHealth saves your logged weight and nutrition data to Apple Health to keep your health records in sync.",
+        "NSCameraUsageDescription": "TitraHealth uses your camera to photograph meals for nutrition analysis and to scan food barcodes.",
         "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
         "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging.",
         "NSCameraUsageDescription": "TitraHealth uses your camera to photograph food for nutritional analysis.",
@@ -71,8 +72,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
-          "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health."
+          "NSHealthShareUsageDescription": "TitraHealth reads your steps, heart rate, HRV, sleep, weight, blood glucose, and nutrition from Apple Health to display health trends alongside your medication journey.",
+          "NSHealthUpdateUsageDescription": "TitraHealth saves your logged weight and nutrition data to Apple Health to keep your health records in sync."
         }
       ],
       "react-native-health-connect",

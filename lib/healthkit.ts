@@ -54,7 +54,7 @@ export async function requestPermissions(): Promise<boolean> {
   try {
     const available = await HK.isHealthDataAvailable();
     if (!available) return false;
-    await HK.requestAuthorization(WRITE_TYPES, READ_TYPES);
+    await HK.requestAuthorization(READ_TYPES, WRITE_TYPES);
     return true;
   } catch {
     return false;

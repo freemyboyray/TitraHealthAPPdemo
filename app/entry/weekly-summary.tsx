@@ -563,6 +563,7 @@ export default function WeeklySummaryScreen() {
             </SectionCard>
           </>
         )}
+
       </ScrollView>
 
       {/* Sticky Footer */}

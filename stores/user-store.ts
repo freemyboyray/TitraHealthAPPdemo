@@ -58,9 +58,17 @@ export const useUserStore = create<UserStore>((set) => ({
   },
 
   deleteAccount: async () => {
-    const { error } = await supabase.functions.invoke('delete-account');
-    if (error) throw new Error('Failed to delete account');
-    // Sign out locally after server-side deletion
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not signed in');
+
+    const res = await supabase.functions.invoke('delete-account', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (res.error) {
+      throw new Error(res.error.message ?? 'Account deletion failed');
+    }
+
     await supabase.auth.signOut();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },

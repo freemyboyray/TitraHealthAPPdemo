@@ -30,6 +30,11 @@ import {
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
 import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
+import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useAnimatedReaction, runOnJS as reanimatedRunOnJS } from 'react-native-reanimated';
+import { useChartScrub } from '@/hooks/useChartScrub';
+import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 
 const ORANGE = '#FF742A';
 
@@ -715,6 +720,13 @@ function MedAIInsightsCard() {
 
 // ─── Medication Level Chart card ──────────────────────────────────────────────
 
+const PK_TIER_GUIDE = [
+  { label: 'Optimal', range: '75 – 100%', color: '#27AE60', desc: 'Strongest GLP-1 receptor engagement. Appetite suppression is at its peak. Nausea risk is highest in this window, especially in early weeks.' },
+  { label: 'Active',  range: '50 – 74%',  color: '#5B8BF5', desc: 'Medication is in its therapeutic range. Appetite control remains strong and nausea typically eases. Most people feel best during this phase.' },
+  { label: 'Tapering', range: '30 – 49%', color: '#F6CB45', desc: 'Concentration is declining toward your next dose. Hunger may gradually return. Protein-first meals help maintain momentum.' },
+  { label: 'Trough',  range: '0 – 29%',   color: '#9A9490', desc: 'Levels are near trough before your next injection. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
+];
+
 const CHART_HEIGHT = 110;
 const EXP_CHART_HEIGHT = 220;
 const ML = 40; // left margin for Y-axis labels
@@ -739,9 +751,9 @@ function pkTierInfo(pct: number): { label: string; color: string; body: string }
     body: "Concentration is declining toward your next dose. Some people notice hunger returning gradually. Protein-first meals help maintain momentum through this window.",
   };
   return {
-    label: 'Low',
-    color: '#E74C3C',
-    body: "Levels are near their lowest before your next dose. GLP-1 RAs maintain a floor level - they don't drop to zero. Returning hunger is a normal pharmacological effect, not a treatment failure.",
+    label: 'Trough',
+    color: '#9A9490',
+    body: "Levels are near their lowest before your next dose. GLP-1 RAs maintain a floor level — they don't drop to zero. Returning hunger is a normal pharmacological effect, not a treatment failure.",
   };
 }
 
@@ -869,6 +881,83 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     },
   })).current;
 
+  const n = chartData ? chartData.length : 0;
+  const colW = chartWidth > 0 && n > 0 ? chartWidth / n : 0;
+  const expColW = expChartWidth > 0 && n > 0 ? expChartWidth / n : 0;
+
+  const plotW = chartWidth > 0 ? chartWidth - ML - MR : 0;
+  const expPlotW = expChartWidth > 0 ? expChartWidth - ML - MR : 0;
+
+  const points = chartData
+    ? chartData.map((v, i) => ({
+        x: chartWidth > 0 ? ML + (n > 1 ? (plotW / (n - 1)) * i : plotW / 2) : 0,
+        y: MT + (CHART_HEIGHT - MT) * (1 - v / 100),
+      }))
+    : [];
+
+  const expPoints = chartData
+    ? chartData.map((v, i) => ({
+        x: expChartWidth > 0 ? ML + (n > 1 ? (expPlotW / (n - 1)) * i : expPlotW / 2) : 0,
+        y: MT + (EXP_CHART_HEIGHT - MT) * (1 - v / 100),
+      }))
+    : [];
+
+  const currentLevel = currentConcentrationPct ?? (chartData ? chartData[chartData.length - 1] ?? 0 : 0);
+  const levelLabel = isDailyDrug
+    ? (glp1Type === 'liraglutide' ? 'Peaks ~11h post-dose' : 'Steady State')
+    : (currentLevel >= 75 ? 'Optimal' : currentLevel >= 50 ? 'Active' : currentLevel >= 30 ? 'Tapering' : 'Trough');
+  const daysSinceLabel = daysSince === 1 ? 'Today' : daysSince === 2 ? 'Yesterday' : `${daysSince - 1} days ago`;
+  const concentrationDisplay = isDailyDrug ? null : `${currentLevel}%`;
+
+  const tierInfo = pkTierInfo(currentLevel);
+  const halfLifeInfo = pkHalfLifeExplain(glp1Type);
+  const peakInfo = pkPeakEffectsExplain(glp1Type);
+  const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
+
+  // ── Scrub hooks ──────────────────────────────────────────────────────────────
+  const medTooltipFormatter = useCallback((idx: number) => {
+    if (!chartData || idx < 0 || idx >= chartData.length) return { title: '', subtitle: '' };
+    const pct = chartData[idx];
+    const tier = pkTierInfo(pct);
+    return {
+      title: pkPointLabel(idx, injFreqDays, chartData.length),
+      subtitle: `${pct}% remaining`,
+      badge: { text: tier.label, color: tier.color },
+    };
+  }, [chartData, injFreqDays]);
+
+  const openModal = useCallback(() => {
+    if (!isDailyDrug && chartData) setExpandedModal(true);
+  }, [isDailyDrug, chartData]);
+
+  const compactScrub = useChartScrub({
+    points,
+    chartWidth,
+    marginLeft: ML,
+    marginRight: MR,
+    mode: 'longpress-or-tap',
+    onTap: openModal,
+    enabled: !!chartData && chartWidth > 0,
+  });
+
+  const expScrub = useChartScrub({
+    points: expPoints,
+    chartWidth: expChartWidth,
+    marginLeft: ML,
+    marginRight: MR,
+    mode: 'longpress-only',
+    enabled: !!chartData && expChartWidth > 0 && expandedModal,
+  });
+
+  // Sync expanded scrub activeIndex → selectedPointIdx for the panel
+  useAnimatedReaction(
+    () => expScrub.activeIndex.value,
+    (idx) => {
+      reanimatedRunOnJS(setSelectedPointIdx)(idx >= 0 ? idx : null);
+    },
+    [expScrub.activeIndex],
+  );
+
   if (!chartData) {
     return (
       <View style={[s.cardWrap, { marginBottom: 16 }]}>
@@ -881,35 +970,6 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
       </View>
     );
   }
-
-  const n = chartData.length;
-  const colW = chartWidth > 0 ? chartWidth / n : 0;
-  const expColW = expChartWidth > 0 ? expChartWidth / n : 0;
-
-  const plotW = chartWidth > 0 ? chartWidth - ML - MR : 0;
-  const expPlotW = expChartWidth > 0 ? expChartWidth - ML - MR : 0;
-
-  const points = chartData.map((v, i) => ({
-    x: chartWidth > 0 ? ML + (n > 1 ? (plotW / (n - 1)) * i : plotW / 2) : 0,
-    y: MT + (CHART_HEIGHT - MT) * (1 - v / 100),
-  }));
-
-  const expPoints = chartData.map((v, i) => ({
-    x: expChartWidth > 0 ? ML + (n > 1 ? (expPlotW / (n - 1)) * i : expPlotW / 2) : 0,
-    y: MT + (EXP_CHART_HEIGHT - MT) * (1 - v / 100),
-  }));
-
-  const currentLevel = currentConcentrationPct ?? (chartData[chartData.length - 1] ?? 0);
-  const levelLabel = isDailyDrug
-    ? (glp1Type === 'liraglutide' ? 'Peaks ~11h post-dose' : 'Steady State')
-    : (currentLevel >= 75 ? 'Optimal' : currentLevel >= 50 ? 'Active' : currentLevel >= 30 ? 'Tapering' : 'Low');
-  const daysSinceLabel = daysSince === 1 ? 'Today' : daysSince === 2 ? 'Yesterday' : `${daysSince - 1} days ago`;
-  const concentrationDisplay = isDailyDrug ? null : `${currentLevel}%`;
-
-  const tierInfo = pkTierInfo(currentLevel);
-  const halfLifeInfo = pkHalfLifeExplain(glp1Type);
-  const peakInfo = pkPeakEffectsExplain(glp1Type);
-  const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
 
   // Render chart internals as SVG (used in both compact and expanded views)
   function renderChartInternals(pts: { x: number; y: number }[], chartH: number, cW: number, cWFull: number) {
@@ -967,17 +1027,18 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
           <Circle key={i} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} opacity={0.8} />
         ))}
 
-        {/* NOW marker */}
+        {/* NOW marker — rendered last for highest z-order */}
         {nowX != null && nowY != null && (
           <>
             <Line
               x1={nowX} y1={0} x2={nowX} y2={chartH}
-              stroke="rgba(255,255,255,0.3)" strokeWidth={1.5}
+              stroke="rgba(255,255,255,0.45)" strokeWidth={1.5} strokeDasharray="4,3"
             />
-            <Circle cx={nowX} cy={nowY} r={5} fill="#FFFFFF" stroke={ORANGE} strokeWidth={2} />
+            <Circle cx={nowX} cy={nowY} r={8} fill="rgba(255,116,42,0.2)" />
+            <Circle cx={nowX} cy={nowY} r={5.5} fill="#FFFFFF" stroke={ORANGE} strokeWidth={2.5} />
             <SvgText
-              x={nowX} y={Math.max(14, nowY - 8)}
-              fontSize={9} fontWeight="700" fill={ORANGE}
+              x={nowX} y={Math.max(14, nowY - 12)}
+              fontSize={10} fontWeight="800" fill={ORANGE}
               textAnchor="middle" fontFamily="Helvetica Neue"
             >
               NOW
@@ -990,36 +1051,60 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
   return (
     <>
-      <Pressable
-        style={[s.cardWrap, { marginBottom: 16 }]}
-        onPress={() => { if (!isDailyDrug && chartData) setExpandedModal(true); }}
-        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
-      >
+      <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={[s.chartMuted, { fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
-              {!isDailyDrug && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="expand-outline" size={12} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                  <Text style={[s.chartMuted, { fontSize: 10 }]}>Tap to expand</Text>
-                </View>
-              )}
+            {/* Header row */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View>
+                <Text style={[s.chartMuted, { fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
+                <Text style={[s.chartMuted, { marginTop: 2, fontSize: 11 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
+                >
+                  <Ionicons name="sparkles" size={14} color={ORANGE} />
+                </Pressable>
+                {!isDailyDrug && (
+                  <Ionicons name="expand-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                )}
+              </View>
             </View>
-            <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4, marginBottom: 2, gap: 8 }}>
-              <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
-              {concentrationDisplay && (
-                <Text style={s.chartMuted}>remaining in body · {levelLabel}</Text>
-              )}
-            </View>
-            <Text style={[s.chartMuted, { marginBottom: 14 }]}>
-              {isDailyDrug ? 'Intraday concentration profile' : `Since last injection: ${daysSinceLabel}`}
-            </Text>
 
-            <View style={{ height: CHART_HEIGHT }} onLayout={onLayout}>
-              {chartWidth > 0 && renderChartInternals(points, CHART_HEIGHT, colW, chartWidth)}
+            {/* Level display */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
+              <View>
+                <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
+                {concentrationDisplay && (
+                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{levelLabel} · remaining in body</Text>
+                )}
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[s.chartMuted, { fontSize: 11 }]}>
+                  {isDailyDrug ? 'Intraday profile' : daysSinceLabel}
+                </Text>
+              </View>
             </View>
+
+            <GestureDetector gesture={compactScrub.gesture}>
+              <View style={{ height: CHART_HEIGHT, position: 'relative' }} onLayout={onLayout}>
+                {chartWidth > 0 && renderChartInternals(points, CHART_HEIGHT, colW, chartWidth)}
+                {chartWidth > 0 && (
+                  <ChartScrubOverlay
+                    activeIndex={compactScrub.activeIndex}
+                    isActive={compactScrub.isActive}
+                    crosshairX={compactScrub.crosshairX}
+                    crosshairY={compactScrub.crosshairY}
+                    chartHeight={CHART_HEIGHT}
+                    chartWidth={chartWidth}
+                    color={ORANGE}
+                    formatTooltip={medTooltipFormatter}
+                  />
+                )}
+              </View>
+            </GestureDetector>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
               {dayLabels.map((d, i) => (
@@ -1028,13 +1113,13 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             </View>
           </View>
         </View>
-      </Pressable>
+      </View>
 
       {/* ── Expanded Modal ── */}
       <Modal
         visible={expandedModal}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={dismissSheet}
       >
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
@@ -1083,38 +1168,29 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 </Pressable>
               </View>
 
-              {/* Expanded chart */}
-              <View
-                style={{ height: EXP_CHART_HEIGHT, marginBottom: 0 }}
-                onLayout={e => setExpChartWidth(e.nativeEvent.layout.width)}
-              >
-                {expChartWidth > 0 && (
-                  <>
-                    {renderChartInternals(expPoints, EXP_CHART_HEIGHT, expColW, expChartWidth)}
-                    {/* Tappable dots */}
-                    {expPoints.map((pt, i) => (
-                      <Pressable
-                        key={`exp-dot-tap-${i}`}
-                        onPress={() => setSelectedPointIdx(selectedPointIdx === i ? null : i)}
-                        style={{
-                          position: 'absolute',
-                          width: 40, height: 40,
-                          left: pt.x - 20, top: pt.y - 20,
-                          alignItems: 'center', justifyContent: 'center',
-                          zIndex: 20,
-                        }}
-                      >
-                        <View style={{
-                          width: 20, height: 20, borderRadius: 10,
-                          backgroundColor: selectedPointIdx === i ? '#FFFFFF' : ORANGE,
-                          borderWidth: selectedPointIdx === i ? 3 : 0,
-                          borderColor: ORANGE,
-                        }} />
-                      </Pressable>
-                    ))}
-                  </>
-                )}
-              </View>
+              {/* Expanded chart with scrub */}
+              <GestureDetector gesture={expScrub.gesture}>
+                <View
+                  style={{ height: EXP_CHART_HEIGHT, marginBottom: 0, position: 'relative' }}
+                  onLayout={e => setExpChartWidth(e.nativeEvent.layout.width)}
+                >
+                  {expChartWidth > 0 && (
+                    <>
+                      {renderChartInternals(expPoints, EXP_CHART_HEIGHT, expColW, expChartWidth)}
+                      <ChartScrubOverlay
+                        activeIndex={expScrub.activeIndex}
+                        isActive={expScrub.isActive}
+                        crosshairX={expScrub.crosshairX}
+                        crosshairY={expScrub.crosshairY}
+                        chartHeight={EXP_CHART_HEIGHT}
+                        chartWidth={expChartWidth}
+                        color={ORANGE}
+                        formatTooltip={medTooltipFormatter}
+                      />
+                    </>
+                  )}
+                </View>
+              </GestureDetector>
 
               {/* X-axis labels */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, marginBottom: 12 }}>
@@ -1151,47 +1227,42 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
               {/* ── Section 1: What does X% mean? ── */}
               <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', marginBottom: 10 }}>What does {currentLevel}% mean?</Text>
-                <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', lineHeight: 21, fontFamily: 'Helvetica Neue' }}>{tierInfo.body}</Text>
+                <Text style={s.eduTitle}>What does {currentLevel}% mean?</Text>
+                <Text style={s.eduBody}>{tierInfo.body}</Text>
               </View>
 
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 20 }} />
+              <View style={s.eduDivider} />
 
               {/* ── Section 2: Half-life explained ── */}
               <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: 8, fontFamily: 'Helvetica Neue' }}>{brandName}'s {halfLifeInfo.halfLifeDays} half-life explained</Text>
+                <Text style={s.eduTitle}>{brandName}'s {halfLifeInfo.halfLifeDays} half-life explained</Text>
                 {halfLifeInfo.troughNote !== '' && (
-                  <Text style={{ fontSize: 12, fontStyle: 'italic', color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', marginBottom: 8, fontFamily: 'Helvetica Neue' }}>{halfLifeInfo.troughNote}</Text>
+                  <Text style={s.eduSubtitle}>{halfLifeInfo.troughNote}</Text>
                 )}
-                <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', lineHeight: 21, fontFamily: 'Helvetica Neue' }}>{halfLifeInfo.body}</Text>
+                <Text style={s.eduBody}>{halfLifeInfo.body}</Text>
               </View>
 
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 20 }} />
+              <View style={s.eduDivider} />
 
               {/* ── Section 3: Peak effects ── */}
               <View style={{ marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <Ionicons name="time-outline" size={16} color={ORANGE} />
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>Peak effects and side effects</Text>
+                  <Text style={[s.eduTitle, { marginBottom: 0 }]}>Peak effects and side effects</Text>
                 </View>
                 <Text style={[s.chartMuted, { marginBottom: 8 }]}>Time to peak (Tmax): {peakInfo.tmaxLabel}</Text>
-                <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', lineHeight: 21, fontFamily: 'Helvetica Neue' }}>{peakInfo.body}</Text>
+                <Text style={s.eduBody}>{peakInfo.body}</Text>
               </View>
 
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 20 }} />
+              <View style={s.eduDivider} />
 
               {/* ── Section 4: Level guide ── */}
               <View style={{ marginBottom: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                   <Ionicons name="bar-chart-outline" size={16} color={ORANGE} />
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>What each level means</Text>
+                  <Text style={[s.eduTitle, { marginBottom: 0 }]}>What each level means</Text>
                 </View>
-                {([
-                  { label: 'Optimal', range: '75 - 100%', color: '#27AE60', desc: 'Strongest GLP-1 receptor engagement. Appetite suppression is at its peak. Nausea risk is highest in this window, especially in early weeks.' },
-                  { label: 'Active',  range: '50 - 74%',  color: '#5B8BF5', desc: 'Medication is in its therapeutic range. Appetite control remains strong and nausea typically eases. Most people feel best during this phase.' },
-                  { label: 'Tapering', range: '30 - 49%', color: '#F6CB45', desc: 'Concentration is declining toward your next dose. Hunger may gradually return. Protein-first meals help maintain momentum.' },
-                  { label: 'Low',     range: '0 - 29%',   color: '#E74C3C', desc: 'Levels are near trough before your next injection. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
-                ] as { label: string; range: string; color: string; desc: string }[]).map((tier) => (
+                {PK_TIER_GUIDE.map((tier) => (
                   <View
                     key={tier.label}
                     style={{
@@ -1350,13 +1421,46 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   const PERIODS = ['7D', '14D', '30D', '90D', 'MAX'] as const;
   const { openAiChat } = useUiStore();
 
+  // ── Scrub hook ──────────────────────────────────────────────────────────
+  const weightTooltipFormatter = useCallback((idx: number) => {
+    if (!data || idx < 0 || idx >= data.length) return { title: '', subtitle: '' };
+    const pt = data[idx];
+    const prevPt = idx > 0 ? data[idx - 1] : null;
+    const delta = prevPt ? Math.round((pt.weight - prevPt.weight) * 10) / 10 : 0;
+    const deltaStr = delta < 0 ? `${delta} lbs` : delta > 0 ? `+${delta} lbs` : 'Steady';
+    return {
+      title: `${pt.weight} lbs`,
+      subtitle: new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      badge: delta !== 0
+        ? { text: deltaStr, color: delta < 0 ? '#27AE60' : '#E74C3C' }
+        : undefined,
+    };
+  }, [data]);
+
+  const weightScrub = useChartScrub({
+    points,
+    chartWidth: svgWidth,
+    marginLeft: WML,
+    marginRight: WMR,
+    mode: 'longpress-only',
+    enabled: hasData && svgWidth > 0,
+  });
+
   const chartContent = (
     <>
       {!inline && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
-            <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+              <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
+            </View>
+            <Pressable
+              hitSlop={8}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '-'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) }); }}
+            >
+              <Ionicons name="sparkles" size={14} color={ORANGE} />
+            </Pressable>
           </View>
           <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
             {displayWeight != null ? `${displayWeight} lbs` : '-'}
@@ -1371,7 +1475,7 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
             <Pressable
               key={p}
               style={[s.progPeriodBtn, isActive && s.progPeriodBtnActive]}
-              onPress={(e) => { e.stopPropagation(); setActivePeriod(p); }}
+              onPress={(e) => { e.stopPropagation(); LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setActivePeriod(p); }}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               <Text style={[s.progPeriodLabel, isActive && s.progPeriodLabelActive]}>{p}</Text>
@@ -1380,82 +1484,96 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
         })}
       </View>
 
-      <View style={{ height: svgH }} onLayout={onLayout}>
-        {!hasData ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={s.chartMuted}>Log weight entries to see your chart</Text>
-          </View>
-        ) : svgWidth > 0 && (
-          <Svg width={svgWidth} height={svgH}>
-            <Defs>
-              <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={ORANGE} stopOpacity="0.28" />
-                <Stop offset="1" stopColor={ORANGE} stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
+      <GestureDetector gesture={weightScrub.gesture}>
+        <View style={{ height: svgH, position: 'relative' }} onLayout={onLayout}>
+          {!hasData ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={s.chartMuted}>Log weight entries to see your chart</Text>
+            </View>
+          ) : svgWidth > 0 && (
+            <>
+              <Svg width={svgWidth} height={svgH}>
+                <Defs>
+                  <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={ORANGE} stopOpacity="0.28" />
+                    <Stop offset="1" stopColor={ORANGE} stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
 
-            {/* Y-axis gridlines + labels */}
-            {yTicks.map((tick) => {
-              const y = toY(tick);
-              return (
-                <React.Fragment key={`y-${tick}`}>
-                  <Line
-                    x1={WML} y1={y} x2={WML + plotW} y2={y}
-                    stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
-                  />
-                  <SvgText
-                    x={WML - 6} y={y + 4}
-                    fontSize={10} fill="rgba(255,255,255,0.35)"
-                    textAnchor="end" fontFamily="Helvetica Neue"
-                  >
-                    {Math.round(tick)}
-                  </SvgText>
-                </React.Fragment>
-              );
-            })}
+                {/* Y-axis gridlines + labels */}
+                {yTicks.map((tick) => {
+                  const y = toY(tick);
+                  return (
+                    <React.Fragment key={`y-${tick}`}>
+                      <Line
+                        x1={WML} y1={y} x2={WML + plotW} y2={y}
+                        stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
+                      />
+                      <SvgText
+                        x={WML - 6} y={y + 4}
+                        fontSize={10} fill="rgba(255,255,255,0.35)"
+                        textAnchor="end" fontFamily="Helvetica Neue"
+                      >
+                        {Math.round(tick)}
+                      </SvgText>
+                    </React.Fragment>
+                  );
+                })}
 
-            {/* X-axis labels */}
-            {xLabels.map(({ x, label }) => (
-              <React.Fragment key={`x-${label}-${x}`}>
-                <Line
-                  x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
-                  stroke="rgba(255,255,255,0.05)" strokeWidth={1}
-                />
-                <SvgText
-                  x={WML + x} y={WMT + plotH + 18}
-                  fontSize={9} fill="rgba(255,255,255,0.35)"
-                  textAnchor="middle" fontFamily="Helvetica Neue"
-                >
-                  {label}
-                </SvgText>
-              </React.Fragment>
-            ))}
+                {/* X-axis labels */}
+                {xLabels.map(({ x, label }) => (
+                  <React.Fragment key={`x-${label}-${x}`}>
+                    <Line
+                      x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
+                      stroke="rgba(255,255,255,0.05)" strokeWidth={1}
+                    />
+                    <SvgText
+                      x={WML + x} y={WMT + plotH + 18}
+                      fontSize={9} fill="rgba(255,255,255,0.35)"
+                      textAnchor="middle" fontFamily="Helvetica Neue"
+                    >
+                      {label}
+                    </SvgText>
+                  </React.Fragment>
+                ))}
 
-            {/* Area fill */}
-            {areaPath ? (
-              <Path d={areaPath} fill="url(#areaGrad)" />
-            ) : null}
+                {/* Area fill */}
+                {areaPath ? (
+                  <Path d={areaPath} fill="url(#areaGrad)" />
+                ) : null}
 
-            {/* Line */}
-            {linePath ? (
-              <Path d={linePath} stroke={ORANGE} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            ) : null}
+                {/* Line */}
+                {linePath ? (
+                  <Path d={linePath} stroke={ORANGE} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                ) : null}
 
-            {/* Data dots */}
-            {points.slice(0, -1).map((pt, i) => (
-              <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} />
-            ))}
+                {/* Data dots */}
+                {points.slice(0, -1).map((pt, i) => (
+                  <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} />
+                ))}
 
-            {/* Last point — double ring */}
-            {lastPt && (
-              <>
-                <Circle cx={lastPt.x} cy={lastPt.y} r={9} fill="rgba(255,116,42,0.2)" />
-                <Circle cx={lastPt.x} cy={lastPt.y} r={5.5} fill={ORANGE} />
-              </>
-            )}
-          </Svg>
-        )}
-      </View>
+                {/* Last point — double ring */}
+                {lastPt && (
+                  <>
+                    <Circle cx={lastPt.x} cy={lastPt.y} r={9} fill="rgba(255,116,42,0.2)" />
+                    <Circle cx={lastPt.x} cy={lastPt.y} r={5.5} fill={ORANGE} />
+                  </>
+                )}
+              </Svg>
+              <ChartScrubOverlay
+                activeIndex={weightScrub.activeIndex}
+                isActive={weightScrub.isActive}
+                crosshairX={weightScrub.crosshairX}
+                crosshairY={weightScrub.crosshairY}
+                chartHeight={svgH}
+                chartWidth={svgWidth}
+                color={ORANGE}
+                formatTooltip={weightTooltipFormatter}
+              />
+            </>
+          )}
+        </View>
+      </GestureDetector>
 
       {hasData && svgWidth > 0 && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
@@ -1473,13 +1591,13 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   }
 
   return (
-    <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '-'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) }); }}>
+    <View style={[s.cardWrap, { marginBottom: 16 }]}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
           {chartContent}
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -1568,7 +1686,7 @@ function WeightProjectionCard({
         </View>
       </Pressable>
 
-      <Modal visible={expanded} transparent animationType="slide" onRequestClose={closeSheet}>
+      <Modal visible={expanded} transparent animationType="none" onRequestClose={closeSheet}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Pressable
             style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
@@ -1709,7 +1827,7 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
               {goalDateLabel ? (
                 <>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection!.weeksToGoal} wks away</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
                 </>
               ) : (
                 <Text style={{ fontSize: 12, color: w(0.35), fontFamily: 'Helvetica Neue', marginTop: 4 }}>Log 2+ weights to unlock</Text>
@@ -2082,6 +2200,60 @@ function LifestyleTrendCard({
   const selValue = selIdx !== null ? values[selIdx] : null;
   const selDate = selIdx !== null ? dates[selIdx] : null;
 
+  // ── Scrub hooks ──────────────────────────────────────────────────────────
+  const validIndices = useMemo(
+    () => values.map((v, i) => (v !== null ? i : -1)).filter(i => i >= 0),
+    [values],
+  );
+
+  const ltTooltipFormatter = useCallback((idx: number) => {
+    const v = values[idx];
+    const d = dates[idx];
+    if (v === null || !d) return { title: '', subtitle: '' };
+    const formatted = metric.unit === 'kcal' || metric.unit === 'steps'
+      ? Math.round(v).toLocaleString()
+      : v.toFixed(0);
+    return {
+      title: `${formatted} ${metric.unit}`,
+      subtitle: d,
+      badge: v >= target
+        ? { text: 'On target', color: '#27AE60' }
+        : { text: `${Math.abs(((v - target) / target) * 100).toFixed(0)}% below`, color: '#E74C3C' },
+    };
+  }, [values, dates, metric, target]);
+
+  const openExpanded = useCallback(() => setExpanded(true), []);
+
+  const ltCompactScrub = useChartScrub({
+    points: compact.pts,
+    chartWidth: compactW,
+    marginLeft: LT_TML,
+    marginRight: LT_TMR,
+    mode: 'longpress-or-tap',
+    onTap: openExpanded,
+    enabled: hasData && compactW > 0,
+    validIndices,
+  });
+
+  const ltExpScrub = useChartScrub({
+    points: exp.pts,
+    chartWidth: expW,
+    marginLeft: LT_TML,
+    marginRight: LT_TMR,
+    mode: 'longpress-only',
+    enabled: hasData && expW > 0 && expanded,
+    validIndices,
+  });
+
+  // Sync expanded scrub → selIdx
+  useAnimatedReaction(
+    () => ltExpScrub.activeIndex.value,
+    (idx) => {
+      reanimatedRunOnJS(setSelIdx)(idx >= 0 ? idx : null);
+    },
+    [ltExpScrub.activeIndex],
+  );
+
   function renderMetricPills(onSelect: (id: string) => void) {
     return (
       <ScrollView
@@ -2093,7 +2265,7 @@ function LifestyleTrendCard({
         {LIFESTYLE_METRICS.map(m => (
           <Pressable
             key={m.id}
-            onPress={() => { onSelect(m.id); setSelIdx(null); }}
+            onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); onSelect(m.id); setSelIdx(null); }}
             style={{
               paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
               backgroundColor: metricId === m.id ? m.color : 'rgba(255,255,255,0.08)',
@@ -2117,7 +2289,7 @@ function LifestyleTrendCard({
         {LT_PERIODS.map(p => (
           <Pressable
             key={p.label}
-            onPress={() => setPeriodDays(p.days)}
+            onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setPeriodDays(p.days); }}
             style={{
               paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
               backgroundColor: periodDays === p.days ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -2235,8 +2407,7 @@ function LifestyleTrendCard({
   return (
     <>
       {/* ── Compact Card ── */}
-      <Pressable
-        onPress={() => setExpanded(true)}
+      <View
         style={{
           borderRadius: 16,
           backgroundColor: 'rgba(255,255,255,0.06)',
@@ -2247,10 +2418,24 @@ function LifestyleTrendCard({
       >
         {/* Period tabs — top */}
         {renderPeriodTabs()}
-        {/* Chart */}
-        <View style={{ height: LT_COMPACT_H }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
-          {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
-        </View>
+        {/* Chart with scrub */}
+        <GestureDetector gesture={ltCompactScrub.gesture}>
+          <View style={{ height: LT_COMPACT_H, position: 'relative' }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
+            {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
+            {compactW > 0 && (
+              <ChartScrubOverlay
+                activeIndex={ltCompactScrub.activeIndex}
+                isActive={ltCompactScrub.isActive}
+                crosshairX={ltCompactScrub.crosshairX}
+                crosshairY={ltCompactScrub.crosshairY}
+                chartHeight={LT_COMPACT_H}
+                chartWidth={compactW}
+                color={metric.color}
+                formatTooltip={ltTooltipFormatter}
+              />
+            )}
+          </View>
+        </GestureDetector>
         {/* Metric pills — bottom */}
         {renderMetricPills(setMetricId)}
         {/* Footer stats */}
@@ -2266,10 +2451,10 @@ function LifestyleTrendCard({
             </View>
           )}
         </View>
-      </Pressable>
+      </View>
 
       {/* ── Expanded Modal (glassmorphism) ── */}
-      <Modal visible={expanded} transparent animationType="slide" onRequestClose={dismiss}>
+      <Modal visible={expanded} transparent animationType="none" onRequestClose={dismiss}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Pressable
             style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
@@ -2312,22 +2497,26 @@ function LifestyleTrendCard({
               {/* Period tabs — top */}
               {renderPeriodTabs()}
 
-              {/* Chart + tappable point overlays */}
-              <View style={{ position: 'relative' }}>
-                <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
-                  {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
-                </View>
-                {hasData && exp.pts.filter(p => p.valid).map(pt => {
-                  const origIdx = exp.pts.findIndex(p2 => p2 === pt);
-                  return (
-                    <Pressable
-                      key={origIdx}
-                      onPress={() => setSelIdx(selIdx === origIdx ? null : origIdx)}
-                      style={{ position: 'absolute', left: pt.x - 20, top: pt.y - 20, width: 40, height: 40 }}
+              {/* Chart with scrub */}
+              <GestureDetector gesture={ltExpScrub.gesture}>
+                <View style={{ position: 'relative' }}>
+                  <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
+                    {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
+                  </View>
+                  {expW > 0 && (
+                    <ChartScrubOverlay
+                      activeIndex={ltExpScrub.activeIndex}
+                      isActive={ltExpScrub.isActive}
+                      crosshairX={ltExpScrub.crosshairX}
+                      crosshairY={ltExpScrub.crosshairY}
+                      chartHeight={LT_EXP_H}
+                      chartWidth={expW}
+                      color={metric.color}
+                      formatTooltip={ltTooltipFormatter}
                     />
-                  );
-                })}
-              </View>
+                  )}
+                </View>
+              </GestureDetector>
 
               {/* Metric pills — below chart */}
               {renderMetricPills(setMetricId)}
@@ -2405,7 +2594,7 @@ export default function InsightsScreen() {
   const { onScroll, onScrollEnd } = useTabBarVisibility();
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, weeklyCheckins } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
@@ -2477,11 +2666,16 @@ export default function InsightsScreen() {
   const lastSite = lastInj?.site ?? null;
   const rotateTo = nextSite(lastSite);
   const lastDosage = lastInj ? `${lastInj.dose_mg}mg` : '-';
+  const injTimestamp = lastInj?.injection_date
+    ? (lastInj.injection_time
+        ? `${lastInj.injection_date}T${lastInj.injection_time}`
+        : `${lastInj.injection_date}T00:00:00`)
+    : null;
   const lastDaysSince = (() => {
-    if (!lastInj?.injection_date) return 0;
-    const injMs = new Date(lastInj.injection_date + 'T00:00:00').getTime();
+    if (!injTimestamp) return 0;
+    const injMs = new Date(injTimestamp).getTime();
     if (isNaN(injMs)) return 0;
-    const diff = Math.floor((new Date().setHours(0, 0, 0, 0) - injMs) / 86400000) + 1;
+    const diff = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(injTimestamp).setHours(0, 0, 0, 0)) / 86400000) + 1;
     // Cap at 30 days - beyond that the chart is meaningless anyway
     return Math.max(1, Math.min(diff, 30));
   })();
@@ -2491,8 +2685,8 @@ export default function InsightsScreen() {
   const isDailyDrug = DRUG_DEFAULT_FREQ_DAYS[health.profile.glp1Type] === 1;
   const hasInjectionData = isDailyDrug || !!lastInj;
   const hoursElapsed = (() => {
-    if (!lastInj?.injection_date) return 0;
-    const injMs = new Date(lastInj.injection_date + 'T00:00:00').getTime();
+    if (!injTimestamp) return 0;
+    const injMs = new Date(injTimestamp).getTime();
     if (isNaN(injMs)) return 0;
     return Math.max(0, (Date.now() - injMs) / 3600000); // ms → hours
   })();
@@ -2631,6 +2825,15 @@ export default function InsightsScreen() {
   const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
     weightToEntry(log, weightLogs[i + 1])
   );
+
+  // Weekly check-in last completed date
+  const lastCheckinLoggedAt = useMemo(() => {
+    if (!weeklyCheckins) return null;
+    const allEntries = Object.values(weeklyCheckins).flat();
+    if (allEntries.length === 0) return null;
+    const allDates = allEntries.map((c: any) => c.logged_at as string).filter(Boolean);
+    return allDates.length > 0 ? allDates.reduce((a: string, b: string) => (a > b ? a : b)) : null;
+  }, [weeklyCheckins]);
 
   const startDate = profile?.program_start_date
     ? new Date(profile.program_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -2858,6 +3061,10 @@ export default function InsightsScreen() {
                 </ProgressStatCard>
               </View>
               <RecentLogsCard entries={progressLogs} />
+              <View style={{ marginTop: 16 }}>
+                <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
+                <WeeklyCheckinCard lastLoggedAt={lastCheckinLoggedAt} />
+              </View>
             </>
           )}
 
@@ -2917,6 +3124,12 @@ const createStyles = (c: AppColors) => {
   chartMuted: { fontSize: 12, color: w(0.45), fontWeight: '500', fontFamily: 'Helvetica Neue' },
   chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   dayLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+
+  // Education sections (expanded modal)
+  eduTitle: { fontSize: 15, fontWeight: '700' as const, color: c.textPrimary, fontFamily: 'Helvetica Neue', marginBottom: 10 },
+  eduBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
+  eduSubtitle: { fontSize: 12, fontStyle: 'italic' as const, color: w(0.4), marginBottom: 8, fontFamily: 'Helvetica Neue' },
+  eduDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginBottom: 20 },
 
   // Progress chart
   progPeriodRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
