@@ -17,6 +17,9 @@ import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useBiometricStore } from '@/stores/biometric-store';
+import { useRemindersStore } from '@/stores/reminders-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 
 export const unstable_settings = {
@@ -52,6 +55,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
         resetProfile();
+        useBiometricStore.getState().resetBaseline();
+        useRemindersStore.getState().reset();
+        usePreferencesStore.getState().reset();
         router.replace('/auth/sign-in');
       }
     });

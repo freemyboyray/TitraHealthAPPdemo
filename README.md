@@ -16,7 +16,6 @@ A behavior-guidance and tracking app for people on GLP-1 medications (Ozempic, W
 - **AI coaching** — GPT-4o-mini contextual insights, coach notes, and food parsing with full health context
 - **Food logging** — describe (AI NLP), photo (GPT-4o-mini vision), barcode scan (USDA), or search (USDA FoodData Central)
 - **Activity logging with steps** — workout type picker, arc-gauge duration/intensity, auto-estimated steps (type × duration lookup), editable steps field, and calorie/steps data wired to Lifestyle tab cards; multiple workouts per day supported
-- **Garmin Connect sync** — OAuth 2.0 PKCE integration; syncs daily steps, active calories, sleep hours, resting HR, and weight from Garmin Connect via Supabase Edge Functions; data upserted into activity and weight logs with source tracking
 - **Weekly check-in surveys** — 4 Likert-scale surveys (GI Burden, Activity Quality, Sleep Quality, Mental Health) that unlock sequentially across the injection cycle; scores normalized to 0–100 and stored for trend analysis
 - **Weekly summary** — 7-day cycle recap with weight delta, average nutrition/activity metrics, check-in scores, and a GPT-4o-mini narrative insight; exportable as PDF
 - **Side effect impact viewer** — shows exactly how your active side effects are adjusting each daily target (protein, water, fiber, steps, calories) with delta badges and evidence-based reasons
@@ -51,7 +50,6 @@ EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 EXPO_PUBLIC_ANTHROPIC_API_KEY=your_anthropic_api_key
 EXPO_PUBLIC_FATSECRET_CLIENT_ID=your_fatsecret_client_id
 EXPO_PUBLIC_FATSECRET_CLIENT_SECRET=your_fatsecret_client_secret
-EXPO_PUBLIC_GARMIN_CLIENT_ID=your_garmin_client_id
 ```
 
 ### 3. Run Supabase migrations
@@ -101,7 +99,6 @@ See [SD.md](./SD.md) for the full Software Design Document.
 | Health data | `@kingstinct/react-native-healthkit` |
 | AI | OpenAI GPT-4o-mini + Anthropic Claude Haiku |
 | Food data | USDA FoodData Central |
-| Wearables | Garmin Connect API (via Edge Functions) |
 | Animations | Reanimated + react-native-svg |
 
 ---

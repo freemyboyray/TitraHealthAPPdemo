@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -19,7 +19,7 @@ const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 1939 }, (_, i) =>
   String(CURRENT_YEAR - i),
-).filter((y) => parseInt(y) <= CURRENT_YEAR - 16);
+).filter((y) => parseInt(y) <= CURRENT_YEAR - 18);
 
 export default function BirthdayScreen() {
   const router = useRouter();
@@ -34,6 +34,22 @@ export default function BirthdayScreen() {
     const month = String(monthIdx + 1).padStart(2, '0');
     const day = String(dayIdx + 1).padStart(2, '0');
     const year = YEARS[yearIdx];
+
+    const bd = new Date(parseInt(year), monthIdx, dayIdx + 1);
+    const today = new Date();
+    let age = today.getFullYear() - bd.getFullYear();
+    const m = today.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+
+    if (age < 18) {
+      Alert.alert(
+        'Age Requirement',
+        'You must be at least 18 years old to use Titra. Please consult with a parent or guardian.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
     updateDraft({ birthday: `${year}-${month}-${day}` });
     router.push('/onboarding/body');
   };

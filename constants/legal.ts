@@ -31,7 +31,7 @@ export const TOS_SECTIONS: LegalSection[] = [
   },
   {
     title: '5. Third-Party Integrations',
-    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit — reads health metrics (steps, heart rate, sleep, etc.) with your explicit permission\n• Garmin Connect — syncs activity and biometric data via OAuth authorization\n• USDA FoodData Central — provides nutritional information for food logging\n• FatSecret API — provides additional food and nutrition data\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
+    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit — reads health metrics (steps, heart rate, sleep, etc.) with your explicit permission\n• USDA FoodData Central — provides nutritional information for food logging\n• FatSecret API — provides additional food and nutrition data\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
   },
   {
     title: '6. User-Generated Health Data',
@@ -64,7 +64,7 @@ export const TOS_SECTIONS: LegalSection[] = [
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '1. What Data We Collect',
-    body: `Titra collects the following categories of data:\n\nAccount Information:\n• Email address (for authentication)\n• Username (no real name required)\n• Password (encrypted, never stored in plain text)\n\nHealth & Wellness Data (self-reported):\n• Medication details: brand, dose, frequency, injection dates and sites\n• Body metrics: height, weight, body composition\n• Food logs: meal descriptions, photos, nutritional data\n• Activity logs: exercise type, duration, steps\n• Side effects: type, severity, frequency\n• Wellness surveys: appetite, energy, mood, sleep quality, GI symptoms, food noise, mental wellness\n• Weekly check-in scores across 7 wellness domains\n\nBiometric Data (optional, with permission):\n• Apple HealthKit: heart rate, HRV, sleep duration, steps, SpO2, blood glucose, resting heart rate\n• Garmin Connect: steps, active calories, sleep, resting heart rate, weight\n\nDemographic Data:\n• Date of birth, sex, activity level\n\nUsage Data:\n• App interaction data, feature usage patterns`,
+    body: `Titra collects the following categories of data:\n\nAccount Information:\n• Email address (for authentication)\n• Username (no real name required)\n• Password (encrypted, never stored in plain text)\n\nHealth & Wellness Data (self-reported):\n• Medication details: brand, dose, frequency, injection dates and sites\n• Body metrics: height, weight, body composition\n• Food logs: meal descriptions, photos, nutritional data\n• Activity logs: exercise type, duration, steps\n• Side effects: type, severity, frequency\n• Wellness surveys: appetite, energy, mood, sleep quality, GI symptoms, food noise, mental wellness\n• Weekly check-in scores across 7 wellness domains\n\nBiometric Data (optional, with permission):\n• Apple HealthKit: heart rate, HRV, sleep duration, steps, SpO2, blood glucose, resting heart rate\n\nDemographic Data:\n• Date of birth, sex, activity level\n\nUsage Data:\n• App interaction data, feature usage patterns`,
   },
   {
     title: '2. How Data Is Stored',
@@ -72,7 +72,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '3. Third-Party Data Sharing',
-    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice transcriptions\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights\n• OpenAI's data retention: subject to OpenAI's API data usage policy\n\nUSDA FoodData Central & FatSecret:\n• What is shared: food search queries\n• Purpose: nutritional database lookups\n\nGarmin Connect (if enabled):\n• What is shared: OAuth tokens for data sync\n• Purpose: importing activity and biometric data\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
+    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice transcriptions\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights\n• OpenAI's data retention: subject to OpenAI's API data usage policy\n\nUSDA FoodData Central & FatSecret:\n• What is shared: food search queries\n• Purpose: nutritional database lookups\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
   },
   {
     title: '4. How We Use Your Data',

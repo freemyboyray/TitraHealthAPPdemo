@@ -1,6 +1,7 @@
 import { FullUserProfile } from '@/constants/user-profile';
 import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
 import type { WeeklySummaryData } from '@/lib/weekly-summary';
+import { supabase } from '@/lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -130,42 +131,31 @@ RESPONSE GUIDELINES:
 - Plain text only - no markdown, no bullet lists`;
 }
 
-// ─── Resilient fetch: retries on transient failures ───────────────────────────
+// ─── Edge Function Proxy ─────────────────────────────────────────────────────
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const TIMEOUT_MS = 28000; // 28 s - generous for mobile networks
 const MAX_RETRIES = 2;    // up to 3 total attempts
 
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-): Promise<Response> {
+async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   let lastError: Error = new Error('Request failed');
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
     try {
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timer);
+      const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
 
-      // Retry on rate-limit or transient server errors
-      if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRIES) {
-        const delay = (attempt + 1) * 1500; // 1.5 s, 3 s
-        await new Promise(r => setTimeout(r, delay));
-        continue;
+      if (error) {
+        lastError = new Error(`OpenAI proxy error: ${error.message}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+          continue;
+        }
+        throw lastError;
       }
 
-      return res;
+      return data as Record<string, unknown>;
     } catch (err) {
-      clearTimeout(timer);
       lastError = err instanceof Error ? err : new Error(String(err));
-
-      // Don't retry on aborts caused by our own logic; do retry network errors
       if (attempt < MAX_RETRIES) {
-        const delay = (attempt + 1) * 1500;
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
         continue;
       }
     }
@@ -180,33 +170,17 @@ export async function callOpenAI(
   messages: { role: 'user' | 'assistant'; content: string }[],
   systemPrompt: string,
 ): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-      max_tokens: 400,
-      temperature: 0.7,
-    }),
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ],
+    max_tokens: 400,
+    temperature: 0.7,
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${err}`);
-  }
-
-  const data = await res.json();
-  return data.choices[0].message.content as string;
+  return (data as any).choices[0].message.content as string;
 }
 
 // ─── Food Description Parser ───────────────────────────────────────────────────
@@ -215,32 +189,20 @@ export async function parseFoodDescription(
   description: string,
   _profile: FullUserProfile,
 ): Promise<ParsedFood> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
   const systemPrompt = `You are a nutrition database. Return ONLY valid JSON with the nutritional info for the described food. Base estimates on standard USDA values. Respond with this exact shape: {"name":"string","calories":number,"proteinG":number,"carbsG":number,"fatG":number,"fiberG":number,"servingSize":"string","confidence":"high"|"medium"|"low"}`;
 
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: description },
-      ],
-      max_tokens: 200,
-      temperature: 0.3,
-      response_format: { type: 'json_object' },
-    }),
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: description },
+    ],
+    max_tokens: 200,
+    temperature: 0.3,
+    response_format: { type: 'json_object' },
   });
 
-  if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content ?? '';
+  const raw = (data as any).choices?.[0]?.message?.content ?? '';
   try {
     return JSON.parse(raw) as ParsedFood;
   } catch {
@@ -322,26 +284,18 @@ export async function parseVoiceLog(
   logType: 'weight' | 'activity' | 'side_effects' | 'injection',
   transcription: string,
 ): Promise<VoiceLogResult> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: VOICE_SYSTEM_PROMPTS[logType] },
-        { role: 'user', content: transcription },
-      ],
-      max_tokens: 200,
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-    }),
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: VOICE_SYSTEM_PROMPTS[logType] },
+      { role: 'user', content: transcription },
+    ],
+    max_tokens: 200,
+    temperature: 0.1,
+    response_format: { type: 'json_object' },
   });
-  if (!res.ok) throw new Error(`OpenAI error ${res.status}`);
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content ?? '';
+
+  const raw = (data as any).choices?.[0]?.message?.content ?? '';
   try {
     return JSON.parse(raw) as VoiceLogResult;
   } catch {
@@ -361,43 +315,28 @@ export async function callGPT4oMiniVision(
   userText: string,
   mediaType: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 1024,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mediaType};base64,${imageBase64}`,
-                detail: 'low',
-              },
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    max_tokens: 1024,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mediaType};base64,${imageBase64}`,
+              detail: 'low',
             },
-            { type: 'text', text: userText },
-          ],
-        },
-      ],
-    }),
+          },
+          { type: 'text', text: userText },
+        ],
+      },
+    ],
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${err}`);
-  }
-  const json = await res.json();
-  return json.choices[0].message.content as string;
+  return (data as any).choices[0].message.content as string;
 }
 
 // ─── Weekly Summary Insight ────────────────────────────────────────────────────
@@ -406,9 +345,6 @@ export async function generateWeeklyInsight(
   summary: WeeklySummaryData,
   profile: FullUserProfile,
 ): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
   const daysOnMed = Math.max(1, Math.floor((Date.now() - new Date(profile.startDate).getTime()) / 86400000));
   const weightChange = summary.weight.delta != null
     ? `${summary.weight.delta > 0 ? '+' : ''}${summary.weight.delta.toFixed(1)} lbs`
@@ -429,28 +365,15 @@ USER:
 
 Write 3-4 sentences of personalized insight covering the most significant trend from this week and one specific, actionable recommendation for the next injection cycle. Plain text only — no bullets or markdown.`;
 
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Write my weekly summary insight.' },
-      ],
-      max_tokens: 250,
-      temperature: 0.7,
-    }),
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: 'Write my weekly summary insight.' },
+    ],
+    max_tokens: 250,
+    temperature: 0.7,
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${err}`);
-  }
-
-  const data = await res.json();
-  return data.choices[0].message.content as string;
+  return (data as any).choices[0].message.content as string;
 }

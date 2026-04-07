@@ -4,8 +4,6 @@ import { localDateStr } from '@/lib/date-utils';
 
 import { supabase } from '@/lib/supabase';
 import { useHealthKitStore } from '@/stores/healthkit-store';
-import { useGarminStore } from '@/stores/garmin-store';
-import { useShallow } from 'zustand/react/shallow';
 import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
@@ -68,7 +66,6 @@ type Action =
   | { type: 'SYNC_WEARABLE'; wearable: WearableData }
   | { type: 'SYNC_HK_STEPS'; steps: number }
   | { type: 'SYNC_PROFILE'; profile: FullUserProfile }
-  | { type: 'SYNC_GARMIN'; steps: number | null; activeCalories: number | null; sleepHours: number | null; restingHR: number | null };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -131,17 +128,6 @@ function reducer(state: HealthState, action: Action): HealthState {
       const steps = Math.max(state.actuals.steps, action.steps);
       return recompute({ ...state, actuals: { ...state.actuals, steps } });
     }
-    case 'SYNC_GARMIN': {
-      const steps = action.steps != null
-        ? Math.max(state.actuals.steps, action.steps)
-        : state.actuals.steps;
-      const wearable: WearableData = {
-        ...state.wearable,
-        ...(action.restingHR != null && { restingHR: action.restingHR }),
-        ...(action.sleepHours != null && { sleepMinutes: Math.round(action.sleepHours * 60) }),
-      };
-      return recompute({ ...state, actuals: { ...state.actuals, steps }, wearable });
-    }
     case 'SYNC_PROFILE':
       return recompute({ ...state, profile: action.profile });
     default:
@@ -169,13 +155,6 @@ export function HealthProvider({
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
 
   const hkSteps = useHealthKitStore(s => s.steps);
-  const garmin = useGarminStore(useShallow(s => ({
-    connected: s.connected,
-    latestSteps: s.latestSteps,
-    latestActiveCalories: s.latestActiveCalories,
-    latestSleepHours: s.latestSleepHours,
-    latestRestingHR: s.latestRestingHR,
-  })));
 
   // Sync profile into scoring engine whenever it changes (e.g. after async load or settings update)
   useEffect(() => {
@@ -193,18 +172,6 @@ export function HealthProvider({
     if (hkSteps == null) return;
     dispatch({ type: 'SYNC_HK_STEPS', steps: hkSteps });
   }, [hkSteps]);
-
-  // Sync Garmin data when the store updates
-  useEffect(() => {
-    if (!garmin.connected) return;
-    dispatch({
-      type: 'SYNC_GARMIN',
-      steps: garmin.latestSteps,
-      activeCalories: garmin.latestActiveCalories,
-      sleepHours: garmin.latestSleepHours,
-      restingHR: garmin.latestRestingHR,
-    });
-  }, [garmin.connected, garmin.latestSteps, garmin.latestSleepHours, garmin.latestRestingHR]);
 
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   useEffect(() => {

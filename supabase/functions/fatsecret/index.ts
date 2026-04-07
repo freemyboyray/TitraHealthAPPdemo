@@ -1,3 +1,5 @@
+import { verifyAuth } from '../_shared/auth.ts';
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -57,6 +59,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Verify caller is authenticated
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return auth;
+
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
 
@@ -107,8 +113,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

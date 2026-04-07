@@ -13,6 +13,7 @@ type UserStore = {
   setDemoMode: (v: boolean) => void;
   loadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 export const useUserStore = create<UserStore>((set) => ({
@@ -52,6 +53,14 @@ export const useUserStore = create<UserStore>((set) => ({
   },
 
   signOut: async () => {
+    await supabase.auth.signOut();
+    set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
+  },
+
+  deleteAccount: async () => {
+    const { error } = await supabase.functions.invoke('delete-account');
+    if (error) throw new Error('Failed to delete account');
+    // Sign out locally after server-side deletion
     await supabase.auth.signOut();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },

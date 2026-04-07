@@ -15,7 +15,9 @@
         "NSHealthShareUsageDescription": "TitraHealth reads your health data to personalize your GLP-1 experience.",
         "NSHealthUpdateUsageDescription": "TitraHealth writes step and activity data to Apple Health.",
         "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
-        "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging."
+        "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging.",
+        "NSCameraUsageDescription": "TitraHealth uses your camera to photograph food for nutritional analysis.",
+        "NSPhotoLibraryUsageDescription": "TitraHealth accesses your photo library to select food images for nutritional analysis."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
@@ -43,7 +45,8 @@
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
         "android.permission.health.WRITE_NUTRITION",
         "android.permission.health.WRITE_BODY_WEIGHT",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -76,7 +79,20 @@
           "sounds": []
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "TitraHealth uses your camera to photograph food for nutritional analysis."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TitraHealth accesses your photo library to select food images for nutritional analysis.",
+          "cameraPermission": "TitraHealth uses your camera to photograph food for nutritional analysis."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

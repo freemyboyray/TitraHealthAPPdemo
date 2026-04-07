@@ -500,7 +500,7 @@ Terra (`tryterra.co`) is a unified health data aggregator — "Plaid for wearabl
 
 ### Coverage (2025)
 
-Apple Watch/Health, Google Fit/Health Connect, Garmin, Fitbit, Oura, WHOOP, Samsung Health, Polar, Suunto, Cronometer, Withings, Dexcom, InBody, and 100+ total sources.
+Apple Watch/Health, Google Fit/Health Connect, Fitbit, Oura, WHOOP, Samsung Health, Polar, Suunto, Cronometer, Withings, Dexcom, InBody, and 100+ total sources.
 
 **React Native SDK:** Official at `github.com/tryterra`, documented at `docs.tryterra.co`.
 
@@ -735,7 +735,7 @@ All integrations that provide numeric data contribute to the `buildContextSnapsh
 ### Phase 4 — Scale + Enterprise (v2.5+)
 *(Series A milestones)*
 
-14. **Terra API** — Replace individual wearable integrations; adds Garmin, Fitbit, Samsung Health, Cronometer, InBody support in one SDK.
+14. **Terra API** — Replace individual wearable integrations; adds Fitbit, Samsung Health, Cronometer, InBody support in one SDK.
 15. **Apple Watch complications** — EAS Build native watchOS extension.
 16. **Walgreens Rx API** — Direct refill trigger from app.
 17. **Voice Alexa/Google Home** — Smart speaker skill for injection logging and check-ins.

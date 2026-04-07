@@ -207,7 +207,6 @@ TitraHealthAPPdemo/
 │   ├── targets.ts               # Personalized Targets Engine — computeBaseTargets() (Mifflin-St Jeor
 │   │                            # BMR → TDEE → deficit → macros); applyAdjustments() (evidence-based
 │   │                            # side-effect delta rules, severity+recency weighted, conflict-resolved)
-│   ├── garmin.ts                # Garmin Connect OAuth 2.0 PKCE flow + wellness data sync
 │   ├── weekly-summary.ts        # computeWeeklySummary() — 7-day cycle aggregation (pure function)
 │   ├── cycle-intelligence.ts    # CycleIQ biometric engine: EMA baseline, drug-phase deltas, classification
 │   └── database.types.ts        # Auto-generated Supabase TypeScript types
@@ -216,7 +215,6 @@ TitraHealthAPPdemo/
 │   ├── insights-store.ts        # Score computation from real Supabase data
 │   ├── insights-ai-store.ts     # Pre-fetches all 3 Insights-tab AI cards in parallel
 │   ├── user-store.ts            # Auth state, session, profile row, signOut
-│   ├── garmin-store.ts          # Garmin connection state, sync, disconnect (persisted)
 │   ├── preferences-store.ts     # Dark/light mode toggle, appleHealthEnabled (AsyncStorage)
 │   ├── biometric-store.ts       # CycleIQ biometric history, EMA baseline, bootstrapping state
 │   └── ui-store.ts              # Sheet open state, active tab, loading states
@@ -698,7 +696,6 @@ FDA/population-PK sourced Bateman-equation model for all 6 GLP-1 drug classes.
 **Migrations applied:**
 - `20260311_profiles_medication_brand.sql` — adds `medication_brand`, `route_of_administration`, `glp1_status`, `unit_system`, `initial_dose_mg`, `dose_start_date` to `profiles`
 - `20260315_expand_side_effect_types.sql` — adds 7 new values to `side_effect_type` enum
-- `20260316_garmin_tokens.sql` — adds `garmin_tokens JSONB` to `profiles`; adds `source TEXT DEFAULT 'manual'` to `activity_logs` + `weight_logs`; adds unique constraint `activity_logs_user_date_source_key (user_id, date, source)`; adds partial unique index `weight_logs_garmin_daily_uniq` on `(user_id, source, logged_at::date) WHERE source = 'garmin'`
 - `20260316_new_checkin_types.sql` — documentation marker for 4 new `weekly_checkins` check-in types: `gi_burden`, `activity_quality`, `sleep_quality`, `mental_health` (no schema change; `checkin_type` is TEXT)
 - `20260318_articles.sql` — creates `articles` table (`id UUID PK`, `title`, `subtitle`, `category CHECK IN ('nutrition','medication','lifestyle','mindset','exercise')`, `body_markdown`, `reading_time_minutes`, `published_at`, `phase_focus`, `created_at`); public-read RLS policy; seeds 10 evidence-based full-length articles
 - `20260318_profiles_last_injection_date.sql` — adds `last_injection_date TEXT` (nullable) to `profiles`; shot cycle now survives app reloads; `deleteInjectionLog()` keeps this column in sync with the latest remaining log
@@ -775,29 +772,6 @@ export type HourBlock = {
 
 ---
 
-### Garmin Integration (implemented — `lib/garmin.ts` + `stores/garmin-store.ts`)
-
-```typescript
-// lib/garmin.ts
-export type GarminSyncResult = {
-  steps: number | null;
-  activeCalories: number | null;
-  sleepHours: number | null;
-  restingHR: number | null;
-  weight: number | null;
-};
-```
-
-**Key exports:**
-- `initiateGarminOAuth()` — OAuth 2.0 PKCE flow via `expo-web-browser`; returns auth code from deep-link callback
-- `triggerGarminSync()` — calls `garmin-sync` Supabase Edge Function; returns `GarminSyncResult`
-- `disconnectGarmin()` — calls `garmin-disconnect` Edge Function; clears tokens from `profiles`
-
-**Supabase Edge Functions:**
-- `garmin-token-exchange` — exchanges auth code for access + refresh tokens; stores in `profiles.garmin_tokens`
-- `garmin-sync` — refreshes token if needed; fetches Garmin Wellness API `/dailies` (steps, calories, sleep, HR) + `/bodyComps` (weight); upserts into `activity_logs` and `weight_logs` with `source = 'garmin'`
-- `garmin-disconnect` — nulls `profiles.garmin_tokens`
-
 ### Personalized Targets Engine (implemented — `lib/targets.ts`)
 
 ```typescript
@@ -860,7 +834,6 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Logs | `useLogStore` (Zustand + Supabase) | All daily log entries; CRUD actions; `fetchInsightsData` |
 | Insights | `insightsStore` (Zustand) | Computed `ScoreBreakdown`, injection phase, focuses from real data |
 | Insights AI | `useInsightsAiStore` (Zustand) | Pre-fetched AI text for all 3 Insights tabs; avoids repeated GPT calls on tab switch |
-| Garmin | `useGarminStore` (Zustand + AsyncStorage) | Connection state, last-synced timestamp, latest wellness data; persisted via `zustand/middleware` |
 | Health / Scores | `HealthContext` (useReducer) | Daily actuals, targets, wearable data, recovery + support scores |
 | Preferences | `usePreferencesStore` (Zustand + AsyncStorage) | `isDark` (light/dark mode), `appleHealthEnabled` |
 | Tab bar visibility | `TabBarVisibilityContext` | `Animated.Value` for scroll-driven show/hide |
@@ -1076,7 +1049,6 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 - [x] **Lifestyle tab data refresh on focus (rev 10)** — `log.tsx` mount-only `useEffect(() => fetchInsightsData(), [])` replaced with `useFocusEffect(useCallback(...))` (same pattern as `index.tsx`); ensures `activityLogs`, `foodLogs`, and all Lifestyle/Medication/Progress cards are always fresh when navigating back from any entry screen
 - [x] **Activity log submit decoupled from global loading state (rev 10)** — `log-activity.tsx` previously used `disabled={loading}` tied to the global `useLogStore` loading flag; `useFocusEffect` in `log.tsx` set `loading: true` on every tab focus, making the "Log Activity" button silently no-op when arriving from the log tab; fixed by replacing with a local `isSubmitting` state scoped to the submit action only; `Alert` added to surface Supabase insert errors directly to the user
 - [x] **Drop `activity_logs` unique date constraint (rev 10)** — `activity_logs_user_id_date_key` unique constraint on `(user_id, date)` prevented logging more than one workout per day; migration `20260316_activity_logs_drop_unique_date.sql` drops the constraint; multiple workouts per day now correctly accumulate in the Lifestyle tab cards
-- [x] **Garmin Connect integration (rev 11)** — `lib/garmin.ts` implements OAuth 2.0 PKCE via `expo-web-browser` deep-link callback; `stores/garmin-store.ts` persists connection state + latest wellness data (steps, active calories, sleep hours, resting HR, weight) via Zustand + AsyncStorage; 3 Supabase Edge Functions: `garmin-token-exchange` (code → tokens → store in `profiles.garmin_tokens`), `garmin-sync` (refresh token if needed → Garmin Wellness API `/dailies` + `/bodyComps` → upsert `activity_logs` + `weight_logs` with `source='garmin'`), `garmin-disconnect` (null tokens); migration adds `garmin_tokens JSONB` to `profiles` + `source TEXT` columns + unique constraints for Garmin upserts
 - [x] **Weekly check-in surveys (rev 11)** — 4 new entry screens, each with 5 Likert-scale questions (Not at all → Extremely/Always); scores normalized to 0–100; saved to `weekly_checkins` table; unlock sequentially by injection cycle day: GI Burden (day 1), Activity Quality (day 8), Sleep Quality (day 15), Mental Health (day 22); all themed with dark glass UI + orange dot picker
 - [x] **Side Effect Impact screen (rev 11)** — `app/entry/side-effect-impact.tsx`; read-only screen showing how the user's current active side effects are adjusting each daily target; uses `computeBaseTargets()` + `applyAdjustments()` to diff base vs. adjusted values; displays delta badges (increase/decrease) for protein, water, fiber, calories, steps, and active minutes with reason labels
 - [x] **Weekly Summary screen + engine (rev 11)** — `app/entry/weekly-summary.tsx` + `lib/weekly-summary.ts`; `computeWeeklySummary()` pure function aggregates 7-day window: weight delta, avg macros/hydration/steps, days logged/active, food noise trend, and all 4 weekly check-in scores; GPT-4o-mini `generateWeeklyInsight()` call generates a narrative paragraph; last summary cached in AsyncStorage; exportable as PDF via `expo-print` + `expo-sharing`
@@ -1124,7 +1096,6 @@ type FocusItem = { iconLib: 'ionicons' | 'material'; icon: string; label: string
 | Integration | Purpose | Library / Service | Status |
 |---|---|---|---|
 | Health data (steps, HRV, sleep) | Apple Health live reads | `@kingstinct/react-native-healthkit` | ⚠️ Permission toggle wired; live data reads not yet surfaced to UI |
-| Garmin Connect | Wellness data sync (steps, calories, sleep, HR, weight) | `lib/garmin.ts` + `stores/garmin-store.ts` + 3 Edge Functions | ✅ Built |
 | Barcode scanning | Food product lookup | `expo-camera` + USDA FoodData Central | ✅ Built |
 | Food database | Nutritional info lookup | USDA FoodData Central (`lib/usda.ts`) | ✅ Built |
 | AI food description | Text parsing via GPT-4o-mini | `lib/openai.ts` — `parseFoodDescription` | ✅ Built |

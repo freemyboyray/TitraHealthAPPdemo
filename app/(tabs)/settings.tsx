@@ -11,7 +11,8 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 
 const BRAND_LABEL: Record<string, string> = {
@@ -31,7 +32,8 @@ const ACTIVITY_DISPLAY: Record<string, string> = {
 const ORANGE = '#FF742A';
 
 export default function SettingsScreen() {
-  const { profile: authProfile, session, signOut } = useUserStore();
+  const { profile: authProfile, session, signOut, deleteAccount } = useUserStore();
+  const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
   const { masterEnabled, setMasterEnabled } = useRemindersStore();
   const { isLightMode, toggleLightMode, appleHealthEnabled, setAppleHealthEnabled } = usePreferencesStore();
@@ -98,6 +100,49 @@ export default function SettingsScreen() {
         onPress: () => { signOut(); },
       },
     ]);
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all associated health data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: () => confirmDeleteAccount(),
+        },
+      ],
+    );
+  }
+
+  async function confirmDeleteAccount() {
+    Alert.prompt(
+      'Confirm Deletion',
+      'Type DELETE to permanently delete your account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async (value?: string) => {
+            if (value?.toUpperCase() !== 'DELETE') {
+              Alert.alert('Cancelled', 'You must type DELETE to confirm.');
+              return;
+            }
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch {
+              setDeleting(false);
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
+          },
+        },
+      ],
+      'plain-text',
+    );
   }
 
   const displayName = (authProfile as any)?.username ?? (authProfile as any)?.full_name ?? 'You';
@@ -311,6 +356,17 @@ export default function SettingsScreen() {
           <Text style={s.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
+        {/* Delete account */}
+        <TouchableOpacity
+          style={s.deleteBtn}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.8}
+          disabled={deleting}
+        >
+          <Ionicons name="trash-outline" size={18} color="#FF453A" style={{ marginRight: 8 }} />
+          <Text style={s.signOutText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
     </TabScreenWrapper>
@@ -384,5 +440,9 @@ function createStyles(c: AppColors) {
       borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)',
     },
     signOutText: { color: '#FF453A', fontSize: 15, fontWeight: '600' },
+    deleteBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 14, marginTop: 12,
+    },
   });
 }

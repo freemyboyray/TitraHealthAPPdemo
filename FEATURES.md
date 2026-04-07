@@ -129,22 +129,7 @@ This document covers every significant feature category beyond the current build
 
 ---
 
-### 1.5 Garmin Health API
-
-**Clinical Relevance:** Garmin users tend to be fitness-focused — a key GLP-1 user persona (active adults trying to optimize weight alongside training). Activity data, VO2 max trends, and daily step counts are highly relevant.
-
-**API Details:**
-- **Developer program:** Free access for approved business developers at `developer.garmin.com`
-- **Data model:** Push-based (Garmin pushes data to a registered callback URL when user syncs) — different from HealthKit/Oura pull model; requires a server endpoint
-- **Key APIs:** Health API, Activity API, Women's Health API — all OAuth 2.0
-- **Available data:** Steps, sleep, stress score, body battery, heart rate, SpO2, VO2 max, workout details, body composition (for Garmin Index scales)
-- **Implementation approach:** Requires a backend (Supabase edge function) to receive Garmin push callbacks; not purely client-side
-
-**Priority: P2** — Requires backend infrastructure; build after Supabase backend is established.
-
----
-
-### 1.6 Fitbit Web API
+### 1.5 Fitbit Web API
 
 **API Details:**
 - **Auth:** OAuth 2.0 (now under Google)
@@ -747,7 +732,7 @@ GLP-1 receptor agonists cause a measurable, statistically significant decrease i
 
 ### 9.4 VO2 Max Tracking
 
-**Relevance:** As users lose weight and increase exercise on GLP-1s, VO2 max (cardiorespiratory fitness) improves. This is a powerful non-scale victory. Apple Watch estimates VO2 max during outdoor walks/runs; Garmin estimates it from any HR-based workout.
+**Relevance:** As users lose weight and increase exercise on GLP-1s, VO2 max (cardiorespiratory fitness) improves. This is a powerful non-scale victory. Apple Watch estimates VO2 max during outdoor walks/runs.
 
 **Data source:** `HKQuantityTypeIdentifierVO2Max` from HealthKit
 
@@ -1305,7 +1290,7 @@ Complete package recommendations for all features in this document, organized by
 | Package | Purpose | Notes |
 |---|---|---|
 | `@supabase/supabase-js` | Database, auth, realtime, storage | Full Expo support; use `expo-secure-store` adapter for auth token storage |
-| `expo-auth-session` | OAuth 2.0 PKCE for wearable APIs (Oura, WHOOP, Withings, Garmin, Dexcom) | Built into Expo; handles PKCE flow; returns auth code for backend exchange |
+| `expo-auth-session` | OAuth 2.0 PKCE for wearable APIs (Oura, WHOOP, Withings, Dexcom) | Built into Expo; handles PKCE flow; returns auth code for backend exchange |
 | `@clerk/clerk-expo` | User auth with Apple/Google sign-in | Simple setup; use if Supabase auth is insufficient |
 
 ---
@@ -1559,7 +1544,6 @@ This habit-stacking intervention (§12.8) is evidence-based: removing the fricti
 
 ### P3 — Ecosystem Expansion
 - Dexcom official API partnership
-- Garmin Health API (push model)
 - InBody scale API
 - FHIR Epic direct integration
 - SDOH equity score (composite contextual calibration)

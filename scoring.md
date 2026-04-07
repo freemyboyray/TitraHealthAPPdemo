@@ -216,12 +216,6 @@ By drug at 1 year:
 - Long-term (trend, 14-day weighted avg): HRV Balance, Sleep Balance, Activity Balance
 - Key design: "Balance" contributors compare recent to long-term baseline — sensitive to *change*, not absolute levels
 
-**Garmin Body Battery:**
-- Continuous energy accounting model (not daily snapshot)
-- Replenishment: HRV during sleep (primary), sleep quality, recovery periods
-- Depletion: Activity intensity, continuous stress score
-- Uses Firstbeat Technologies HRV algorithm — the most transparent scientific basis in wearables
-
 **2025 Doherty & Altini Systematic Review (DOAJ, 14 composite health scores evaluated):**
 - Most common inputs: HRV (86%), RHR (79%), physical activity (71%), sleep duration (71%)
 - **None of 14 manufacturers disclose their exact formulas**
@@ -250,7 +244,7 @@ Four dominant patterns in production systems:
 | **Score Suppression** | Don't show score if below data completeness threshold | WHOOP: requires minimum sleep wear time. Best for clinical trust. |
 | **Conditional Scoring + Confidence Indicator** | Compute score, flag with data completeness indicator | Medium data — show score but label confidence |
 | **LOCF (Last Observation Carried Forward)** | Use previous value for short gaps in trend metrics | HRV Balance, Sleep Balance — gaps of ≤2 days |
-| **Adaptive Exclusion** | Drop missing metric, renormalize remaining weights | Garmin: runs on activity + daytime HRV when sleep data unavailable |
+| **Adaptive Exclusion** | Drop missing metric, renormalize remaining weights | Runs on activity + daytime HRV when sleep data unavailable |
 
 **Critical psychological finding:** Users who receive **deflated feedback** (score lowered by missing data) show worse mood, lower self-esteem, and worse dietary behavior. This is strong evidence **against penalizing users for not logging a metric** — the score should assume the population median for missing inputs, not 0.
 
@@ -656,7 +650,7 @@ Display:
 | Protein log | 0 pts | Absence means no meal tracking. Show grey CTA, not penalty language. |
 | Activity log / steps | 0 pts from manual; HealthKit if available | HealthKit passive data is preferred |
 | HealthKit sleep | Suppress sleep component; score on other wearable data | Per WHOOP suppression pattern |
-| HealthKit HRV | Drop from composite; score on RHR + SpO₂ + sleep if available | Per Garmin adaptive exclusion pattern |
+| HealthKit HRV | Drop from composite; score on RHR + SpO₂ + sleep if available | Per adaptive exclusion pattern |
 
 ---
 

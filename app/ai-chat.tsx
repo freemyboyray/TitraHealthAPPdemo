@@ -1,6 +1,3 @@
-// NOTE: Set EXPO_PUBLIC_OPENAI_API_KEY in your .env to enable AI chat.
-// Example: EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-...
-
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';

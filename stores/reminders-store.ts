@@ -24,6 +24,7 @@ type RemindersStore = {
   setMasterEnabled(v: boolean): void;
   setEnabled(type: ReminderType, v: boolean): void;
   setTime(type: ReminderType, index: number, hhmm: string): void;
+  reset(): void;
 };
 
 // Notification metadata per reminder slot
@@ -140,6 +141,16 @@ export const useRemindersStore = create<RemindersStore>()(
           return { [type]: { ...s[type], times } };
         });
         syncNotifications(get());
+      },
+
+      reset() {
+        set({
+          masterEnabled: false,
+          meals: { enabled: true, times: ['08:00', '19:00'] },
+          weight: { enabled: true, times: ['07:30'] },
+          sideEffects: { enabled: true, times: ['21:00'] },
+          dailyPlan: { enabled: true, times: ['08:00'] },
+        });
       },
     }),
     {
