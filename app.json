@@ -11,14 +11,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titrahealth.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your steps, heart rate, HRV, sleep, weight, blood glucose, and nutrition from Apple Health to display health trends alongside your medication journey.",
         "NSHealthUpdateUsageDescription": "TitraHealth saves your logged weight and nutrition data to Apple Health to keep your health records in sync.",
-        "NSCameraUsageDescription": "TitraHealth uses your camera to photograph meals for nutrition analysis and to scan food barcodes.",
+        "NSCameraUsageDescription": "TitraHealth uses your camera to photograph food for nutritional analysis.",
         "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
         "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging.",
-        "NSCameraUsageDescription": "TitraHealth uses your camera to photograph food for nutritional analysis.",
         "NSPhotoLibraryUsageDescription": "TitraHealth accesses your photo library to select food images for nutritional analysis.",
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -28,9 +27,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E8581A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
