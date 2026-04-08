@@ -1,9 +1,15 @@
 import { create } from 'zustand';
 import { AppState } from 'react-native';
 import { searchUSDA, getFatSecretFood } from '../lib/usda';
-import { estimateMacrosWithAI } from '../lib/openai';
+import { estimateMacrosWithAI, callGPT4oMiniVision } from '../lib/openai';
 import { scheduleFoodReadyNotification } from '../lib/notifications';
 import type { FoodResult } from '../lib/fatsecret';
+
+const VISION_SYSTEM = `You are a food logging assistant. Identify ALL food items visible in this photo.
+For each, estimate the portion size in grams based on visual context (plate size, utensils, etc).
+Return ONLY a valid JSON array, no other text:
+[{"item": "specific food name", "estimated_g": 200}]
+Be specific. For mixed dishes, break into components if visible.`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,7 +42,8 @@ type FoodTaskStore = {
 
   startTask: (params: {
     source: 'describe' | 'voice' | 'camera';
-    parsedItems: { item: string; estimated_g: number }[];
+    parsedItems?: { item: string; estimated_g: number }[];
+    photoBase64?: string;
   }) => string;
 
   updateTaskItem: (taskId: string, itemIdx: number, patch: Partial<ResolvedItem>) => void;
@@ -135,7 +142,7 @@ async function fetchServingOptions(
 export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
   tasks: [],
 
-  startTask: ({ source, parsedItems }) => {
+  startTask: ({ source, parsedItems, photoBase64 }) => {
     const id = uuid();
     const task: FoodTask = {
       id,
@@ -143,7 +150,7 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
       source,
       createdAt: Date.now(),
       resolvedItems: [],
-      parsedItems,
+      parsedItems: parsedItems ?? [],
     };
 
     set((s) => ({ tasks: [...s.tasks, task] }));
@@ -151,7 +158,29 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
     // Fire-and-forget background processing
     (async () => {
       try {
-        const resolved = await resolveItems(parsedItems);
+        // If we have a photo, run vision first to get parsed items
+        let itemsToResolve = parsedItems ?? [];
+        if (photoBase64 && itemsToResolve.length === 0) {
+          const raw = await callGPT4oMiniVision(
+            VISION_SYSTEM,
+            photoBase64,
+            'Identify all food items in this image.',
+          );
+          const jsonMatch = raw.match(/\[[\s\S]*\]/);
+          if (!jsonMatch) throw new Error('No JSON in vision response');
+          const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
+          if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No food items identified');
+          itemsToResolve = parsed;
+
+          // Update stored parsedItems so retry works
+          set((s) => ({
+            tasks: s.tasks.map((t) =>
+              t.id === id ? { ...t, parsedItems: itemsToResolve } : t,
+            ),
+          }));
+        }
+
+        const resolved = await resolveItems(itemsToResolve);
 
         set((s) => ({
           tasks: s.tasks.map((t) =>
