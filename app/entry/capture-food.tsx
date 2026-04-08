@@ -6,15 +6,12 @@ import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   Image,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useFoodTaskStore } from '../../stores/food-task-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -48,27 +45,12 @@ function GlassBorder({ r = 16 }: { r?: number }) {
   );
 }
 
-function GlassCard({ children, style, colors }: { children: React.ReactNode; style?: any; colors: AppColors }) {
-  const s = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <View style={[s.cardShadow, style]}>
-      <View style={s.cardClip}>
-        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
-        <GlassBorder r={20} />
-        <View style={s.cardContent}>{children}</View>
-      </View>
-    </View>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function CaptureFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [camPermission, requestCamPermission] = useCameraPermissions();
-  const { addToTray } = useMealTrayStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -186,101 +168,6 @@ export default function CaptureFoodScreen() {
             activeOpacity={0.85}
           >
             <Text style={s.errPrimBtnText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // ── Confirm phase ──────────────────────────────────────────────────────────
-  if (phase === 'confirm') {
-    return (
-      <View style={[s.root, { paddingTop: insets.top }]}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => setPhase('intro')} style={s.backShadow} activeOpacity={0.75}>
-            <View style={s.backClip}>
-              <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
-              <GlassBorder r={20} />
-              <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
-            </View>
-          </TouchableOpacity>
-          <Text style={s.headerTitle}>Confirm Items</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <ScrollView
-          contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 120 }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {items.map((item, idx) => (
-            <GlassCard key={idx} colors={colors}>
-              <Text style={s.itemName}>{item.item}</Text>
-              {item.results.length === 0 ? (
-                <Text style={s.noMatch}>No match - will skip</Text>
-              ) : (
-                <>
-                  {item.results.slice(0, 3).map((r, ri) => (
-                    <TouchableOpacity
-                      key={r.fdcId}
-                      onPress={() => updateItem(idx, { selectedIdx: ri })}
-                      style={[s.matchRow, item.selectedIdx === ri && s.matchRowActive]}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[s.matchRadio, item.selectedIdx === ri && s.matchRadioActive]}>
-                        {item.selectedIdx === ri && <View style={s.matchRadioDot} />}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.matchName} numberOfLines={1}>{r.name}</Text>
-                        {!!r.brand && <Text style={s.matchBrand}>{r.brand}</Text>}
-                      </View>
-                      <Text style={s.matchCal}>{r.calories} kcal/100g</Text>
-                    </TouchableOpacity>
-                  ))}
-
-                  <View style={s.servingRow}>
-                    <Text style={s.servingLabel}>Amount</Text>
-                    <View style={s.servingInputWrap}>
-                      <BlurView intensity={70} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.borderSubtle }]} />
-                      <GlassBorder />
-                      <TextInput
-                        style={s.servingInput}
-                        value={item.servingG}
-                        onChangeText={(v) => updateItem(idx, { servingG: v })}
-                        keyboardType="numeric"
-                        selectTextOnFocus
-                      />
-                    </View>
-                    <Text style={s.servingUnit}>g</Text>
-                  </View>
-
-                  {item.results[item.selectedIdx] && (() => {
-                    const g = parseFloat(item.servingG) || 100;
-                    const f = item.results[item.selectedIdx];
-                    return (
-                      <View style={s.macroRow}>
-                        <Text style={s.macroPill}>{Math.round(f.calories * g / 100)} kcal</Text>
-                        <Text style={s.macroPill}>{(f.protein_g * g / 100).toFixed(1)}g P</Text>
-                        <Text style={s.macroPill}>{(f.carbs_g * g / 100).toFixed(1)}g C</Text>
-                        <Text style={s.macroPill}>{(f.fat_g * g / 100).toFixed(1)}g F</Text>
-                      </View>
-                    );
-                  })()}
-                </>
-              )}
-            </GlassCard>
-          ))}
-        </ScrollView>
-
-        <View style={[s.btnWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-          <TouchableOpacity
-            style={s.primaryBtnFull}
-            onPress={handleLogAll}
-            activeOpacity={0.85}
-          >
-            <Text style={s.primaryBtnText}>Add {items.length} Item{items.length !== 1 ? 's' : ''} to Meal</Text>
           </TouchableOpacity>
         </View>
       </View>
