@@ -22,13 +22,12 @@ import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
-import { getBrandDoses, MedicationBrand } from '@/constants/user-profile';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
 
-const MEDICATIONS = ['Ozempic', 'Wegovy', 'Mounjaro', 'Zepbound', 'Saxenda', 'Victoza'];
 const SITES = [
   'Left Abdomen',
   'Right Abdomen',
@@ -37,6 +36,13 @@ const SITES = [
   'Left Upper Arm',
   'Right Upper Arm',
 ];
+
+/** Given a previous injection site, return the next recommended rotation site. */
+function getRecommendedSite(lastSite: string): string {
+  const idx = SITES.indexOf(lastSite);
+  if (idx === -1) return SITES[0];
+  return SITES[(idx + 1) % SITES.length];
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -115,31 +121,23 @@ export default function LogInjectionScreen() {
     tirzepatide: 'Mounjaro',
     liraglutide: 'Saxenda',
   };
-  const defaultMed = injectionLogs[0]?.medication_name
-    ?? (profile?.medication_type ? MED_TYPE_DEFAULT[profile.medication_type] : null)
-    ?? 'Ozempic';
 
-  // Dose list from user's medication brand; fall back to common doses
-  const brandDoses = getBrandDoses((profile?.medication_brand as MedicationBrand | undefined) ?? 'ozempic');
-  // Pre-select the user's current dose if it's in the list, else closest value
-  const defaultDoseStr = (() => {
-    const profileDoseMg = profile?.dose_mg;
-    if (profileDoseMg != null) {
-      const exact = brandDoses.find(d => d === profileDoseMg);
-      if (exact != null) return `${exact}mg`;
-      const closest = brandDoses.reduce((a, b) =>
-        Math.abs(b - profileDoseMg) < Math.abs(a - profileDoseMg) ? b : a
-      );
-      return `${closest}mg`;
-    }
-    return `${brandDoses[0]}mg`;
-  })();
+  // Medication & dose from profile (read-only display)
+  const medication = profile?.medication_brand
+    ? (profile.medication_brand as string).charAt(0).toUpperCase() + (profile.medication_brand as string).slice(1)
+    : (profile?.medication_type ? MED_TYPE_DEFAULT[profile.medication_type] : null)
+    ?? 'Not set';
+  const doseMg = profile?.dose_mg;
+  const doseLabel = doseMg != null ? `${doseMg}mg` : 'Not set';
 
   const isOral = profile?.route_of_administration === 'oral';
 
-  const [medication, setMedication] = useState(defaultMed);
-  const [dose, setDose] = useState(defaultDoseStr);
-  const [site, setSite] = useState('Left Abdomen');
+  // Injection site: derive from last injection log
+  const lastInjectionSite = injectionLogs[0]?.site ?? null;
+  const recommendedSite = lastInjectionSite ? getRecommendedSite(lastInjectionSite) : null;
+  const isFirstInjection = !lastInjectionSite;
+
+  const [site, setSite] = useState(recommendedSite ?? 'Left Abdomen');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null); // oral sema fasting window
@@ -147,17 +145,6 @@ export default function LogInjectionScreen() {
   async function handleVoiceTranscription(text: string) {
     try {
       const result = await parseVoiceLog('injection', text) as VoiceInjectionResult;
-      if (result.medication) {
-        const med = MEDICATIONS.find(m => m.toLowerCase() === result.medication.toLowerCase());
-        if (med) setMedication(med);
-      }
-      if (result.dose_mg != null) {
-        // Match numerically to avoid "1mg" vs "1.0mg" mismatches
-        const closest = brandDoses.reduce((a, b) =>
-          Math.abs(b - result.dose_mg) < Math.abs(a - result.dose_mg) ? b : a
-        );
-        if (Math.abs(closest - result.dose_mg) <= 0.1) setDose(`${closest}mg`);
-      }
       if (result.site) {
         const siteLower = result.site.toLowerCase();
         const matched = SITES.find(s =>
@@ -169,13 +156,15 @@ export default function LogInjectionScreen() {
       if (result.batch) setBatchNumber(result.batch);
       if (result.notes) setNotes(result.notes);
     } catch {
-      Alert.alert('Voice Input', 'Could not parse your injection details. Try saying the medication name, dose, and site.');
+      Alert.alert('Voice Input', 'Could not parse your injection details. Try saying the site and any notes.');
     }
   }
 
-  const nextSite = SITES[(SITES.indexOf(site) + 1) % SITES.length];
-
   async function handleSave() {
+    if (doseMg == null) {
+      Alert.alert('Dose not set', 'Please set your medication and dose in Settings before logging.');
+      return;
+    }
     const date = todayString();
     // For oral drugs: encode empty-stomach response in notes if no other note given
     const emptyStomachNote = isOral && emptyStomach !== null
@@ -183,7 +172,7 @@ export default function LogInjectionScreen() {
       : '';
     const combinedNotes = [notes.trim(), emptyStomachNote].filter(Boolean).join(' ');
     await addInjectionLog(
-      parseFloat(dose),
+      doseMg,
       date,
       undefined,
       isOral ? undefined : site,
@@ -229,57 +218,55 @@ export default function LogInjectionScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Medication Card ── */}
+        {/* ── Medication & Dose Card (read-only from profile) ── */}
         <GlassCard colors={colors}>
-          <SectionLabel text="MEDICATION" />
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <SectionLabel text="MEDICATION & DOSE" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={[s.chip, s.chipActive]}>
               <Text style={[s.chipText, s.chipTextActive]}>{medication}</Text>
             </View>
-            <TouchableOpacity
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/settings'); }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
-                Doesn't match?
-              </Text>
-            </TouchableOpacity>
+            <View style={[s.chip, s.chipActive]}>
+              <Text style={[s.chipText, s.chipTextActive]}>{doseLabel}</Text>
+            </View>
           </View>
-        </GlassCard>
-
-        {/* ── Dose Card ── */}
-        <GlassCard colors={colors}>
-          <SectionLabel text="DOSE" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.chipRow}
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings/edit-treatment'); }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ marginTop: 12 }}
           >
-            {brandDoses.map((d) => {
-              const dStr = `${d}mg`;
-              const active = dStr === dose;
-              return (
-                <TouchableOpacity
-                  key={dStr}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDose(dStr); }}
-                  activeOpacity={0.75}
-                  style={[s.chip, active ? s.chipActive : s.chipInactive]}
-                >
-                  <Text style={[s.chipText, active ? s.chipTextActive : s.chipTextInactive]}>
-                    {dStr}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+            <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
+              Doesn't match? Update in Settings
+            </Text>
+          </TouchableOpacity>
         </GlassCard>
 
         {/* ── Injection Site Card (injectable only) ── */}
         {!isOral && (
           <GlassCard colors={colors}>
             <SectionLabel text="INJECTION SITE" />
-            <View style={s.siteGrid}>
+
+            {/* Rotation recommendation based on last injection */}
+            {lastInjectionSite && (
+              <View style={s.rotateRow}>
+                <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
+                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 19, flex: 1 }}>
+                  Last site: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{lastInjectionSite}</Text>
+                  {'\n'}
+                  <Text style={{ color: ORANGE, fontWeight: '700' }}>
+                    We recommend rotating to {recommendedSite}
+                  </Text>
+                </Text>
+              </View>
+            )}
+
+            {isFirstInjection && (
+              <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 19 }}>
+                Select your injection site. We'll track rotation for you going forward.
+              </Text>
+            )}
+
+            <View style={[s.siteGrid, { marginTop: lastInjectionSite ? 14 : 0 }]}>
               {SITES.map((siteName) => {
                 const active = siteName === site;
                 return (
@@ -303,13 +290,6 @@ export default function LogInjectionScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
-
-            {/* Rotate suggestion */}
-            <View style={s.rotateRow}>
-              <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
-              <Text style={s.rotateLabel}>ROTATE TO </Text>
-              <Text style={s.rotateValue}>{nextSite}</Text>
             </View>
           </GlassCard>
         )}

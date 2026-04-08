@@ -186,11 +186,12 @@ export function getDailyTargets(
     else if (daysSinceStart < 21) proteinG *= 0.875;
   }
 
-  // Hydration: weight-based + medication multipliers (oz → ml)
-  let waterOz = profile.weightLbs * 0.6;
+  // Hydration: 0.5 oz per lb body weight + GLP-1 medication multipliers, capped at 128 oz (1 gal)
+  let waterOz = profile.weightLbs * 0.5;
   if (profile.glp1Type === 'semaglutide') waterOz *= 1.1;
-  if (profile.doseMg >= 7.5) waterOz *= 1.15;
-  else if (profile.doseMg >= 5) waterOz *= 1.1;
+  if (profile.doseMg >= 7.5) waterOz *= 1.1;
+  else if (profile.doseMg >= 5) waterOz *= 1.05;
+  waterOz = Math.min(waterOz, 128); // hard cap: 1 gallon
   const waterMl = Math.round(waterOz * 29.5735);
 
   // Fiber: flat 30g - shot cycle does not affect fiber target
@@ -637,7 +638,7 @@ export function generateInsights(
   if (sleepMin != null && sleepMin < 360) {
     insights.push({ text: 'Sleep is below 6h - poor sleep blunts GLP-1 appetite control by up to 30%', phase: 'RECOVERY' });
   } else if (!actuals.injectionLogged) {
-    insights.push({ text: 'Log your injection to unlock the full medication bonus and enable phase-aware coaching', phase: 'TODAY' });
+    insights.push({ text: 'Log your dose to unlock the full medication bonus and enable phase-aware coaching', phase: 'TODAY' });
   } else if (proteinPct < 0.5) {
     insights.push({ text: `Protein is at ${Math.round(proteinPct * 100)}% - aim for ${targets.proteinG}g to preserve muscle on GLP-1`, phase: 'NUTRITION' });
   } else if (waterPct < 0.6) {
@@ -1043,8 +1044,8 @@ function buildFocusItem(
   switch (category) {
     case 'injection':
       return {
-        id: 'injection', label: 'Log Your Injection',
-        subtitle: 'Keep your shot cycle accurate',
+        id: 'injection', label: 'Log Your Dose',
+        subtitle: 'Keep your dose cycle accurate',
         iconName: 'colorize', iconSet: 'MaterialIcons',
         status,
       };
@@ -1207,7 +1208,7 @@ export function generateFocuses(
     protein:   Math.max(0, (targets.proteinG - actuals.proteinG) / targets.proteinG * 100),
     fiber:     Math.max(0, (targets.fiberG - actuals.fiberG) / targets.fiberG * 100),
     activity:  Math.max(0, (targets.steps - actuals.steps) / targets.steps * 100),
-    sleep:     (1 - scoreSleep(wearable.sleepMinutes ?? 443)) * 100,
+    sleep:     wearable.sleepMinutes != null ? (1 - scoreSleep(wearable.sleepMinutes)) * 100 : 0,
     recovery:  Math.max(0, 70 - recovery),
     rest:      phase === 'peak' ? Math.max(0, 65 - recovery) : 0,
   };
@@ -1226,17 +1227,27 @@ export function generateFocuses(
     return { cat, score: deficits[cat] * mult };
   });
 
-  const top = weighted
-    .filter(({ score }) => score > 8)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
+  // Show all relevant focuses for the day as a stable checklist.
+  // Items stay visible even after completion (shown with a checkmark).
+  // Only exclude categories that were never relevant (score was always 0
+  // AND the item isn't already completed — completed items should persist).
+  const status = (cat: FocusCategory) => computeFocusStatus(cat, actuals, targets, wearable);
+  const all = weighted
+    .filter(({ cat, score }) => score > 0 || status(cat) === 'completed')
+    .sort((a, b) => {
+      // Incomplete items first, then completed; within each group sort by score desc
+      const aComplete = status(a.cat) === 'completed' ? 1 : 0;
+      const bComplete = status(b.cat) === 'completed' ? 1 : 0;
+      if (aComplete !== bComplete) return aComplete - bComplete;
+      return b.score - a.score;
+    })
     .map(({ cat }) => buildFocusItem(cat, actuals, targets, wearable, phase));
 
-  if (top.length === 0) {
-    top.push(buildFocusItem('hydration', actuals, targets, wearable, phase));
+  if (all.length === 0) {
+    all.push(buildFocusItem('hydration', actuals, targets, wearable, phase));
   }
 
-  return top;
+  return all;
 }
 
 // ─── Side Effect Index ────────────────────────────────────────────────────────
@@ -1433,4 +1444,146 @@ export function computeRollingAdherenceScore(params: {
 
   if (totalWeight === 0) return 0;
   return Math.round(weightedSum / totalWeight);
+}
+
+// ─── Clinical Trial Benchmarks ───────────────────────────────────────────────
+
+export type TrialBenchmarkEntry = {
+  week: number;
+  lossPct: number;
+  /** Lower bound of expected range (approx 25th percentile or low-dose arm) */
+  lossPctLow: number;
+  /** Upper bound of expected range (approx 75th percentile or high-dose arm) */
+  lossPctHigh: number;
+};
+
+export type TrialBenchmarkTier = {
+  label: string;
+  trialName: string;
+  data: TrialBenchmarkEntry[];
+};
+
+/**
+ * Published weight-loss % at key timepoints from landmark GLP-1 trials.
+ * Keyed by generic molecule name (matches Glp1Type from user-profile.ts).
+ * Low/high bounds derived from published SDs or multi-dose arms.
+ * Intermediate weeks are linearly interpolated at runtime.
+ */
+export const TRIAL_BENCHMARKS: Record<string, TrialBenchmarkTier[]> = {
+  semaglutide: [
+    {
+      label: 'STEP 1 (2.4 mg)',
+      trialName: 'STEP 1',
+      data: [
+        // Low/high approximate ±1 SD from STEP 1 ITT population
+        { week: 4,  lossPct: 2.1,  lossPctLow: 1.0,  lossPctHigh: 3.2 },
+        { week: 8,  lossPct: 4.2,  lossPctLow: 2.5,  lossPctHigh: 5.9 },
+        { week: 12, lossPct: 5.9,  lossPctLow: 3.5,  lossPctHigh: 8.3 },
+        { week: 20, lossPct: 9.0,  lossPctLow: 5.5,  lossPctHigh: 12.5 },
+        { week: 28, lossPct: 11.5, lossPctLow: 7.0,  lossPctHigh: 16.0 },
+        { week: 36, lossPct: 13.0, lossPctLow: 8.0,  lossPctHigh: 18.0 },
+        { week: 44, lossPct: 14.2, lossPctLow: 8.5,  lossPctHigh: 19.9 },
+        { week: 52, lossPct: 14.9, lossPctLow: 9.0,  lossPctHigh: 20.8 },
+        { week: 68, lossPct: 14.9, lossPctLow: 9.0,  lossPctHigh: 20.8 },
+      ],
+    },
+  ],
+  tirzepatide: [
+    {
+      label: 'SURMOUNT-1 (15 mg)',
+      trialName: 'SURMOUNT-1',
+      data: [
+        // Low = 5 mg arm, High = 15 mg arm from SURMOUNT-1
+        { week: 4,  lossPct: 3.0,  lossPctLow: 1.8,  lossPctHigh: 3.5 },
+        { week: 8,  lossPct: 5.8,  lossPctLow: 3.8,  lossPctHigh: 7.1 },
+        { week: 12, lossPct: 8.3,  lossPctLow: 5.5,  lossPctHigh: 10.0 },
+        { week: 20, lossPct: 13.5, lossPctLow: 9.5,  lossPctHigh: 15.0 },
+        { week: 28, lossPct: 16.8, lossPctLow: 12.0, lossPctHigh: 19.0 },
+        { week: 36, lossPct: 19.5, lossPctLow: 13.5, lossPctHigh: 21.5 },
+        { week: 44, lossPct: 21.0, lossPctLow: 14.5, lossPctHigh: 23.0 },
+        { week: 52, lossPct: 21.8, lossPctLow: 15.0, lossPctHigh: 24.0 },
+        { week: 72, lossPct: 22.5, lossPctLow: 15.5, lossPctHigh: 25.0 },
+      ],
+    },
+  ],
+  liraglutide: [
+    {
+      label: 'Saxenda (3.0 mg)',
+      trialName: 'Saxenda Trials',
+      data: [
+        // Approximate ±1 SD from SCALE trials
+        { week: 12, lossPct: 5.0, lossPctLow: 2.5, lossPctHigh: 7.5 },
+        { week: 28, lossPct: 8.0, lossPctLow: 4.0, lossPctHigh: 12.0 },
+        { week: 56, lossPct: 8.0, lossPctLow: 4.0, lossPctHigh: 12.0 },
+      ],
+    },
+  ],
+  dulaglutide: [
+    {
+      label: 'AWARD-2 (1.5 mg)',
+      trialName: 'AWARD-2',
+      data: [
+        // AWARD-2 primary endpoint at 78 weeks; weight loss is modest vs newer agents
+        { week: 12, lossPct: 1.5, lossPctLow: 0.5, lossPctHigh: 2.5 },
+        { week: 26, lossPct: 2.5, lossPctLow: 1.0, lossPctHigh: 4.0 },
+        { week: 52, lossPct: 3.0, lossPctLow: 1.5, lossPctHigh: 4.5 },
+        { week: 78, lossPct: 3.1, lossPctLow: 1.5, lossPctHigh: 4.7 },
+      ],
+    },
+  ],
+};
+
+/** Linearly interpolate expected weight-loss % at a given treatment week. */
+export function interpolateBenchmark(
+  data: TrialBenchmarkEntry[],
+  week: number,
+): number | null {
+  if (data.length === 0 || week < data[0].week) return null;
+  if (week >= data[data.length - 1].week) return data[data.length - 1].lossPct;
+  for (let i = 0; i < data.length - 1; i++) {
+    if (week >= data[i].week && week <= data[i + 1].week) {
+      const ratio = (week - data[i].week) / (data[i + 1].week - data[i].week);
+      return Math.round((data[i].lossPct + ratio * (data[i + 1].lossPct - data[i].lossPct)) * 10) / 10;
+    }
+  }
+  return null;
+}
+
+/** Interpolate all three band values (mean, low, high) at a given week. */
+export function interpolateBenchmarkBand(
+  data: TrialBenchmarkEntry[],
+  week: number,
+): { mean: number; low: number; high: number } | null {
+  if (data.length === 0 || week < data[0].week) return null;
+  if (week >= data[data.length - 1].week) {
+    const last = data[data.length - 1];
+    return { mean: last.lossPct, low: last.lossPctLow, high: last.lossPctHigh };
+  }
+  for (let i = 0; i < data.length - 1; i++) {
+    if (week >= data[i].week && week <= data[i + 1].week) {
+      const ratio = (week - data[i].week) / (data[i + 1].week - data[i].week);
+      const lerp = (a: number, b: number) => Math.round((a + ratio * (b - a)) * 10) / 10;
+      return {
+        mean: lerp(data[i].lossPct, data[i + 1].lossPct),
+        low: lerp(data[i].lossPctLow, data[i + 1].lossPctLow),
+        high: lerp(data[i].lossPctHigh, data[i + 1].lossPctHigh),
+      };
+    }
+  }
+  return null;
+}
+
+/** Return the full trial trajectory as an array for chart rendering. */
+export function getTrialTrajectory(
+  medKey: string,
+): { week: number; mean: number; low: number; high: number }[] {
+  const tiers = TRIAL_BENCHMARKS[medKey];
+  if (!tiers || tiers.length === 0) return [];
+  const data = tiers[0].data;
+  return data.map(d => ({
+    week: d.week,
+    mean: d.lossPct,
+    low: d.lossPctLow,
+    high: d.lossPctHigh,
+  }));
 }

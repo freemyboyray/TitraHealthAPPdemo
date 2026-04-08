@@ -27,7 +27,6 @@ import { useHealthData } from '@/contexts/health-data';
 
 const AnimatedRect = createAnimatedComponent(Rect);
 
-const BLUE   = '#5B8BF5';
 const ORANGE = '#FF742A';
 const FF     = 'Helvetica Neue';
 
@@ -35,14 +34,50 @@ const CUP_PATH = 'M 10 10 L 190 10 L 170 230 Q 170 240 160 240 L 40 240 Q 30 240
 
 const STEP_SIZES = [4, 8, 12, 16] as const;
 
-const QUICK_PRESETS = [
-  { oz: 8,  label: '8oz',  icon: 'water-outline'      as const },
-  { oz: 12, label: '12oz', icon: 'cafe-outline'        as const },
-  { oz: 16, label: '16oz', icon: 'wine-outline'        as const },
-  { oz: 24, label: '24oz', icon: 'fitness-outline'     as const },
-  { oz: 34, label: '34oz', icon: 'flask-outline'       as const },
-  { oz: 40, label: '40oz', icon: 'thermometer-outline' as const },
-] as const;
+// ─── Beverage Types ──────────────────────────────────────────────────────────
+// Hydration factors based on Beverage Hydration Index (Maughan et al. 2015, AJCN)
+
+type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | 'juice';
+
+type Beverage = {
+  key: BeverageKey;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  defaultOz: number;
+  /** Effective hydration per oz consumed (1.0 = same as water). */
+  hydrationFactor: number;
+};
+
+const BEVERAGES: Beverage[] = [
+  { key: 'water',        label: 'Water',        icon: 'water-outline',       color: '#5B8BF5', defaultOz: 8,  hydrationFactor: 1.0  },
+  { key: 'coffee',       label: 'Coffee',       icon: 'cafe-outline',        color: '#A0795D', defaultOz: 12, hydrationFactor: 0.85 },
+  { key: 'tea',          label: 'Tea',          icon: 'leaf-outline',        color: '#7DB87D', defaultOz: 8,  hydrationFactor: 0.90 },
+  { key: 'sparkling',    label: 'Sparkling',    icon: 'sparkles-outline',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
+  { key: 'electrolytes', label: 'Electrolytes', icon: 'flash-outline',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
+  { key: 'juice',        label: 'Juice',        icon: 'nutrition-outline',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
+];
+
+const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
+  BEVERAGES.map(b => [b.key, b.hydrationFactor])
+) as Record<BeverageKey, number>;
+
+// ─── Quick-Add Presets (beverage-specific) ───────────────────────────────────
+
+type QuickPreset = {
+  oz: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  beverageKey: BeverageKey;
+};
+
+const QUICK_PRESETS: QuickPreset[] = [
+  { oz: 8,  icon: 'water-outline',     beverageKey: 'water'        },
+  { oz: 12, icon: 'cafe-outline',      beverageKey: 'coffee'       },
+  { oz: 8,  icon: 'leaf-outline',      beverageKey: 'tea'          },
+  { oz: 12, icon: 'sparkles-outline',  beverageKey: 'sparkling'    },
+  { oz: 20, icon: 'flash-outline',     beverageKey: 'electrolytes' },
+  { oz: 16, icon: 'nutrition-outline', beverageKey: 'juice'        },
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -54,11 +89,18 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   const { dispatch, targets, actuals } = useHealthData();
 
   const alreadyLoggedOz = Math.round(actuals.waterMl / 29.5735);
-  const initialOz = useRef(0);
+  const initialHydrationOz = useRef(0);
 
-  const [sessionOz, setSessionOz]     = useState(0);
+  // effectiveHydrationOz is the running total of hydration-adjusted oz
+  const [effectiveHydrationOz, setEffectiveHydrationOz] = useState(0);
   const [stepSizeIdx, setStepSizeIdx] = useState(1); // default 8oz
   const stepSize = STEP_SIZES[stepSizeIdx];
+
+  const [selectedBeverage, setSelectedBeverage] = useState<BeverageKey>('water');
+  const activeBeverage = BEVERAGES.find(b => b.key === selectedBeverage)!;
+
+  // Last addition info for the feedback badge
+  const [lastAdd, setLastAdd] = useState<{ rawOz: number; effectiveOz: number; bevKey: BeverageKey } | null>(null);
 
   // Drag-to-dismiss
   const sheetY = useRef(new Animated.Value(0)).current;
@@ -82,8 +124,10 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   // Pre-load with today's already-logged amount each time sheet opens
   useEffect(() => {
     if (visible) {
-      initialOz.current = alreadyLoggedOz;
-      setSessionOz(alreadyLoggedOz);
+      initialHydrationOz.current = alreadyLoggedOz;
+      setEffectiveHydrationOz(alreadyLoggedOz);
+      setSelectedBeverage('water');
+      setLastAdd(null);
     }
   }, [visible]);
 
@@ -91,14 +135,28 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   const fillY = useSharedValue(240);
 
   useEffect(() => {
-    const pct = Math.min(sessionOz / dailyTargetOz, 1);
+    const pct = Math.min(effectiveHydrationOz / dailyTargetOz, 1);
     fillY.value = withSpring(240 - pct * 230, { damping: 15, stiffness: 120 });
-  }, [sessionOz, dailyTargetOz]);
+  }, [effectiveHydrationOz, dailyTargetOz]);
 
   const fillProps = useAnimatedProps(() => ({ y: fillY.value }));
 
+  const addBeverage = (rawOz: number, bevKey: BeverageKey) => {
+    const factor = HYDRATION_FACTOR_MAP[bevKey];
+    const effective = Math.round(rawOz * factor * 10) / 10; // 1 decimal
+    setEffectiveHydrationOz(prev => Math.round((prev + effective) * 10) / 10);
+    setLastAdd({ rawOz, effectiveOz: effective, bevKey });
+  };
+
+  const subtractHydration = (rawOz: number) => {
+    const factor = HYDRATION_FACTOR_MAP[selectedBeverage];
+    const effective = Math.round(rawOz * factor * 10) / 10;
+    setEffectiveHydrationOz(prev => Math.max(0, Math.round((prev - effective) * 10) / 10));
+    setLastAdd(null);
+  };
+
   const handleUpdate = () => {
-    const deltaOz = sessionOz - initialOz.current;
+    const deltaOz = effectiveHydrationOz - initialHydrationOz.current;
     if (deltaOz !== 0) {
       dispatch({ type: 'LOG_WATER', ml: Math.round(deltaOz * 29.5735) });
     }
@@ -106,6 +164,9 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   const cycleStepSize = () => setStepSizeIdx(i => (i + 1) % STEP_SIZES.length);
+
+  // Display effective oz rounded for the big number
+  const displayOz = Math.round(effectiveHydrationOz);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={closeSheet}>
@@ -118,7 +179,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
         <Animated.View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20), transform: [{ translateY: sheetY }] }]}>
           <View pointerEvents="none" style={s.topBorder} />
 
-          {/* Drag handle — hold and drag down to dismiss */}
+          {/* Drag handle */}
           <View {...panResponder.panHandlers} style={s.handleHitArea}>
             <View style={s.handle} />
           </View>
@@ -128,18 +189,60 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
             <TouchableOpacity onPress={closeSheet} style={s.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
             </TouchableOpacity>
-            <Text style={s.title}>Water Log</Text>
+            <Text style={s.title}>Hydration Log</Text>
             <View style={{ width: 36 }} />
           </View>
+
+          {/* Beverage selector */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.beverageRow}
+            style={s.beverageScroll}
+          >
+            {BEVERAGES.map(bev => {
+              const isActive = bev.key === selectedBeverage;
+              return (
+                <TouchableOpacity
+                  key={bev.key}
+                  style={[
+                    s.beveragePill,
+                    isActive && { backgroundColor: bev.color + '22', borderColor: bev.color },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedBeverage(bev.key);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={bev.icon} size={18} color={isActive ? bev.color : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
+                  <Text style={[
+                    s.beveragePillLabel,
+                    isActive && { color: bev.color },
+                  ]}>
+                    {bev.label}
+                  </Text>
+                  {bev.hydrationFactor !== 1.0 && (
+                    <Text style={[
+                      s.beverageFactorBadge,
+                      isActive && { color: bev.color, opacity: 1 },
+                    ]}>
+                      {bev.hydrationFactor > 1 ? '+' : ''}{Math.round((bev.hydrationFactor - 1) * 100)}%
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           {/* Cup card */}
           <View style={s.cupCard}>
 
             {/* Label row */}
             <View style={s.cupLabelRow}>
-              <Text style={s.cupLabel}>Water</Text>
-              <Text style={[s.cupCounter, sessionOz > 0 && { color: BLUE }]}>
-                {sessionOz}oz
+              <Text style={s.cupLabel}>Hydration</Text>
+              <Text style={[s.cupCounter, displayOz > 0 && { color: activeBeverage.color }]}>
+                {displayOz}oz
               </Text>
             </View>
 
@@ -152,12 +255,12 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
                   </ClipPath>
                 </Defs>
 
-                {/* Animated fill, clipped to cup interior */}
+                {/* Animated fill */}
                 <AnimatedRect
                   x={0}
                   width={200}
                   height={260}
-                  fill={BLUE}
+                  fill={activeBeverage.color}
                   opacity={0.72}
                   clipPath="url(#wls-cup-clip)"
                   animatedProps={fillProps}
@@ -174,29 +277,38 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
 
               {/* Centered oz overlay */}
               <View style={s.cupTextOverlay} pointerEvents="none">
-                <Text style={s.cupOzNum}>{sessionOz}</Text>
-                <Text style={s.cupOzUnit}>oz</Text>
+                <Text style={s.cupOzNum}>{displayOz}</Text>
+                <Text style={s.cupOzUnit}>oz hydration</Text>
               </View>
             </View>
+
+            {/* Feedback badge — shows conversion after adding a beverage */}
+            {lastAdd && lastAdd.rawOz !== lastAdd.effectiveOz && (
+              <View style={[s.feedbackBadge, { backgroundColor: BEVERAGES.find(b => b.key === lastAdd.bevKey)!.color + '1A' }]}>
+                <Text style={[s.feedbackText, { color: BEVERAGES.find(b => b.key === lastAdd.bevKey)!.color }]}>
+                  {lastAdd.rawOz}oz {BEVERAGES.find(b => b.key === lastAdd.bevKey)!.label} → {lastAdd.effectiveOz}oz hydration
+                </Text>
+              </View>
+            )}
 
             {/* Stepper */}
             <View style={s.stepper}>
               <TouchableOpacity
                 style={s.stepBtn}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSessionOz(o => Math.max(0, o - stepSize)); }}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); subtractHydration(stepSize); }}
                 activeOpacity={0.7}
               >
                 <Text style={s.stepBtnText}>−</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cycleStepSize(); }} activeOpacity={0.7} style={s.stepLabelWrap}>
-                <Text style={s.stepLabelMain}>{stepSize}oz</Text>
-                <Text style={s.stepLabelHint}>tap to change</Text>
+              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cycleStepSize(); }} activeOpacity={0.7} style={[s.stepLabelWrap, { backgroundColor: activeBeverage.color + '1F', borderColor: activeBeverage.color + '40' }]}>
+                <Text style={[s.stepLabelMain, { color: activeBeverage.color }]}>{stepSize}oz</Text>
+                <Text style={[s.stepLabelHint, { color: activeBeverage.color + '88' }]}>tap to change</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={s.stepBtn}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSessionOz(o => o + stepSize); }}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); addBeverage(stepSize, selectedBeverage); }}
                 activeOpacity={0.7}
               >
                 <Text style={s.stepBtnText}>+</Text>
@@ -213,17 +325,29 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
             contentContainerStyle={s.chipsRow}
             style={s.chipsScroll}
           >
-            {QUICK_PRESETS.map(preset => (
-              <TouchableOpacity
-                key={preset.oz}
-                style={s.chip}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSessionOz(o => o + preset.oz); }}
-                activeOpacity={0.75}
-              >
-                <Ionicons name={preset.icon} size={26} color={BLUE} />
-                <Text style={s.chipLabel}>+{preset.label}</Text>
-              </TouchableOpacity>
-            ))}
+            {QUICK_PRESETS.map((preset, idx) => {
+              const bev = BEVERAGES.find(b => b.key === preset.beverageKey)!;
+              const effectiveOz = Math.round(preset.oz * bev.hydrationFactor * 10) / 10;
+              return (
+                <TouchableOpacity
+                  key={`${preset.beverageKey}-${preset.oz}-${idx}`}
+                  style={s.chip}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setSelectedBeverage(preset.beverageKey);
+                    addBeverage(preset.oz, preset.beverageKey);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name={preset.icon} size={24} color={bev.color} />
+                  <Text style={[s.chipLabel, { color: bev.color }]}>+{preset.oz}oz</Text>
+                  <Text style={s.chipSublabel}>{bev.label}</Text>
+                  {bev.hydrationFactor !== 1.0 && (
+                    <Text style={[s.chipEffective, { color: bev.color }]}>→ {effectiveOz}oz</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {/* Update CTA */}
@@ -284,7 +408,7 @@ const createStyles = (c: AppColors) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   closeBtn: {
     width: 36,
@@ -300,6 +424,38 @@ const createStyles = (c: AppColors) => {
     color: c.textPrimary,
     letterSpacing: -0.3,
     fontFamily: FF,
+  },
+
+  // Beverage selector
+  beverageScroll: { marginBottom: 16 },
+  beverageRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 4,
+  },
+  beveragePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: w(0.08),
+    backgroundColor: w(0.03),
+  },
+  beveragePillLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: w(0.40),
+    fontFamily: FF,
+  },
+  beverageFactorBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: w(0.30),
+    fontFamily: FF,
+    opacity: 0.7,
   },
 
   // Cup card
@@ -361,11 +517,25 @@ const createStyles = (c: AppColors) => {
     textShadowRadius: 4,
   },
   cupOzUnit: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: w(0.55),
+    color: w(0.50),
     fontFamily: FF,
     marginTop: -4,
+  },
+
+  // Feedback badge
+  feedbackBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  feedbackText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: FF,
+    textAlign: 'center',
   },
 
   // Stepper
@@ -398,22 +568,18 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: 'rgba(91,139,245,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(91,139,245,0.25)',
     minWidth: 80,
   },
   stepLabelMain: {
     fontSize: 18,
     fontWeight: '800',
-    color: BLUE,
     fontFamily: FF,
     letterSpacing: -0.3,
   },
   stepLabelHint: {
     fontSize: 9,
     fontWeight: '500',
-    color: 'rgba(91,139,245,0.55)',
     fontFamily: FF,
     marginTop: 1,
     letterSpacing: 0.2,
@@ -436,21 +602,32 @@ const createStyles = (c: AppColors) => {
     paddingRight: 4,
   },
   chip: {
-    width: 76,
-    height: 84,
+    width: 82,
+    height: 92,
     borderRadius: 16,
     backgroundColor: c.glassOverlay,
     borderWidth: 1,
     borderColor: w(0.09),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 3,
   },
   chipLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: BLUE,
     fontFamily: FF,
+  },
+  chipSublabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: w(0.35),
+    fontFamily: FF,
+  },
+  chipEffective: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: FF,
+    opacity: 0.7,
   },
 
   // Update CTA
@@ -469,7 +646,7 @@ const createStyles = (c: AppColors) => {
   updateBtnText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF', // on orange bg - stays white
+    color: '#FFFFFF',
     letterSpacing: 0.2,
     fontFamily: FF,
   },

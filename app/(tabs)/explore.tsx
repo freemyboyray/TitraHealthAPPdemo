@@ -18,8 +18,9 @@ import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useProfile } from '@/contexts/profile-context';
 import { getEscalationPhase } from '@/lib/escalation-phase';
-import { supabase } from '@/lib/supabase';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
+import { useCoursesStore } from '@/stores/courses-store';
+import { CourseCard } from '@/components/courses/course-card';
 
 type ArticleRow = {
   id: string;
@@ -348,57 +349,57 @@ const SYMPTOMS: SymptomItem[] = [
 
 const PHASE_TIPS: Record<string, { title: string; tips: string[] }> = {
   initiation: {
-    title: 'Week 1–4: Building Your Foundation',
+    title: 'Building Your Foundation',
     tips: [
       'Focus on injection consistency. Same day, same time each week',
       'Start tracking protein now even if intake is low. The habit matters',
-      'Log every side effect you notice; patterns this early inform your titration speed',
-      'Expect nausea. It\'s the body adapting, not a sign something\'s wrong',
+      'Log every side effect you notice — patterns early on are valuable',
+      'Nausea is common early on. Small, frequent meals can help',
     ],
   },
   low_therapeutic: {
-    title: 'Low Therapeutic Phase: Harness the Appetite Window',
+    title: 'Harness the Appetite Window',
     tips: [
-      'Your appetite suppression is kicking in. Use this window to establish protein-first eating habits',
-      'Begin resistance training now if you haven\'t. This is the ideal time to build the muscle-preservation habit',
+      'Appetite suppression is kicking in. A great time to establish protein-first eating habits',
+      'Consider adding resistance training if you haven\'t — it helps preserve muscle during weight loss',
       'Hydration often falls off as hunger decreases. Keep tracking your water intake',
-      'Monitor for constipation; increase fiber proactively',
+      'Fiber-rich foods can help with digestive comfort',
     ],
   },
   mid_therapeutic: {
-    title: 'Mid Therapeutic Phase: Optimize Your Routine',
+    title: 'Optimize Your Routine',
     tips: [
-      'Weight loss rate may be at its peak. Protect your muscle with 0.7–1g protein per lb of body weight',
-      'Watch for micronutrient deficiency signs (fatigue, hair shedding, brittle nails). Consider a comprehensive vitamin panel',
-      'This phase is often when food noise is quietest. Use the mental clarity to build new food relationships',
-      'Sleep and stress management amplify your results significantly at this phase',
+      'Many people find this phase is when food noise is quietest. Use the clarity to build new habits',
+      'Prioritize protein at every meal to support muscle preservation',
+      'Watch for signs of low energy — it may be worth checking in with your provider about vitamin levels',
+      'Sleep and stress management can significantly support your progress',
     ],
   },
   high_therapeutic: {
-    title: 'High Therapeutic Phase: Sustain and Protect',
+    title: 'Sustain and Protect',
     tips: [
-      'At higher doses, GI side effects can re-emerge. Eat smaller portions and pace yourself',
-      'Lean mass preservation is the priority; consider working with a registered dietitian',
-      'Check in with your prescriber about lab work (lipids, A1C, liver enzymes). A good milestone',
-      'Build the behavioral infrastructure for when you eventually maintain or taper: meal planning, regular exercise, stress management',
+      'At higher doses, GI comfort may fluctuate. Smaller portions and slower eating can help',
+      'Lean mass preservation remains the priority — keep up resistance training',
+      'This is a good time for a check-in with your healthcare provider',
+      'Focus on building habits that feel sustainable long-term: meal planning, regular movement, rest',
     ],
   },
   high_plus: {
-    title: 'Advanced Phase: Think Long-Term',
+    title: 'Think Long-Term',
     tips: [
-      'You\'re in the advanced phase. Focus on sustainable lifestyle habits that will outlast the medication',
-      'Consider bone density: weight-bearing exercise is important for women, especially post-menopause',
-      'Re-evaluate protein targets as your body weight changes. Recalculate based on current weight',
-      'Discuss a long-term maintenance plan with your prescriber',
+      'Focus on sustainable lifestyle habits that will support you long-term',
+      'Weight-bearing exercise supports bone density — important at every stage',
+      'Re-evaluate protein targets as your body weight changes',
+      'Talk to your provider about your long-term plan',
     ],
   },
   max_dose: {
-    title: 'Maximum Dose: Maintenance Mindset',
+    title: 'Maintenance Mindset',
     tips: [
-      'At max dose, focus shifts from loss to sustainable maintenance. This is long-term management',
-      'Lifestyle habits now are your insurance policy if medication cost or availability changes',
-      'Prioritize body composition over scale weight. Protect muscle, support bone density',
-      'Discuss exit strategy or maintenance protocols with your doctor proactively',
+      'Focus shifts from active loss to sustainable maintenance',
+      'Lifestyle habits now are your strongest foundation going forward',
+      'Prioritize body composition over scale weight — muscle and bone density matter',
+      'A proactive conversation with your provider about next steps is always valuable',
     ],
   },
 };
@@ -884,21 +885,48 @@ const createArticleCardStyles = (c: AppColors) => {
   });
 };
 
+// ─── Guided Courses Row ───────────────────────────────────────────────────────
+
+function GuidedCoursesRow() {
+  const { colors } = useAppTheme();
+  const courses = useCoursesStore((s) => s.courses);
+  const progress = useCoursesStore((s) => s.progress);
+
+  if (courses.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <Text style={{
+        fontSize: 9, fontWeight: '700', color: ORANGE,
+        letterSpacing: 1.5, textTransform: 'uppercase',
+        marginBottom: 14, fontFamily: FF,
+      }}>GUIDED COURSES</Text>
+      <FlatList
+        horizontal
+        data={courses}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <CourseCard
+            course={item}
+            completedCount={(progress[item.id] ?? []).length}
+          />
+        )}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingRight: 4 }}
+      />
+    </View>
+  );
+}
+
 export default function EducationScreen() {
   const { onScroll, onScrollEnd } = useTabBarVisibility();
-  const [articles, setArticles] = useState<ArticleRow[]>([]);
   const { colors } = useAppTheme();
   const s = useMemo(() => createScreenStyles(colors), [colors]);
 
+  const fetchCourses = useCoursesStore((s) => s.fetchCourses);
+
   useFocusEffect(useCallback(() => {
-    supabase
-      .from('articles')
-      .select('id, title, subtitle, category, reading_time_minutes, published_at')
-      .order('published_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        if (data && data.length > 0) setArticles(data as ArticleRow[]);
-      });
+    fetchCourses();
   }, []));
 
   return (
@@ -920,32 +948,11 @@ export default function EducationScreen() {
           {/* ── Phase-aware personalized card ── */}
           <PhaseCard />
 
-          {/* ── Myth vs. Fact ── */}
-          <MythFactRow />
+          {/* ── Guided Courses ── */}
+          <GuidedCoursesRow />
 
           {/* ── Side Effect Decoder ── */}
           <SideEffectDecoder />
-
-          {/* ── When to Call Your Doctor ── */}
-          <SafetyCard />
-
-          {/* ── From the Library (DB articles) ── */}
-          {articles.length > 0 && (
-            <>
-              <Text style={s.libraryLabel}>FROM THE LIBRARY</Text>
-              {articles.map(article => (
-                <ArticleCard key={article.id} article={article} />
-              ))}
-              <View style={s.librarySeparator} />
-            </>
-          )}
-
-          {/* ── Section label for accordion content ── */}
-          <Text style={s.libraryLabel}>DEEP DIVES</Text>
-
-          {SECTIONS.map((section) => (
-            <EducationCard key={section.id} section={section} />
-          ))}
 
           <Text style={s.disclaimer}>
             This content is for informational purposes only and does not constitute medical advice. Always consult your healthcare provider before making any changes to your treatment plan.
@@ -966,15 +973,6 @@ const createScreenStyles = (c: AppColors) => {
     headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: FF },
     headerSub: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
     disclaimer: { fontSize: 11, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
-    libraryLabel: {
-      fontSize: 9, fontWeight: '700', color: ORANGE,
-      letterSpacing: 1.5, textTransform: 'uppercase',
-      marginBottom: 14, fontFamily: FF,
-    },
-    librarySeparator: {
-      height: 1, backgroundColor: c.borderSubtle,
-      marginBottom: 24, marginTop: 8,
-    },
   });
 };
 

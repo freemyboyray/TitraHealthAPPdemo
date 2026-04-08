@@ -24,6 +24,8 @@ import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
 import { useUiStore } from '@/stores/ui-store';
+import { useProfile } from '@/contexts/profile-context';
+import { isOralDrug, doseIconName } from '@/constants/drug-pk';
 
 const ORANGE = '#FF742A';
 const ICON_SIZE = 24;
@@ -41,6 +43,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const router = useRouter();
   const { openAiChat } = useUiStore();
   const { dispatch, profile } = useHealthData();
+  const { profile: fullProfile } = useProfile();
+  const oral = isOralDrug(fullProfile?.glp1Type);
   const { addFoodLog } = useLogStore();
 
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
@@ -153,8 +157,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
     },
     {
-      label: 'LOG INJECTION',
-      icon: <FontAwesome5 name="syringe" size={ICON_SIZE} color={colors.textPrimary} />,
+      label: oral ? 'LOG DOSE' : 'LOG INJECTION',
+      icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: handleLogInjection,
     },
     {
@@ -344,19 +348,13 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                 ) : (
                   /* ── Grid view ── */
                   <>
-                    <Text style={s.title}>Add Entry</Text>
-                    <Text style={s.subtitle}>What would you like to log today?</Text>
                     <View style={s.dash} />
                     <View style={s.grid}>
                       {GRID.map((item) => (
                         <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress}>
                           {item.special ? (
                             <View style={s.specialCircle}>
-                              <BlurView intensity={30} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 32, backgroundColor: 'rgba(255,116,42,0.85)' }]} />
-                              <GlassBorder r={32} />
-                              <View style={s.sphereShine} />
-                              <View style={s.sphereShineSmall} />
+                              <Ionicons name="chatbubble-ellipses-outline" size={ICON_SIZE} color="#FFF" />
                             </View>
                           ) : (
                             <View style={s.iconCircle}>
@@ -612,7 +610,7 @@ const createSheetStyles = (c: AppColors) => {
   iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
 
   // ASK AI sphere
-  specialCircle: { width: 64, height: 64, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 6 },
+  specialCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 6 },
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 

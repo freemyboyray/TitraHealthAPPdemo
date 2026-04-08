@@ -23,6 +23,7 @@ import {
   type IntradayPhase,
 } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
+import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
@@ -31,7 +32,7 @@ import { ClinicalAlertCard, getDismissedFlags } from '@/components/clinical-aler
 import { buildClinicalFlags } from '@/lib/clinical-alerts';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
-import { useLogStore } from '@/stores/log-store';
+import { useLogStore, computeStreak } from '@/stores/log-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -39,9 +40,13 @@ import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
 import { syncNotifications } from '@/stores/reminders-store';
-import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
-import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
+// ── Appetite forecast imports — commented out (section removed from home screen)
+// import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
+// import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
+// import { AppetiteForecastWave } from '@/components/appetite-forecast-wave';
+// import { AppetiteForecastGauge } from '@/components/appetite-forecast-gauge';
 import { MissedShotModal } from '@/components/missed-shot-modal';
+import { useProfile } from '@/contexts/profile-context';
 
 const ORANGE = '#FF742A';
 
@@ -61,7 +66,7 @@ const MED_BRAND: Record<string, string> = {
 const PHASE_DISPLAY: Record<ShotPhase, string> = {
   shot:    'Shot Day',
   peak:    'Peak Effect',
-  balance: 'Active',
+  balance: 'Stable',
   reset:   'Fading',
 };
 
@@ -163,7 +168,11 @@ function buildPhaseLabel(
   injFreqDays: number = 7,
   intradayPhase?: IntradayPhase | null,
   hoursSince?: number,
+  oral: boolean = false,
 ): string {
+  const Noun = oral ? 'Dose' : 'Injection';
+  const noun = oral ? 'dose' : 'injection';
+  const shotOrDose = oral ? 'dose' : 'shot';
   // Intraday mode for daily drugs
   if (intradayPhase != null && hoursSince != null) {
     const hoursUntilNext = Math.max(0, 24 - hoursSince);
@@ -175,17 +184,17 @@ function buildPhaseLabel(
     return `Trough Phase · ${nextDoseLabel}`;
   }
   // Cycle-day mode
-  if (daysSinceShot <= 1) return `${PHASE_DISPLAY.shot} · Injection logged`;
-  if (daysSinceShot <= Math.round(injFreqDays * 0.5)) return `Peak Phase · Day ${daysSinceShot} since last shot`;
-  if (daysSinceShot <= Math.round(injFreqDays * 0.85)) return `Balance Phase · Day ${daysSinceShot} since last shot`;
-  if (daysSinceShot < injFreqDays) return `Reset Phase · Injection due in ${injFreqDays - daysSinceShot}d`;
-  if (daysSinceShot >= injFreqDays) return 'Injection Overdue - Consider logging your dose';
+  if (daysSinceShot <= 1) return `${oral ? 'Dose Day' : PHASE_DISPLAY.shot} · ${Noun} logged`;
+  if (daysSinceShot <= Math.round(injFreqDays * 0.5)) return `Peak Phase · Day ${daysSinceShot} since last ${shotOrDose}`;
+  if (daysSinceShot <= Math.round(injFreqDays * 0.85)) return `Balance Phase · Day ${daysSinceShot} since last ${shotOrDose}`;
+  if (daysSinceShot < injFreqDays) return `Reset Phase · ${Noun} due in ${injFreqDays - daysSinceShot}d`;
+  if (daysSinceShot >= injFreqDays) return `${Noun} Overdue - Consider logging your ${noun}`;
   return 'Balance Phase';
 }
 
-function buildDynamicFocusHint(plan: PersonalizedPlan | null): string {
+function buildDynamicFocusHint(plan: PersonalizedPlan | null, oral: boolean = false): string {
   if (!plan) return '';
-  if (!plan.actuals.injectionLogged) return 'Log your injection to complete today\'s cycle';
+  if (!plan.actuals.injectionLogged) return `Log your ${doseNoun(oral)} to complete today's cycle`;
   const proteinPct = plan.targets.proteinG > 0 ? plan.actuals.proteinG / plan.targets.proteinG : 1;
   if (proteinPct < 0.5) return 'Protein is well below target - prioritize it today to protect muscle';
   if (proteinPct < 0.8) return 'You\'re partway to your protein target - keep going';
@@ -238,9 +247,10 @@ type CalendarDropdownProps = {
   injectionFrequencyDays?: number;
   datesWithLogs?: Set<string>;
   datesWithInjections?: Set<string>;
+  oral?: boolean;
 };
 
-function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionDate, injectionFrequencyDays = 7, datesWithLogs, datesWithInjections }: CalendarDropdownProps) {
+function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionDate, injectionFrequencyDays = 7, datesWithLogs, datesWithInjections, oral = false }: CalendarDropdownProps) {
   const { colors } = useAppTheme();
   const cal = useMemo(() => createCalStyles(colors), [colors]);
   const today = new Date();
@@ -328,7 +338,7 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
         <View style={cal.legend}>
           <View style={cal.legendItem}>
             <View style={[cal.legendDot, { backgroundColor: '#FF742A' }]} />
-            <Text style={cal.legendLabel}>Shot day</Text>
+            <Text style={cal.legendLabel}>{oral ? 'Dose day' : 'Shot day'}</Text>
           </View>
           <View style={cal.legendItem}>
             <View style={[cal.legendDot, { backgroundColor: '#34C759' }]} />
@@ -441,11 +451,12 @@ type DailyLogSummaryCardProps = {
   isFuture:       boolean;
   targets:        DailyTargets;
   onRefresh:      () => void;
+  oral?:          boolean;
 };
 
 function DailyLogSummaryCard({
   foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs, waterOz,
-  isLoading, isFuture, targets, onRefresh,
+  isLoading, isFuture, targets, onRefresh, oral = false,
 }: DailyLogSummaryCardProps) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -541,7 +552,7 @@ function DailyLogSummaryCard({
 
   // ── Compact summary lines ─────────────────────────────────────────────────
   const summaryRows: { icon: React.ReactNode; label: string }[] = [];
-  if (injectionLog) summaryRows.push({ icon: <FontAwesome5 name="syringe" size={12} color={w(0.45)} />, label: `${injectionLog.medication_name ?? 'Injection'} ${injectionLog.dose_mg}mg logged` });
+  if (injectionLog) summaryRows.push({ icon: <FontAwesome5 name={doseIconName(oral)} size={12} color={w(0.45)} />, label: `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg logged` });
   if (foodLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name="restaurant" size={14} color={w(0.45)} />, label: `${foodLogs.length} meal${foodLogs.length > 1 ? 's' : ''} · ${totalCals} cal` });
   if (activityLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name={activityIconNameDL(activityLogs[0]?.exercise_type)} size={14} color={w(0.45)} />, label: `${activityLogs.length} activit${activityLogs.length > 1 ? 'ies' : 'y'}` });
   if (weightLog) summaryRows.push({ icon: <MaterialCommunityIcons name="scale" size={14} color={w(0.45)} />, label: `${weightLog.weight_lbs} lbs` });
@@ -612,16 +623,16 @@ function DailyLogSummaryCard({
               )}
             </View>
 
-            {/* ── Injection ── */}
+            {/* ── Injection / Dose ── */}
             {injectionLog && (
               <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>Injection</Text>
+                <Text style={dlSectionLabel(w)}>{oral ? 'Dose' : 'Injection'}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 10 }}>
-                  <FontAwesome5 name="syringe" size={14} color={w(0.45)} />
+                  <FontAwesome5 name={doseIconName(oral)} size={14} color={w(0.45)} />
                   <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>
-                    {injectionLog.medication_name ?? 'Injection'} · {injectionLog.dose_mg}mg
+                    {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
-                  <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? 'Injection'} ${injectionLog.dose_mg}mg`)}>
+                  <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)}>
                     <Ionicons name="trash-outline" size={15} color={w(0.28)} />
                   </Pressable>
                 </View>
@@ -880,9 +891,11 @@ export default function HomeScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const { onScroll, onScrollEnd } = useTabBarVisibility();
   const healthData = useHealthData();
-  const { recoveryScore, supportScore, lastLogAction, wearable, actuals, targets, profile, focuses } = healthData;
+  const { lastLogAction, actuals, targets, profile, focuses } = healthData;
+  const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
+  const { updateProfile } = useProfile();
 
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
@@ -899,6 +912,11 @@ export default function HomeScreen() {
   const [datesWithInjections, setDatesWithInjections] = useState<Set<string>>(new Set());
   const [missedShotVisible, setMissedShotVisible] = useState(false);
   const missedShotShownRef = useRef(false);
+
+  const streak = useMemo(() => computeStreak(logStore), [
+    logStore.weightLogs, logStore.injectionLogs, logStore.foodLogs,
+    logStore.activityLogs, logStore.sideEffectLogs, logStore.foodNoiseLogs,
+  ]);
 
   const biometricStore = useBiometricStore();
 
@@ -978,10 +996,16 @@ export default function HomeScreen() {
   const dateLabel = `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
   const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
-  // Prefer the most recent logged injection date over the profile field — more
-  // accurate and works even if lastInjectionDate wasn't persisted to Supabase yet.
-  const effectiveLastInjectionDate =
-    logStore.injectionLogs[0]?.injection_date || profile.lastInjectionDate || null;
+  // Use whichever last-injection date is more recent: profile (updated by
+  // settings edits) or the most recent injection log (updated by addInjectionLog).
+  // This ensures both manual settings changes AND new injection logs are reflected.
+  const profileLastInj = profile.lastInjectionDate || null;
+  const logStoreLastInj = logStore.injectionLogs[0]?.injection_date || null;
+  const effectiveLastInjectionDate = (() => {
+    if (!profileLastInj) return logStoreLastInj;
+    if (!logStoreLastInj) return profileLastInj;
+    return profileLastInj >= logStoreLastInj ? profileLastInj : logStoreLastInj;
+  })();
 
   const dayNum = daysSinceInjection(effectiveLastInjectionDate, selectedDate);
   const freq = profile.injectionFrequencyDays;
@@ -994,7 +1018,7 @@ export default function HomeScreen() {
   // distinguish "due and not yet logged" from "due and already logged".
   const todayInjLogged = actuals.injectionLogged;
   const nextShotLabel = !effectiveLastInjectionDate
-    ? 'Log first shot'
+    ? `Log first ${oral ? 'dose' : 'shot'}`
     : todayInjLogged
       ? 'Logged today'
       : daysUntil <= 0
@@ -1038,6 +1062,7 @@ export default function HomeScreen() {
     injFreqDays,
     intradayPhase,
     hSinceDose ?? undefined,
+    oral,
   );
   const phaseOverdue = dayNum > freq;
 
@@ -1064,10 +1089,13 @@ export default function HomeScreen() {
     const brandName = BRAND_DISPLAY_NAMES[profile.medicationBrand] ?? profile.medicationBrand;
     const doseMg    = profile.doseMg;
 
-    // Next suggested rotation site based on most recent injection log
-    const lastSite  = logStore.injectionLogs[0]?.site ?? null;
-    const lastIdx   = lastSite ? INJECTION_SITES.indexOf(lastSite) : -1;
-    const nextSite  = INJECTION_SITES[(lastIdx + 1) % INJECTION_SITES.length];
+    // Next suggested rotation site based on most recent injection log (skip for oral drugs)
+    let nextSite: string | null = null;
+    if (!oral) {
+      const lastSite  = logStore.injectionLogs[0]?.site ?? null;
+      const lastIdx   = lastSite ? INJECTION_SITES.indexOf(lastSite) : -1;
+      nextSite  = INJECTION_SITES[(lastIdx + 1) % INJECTION_SITES.length];
+    }
 
     // Injection is logged for selected date when:
     // - today: actuals.injectionLogged
@@ -1079,12 +1107,15 @@ export default function HomeScreen() {
         ? historicalSnapshot?.injectionLog != null
         : false;
 
+    const subtitleParts = [`${brandName}`, `${doseMg}mg`];
+    if (nextSite) subtitleParts.push(nextSite);
+
     const reminder: FocusItem = {
       id: 'injection',
-      label: injLogged ? 'Injection logged' : 'Take your injection',
-      subtitle: `${brandName} · ${doseMg}mg · ${nextSite}`,
+      label: injLogged ? `${oral ? 'Dose' : 'Injection'} logged` : (oral ? 'Take your pill' : 'Take your injection'),
+      subtitle: subtitleParts.join(' · '),
       status: injLogged ? 'completed' : 'pending',
-      iconName: 'colorize',
+      iconName: oral ? 'medication' : 'colorize',
       iconSet: 'MaterialIcons',
     };
 
@@ -1125,34 +1156,22 @@ export default function HomeScreen() {
     });
   }, [openAiChat]);
 
-  // ── Appetite forecast strip ────────────────────────────────────────────────
-  // Use the actual logged injection date — not the profile/mock fallback
-  const lastLoggedInjectionDate = logStore.injectionLogs[0]?.injection_date ?? null;
-  const drugName = BRAND_DISPLAY_NAMES[profile.medicationBrand] ?? profile.glp1Type ?? 'your medication';
-  const forecastDays = useMemo(
-    () => scheduleMode === 'cycle-day' && lastLoggedInjectionDate
-      ? generateForecastStrip(
-          lastLoggedInjectionDate,
-          injFreqDays,
-          profile.glp1Type,
-          profile.glp1Status,
-          profile.doseMg ?? null,
-        )
-      : [],
-    [scheduleMode, lastLoggedInjectionDate, injFreqDays, profile.glp1Type, profile.glp1Status, profile.doseMg],
-  );
-
-  const intradayHourBlocks = useMemo(
-    () => scheduleMode === 'intraday'
-      ? generateIntradayForecast(
-          profile.glp1Type,
-          profile.glp1Status,
-          doseTime,
-          profile.doseMg ?? null,
-        )
-      : [],
-    [scheduleMode, profile.glp1Type, profile.glp1Status, doseTime, profile.doseMg],
-  );
+  // ── Appetite forecast — COMMENTED OUT (not providing enough value on home screen) ──
+  // const [mockupVariant, setMockupVariant] = React.useState<'current' | 'wave' | 'gauge'>('wave');
+  // const lastLoggedInjectionDate = logStore.injectionLogs[0]?.injection_date ?? null;
+  // const drugName = BRAND_DISPLAY_NAMES[profile.medicationBrand] ?? profile.glp1Type ?? 'your medication';
+  // const forecastDays = useMemo(
+  //   () => scheduleMode === 'cycle-day' && lastLoggedInjectionDate
+  //     ? generateForecastStrip(lastLoggedInjectionDate, injFreqDays, profile.glp1Type, profile.glp1Status, profile.doseMg ?? null)
+  //     : [],
+  //   [scheduleMode, lastLoggedInjectionDate, injFreqDays, profile.glp1Type, profile.glp1Status, profile.doseMg],
+  // );
+  // const intradayHourBlocks = useMemo(
+  //   () => scheduleMode === 'intraday'
+  //     ? generateIntradayForecast(profile.glp1Type, profile.glp1Status, doseTime, profile.doseMg ?? null)
+  //     : [],
+  //   [scheduleMode, profile.glp1Type, profile.glp1Status, doseTime, profile.doseMg],
+  // );
 
   // ── Treatment Progress computations ─────────────────────────────────────────
   const referenceTime = isPast ? selectedDate.getTime() : Date.now();
@@ -1319,6 +1338,7 @@ export default function HomeScreen() {
               injectionFrequencyDays={profile.injectionFrequencyDays}
               datesWithLogs={datesWithLogs}
               datesWithInjections={datesWithInjections}
+              oral={oral}
             />
           </>
         )}
@@ -1372,7 +1392,7 @@ export default function HomeScreen() {
                   Complete these steps to unlock your personalized phase tracking.
                 </Text>
                 {[
-                  { label: 'Log your first injection', done: logStore.injectionLogs.length > 0 },
+                  { label: `Log your first ${doseNoun(oral)}`, done: logStore.injectionLogs.length > 0 },
                   { label: 'Log your starting weight', done: logStore.weightLogs.length > 0 },
                 ].map((item, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -1402,24 +1422,23 @@ export default function HomeScreen() {
             <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               <View style={s.heroCard}>
 
-                {/* Phase + medication row */}
+                {/* Streak + medication row */}
                 <View style={s.heroTopRow}>
-                  {(() => {
-                    const phaseColor = intradayPhase
-                      ? INTRADAY_PHASE_COLORS[intradayPhase]
-                      : PHASE_COLORS[shotPhaseForLabel];
-                    const phaseLabel = intradayPhase
-                      ? INTRADAY_PHASE_DISPLAY[intradayPhase].toUpperCase()
-                      : PHASE_DISPLAY[shotPhaseForLabel].toUpperCase();
-                    return (
-                      <View style={[s.heroPhaseBadge, { backgroundColor: phaseColor + '22' }]}>
-                        <View style={[s.heroPhaseIndicator, { backgroundColor: phaseColor }]} />
-                        <Text style={[s.heroPhaseText, { color: phaseColor }]}>
-                          {phaseLabel}
-                        </Text>
-                      </View>
-                    );
-                  })()}
+                  {streak > 0 ? (
+                    <View style={[s.heroPhaseBadge, { backgroundColor: ORANGE + '22' }]}>
+                      <Ionicons name="flame" size={13} color={ORANGE} />
+                      <Text style={[s.heroPhaseText, { color: ORANGE }]}>
+                        {streak} DAY{streak !== 1 ? 'S' : ''}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[s.heroPhaseBadge, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+                      <Ionicons name="flame-outline" size={13} color={colors.textSecondary} />
+                      <Text style={[s.heroPhaseText, { color: colors.textSecondary }]}>
+                        NO STREAK
+                      </Text>
+                    </View>
+                  )}
                   <Text style={s.heroMedLabel}>
                     {medName}{medDose ? ` · ${medDose}` : ''}
                   </Text>
@@ -1466,15 +1485,15 @@ export default function HomeScreen() {
                         !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
                       ]}>
                         {todayInjLogged
-                          ? 'Injected today ✓'
+                          ? `${oral ? 'Dosed' : 'Injected'} today ✓`
                           : rawDaysUntil == null
                             ? `In ${daysUntil} days`
                             : rawDaysUntil < 0
                               ? 'Past due'
                               : rawDaysUntil === 0
-                                ? 'Shot day'
+                                ? (oral ? 'Dose day' : 'Shot day')
                                 : rawDaysUntil === 1
-                                  ? 'Shot tomorrow'
+                                  ? (oral ? 'Dose tomorrow' : 'Shot tomorrow')
                                   : `In ${rawDaysUntil} days`}
                       </Text>
                     </View>
@@ -1506,7 +1525,11 @@ export default function HomeScreen() {
                 <Text style={[s.sectionTitle, { marginBottom: 0 }]}>{focusSectionLabel}</Text>
                 <View style={s.focusCountBadge}>
                   <Text style={s.focusCountText}>
-                    {`${(displayFocuses ?? []).length} ${isToday ? 'priorities' : 'tasks'}`}
+                    {(() => {
+                      const items = displayFocuses ?? [];
+                      const done = items.filter(f => f.status === 'completed').length;
+                      return `${done}/${items.length} done`;
+                    })()}
                   </Text>
                 </View>
               </View>
@@ -1571,17 +1594,10 @@ export default function HomeScreen() {
                 );
               })}
 
-              {/* AI chat hint */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10 }}>
-                <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
-                <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: FF }}>
-                  Hold any card to ask AI
-                </Text>
-              </View>
             </View>
           </View>
 
-          {/* ── Appetite & Energy Forecast Strip (today only) ── */}
+          {/* ── Appetite Forecast — COMMENTED OUT (not providing enough value) ──
           {isToday && (
             <AppetiteForecastStrip
               forecastDays={forecastDays}
@@ -1591,6 +1607,7 @@ export default function HomeScreen() {
               injFreqDays={injFreqDays}
             />
           )}
+          ── */}
 
           {/* ── Weekly Check-In (today only) ── */}
           {isToday && (() => {
@@ -1616,12 +1633,12 @@ export default function HomeScreen() {
 
 
 
-          {/* ── Shot Day Banner (future projected injection days) ── */}
+          {/* ── Shot / Dose Day Banner (future projected days) ── */}
           {isFuture && isProjectedInjectionDay && (
             <View style={[s.phaseBanner, { marginBottom: 12 }]}>
               <View>
-                <Text style={s.phaseDisplayName}>Shot Day</Text>
-                <Text style={s.phaseFocus}>Projected injection day based on your schedule</Text>
+                <Text style={s.phaseDisplayName}>{oral ? 'Dose Day' : 'Shot Day'}</Text>
+                <Text style={s.phaseFocus}>{oral ? 'Projected dose day based on your schedule' : 'Projected injection day based on your schedule'}</Text>
               </View>
             </View>
           )}
@@ -1637,6 +1654,7 @@ export default function HomeScreen() {
             isLoading={isPast && isLoadingDate}
             isFuture={isFuture}
             targets={targets}
+            oral={oral}
             onRefresh={() => {
               if (isToday) {
                 logStore.fetchInsightsData();
@@ -1659,7 +1677,11 @@ export default function HomeScreen() {
           expectedShotDate={expectedShotDate}
           overdueDays={overdueDays}
           lastDoseMg={lastDoseMg}
-          addInjectionLog={logStore.addInjectionLog}
+          addInjectionLog={async (dose_mg, injection_date) => {
+            await logStore.addInjectionLog(dose_mg, injection_date);
+            await updateProfile({ lastInjectionDate: injection_date });
+          }}
+          isOral={oral}
         />
 
       </SafeAreaView>

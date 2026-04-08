@@ -312,9 +312,11 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
 
   addCustomFood: async (food) => {
     set({ loading: true });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false }); return; }
     const { data } = await supabase
       .from('user_custom_foods')
-      .insert(food as any)
+      .insert({ ...food, user_id: user.id } as any)
       .select()
       .single();
     if (data) {

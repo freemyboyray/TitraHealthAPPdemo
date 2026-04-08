@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callGPT4oMiniVision } from '../../lib/openai';
 import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
+import { useFoodTaskStore } from '../../stores/food-task-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
@@ -144,20 +145,9 @@ export default function CaptureFoodScreen() {
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty');
 
-      const withResults = await Promise.all(
-        parsed.map(async (p) => {
-          const results = await searchUSDA(p.item);
-          return {
-            item: p.item,
-            estimated_g: p.estimated_g,
-            results,
-            selectedIdx: 0,
-            servingG: String(Math.round(p.estimated_g)),
-          } as ParsedItem;
-        }),
-      );
-      setItems(withResults);
-      setPhase('confirm');
+      // Dispatch to background processing and navigate away
+      useFoodTaskStore.getState().startTask({ source: 'camera', parsedItems: parsed });
+      router.back();
     } catch {
       setPhase('error');
     }

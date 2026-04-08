@@ -26,6 +26,7 @@ import type {
   Glp1Type,
   Sex,
 } from '@/constants/user-profile';
+import { isOralDrug, doseNoun } from '@/constants/drug-pk';
 import { applyCheckinAdjustments, type CheckinScores } from '@/lib/checkin-adjustments';
 import { localDateStr } from '@/lib/date-utils';
 import { buildContextSnapshot } from '@/lib/context-snapshot';
@@ -120,15 +121,16 @@ export type FullUserProfileForPlan = {
 
 // ─── Shot phase label ─────────────────────────────────────────────────────────
 
-function buildShotPhaseLabel(daysSinceShot: number, phase: ShotPhase, daysUntilNextDose?: number): string {
+function buildShotPhaseLabel(daysSinceShot: number, phase: ShotPhase, daysUntilNextDose?: number, isOral: boolean = false): string {
   const dayLabel = `Day ${daysSinceShot}`;
+  const noun = doseNoun(isOral);
   if (daysUntilNextDose !== undefined) {
-    if (daysUntilNextDose < 0)  return `Injection overdue (${Math.abs(daysUntilNextDose)}d past due)`;
-    if (daysUntilNextDose === 0) return `Injection due today (${dayLabel})`;
+    if (daysUntilNextDose < 0)  return `${noun.charAt(0).toUpperCase() + noun.slice(1)} overdue (${Math.abs(daysUntilNextDose)}d past due)`;
+    if (daysUntilNextDose === 0) return `${noun.charAt(0).toUpperCase() + noun.slice(1)} due today (${dayLabel})`;
     if (daysUntilNextDose === 1) return `Reset Phase (${dayLabel}) - due tomorrow`;
   }
   switch (phase) {
-    case 'shot':    return `Shot Day (${dayLabel})`;
+    case 'shot':    return `${isOral ? 'Dose' : 'Shot'} Day (${dayLabel})`;
     case 'peak':    return `Peak Phase (${dayLabel})`;
     case 'balance': return `Balance Phase (${dayLabel})`;
     case 'reset':   return `Reset Phase (${dayLabel})`;
@@ -213,7 +215,8 @@ export function computePersonalizedPlan(params: {
   const daysUntilNextDose = injectionFrequencyDays - actualDaysSinceShot;
   const isInjectionDue = daysUntilNextDose <= 0;
 
-  const shotPhaseLabel = buildShotPhaseLabel(daysSinceShot, shotPhase, daysUntilNextDose);
+  const oral = isOralDrug(profile.glp1Type);
+  const shotPhaseLabel = buildShotPhaseLabel(daysSinceShot, shotPhase, daysUntilNextDose, oral);
 
   // 2. Program week + escalation phase (needed before targets)
   const startDateEarly = profile.startDate ? new Date(profile.startDate) : new Date();

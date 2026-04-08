@@ -12,7 +12,7 @@ import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
-import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS } from '@/constants/drug-pk';
+import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog, type SideEffectLog } from '@/stores/log-store';
 import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
@@ -29,12 +29,16 @@ import {
 } from '@/lib/cycle-intelligence';
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
 import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
+import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
+import { PeerComparisonCard } from '@/components/peer-comparison-card';
+import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useAnimatedReaction, runOnJS as reanimatedRunOnJS } from 'react-native-reanimated';
 import { useChartScrub } from '@/hooks/useChartScrub';
 import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
+import { smoothPath, niceYTicks } from '@/lib/chart-utils';
 
 const ORANGE = '#FF742A';
 
@@ -50,7 +54,6 @@ function hmRhrStatus(bpm: number): HMStatus { return bpm < 55 ? 'good' : bpm < 7
 function hmRhrLabel(bpm: number): string { return bpm < 55 ? 'Optimal' : bpm < 70 ? 'Normal' : 'Elevated'; }
 function hmHrvStatus(ms: number): HMStatus { return ms >= 50 ? 'good' : ms >= 30 ? 'normal' : 'low'; }
 function hmHrvLabel(ms: number): string { return ms >= 50 ? 'Strong' : ms >= 30 ? 'Normal' : 'Low'; }
-function hmSpo2Status(pct: number): HMStatus { return pct >= 97 ? 'good' : pct >= 94 ? 'normal' : 'low'; }
 function hmSleepStatus(min: number): HMStatus { return min >= 420 ? 'good' : min >= 360 ? 'normal' : 'low'; }
 function hmSleepLabel(min: number): string { return min >= 420 ? 'On Target' : min >= 360 ? 'Normal' : 'Below Goal'; }
 function fmtSleep(min: number): string { return `${Math.floor(min / 60)}h ${min % 60}m`; }
@@ -113,7 +116,7 @@ function GaugeBar({ position, color }: { position: number | null; color: string 
     </View>
   );
 }
-function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
+function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWidth?: boolean }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const ss = hmStatusStyle[metric.status];
@@ -123,7 +126,7 @@ function HealthMonitorCard({ metric }: { metric: HealthMetric }) {
   const { openAiChat } = useUiStore();
   const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
   return (
-    <Pressable style={s.hmWrap} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }}>
+    <Pressable style={[s.hmWrap, fullWidth && { width: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }}>
       <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
         <View style={[s.hmInner, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
           {/* Left: content */}
@@ -224,25 +227,7 @@ function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '
   return filtered.length >= 2 ? filtered : [];
 }
 
-function niceYTicks(minW: number, maxW: number, count = 4): number[] {
-  const range = maxW - minW || 10;
-  const step = Math.ceil(range / (count - 1) / 5) * 5;
-  const start = Math.floor(minW / 5) * 5;
-  return Array.from({ length: count }, (_, i) => start + i * step).filter(v => v <= maxW + step);
-}
-
-function smoothPath(pts: { x: number; y: number }[]): string {
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const cp1x = pts[i].x + (pts[i + 1].x - pts[i].x) / 3;
-    const cp1y = pts[i].y;
-    const cp2x = pts[i + 1].x - (pts[i + 1].x - pts[i].x) / 3;
-    const cp2y = pts[i + 1].y;
-    d += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pts[i + 1].x} ${pts[i + 1].y}`;
-  }
-  return d;
-}
+// smoothPath and niceYTicks imported from @/lib/chart-utils
 
 function xAxisLabels(data: WeightPoint[], period: string, plotW: number): { x: number; label: string }[] {
   if (data.length < 2) return [];
@@ -408,16 +393,20 @@ function activityToEntry(a: ActivityLog): LogEntry {
   };
 }
 
-function injectionToEntry(inj: InjectionLog): LogEntry {
-  const medName = inj.medication_name ?? 'Injection';
+function injectionToEntry(inj: InjectionLog, oral = false): LogEntry {
+  const medName = inj.medication_name ?? (oral ? 'Dose' : 'Injection');
   const batchStr = inj.batch_number ? ` · Batch #${inj.batch_number}` : '';
-  const details = `Site: ${inj.site ?? '-'} · Dose: ${inj.dose_mg}mg${batchStr}`;
+  const siteStr = !oral && inj.site ? `Site: ${inj.site} · ` : '';
+  const details = `${siteStr}Dose: ${inj.dose_mg}mg${batchStr}`;
   const next = nextSite(inj.site ?? null);
+  const impact = oral
+    ? `Next ${doseNoun(true)} in 1 day`
+    : `Next injection in 7 days - rotate to ${next}`;
   return {
     id: inj.id, timestamp: fmtDateOnly(inj.injection_date),
     title: `${medName} ${inj.dose_mg}mg`,
-    details, impact: `Next injection in 7 days - rotate to ${next}`, impactStatus: 'neutral',
-    icon: <FontAwesome5 name="syringe" size={18} color={ORANGE_LOG} />,
+    details, impact, impactStatus: 'neutral',
+    icon: <FontAwesome5 name={doseIconName(oral)} size={18} color={ORANGE_LOG} />,
   };
 }
 
@@ -724,7 +713,7 @@ const PK_TIER_GUIDE = [
   { label: 'Optimal', range: '75 – 100%', color: '#27AE60', desc: 'Strongest GLP-1 receptor engagement. Appetite suppression is at its peak. Nausea risk is highest in this window, especially in early weeks.' },
   { label: 'Active',  range: '50 – 74%',  color: '#5B8BF5', desc: 'Medication is in its therapeutic range. Appetite control remains strong and nausea typically eases. Most people feel best during this phase.' },
   { label: 'Tapering', range: '30 – 49%', color: '#F6CB45', desc: 'Concentration is declining toward your next dose. Hunger may gradually return. Protein-first meals help maintain momentum.' },
-  { label: 'Trough',  range: '0 – 29%',   color: '#9A9490', desc: 'Levels are near trough before your next injection. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
+  { label: 'Trough',  range: '0 – 29%',   color: '#9A9490', desc: 'Levels are near trough before your next dose. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
 ];
 
 const CHART_HEIGHT = 110;
@@ -826,9 +815,40 @@ function pkPeakEffectsExplain(glp1Type: import('@/constants/user-profile').Glp1T
 }
 
 // ── Point label helper ────────────────────────────────────────────────────────
-function pkPointLabel(idx: number, injFreqDays: number, nPoints: number): string {
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SHORT_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function pkPointLabel(idx: number, injFreqDays: number, nPoints: number, injTimestamp?: string | null): string {
   const totalHours = injFreqDays * 24;
   const hrs = idx * (totalHours / (nPoints - 1));
+
+  // If we have an injection timestamp, show real dates
+  if (injTimestamp) {
+    const injDate = new Date(injTimestamp);
+    if (!isNaN(injDate.getTime())) {
+      const pointDate = new Date(injDate.getTime() + hrs * 3600000);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const pointDay = new Date(pointDate.getFullYear(), pointDate.getMonth(), pointDate.getDate());
+      const diffDays = Math.round((pointDay.getTime() - today.getTime()) / 86400000);
+
+      const timeStr = pointDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+      let dayStr: string;
+      if (diffDays === 0) dayStr = 'Today';
+      else if (diffDays === 1) dayStr = 'Tomorrow';
+      else if (diffDays === -1) dayStr = 'Yesterday';
+      else {
+        dayStr = `${SHORT_DAYS[pointDate.getDay()]}, ${SHORT_MONTHS[pointDate.getMonth()]} ${pointDate.getDate()}`;
+      }
+
+      if (idx === 0) return `${dayStr} · Injection`;
+      if (idx === nPoints - 1) return `${dayStr} · Next dose`;
+      return `${dayStr}, ${timeStr}`;
+    }
+  }
+
+  // Fallback
   if (idx === 0) return 'Injection Day';
   if (idx === nPoints - 1) return 'Next Injection';
   const day = Math.floor(hrs / 24) + 1;
@@ -836,7 +856,7 @@ function pkPointLabel(idx: number, injFreqDays: number, nPoints: number): string
   return `Day ${day}${h > 0 ? `, +${h}h` : ''}`;
 }
 
-function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct, injFreqDays }: {
+function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp }: {
   chartData: number[] | null;
   daysSince: number;
   dayLabels: string[];
@@ -846,6 +866,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   currentCyclePct?: number | null;
   currentConcentrationPct?: number | null;
   injFreqDays: number;
+  injTimestamp?: string | null;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -914,17 +935,35 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const peakInfo = pkPeakEffectsExplain(glp1Type);
   const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
 
+  // Build real-date X-axis labels when injection timestamp is available
+  const realDayLabels = useMemo(() => {
+    if (!injTimestamp || isDailyDrug) return dayLabels;
+    const injDate = new Date(injTimestamp);
+    if (isNaN(injDate.getTime())) return dayLabels;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return dayLabels.map((_, i) => {
+      const d = new Date(injDate.getTime() + i * 24 * 3600000);
+      const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = Math.round((dDay.getTime() - today.getTime()) / 86400000);
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Tmrw';
+      if (diff === -1) return 'Yday';
+      return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+    });
+  }, [injTimestamp, isDailyDrug, dayLabels]);
+
   // ── Scrub hooks ──────────────────────────────────────────────────────────────
   const medTooltipFormatter = useCallback((idx: number) => {
     if (!chartData || idx < 0 || idx >= chartData.length) return { title: '', subtitle: '' };
     const pct = chartData[idx];
     const tier = pkTierInfo(pct);
     return {
-      title: pkPointLabel(idx, injFreqDays, chartData.length),
-      subtitle: `${pct}% remaining`,
+      title: pkPointLabel(idx, injFreqDays, chartData.length, injTimestamp),
+      subtitle: `${pct}% · ${tier.label}`,
       badge: { text: tier.label, color: tier.color },
     };
-  }, [chartData, injFreqDays]);
+  }, [chartData, injFreqDays, injTimestamp]);
 
   const openModal = useCallback(() => {
     if (!isDailyDrug && chartData) setExpandedModal(true);
@@ -962,9 +1001,9 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     return (
       <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 24, alignItems: 'center' }]}>
-          <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 2, fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
+          <Text style={[s.sectionTitle, { textAlign: 'center', marginBottom: 2 }]}>Drug Concentration</Text>
           <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 4 }]}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-          <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first injection</Text>
+          <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first dose</Text>
           <Text style={[s.chartMuted, { textAlign: 'center', marginTop: 4 }]}>Your medication level curve will appear here</Text>
         </View>
       </View>
@@ -1024,7 +1063,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
         {/* Data dots */}
         {pts.map((pt, i) => (
-          <Circle key={i} cx={pt.x} cy={pt.y} r={4} fill={ORANGE} opacity={0.8} />
+          <Circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={ORANGE} opacity={0.8} />
         ))}
 
         {/* NOW marker — rendered last for highest z-order */}
@@ -1051,22 +1090,19 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
   return (
     <>
-      <View style={[s.cardWrap, { marginBottom: 16 }]}>
+      <Pressable
+        style={[s.cardWrap, { marginBottom: 16 }]}
+        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
+      >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
             {/* Header row */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <View>
-                <Text style={[s.chartMuted, { fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: '700' }]}>Drug Concentration</Text>
+                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Drug Concentration</Text>
                 <Text style={[s.chartMuted, { marginTop: 2, fontSize: 11 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
-                >
-                  <Ionicons name="sparkles" size={14} color={ORANGE} />
-                </Pressable>
                 {!isDailyDrug && (
                   <Ionicons name="expand-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
                 )}
@@ -1107,13 +1143,13 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             </GestureDetector>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-              {dayLabels.map((d, i) => (
+              {realDayLabels.map((d, i) => (
                 <Text key={`${d}-${i}`} style={s.dayLabel}>{d}</Text>
               ))}
             </View>
           </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* ── Expanded Modal ── */}
       <Modal
@@ -1194,7 +1230,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
               {/* X-axis labels */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, marginBottom: 12 }}>
-                {dayLabels.map((d, i) => (
+                {realDayLabels.map((d, i) => (
                   <Text key={`exp-${d}-${i}`} style={s.dayLabel}>{d}</Text>
                 ))}
               </View>
@@ -1203,7 +1239,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               {selectedPointIdx !== null && (() => {
                 const selPct = chartData[selectedPointIdx] ?? 0;
                 const selTier = pkTierInfo(selPct);
-                const ptLabel = pkPointLabel(selectedPointIdx, injFreqDays, n);
+                const ptLabel = pkPointLabel(selectedPointIdx, injFreqDays, n, injTimestamp);
                 return (
                   <View style={{
                     backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
@@ -1225,59 +1261,101 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 );
               })()}
 
-              {/* ── Section 1: What does X% mean? ── */}
+              {/* ── Phase bar — visual representation of current level ── */}
               <View style={{ marginBottom: 20 }}>
-                <Text style={s.eduTitle}>What does {currentLevel}% mean?</Text>
-                <Text style={s.eduBody}>{tierInfo.body}</Text>
-              </View>
-
-              <View style={s.eduDivider} />
-
-              {/* ── Section 2: Half-life explained ── */}
-              <View style={{ marginBottom: 20 }}>
-                <Text style={s.eduTitle}>{brandName}'s {halfLifeInfo.halfLifeDays} half-life explained</Text>
-                {halfLifeInfo.troughNote !== '' && (
-                  <Text style={s.eduSubtitle}>{halfLifeInfo.troughNote}</Text>
-                )}
-                <Text style={s.eduBody}>{halfLifeInfo.body}</Text>
-              </View>
-
-              <View style={s.eduDivider} />
-
-              {/* ── Section 3: Peak effects ── */}
-              <View style={{ marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <Ionicons name="time-outline" size={16} color={ORANGE} />
-                  <Text style={[s.eduTitle, { marginBottom: 0 }]}>Peak effects and side effects</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierInfo.color }} />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: tierInfo.color, fontFamily: 'Helvetica Neue' }}>{tierInfo.label}</Text>
+                  <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Helvetica Neue' }}>· {currentLevel}% active</Text>
                 </View>
-                <Text style={[s.chartMuted, { marginBottom: 8 }]}>Time to peak (Tmax): {peakInfo.tmaxLabel}</Text>
-                <Text style={s.eduBody}>{peakInfo.body}</Text>
+                {/* Gradient phase bar */}
+                <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                  {PK_TIER_GUIDE.slice().reverse().map((tier) => (
+                    <View key={tier.label} style={{ flex: 1, backgroundColor: `${tier.color}44` }} />
+                  ))}
+                </View>
+                {/* Phase position indicator */}
+                <View style={{ position: 'relative', height: 0 }}>
+                  <View style={{
+                    position: 'absolute',
+                    left: `${Math.min(98, Math.max(2, currentLevel))}%`,
+                    top: -14,
+                    width: 2,
+                    height: 6,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 1,
+                  }} />
+                </View>
+                {/* Compact tier legend */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                  {PK_TIER_GUIDE.slice().reverse().map((tier) => (
+                    <Text key={tier.label} style={{ fontSize: 9, color: `${tier.color}99`, fontWeight: '600', fontFamily: 'Helvetica Neue' }}>{tier.label}</Text>
+                  ))}
+                </View>
               </View>
 
               <View style={s.eduDivider} />
 
-              {/* ── Section 4: Level guide ── */}
+              {/* ── Key moments cards ── */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={[s.eduTitle, { marginBottom: 12 }]}>Your Cycle</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* Peak card */}
+                  <View style={{
+                    flex: 1,
+                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: 14,
+                    padding: 12,
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons name="arrow-up-circle" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Peak</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
+                  </View>
+                  {/* Half-life card */}
+                  <View style={{
+                    flex: 1,
+                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: 14,
+                    padding: 12,
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons name="time-outline" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Half-life</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
+                  </View>
+                  {/* Trough card */}
+                  <View style={{
+                    flex: 1,
+                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: 14,
+                    padding: 12,
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons name="arrow-down-circle" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Trough</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={s.eduDivider} />
+
+              {/* ── What to expect — compact timeline ── */}
               <View style={{ marginBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <Ionicons name="bar-chart-outline" size={16} color={ORANGE} />
-                  <Text style={[s.eduTitle, { marginBottom: 0 }]}>What each level means</Text>
-                </View>
-                {PK_TIER_GUIDE.map((tier) => (
-                  <View
-                    key={tier.label}
-                    style={{
-                      flexDirection: 'row',
-                      gap: 12,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <View style={{ width: 3, borderRadius: 2, backgroundColor: tier.color, alignSelf: 'stretch' }} />
+                <Text style={[s.eduTitle, { marginBottom: 12 }]}>What to Expect</Text>
+                {[
+                  { icon: 'flash' as const, color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel} post-dose` },
+                  { icon: 'restaurant' as const, color: '#5B8BF5', label: 'Best window for new habits', when: 'Days 3–5 of cycle' },
+                  { icon: 'trending-down' as const, color: '#F6CB45', label: 'Hunger may return', when: 'Last 1–2 days before next dose' },
+                ].map((item) => (
+                  <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${item.color}18`, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={item.icon} size={16} color={item.color} />
+                    </View>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: tier.color, fontFamily: 'Helvetica Neue' }}>{tier.label}</Text>
-                        <Text style={{ fontSize: 11, color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'Helvetica Neue' }}>{tier.range}</Text>
-                      </View>
-                      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)', lineHeight: 19, fontFamily: 'Helvetica Neue' }}>{tier.desc}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{item.label}</Text>
+                      <Text style={{ fontSize: 11, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Helvetica Neue', marginTop: 1 }}>{item.when}</Text>
                     </View>
                   </View>
                 ))}
@@ -1321,7 +1399,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   elevation: 8,
                 })}
               >
-                <Ionicons name="sparkles" size={16} color="#FFF" />
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFF" />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: 0.3, fontFamily: 'Helvetica Neue' }}>Ask AI about my medication</Text>
               </Pressable>
             </View>
@@ -1450,17 +1528,9 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
     <>
       {!inline && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
-              <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
-            </View>
-            <Pressable
-              hitSlop={8}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Weight Journey', contextValue: `${displayWeight != null ? displayWeight + ' lbs' : '-'} · ${PERIOD_SUBTITLES[activePeriod]}`, chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']) }); }}
-            >
-              <Ionicons name="sparkles" size={14} color={ORANGE} />
-            </Pressable>
+          <View>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+            <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
           </View>
           <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
             {displayWeight != null ? `${displayWeight} lbs` : '-'}
@@ -1722,6 +1792,7 @@ function WeightProjectionCard({
                 datasets={datasets}
                 currentWeight={currentWeight}
                 chartHeight={220}
+                inline
               />
 
               {/* Stats + plateau below chart */}
@@ -2594,12 +2665,20 @@ export default function InsightsScreen() {
   const { onScroll, onScrollEnd } = useTabBarVisibility();
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, weeklyCheckins } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, weeklyCheckins, peerComparison, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
   const [activeTab, setActiveTab] = useState<Tab>('medication');
-  const { openAiChat } = useUiStore();
+  const { openAiChat, insightsDefaultTab, setInsightsDefaultTab } = useUiStore();
+
+  // Allow external navigation to a specific tab (e.g. after food logging)
+  useFocusEffect(useCallback(() => {
+    if (insightsDefaultTab) {
+      setActiveTab(insightsDefaultTab);
+      setInsightsDefaultTab(null);
+    }
+  }, [insightsDefaultTab]));
 
   const handleBackgroundLongPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2627,7 +2706,7 @@ export default function InsightsScreen() {
   const foodByDate = useMemo(() => {
     const map: Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }> = {};
     foodLogs.forEach(log => {
-      const date = log.logged_at.slice(0, 10);
+      const date = localDateStr(new Date(log.logged_at));
       if (!map[date]) map[date] = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: 0 };
       map[date].protein  += log.protein_g;
       map[date].carbs    += log.carbs_g;
@@ -2683,6 +2762,7 @@ export default function InsightsScreen() {
     ? nextInjectionLabel(lastInj.injection_date, profile?.injection_frequency_days ?? 7)
     : '-';
   const isDailyDrug = DRUG_DEFAULT_FREQ_DAYS[health.profile.glp1Type] === 1;
+  const oral = isOralDrug(health.profile.glp1Type);
   const hasInjectionData = isDailyDrug || !!lastInj;
   const hoursElapsed = (() => {
     if (!injTimestamp) return 0;
@@ -2715,13 +2795,14 @@ export default function InsightsScreen() {
         health.profile.glp1Status === 'active',
         cycleHours,
       ));
-  const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(injectionToEntry);
+  const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(inj => injectionToEntry(inj, oral));
 
   // ── Shot phase (needed for biometric baseline exclusion) ───────────────────
   const currentShotPhase = getShotPhase(Math.min(lastDaysSince, 7));
 
-  // ── Record today's biometric day entry on tab focus ─────────────────────────
+  // ── Refresh data on tab focus ───────────────────────────────────────────────
   useFocusEffect(useCallback(() => {
+    fetchInsightsData();
     if (!appleHealthEnabled) return;
     biometricStore.recordDayEntry({
       dateStr: todayStr,
@@ -2822,6 +2903,12 @@ export default function InsightsScreen() {
     });
   }, [weightLogs, startWeight, currentWeight, goalWeight, programWeek, health.profile]);
 
+  // ── Clinical trial benchmark ──────────────────────────────────────────────
+  const benchmarkResult = useMemo(
+    () => computeClinicalBenchmark(weightLogs, programStartDate, health.profile.glp1Type),
+    [weightLogs, programStartDate, health.profile.glp1Type],
+  );
+
   const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
     weightToEntry(log, weightLogs[i + 1])
   );
@@ -2865,17 +2952,17 @@ export default function InsightsScreen() {
 
           {/* ── Segmented Control ── */}
           <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
+          {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
             <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
             <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue' }}>
               Hold any card to ask AI
             </Text>
-          </View>
+          </View> */}
 
           {/* ── Lifestyle content ── */}
           {activeTab === 'lifestyle' && (
             <>
-              <AIInsightsCard />
+              {/* <AIInsightsCard /> */}
 
               {/* ── Lifestyle Trend Card ── */}
               <LifestyleTrendCard
@@ -2938,24 +3025,31 @@ export default function InsightsScreen() {
                 <WearablesConnectPrompt />
               ) : (
                 <View style={s.hmGrid}>
-                    {((): HealthMetric[] => {
-                      const rhrVal   = hkStore.restingHR ?? null;
-                      const hrvVal   = hkStore.hrv ?? null;
-                      const hkSleep  = hkStore.sleepHours ?? null;
-                      const sleepMin = hkSleep != null ? Math.round(hkSleep * 60) : null;
-                      const hkGlucose = hkStore.bloodGlucose ?? null;
+                  {(() => {
+                    const rhrVal    = hkStore.restingHR ?? null;
+                    const hrvVal    = hkStore.hrv ?? null;
+                    const hkSleep   = hkStore.sleepHours ?? null;
+                    const sleepMin  = hkSleep != null ? Math.round(hkSleep * 60) : null;
+                    const hkGlucose = hkStore.bloodGlucose ?? null;
 
-                      const metrics: HealthMetric[] = [
-                        { id: 'rhr',  label: 'Resting HR',  value: rhrVal  != null ? String(rhrVal)  : 'No data', unit: rhrVal  != null ? 'bpm' : '', status: rhrVal  != null ? hmRhrStatus(rhrVal)   : 'normal', iconSet: 'Ionicons',      iconName: 'heart-outline', rangeLabel: rhrVal  != null ? hmRhrLabel(rhrVal)   : '-', gaugePosition: hmGaugePos('rhr',   rhrVal) },
-                        { id: 'hrv',  label: 'HRV',          value: hrvVal  != null ? String(hrvVal)  : 'No data', unit: hrvVal  != null ? 'ms'  : '', status: hrvVal  != null ? hmHrvStatus(hrvVal)   : 'normal', iconSet: 'MaterialIcons', iconName: 'show-chart',    rangeLabel: hrvVal  != null ? hmHrvLabel(hrvVal)   : '-', gaugePosition: hmGaugePos('hrv',   hrvVal) },
-                        { id: 'sleep',label: 'Sleep',        value: sleepMin != null ? fmtSleep(sleepMin) : 'No data', unit: '', status: sleepMin != null ? hmSleepStatus(sleepMin) : 'normal', iconSet: 'Ionicons',      iconName: 'moon-outline',  rangeLabel: sleepMin != null ? hmSleepLabel(sleepMin) : '-', gaugePosition: hmGaugePos('sleep', sleepMin) },
-                        { id: 'spo2', label: 'SpO₂',         value: '98', unit: '%', status: 'good', iconSet: 'MaterialIcons', iconName: 'bloodtype',    rangeLabel: 'Normal', gaugePosition: hmGaugePos('spo2', 98) },
-                        { id: 'temp', label: 'Temp',          value: '98.4', unit: '°F', status: 'normal', iconSet: 'MaterialIcons', iconName: 'thermostat',   rangeLabel: 'Normal', gaugePosition: hmGaugePos('temp', 98.4) },
-                      ];
-                      if (hkGlucose != null) metrics.push({ id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL', status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', hkGlucose) });
-                      return metrics;
-                    })().map(m => <HealthMonitorCard key={m.id} metric={m} />)}
-                  </View>
+                    const metrics: HealthMetric[] = [];
+                    if (sleepMin != null) metrics.push({ id: 'sleep', label: 'Sleep', value: fmtSleep(sleepMin), unit: '', status: hmSleepStatus(sleepMin), iconSet: 'Ionicons', iconName: 'moon-outline', rangeLabel: hmSleepLabel(sleepMin), gaugePosition: hmGaugePos('sleep', sleepMin) });
+                    if (rhrVal != null) metrics.push({ id: 'rhr', label: 'Resting HR', value: String(rhrVal), unit: 'bpm', status: hmRhrStatus(rhrVal), iconSet: 'Ionicons', iconName: 'heart-outline', rangeLabel: hmRhrLabel(rhrVal), gaugePosition: hmGaugePos('rhr', rhrVal) });
+                    if (hrvVal != null) metrics.push({ id: 'hrv', label: 'HRV', value: String(hrvVal), unit: 'ms', status: hmHrvStatus(hrvVal), iconSet: 'MaterialIcons', iconName: 'show-chart', rangeLabel: hmHrvLabel(hrvVal), gaugePosition: hmGaugePos('hrv', hrvVal) });
+                    if (hkGlucose != null) metrics.push({ id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL', status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', hkGlucose) });
+
+                    if (metrics.length === 0) return (
+                      <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue', paddingVertical: 8 }}>
+                        No wearable data available yet. Wear your Apple Watch to see sleep, heart rate, and more.
+                      </Text>
+                    );
+
+                    const isOdd = metrics.length % 2 !== 0;
+                    return metrics.map((m, i) => (
+                      <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === metrics.length - 1} />
+                    ));
+                  })()}
+                </View>
               )}
               <RecentLogsCard entries={lifestyleLogs} />
             </>
@@ -2964,7 +3058,7 @@ export default function InsightsScreen() {
           {/* ── Medication content ── */}
           {activeTab === 'medication' && (
             <>
-              <MedAIInsightsCard />
+              {/* <MedAIInsightsCard /> */}
               <MedLevelChartCard
                 chartData={medChartData}
                 daysSince={lastDaysSince}
@@ -2975,42 +3069,47 @@ export default function InsightsScreen() {
                 currentCyclePct={currentCyclePct}
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
+                injTimestamp={injTimestamp}
               />
-              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Wearables</Text>
-              {!appleHealthEnabled ? (
-                <WearablesConnectPrompt />
-              ) : (
-                <CycleBiometricCard
-                  result={cycleIntelligenceResult}
-                  cycleiqContext={cycleiqContextStr}
-                />
+              <SideEffectsCard logs={sideEffectLogs} />
+              {appleHealthEnabled && (hkStore.hrv != null || hkStore.restingHR != null || hkStore.sleepHours != null) && (
+                <>
+                  <Text style={[s.sectionTitle, { marginTop: 8 }]}>Cycle Biometrics</Text>
+                  <CycleBiometricCard
+                    result={cycleIntelligenceResult}
+                    cycleiqContext={cycleiqContextStr}
+                  />
+                </>
               )}
-              <Text style={s.sectionTitle}>Injection Details</Text>
+              <Text style={s.sectionTitle}>{oral ? 'Dose Details' : 'Injection Details'}</Text>
               <View style={[s.dailyGrid, { marginBottom: 24 }]}>
+                {!oral && (
+                  <InjectionCard
+                    icon={<Ionicons name="body-outline" size={20} color={ORANGE} />}
+                    label="Last Injection Site"
+                    value={lastSite ?? '-'}
+                  />
+                )}
+                {!oral && (
+                  <InjectionCard
+                    icon={<Ionicons name="sync-outline" size={20} color={ORANGE} />}
+                    label="Rotate To"
+                    value={rotateTo}
+                  />
+                )}
                 <InjectionCard
-                  icon={<Ionicons name="body-outline" size={20} color={ORANGE} />}
-                  label="Last Injection Site"
-                  value={lastSite ?? '-'}
-                />
-                <InjectionCard
-                  icon={<Ionicons name="sync-outline" size={20} color={ORANGE} />}
-                  label="Rotate To"
-                  value={rotateTo}
-                />
-                <InjectionCard
-                  icon={<FontAwesome5 name="syringe" size={18} color={ORANGE} />}
+                  icon={<FontAwesome5 name={doseIconName(oral)} size={18} color={ORANGE} />}
                   label="Last Dosage"
                   value={lastDosage}
                 />
                 <InjectionCard
                   icon={<Ionicons name="calendar-outline" size={20} color={ORANGE} />}
-                  label="Next Injection"
+                  label={oral ? 'Next Dose' : 'Next Injection'}
                   value={nextInjLabel}
                 />
               </View>
-              <SideEffectsCard logs={sideEffectLogs} />
               <RecentLogsCard entries={medicationLogs} onDelete={(id) => {
-                Alert.alert('Delete Log', 'Remove this injection entry?', [
+                Alert.alert('Delete Log', 'Remove this dose entry?', [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Delete', style: 'destructive', onPress: () => deleteInjectionLog(id) },
                 ]);
@@ -3021,7 +3120,7 @@ export default function InsightsScreen() {
           {/* ── Progress content ── */}
           {activeTab === 'progress' && (
             <>
-              <ProgAIInsightsCard />
+              {/* <ProgAIInsightsCard /> */}
               <WeightProjectionCard
                 projection={projection ?? null}
                 datasets={weightDatasets}
@@ -3034,7 +3133,12 @@ export default function InsightsScreen() {
                 goalWeight={goalWeight}
                 toGoalPct={toGoalPct}
               />
+              <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
               <MetabolicAdaptationCard result={metabolicAdaptationResult} />
+              <PeerComparisonCard
+                data={peerComparison}
+                isOptedIn={!!profile?.peer_comparison_opted_in}
+              />
               <View style={s.dailyGrid}>
                 <ProgressStatCard
                   icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}

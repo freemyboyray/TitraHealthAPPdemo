@@ -51,6 +51,28 @@ export const DRUG_IS_ORAL: Record<Glp1Type, boolean> = {
   orforglipron:     true,
 };
 
+// ─── Route-aware terminology helpers ─────────────────────────────────────────
+// Use these instead of hardcoding "injection" throughout the UI.
+
+export function isOralDrug(glp1Type: Glp1Type | undefined): boolean {
+  return DRUG_IS_ORAL[glp1Type ?? 'semaglutide'] ?? false;
+}
+
+/** "dose" or "injection" */
+export function doseNoun(oral: boolean): string {
+  return oral ? 'dose' : 'injection';
+}
+
+/** "take your pill" or "take your injection" */
+export function doseVerb(oral: boolean): string {
+  return oral ? 'take your pill' : 'take your injection';
+}
+
+/** FontAwesome5 icon name: "medical" (pill capsule) or "syringe" */
+export function doseIconName(oral: boolean): string {
+  return oral ? 'capsules' : 'syringe';
+}
+
 // Default dosing interval per drug class (days)
 export const DRUG_DEFAULT_FREQ_DAYS: Record<Glp1Type, number> = {
   semaglutide:      7,
@@ -59,6 +81,28 @@ export const DRUG_DEFAULT_FREQ_DAYS: Record<Glp1Type, number> = {
   liraglutide:      1,
   oral_semaglutide: 1,
   orforglipron:     1,
+};
+
+// ─── Washout periods (approx 5 half-lives) ──────────────────────────────────
+// Time for drug concentration to drop below clinically significant levels.
+// Used to show transition guidance when switching between different drug types.
+
+export const DRUG_WASHOUT_DAYS: Record<Glp1Type, number> = {
+  semaglutide:      35,  // 5 x 160h / 24 ~ 33d, rounded up
+  tirzepatide:      25,  // 5 x 120h / 24 = 25d
+  dulaglutide:      25,  // 5 x 120h / 24 = 25d
+  liraglutide:       3,  // 5 x  13h / 24 ~ 2.7d, rounded up
+  oral_semaglutide: 33,  // 5 x 158h / 24 ~ 33d
+  orforglipron:     13,  // 5 x  60h / 24 = 12.5d, rounded up
+};
+
+export const DRUG_WASHOUT_LABEL: Record<Glp1Type, string> = {
+  semaglutide:      '~5 weeks',
+  tirzepatide:      '~3.5 weeks',
+  dulaglutide:      '~3.5 weeks',
+  liraglutide:      '~3 days',
+  oral_semaglutide: '~5 weeks',
+  orforglipron:     '~2 weeks',
 };
 
 // ─── Dose-tier appetite suppression ceiling ───────────────────────────────────

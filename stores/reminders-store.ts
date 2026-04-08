@@ -14,24 +14,28 @@ import {
 import { useLogStore } from './log-store';
 import { useUserStore } from './user-store';
 
-export type ReminderType = 'meals' | 'weight' | 'sideEffects' | 'dailyPlan';
+export { type ReminderSlot };
 
-type ReminderConfig = {
+export type SlotConfig = {
   enabled: boolean;
-  times: string[]; // "HH:MM"
+  time: string; // "HH:MM"
 };
+
+export const ALL_SLOTS: ReminderSlot[] = [
+  'meals_morning',
+  'meals_evening',
+  'weight_morning',
+  'side_effects_evening',
+  'daily_plan_morning',
+];
 
 type RemindersStore = {
   masterEnabled: boolean;
-  meals: ReminderConfig;
-  weight: ReminderConfig;
-  sideEffects: ReminderConfig;
-  dailyPlan: ReminderConfig;
+  slots: Record<ReminderSlot, SlotConfig>;
 
   setMasterEnabled(v: boolean): void;
-  setEnabled(type: ReminderType, v: boolean): void;
-  setTime(type: ReminderType, index: number, hhmm: string): void;
-  reset(): void;
+  setSlotEnabled(slot: ReminderSlot, v: boolean): void;
+  setSlotTime(slot: ReminderSlot, time: string): void;
 };
 
 // Default fallback content (used if personalization returns null unexpectedly)
@@ -111,66 +115,46 @@ export async function syncNotifications(state?: RemindersStore): Promise<void> {
 
   const ctx = gatherContext();
 
-  // meals
-  if (s.meals.enabled && s.meals.times[0]) {
-    await scheduleSlot('meals_morning', s.meals.times[0], ctx);
-  } else {
-    await cancelReminder('meals_morning');
-  }
-
-  if (s.meals.enabled && s.meals.times[1]) {
-    await scheduleSlot('meals_evening', s.meals.times[1], ctx);
-  } else {
-    await cancelReminder('meals_evening');
-  }
-
-  // weight
-  if (s.weight.enabled && s.weight.times[0]) {
-    await scheduleSlot('weight_morning', s.weight.times[0], ctx);
-  } else {
-    await cancelReminder('weight_morning');
-  }
-
-  // side effects
-  if (s.sideEffects.enabled && s.sideEffects.times[0]) {
-    await scheduleSlot('side_effects_evening', s.sideEffects.times[0], ctx);
-  } else {
-    await cancelReminder('side_effects_evening');
-  }
-
-  // daily plan
-  if (s.dailyPlan.enabled && s.dailyPlan.times[0]) {
-    await scheduleSlot('daily_plan_morning', s.dailyPlan.times[0], ctx);
-  } else {
-    await cancelReminder('daily_plan_morning');
+  for (const slot of ALL_SLOTS) {
+    const cfg = s.slots[slot];
+    if (cfg.enabled) {
+      await scheduleSlot(slot, cfg.time, ctx);
+    } else {
+      await cancelReminder(slot);
+    }
   }
 }
+
+const DEFAULT_SLOTS: Record<ReminderSlot, SlotConfig> = {
+  meals_morning: { enabled: true, time: '08:00' },
+  meals_evening: { enabled: true, time: '19:00' },
+  weight_morning: { enabled: true, time: '07:30' },
+  side_effects_evening: { enabled: true, time: '21:00' },
+  daily_plan_morning: { enabled: true, time: '08:00' },
+};
 
 export const useRemindersStore = create<RemindersStore>()(
   persist(
     (set, get) => ({
       masterEnabled: false,
-      meals: { enabled: true, times: ['08:00', '19:00'] },
-      weight: { enabled: true, times: ['07:30'] },
-      sideEffects: { enabled: true, times: ['21:00'] },
-      dailyPlan: { enabled: true, times: ['08:00'] },
+      slots: { ...DEFAULT_SLOTS },
 
       setMasterEnabled(v) {
         set({ masterEnabled: v });
         syncNotifications({ ...get(), masterEnabled: v });
       },
 
-      setEnabled(type, v) {
-        set((s) => ({ [type]: { ...s[type], enabled: v } }));
+      setSlotEnabled(slot, v) {
+        set((s) => ({
+          slots: { ...s.slots, [slot]: { ...s.slots[slot], enabled: v } },
+        }));
         syncNotifications(get());
       },
 
-      setTime(type, index, hhmm) {
-        set((s) => {
-          const times = [...s[type].times];
-          times[index] = hhmm;
-          return { [type]: { ...s[type], times } };
-        });
+      setSlotTime(slot, time) {
+        set((s) => ({
+          slots: { ...s.slots, [slot]: { ...s.slots[slot], time } },
+        }));
         syncNotifications(get());
       },
 
@@ -186,7 +170,30 @@ export const useRemindersStore = create<RemindersStore>()(
     }),
     {
       name: 'reminders-store',
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate(persisted: any, version: number) {
+        if (version === 0 && persisted) {
+          // Migrate from old shape { meals: { enabled, times }, weight: {...}, ... }
+          const old = persisted as any;
+          const slots = { ...DEFAULT_SLOTS };
+          if (old.meals) {
+            slots.meals_morning = { enabled: old.meals.enabled ?? true, time: old.meals.times?.[0] ?? '08:00' };
+            slots.meals_evening = { enabled: old.meals.enabled ?? true, time: old.meals.times?.[1] ?? '19:00' };
+          }
+          if (old.weight) {
+            slots.weight_morning = { enabled: old.weight.enabled ?? true, time: old.weight.times?.[0] ?? '07:30' };
+          }
+          if (old.sideEffects) {
+            slots.side_effects_evening = { enabled: old.sideEffects.enabled ?? true, time: old.sideEffects.times?.[0] ?? '21:00' };
+          }
+          if (old.dailyPlan) {
+            slots.daily_plan_morning = { enabled: old.dailyPlan.enabled ?? true, time: old.dailyPlan.times?.[0] ?? '08:00' };
+          }
+          return { masterEnabled: old.masterEnabled ?? false, slots };
+        }
+        return persisted as RemindersStore;
+      },
     },
   ),
 );

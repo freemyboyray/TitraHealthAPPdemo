@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { requestNotificationPermission } from '@/lib/notifications';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useRemindersStore } from '@/stores/reminders-store';
 import { useUserStore } from '@/stores/user-store';
@@ -22,6 +21,7 @@ const BRAND_LABEL: Record<string, string> = {
   compounded_semaglutide: 'Compounded (Sema)', compounded_tirzepatide: 'Compounded (Tirz)',
   compounded_liraglutide: 'Compounded (Lira)', other: 'Other',
 };
+
 const SEX_DISPLAY: Record<string, string> = {
   male: 'Male', female: 'Female', other: 'Other', prefer_not_to_say: 'Prefer not to say',
 };
@@ -31,41 +31,52 @@ const ACTIVITY_DISPLAY: Record<string, string> = {
 
 const ORANGE = '#FF742A';
 
+function computeNextDose(lastDate: string | undefined, freqDays: number | undefined): string | null {
+  if (!lastDate || !freqDays) return null;
+  const last = new Date(lastDate + 'T12:00:00');
+  const next = new Date(last.getTime() + freqDays * 86400000);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  if (next.getTime() < today.getTime()) return 'Overdue';
+  if (next.toDateString() === today.toDateString()) return 'Today';
+
+  const diff = Math.ceil((next.getTime() - today.getTime()) / 86400000);
+  if (diff === 1) return 'Tomorrow';
+  return next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export default function SettingsScreen() {
   const { profile: authProfile, session, signOut, deleteAccount } = useUserStore();
   const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
-  const { masterEnabled, setMasterEnabled } = useRemindersStore();
+  const { masterEnabled } = useRemindersStore();
   const { isLightMode, toggleLightMode, appleHealthEnabled, setAppleHealthEnabled } = usePreferencesStore();
   const { permissionsGranted, requestPermissions, fetchAll, lastRefreshed } = useHealthKitStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const p = profile;
-  const medSummary = p ? `${BRAND_LABEL[p.medicationBrand] ?? p.medicationBrand} · ${p.doseMg} mg` : '-';
-  const bodySummary = p
+
+  // Treatment summary
+  const brandName = p ? (BRAND_LABEL[p.medicationBrand] ?? p.medicationBrand) : '-';
+  const freqLabel = p
+    ? p.injectionFrequencyDays === 1 ? 'daily'
+    : p.injectionFrequencyDays === 7 ? 'weekly'
+    : p.injectionFrequencyDays === 14 ? 'biweekly'
+    : `every ${p.injectionFrequencyDays}d`
+    : '';
+  const nextDose = p ? computeNextDose(p.lastInjectionDate, p.injectionFrequencyDays) : null;
+  const treatmentLine1 = p ? `${brandName} ${p.doseMg} mg · ${freqLabel}` : '-';
+  const treatmentLine2 = nextDose ? `Next dose: ${nextDose}` : '';
+
+  // Body & Goals summary
+  const bodyLine = p
     ? p.unitSystem === 'imperial'
       ? `${p.heightFt}'${p.heightIn}" · ${p.weightLbs} lbs`
       : `${p.heightCm} cm · ${p.weightKg} kg`
     : '-';
-  const goalsSummary = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '-';
-  const personalSummary = p
-    ? `${SEX_DISPLAY[p.sex] ?? p.sex} · Born ${p.birthday?.slice(0,4)} · ${ACTIVITY_DISPLAY[p.activityLevel] ?? p.activityLevel}`
-    : '-';
-
-  async function handleMasterToggle(value: boolean) {
-    if (value) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        Alert.alert(
-          'Notifications Blocked',
-          'Enable notifications in Settings → TitraHealth → Notifications.',
-        );
-        return;
-      }
-    }
-    setMasterEnabled(value);
-  }
+  const goalsLine = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '';
 
   async function handleAppleHealthToggle(value: boolean) {
     if (!value) {
@@ -161,19 +172,20 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* MY PROFILE section */}
-        <Text style={s.sectionLabel}>MY PROFILE</Text>
+        {/* MY PLAN section */}
+        <Text style={s.sectionLabel}>MY PLAN</Text>
 
         <View style={s.card}>
-          {/* Medication */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-medication')}>
+          {/* Treatment Plan */}
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-treatment')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <Ionicons name="flask-outline" size={18} color={ORANGE} />
               </View>
-              <View>
-                <Text style={s.rowLabel}>Medication</Text>
-                <Text style={s.rowSub}>{medSummary}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Treatment Plan</Text>
+                <Text style={s.rowSub}>{treatmentLine1}</Text>
+                {treatmentLine2 ? <Text style={s.rowSub}>{treatmentLine2}</Text> : null}
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -181,58 +193,27 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
 
-          {/* Body */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-body')}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <Ionicons name="body-outline" size={18} color="#34C759" />
-              </View>
-              <View>
-                <Text style={s.rowLabel}>Body</Text>
-                <Text style={s.rowSub}>{bodySummary}</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={s.divider} />
-
-          {/* Goals */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-goals')}>
+          {/* Body & Goals */}
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
-                <Ionicons name="flag-outline" size={18} color="#0A84FF" />
+                <Ionicons name="body-outline" size={18} color="#0A84FF" />
               </View>
-              <View>
-                <Text style={s.rowLabel}>Goals</Text>
-                <Text style={s.rowSub}>{goalsSummary}</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={s.divider} />
-
-          {/* Personal */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-personal')}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name="person-outline" size={18} color={ORANGE} />
-              </View>
-              <View>
-                <Text style={s.rowLabel}>Personal</Text>
-                <Text style={s.rowSub}>{personalSummary}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Body & Goals</Text>
+                <Text style={s.rowSub}>{bodyLine}</Text>
+                {goalsLine ? <Text style={s.rowSub}>{goalsLine}</Text> : null}
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 
-        {/* Section label */}
-        <Text style={s.sectionLabel}>APPEARANCE</Text>
+        {/* PREFERENCES section */}
+        <Text style={s.sectionLabel}>PREFERENCES</Text>
 
-        {/* Light mode toggle */}
         <View style={s.card}>
+          {/* Light mode */}
           <View style={s.cardRow}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
@@ -248,39 +229,27 @@ export default function SettingsScreen() {
               ios_backgroundColor="#333"
             />
           </View>
-        </View>
 
-        {/* Section label */}
-        <Text style={s.sectionLabel}>NOTIFICATIONS</Text>
+          <View style={s.divider} />
 
-        {/* Reminders row */}
-        <View style={s.card}>
-          <View style={s.cardRow}>
+          {/* Reminders */}
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <Ionicons name="notifications-outline" size={18} color={ORANGE} />
               </View>
-              <Text style={s.rowLabel}>Reminders</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Reminders</Text>
+                <Text style={s.rowSub}>{masterEnabled ? 'On' : 'Off'}</Text>
+              </View>
             </View>
-            <View style={s.rowRight}>
-              <Switch
-                value={masterEnabled}
-                onValueChange={handleMasterToggle}
-                trackColor={{ false: '#333', true: ORANGE }}
-                thumbColor="#FFFFFF"
-                ios_backgroundColor="#333"
-              />
-              <TouchableOpacity onPress={() => router.push('/settings/reminders')} style={s.chevronBtn}>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
         </View>
 
-        {/* Section label */}
-        <Text style={s.sectionLabel}>INTEGRATIONS</Text>
+        {/* CONNECTIONS section */}
+        <Text style={s.sectionLabel}>CONNECTIONS</Text>
 
-        {/* Apple Health row */}
         <View style={s.card}>
           <View style={s.cardRow}>
             <View style={s.rowLeft}>
@@ -308,7 +277,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Provider Report row */}
+        {/* TOOLS section */}
+        <Text style={s.sectionLabel}>TOOLS</Text>
+
         <View style={s.card}>
           <Pressable style={s.cardRow} onPress={() => router.push('/entry/provider-report' as any)}>
             <View style={s.rowLeft}>
@@ -324,8 +295,8 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
-        {/* LEGAL section */}
-        <Text style={s.sectionLabel}>LEGAL</Text>
+        {/* LEGAL & ACCOUNT section */}
+        <Text style={s.sectionLabel}>LEGAL & ACCOUNT</Text>
 
         <View style={s.card}>
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)}>
@@ -337,12 +308,9 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
-        </View>
 
-        {/* ACCOUNT section */}
-        <Text style={s.sectionLabel}>ACCOUNT</Text>
+          <View style={s.divider} />
 
-        <View style={s.card}>
           <Pressable
             style={s.cardRow}
             onPress={handleDeleteAccount}

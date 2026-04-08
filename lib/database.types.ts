@@ -417,6 +417,7 @@ export type Database = {
           dob: string | null
           dose_mg: number | null
           dose_start_date: string | null
+          dose_time: string | null
           full_name: string | null
           glp1_status: string | null
           goal_weight_lbs: number | null
@@ -427,8 +428,11 @@ export type Database = {
           injection_day_of_week: number | null
           injection_frequency_days: number
           injection_time: string | null
+          last_injection_date: string | null
           medication_brand: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
+          peer_comparison_opted_in: boolean
+          peer_comparison_opted_in_at: string | null
           program_start_date: string | null
           route_of_administration: string | null
           sex: string | null
@@ -447,6 +451,7 @@ export type Database = {
           dob?: string | null
           dose_mg?: number | null
           dose_start_date?: string | null
+          dose_time?: string | null
           full_name?: string | null
           glp1_status?: string | null
           goal_weight_lbs?: number | null
@@ -457,10 +462,13 @@ export type Database = {
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          last_injection_date?: string | null
           medication_brand?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
+          peer_comparison_opted_in?: boolean
+          peer_comparison_opted_in_at?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
           sex?: string | null
@@ -479,6 +487,7 @@ export type Database = {
           dob?: string | null
           dose_mg?: number | null
           dose_start_date?: string | null
+          dose_time?: string | null
           full_name?: string | null
           glp1_status?: string | null
           goal_weight_lbs?: number | null
@@ -489,10 +498,13 @@ export type Database = {
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          last_injection_date?: string | null
           medication_brand?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
+          peer_comparison_opted_in?: boolean
+          peer_comparison_opted_in_at?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
           sex?: string | null
@@ -843,7 +855,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      peer_weight_loss_summary: {
+        Row: {
+          cohort_size: number | null
+          dose_tier: number | null
+          medication_name: string | null
+          p25: number | null
+          p50: number | null
+          p75: number | null
+          treatment_week_bucket: number | null
+        }
+        Relationships: []
+      }
+      user_weight_loss_metrics: {
+        Row: {
+          dose_tier: number | null
+          medication_name: string | null
+          treatment_week_bucket: number | null
+          weight_loss_pct: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

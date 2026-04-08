@@ -19,13 +19,13 @@ export type ParsedFood = {
 // Minimal shape of what we need from HealthContext
 export type HealthSnapshot = {
   profile: FullUserProfile;
-  recoveryScore: number;
+  recoveryScore: number | null;
   supportScore: number;
   wearable: {
-    sleepMinutes: number;
-    hrvMs: number;
-    restingHR: number;
-    spo2Pct: number;
+    sleepMinutes?: number;
+    hrvMs?: number;
+    restingHR?: number;
+    spo2Pct?: number;
     respRateRpm?: number;
   };
   actuals: {
@@ -63,13 +63,13 @@ export function buildSystemPrompt(
   const dayNum = daysSinceInjection(profile.lastInjectionDate);
   const phase = getShotPhase(dayNum);
   const phaseDesc =
-    phase === 'shot'    ? 'Shot Day (medication absorption starting, first 24h)' :
+    phase === 'shot'    ? 'Dose Day (medication absorption starting, first 24h)' :
     phase === 'peak'    ? `Peak Phase - Day ${dayNum} (highest medication concentration, nausea most likely)` :
     phase === 'balance' ? `Balance Phase - Day ${dayNum} (medication stabilizing, appetite improving)` :
-                          `Reset Phase - Day ${dayNum} (medication tapering toward next shot)`;
+                          `Reset Phase - Day ${dayNum} (medication tapering toward next dose)`;
 
-  const sleepH = Math.floor(wearable.sleepMinutes / 60);
-  const sleepM = wearable.sleepMinutes % 60;
+  const sleepH = wearable.sleepMinutes != null ? Math.floor(wearable.sleepMinutes / 60) : null;
+  const sleepM = wearable.sleepMinutes != null ? wearable.sleepMinutes % 60 : null;
 
   const startDateObj = new Date(profile.startDate);
   const daysOnMed = Math.max(1, Math.floor((Date.now() - startDateObj.getTime()) / 86400000));
@@ -110,9 +110,9 @@ WEIGHT PROGRESS:
 - Target weekly loss: ${profile.targetWeeklyLossLbs ?? 1.0} lbs/wk
 - Remaining to goal: ${remaining.toFixed(1)} lbs
 
-SHOT CYCLE:
-- Last injection: ${profile.lastInjectionDate}
-- Days since injection: ${dayNum}
+DOSE CYCLE:
+- Last dose: ${profile.lastInjectionDate}
+- Days since last dose: ${dayNum}
 - Phase: ${phaseDesc}
 
 TODAY'S SCORES:
@@ -120,8 +120,8 @@ TODAY'S SCORES:
 - Readiness Score: ${supportScore}/100
 
 WEARABLE BIOMETRICS:
-- Sleep: ${sleepH}h ${sleepM}m
-- HRV: ${wearable.hrvMs} ms
+- Sleep: ${sleepH != null ? `${sleepH}h ${sleepM}m` : 'No data'}
+- HRV: ${wearable.hrvMs ?? 'No data'} ${wearable.hrvMs != null ? 'ms' : ''}
 - Resting HR: ${wearable.restingHR} bpm
 - SpO₂: ${wearable.spo2Pct}%${wearable.respRateRpm != null ? `\n- Resp. Rate: ${wearable.respRateRpm} rpm` : ''}
 
@@ -130,7 +130,7 @@ DAILY ACTUALS vs TARGETS:
 - Hydration: ${waterOz}oz / ${targetWaterOz}oz
 - Steps: ${actuals.steps.toLocaleString()} / ${targets.steps.toLocaleString()}
 - Fiber: ${actuals.fiberG}g / ${targets.fiberG}g
-- Injection logged: ${actuals.injectionLogged ? 'Yes' : 'No'}
+- Dose logged: ${actuals.injectionLogged ? 'Yes' : 'No'}
 
 TODAY'S TOP FOCUSES:
 ${focusList || '• All metrics on track'}
@@ -221,6 +221,81 @@ export async function parseFoodDescription(
   } catch {
     throw new Error('OpenAI returned non-JSON response for food description');
   }
+}
+
+// ─── Conversational Food Logging ──────────────────────────────────────────────
+
+export type ConverseFoodResult = {
+  /** Parsed food items once the AI has enough info (null while still clarifying) */
+  items: { item: string; estimated_g: number }[] | null;
+  /** AI's response text (clarifying question or confirmation summary) */
+  message: string;
+  /** true when no more questions are needed */
+  done: boolean;
+};
+
+const CONVERSE_FOOD_SYSTEM = `You are a friendly nutrition logging assistant helping a patient log what they ate.
+
+Your job:
+1. Listen to the user's meal description.
+2. If anything is vague or missing (portion sizes, cooking method, specific ingredients, number of items), ask 1–2 SHORT clarifying questions in a single message. Be conversational and warm, not robotic.
+3. Once you have enough detail, respond with a confirmation and a JSON block.
+
+Rules:
+- Ask at most 3 rounds of clarifying questions total across the conversation. After that, make your best estimate.
+- Never ask more than 2 questions per message.
+- Keep questions SHORT (one sentence each).
+- When you have enough info, your message MUST end with a JSON block on its own line:
+  FOOD_JSON: [{"item": "specific food name", "estimated_g": 150}, ...]
+- Be specific in item names (e.g. "scrambled eggs with butter" not "eggs").
+- Estimate reasonable portion sizes in grams if the user doesn't specify exact amounts.
+- The FOOD_JSON line must be the LAST line of your response when you're done.`;
+
+export async function converseFoodLog(
+  messages: { role: 'user' | 'assistant'; content: string }[],
+): Promise<ConverseFoodResult> {
+  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
+
+  const res = await fetchWithRetry(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: CONVERSE_FOOD_SYSTEM },
+        ...messages,
+      ],
+      max_tokens: 500,
+      temperature: 0.5,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  const content: string = data.choices[0].message.content ?? '';
+
+  // Check if the response contains the FOOD_JSON marker
+  const jsonMatch = content.match(/FOOD_JSON:\s*(\[[\s\S]*\])/);
+  if (jsonMatch) {
+    try {
+      const items = JSON.parse(jsonMatch[1]) as { item: string; estimated_g: number }[];
+      // Strip the JSON line from the display message
+      const message = content.replace(/FOOD_JSON:\s*\[[\s\S]*\]/, '').trim();
+      return { items, message, done: true };
+    } catch {
+      // JSON parse failed — treat as still clarifying
+    }
+  }
+
+  return { items: null, message: content.trim(), done: false };
 }
 
 // ─── Dynamic Insights (cached per day) ────────────────────────────────────────
@@ -350,6 +425,48 @@ export async function callGPT4oMiniVision(
   });
 
   return (data as any).choices[0].message.content as string;
+}
+
+// ─── AI Macro Estimation Fallback ─────────────────────────────────────────────
+
+const MACRO_ESTIMATE_SYSTEM = `You are a nutrition database. Return ONLY valid JSON for the exact food named, per 100g:
+{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number}
+Use standard nutritional values. No extra text, no markdown.`;
+
+export async function estimateMacrosWithAI(foodName: string): Promise<{
+  fdcId: number;
+  name: string;
+  brand: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+  serving_options: { label: string; grams: number }[];
+} | null> {
+  try {
+    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM);
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const m = JSON.parse(match[0]);
+    return {
+      fdcId: -1,
+      name: foodName,
+      brand: 'AI Estimate',
+      calories: Math.round(m.calories ?? 0),
+      protein_g: parseFloat((m.protein_g ?? 0).toFixed(1)),
+      carbs_g: parseFloat((m.carbs_g ?? 0).toFixed(1)),
+      fat_g: parseFloat((m.fat_g ?? 0).toFixed(1)),
+      fiber_g: parseFloat((m.fiber_g ?? 0).toFixed(1)),
+      serving_options: [
+        { label: '100g', grams: 100 },
+        { label: '150g', grams: 150 },
+        { label: '200g', grams: 200 },
+      ],
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ─── Weekly Summary Insight ────────────────────────────────────────────────────

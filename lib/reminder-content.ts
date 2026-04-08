@@ -15,6 +15,8 @@ import type {
   UserGoalsRow,
 } from '../stores/log-store';
 import { getInjectionPhase, type InjectionPhase } from '../stores/insights-store';
+import { isOralDrug, doseNoun } from '../constants/drug-pk';
+import type { Glp1Type } from '../constants/user-profile';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -280,9 +282,10 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
   }
 
   if (phase === 'Shot Day') {
+    const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
     return {
-      title: 'Injection Day Check-In',
-      body: 'How are you feeling after your shot? Log any side effects.',
+      title: oral ? 'Dose Day Check-In' : 'Injection Day Check-In',
+      body: `How are you feeling after your ${oral ? 'dose' : 'shot'}? Log any side effects.`,
       deepLink: '/entry/side-effects',
     };
   }
@@ -331,16 +334,18 @@ export function getDailyPlanMorningContent(ctx: ReminderContext): ReminderConten
   }
 
   if (phase === 'Due Soon' || phase === 'Overdue') {
+    const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
     return {
       title: 'Your Daily Focus',
-      body: `Your ${drugLabel(ctx.profile)} injection is ${phase === 'Overdue' ? 'overdue' : 'coming up soon'}. Check your plan for today.`,
+      body: `Your ${drugLabel(ctx.profile)} ${doseNoun(oral)} is ${phase === 'Overdue' ? 'overdue' : 'coming up soon'}. Check your plan for today.`,
       deepLink: '/(tabs)',
     };
   }
 
   if (phase === 'Shot Day') {
+    const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
     return {
-      title: 'Injection Day',
+      title: oral ? 'Dose Day' : 'Injection Day',
       body: `Today is ${drugLabel(ctx.profile)} day. Open TitraHealth to see your priorities.`,
       deepLink: '/(tabs)',
     };
@@ -366,13 +371,16 @@ export function getDoseReminderContent(ctx: ReminderContext): {
   const weeks = weeksOnCurrentDose(ctx.profile);
   const weeksStr = weeks !== null ? ` — week ${weeks + 1} on your current dose` : '';
 
+  const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
   return {
     dailyTitle: 'Time for your daily dose',
     dailyBody: `Log your dose after taking it to keep your cycle accurate.${weeksStr ? '\n' + weeksStr : ''}`,
-    shotDayTitle: 'Today is your injection day',
-    shotDayBody: `Log your shot to keep your cycle on track.${weeksStr ? '\n' + weeksStr : ''}`,
-    eveTitle: 'Injection tomorrow',
-    eveBody: 'Your injection is due tomorrow. Prepare your injection and rotation site.',
+    shotDayTitle: `Today is your ${doseNoun(oral)} day`,
+    shotDayBody: `Log your ${doseNoun(oral)} to keep your cycle on track.${weeksStr ? '\n' + weeksStr : ''}`,
+    eveTitle: `${oral ? 'Dose' : 'Injection'} tomorrow`,
+    eveBody: oral
+      ? 'Your dose is due tomorrow.'
+      : 'Your injection is due tomorrow. Prepare your injection and rotation site.',
   };
 }
 

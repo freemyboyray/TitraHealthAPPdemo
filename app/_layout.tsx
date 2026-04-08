@@ -110,6 +110,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="ai-chat" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />

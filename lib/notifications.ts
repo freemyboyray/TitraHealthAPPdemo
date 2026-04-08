@@ -102,10 +102,10 @@ export async function scheduleDoseReminder(
   const c = content ?? {
     dailyTitle: 'Time for your daily dose',
     dailyBody: 'Log your dose after taking it to keep your cycle accurate.',
-    shotDayTitle: 'Today is your injection day',
-    shotDayBody: 'Log your shot to keep your cycle on track.',
-    eveTitle: 'Injection tomorrow',
-    eveBody: 'Your injection is due tomorrow. Prepare your injection and rotation site.',
+    shotDayTitle: 'Today is your dose day',
+    shotDayBody: 'Log your dose to keep your cycle on track.',
+    eveTitle: 'Dose tomorrow',
+    eveBody: 'Your dose is due tomorrow.',
   };
 
   if (injFreqDays === 1) {
@@ -208,4 +208,20 @@ export async function scheduleCheckinReminder(lastLoggedAt: string): Promise<voi
  */
 export async function scheduleWeeklyCheckinReminder(): Promise<void> {
   await scheduleCheckinReminder(new Date().toISOString());
+}
+
+/**
+ * Fire an immediate local notification when background food analysis completes.
+ * The deep-link URL takes the user to the review-food screen for that task.
+ */
+export async function scheduleFoodReadyNotification(taskId: string): Promise<void> {
+  if (!Notifications) return;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Food analysis ready',
+      body: 'Tap to review and confirm your food log.',
+      data: { url: `/entry/review-food?taskId=${taskId}` },
+    },
+    trigger: null,
+  });
 }

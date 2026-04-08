@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { localDateStr } from '../lib/date-utils';
+import { computePeerPercentile } from './insights-store';
+import { BRAND_TO_GLP1_TYPE, type MedicationBrand } from '../constants/user-profile';
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
 
@@ -108,6 +110,49 @@ type LogStore = {
   ) => Promise<void>;
   fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health' | 'food_noise') => Promise<void>;
   deleteWeeklyCheckinSession: (date: string) => Promise<void>;
+
+  // Peer comparison
+  peerComparison: PeerComparisonData | null;
+  fetchPeerComparison: () => Promise<void>;
+  updatePeerOptIn: (optIn: boolean) => Promise<void>;
+};
+
+// ─── Streak helper (computed from already-fetched logs) ──────────────────────
+
+/** Returns the number of consecutive days (ending today) that have at least one log entry. */
+export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLogs' | 'foodLogs' | 'activityLogs' | 'sideEffectLogs' | 'foodNoiseLogs'>): number {
+  // Collect all log dates as YYYY-MM-DD strings
+  const dates = new Set<string>();
+  const toDate = (iso: string | null | undefined) => iso ? iso.slice(0, 10) : null;
+
+  store.weightLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
+  store.injectionLogs.forEach(l => { const d = toDate(l.injection_date); if (d) dates.add(d); });
+  store.foodLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
+  store.activityLogs.forEach(l => { const d = toDate(l.date); if (d) dates.add(d); });
+  store.sideEffectLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
+  store.foodNoiseLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
+
+  // Walk backwards from today
+  let streak = 0;
+  const d = new Date();
+  for (let i = 0; i < 365; i++) {
+    const key = d.toISOString().slice(0, 10);
+    if (dates.has(key)) {
+      streak++;
+    } else {
+      break;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+export type PeerComparisonData = {
+  percentile: number;
+  cohortSize: number;
+  medicationName: string;
+  treatmentWeek: number;
+  insufficientData: boolean;
 };
 
 export const useLogStore = create<LogStore>((set, get) => ({
@@ -179,6 +224,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
         loading:        false,
         error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
       });
+
+      // Fetch peer comparison data if opted in (non-blocking)
+      if (prof.data?.peer_comparison_opted_in) {
+        get().fetchPeerComparison();
+      }
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load data' });
     }
@@ -374,5 +424,125 @@ export const useLogStore = create<LogStore>((set, get) => ({
     set(state => ({
       weeklyCheckins: { ...state.weeklyCheckins, [type]: (data ?? []) as WeeklyCheckinRow[] },
     }));
+  },
+
+  // ── Peer Comparison ──────────────────────────────────────────────────────
+  peerComparison: null,
+
+  fetchPeerComparison: async () => {
+    const state = get();
+    const profile = state.profile;
+    if (!profile?.peer_comparison_opted_in) { set({ peerComparison: null }); return; }
+    if (!profile.medication_brand || !profile.dose_mg || !profile.program_start_date || !profile.start_weight_lbs) {
+      set({ peerComparison: null });
+      return;
+    }
+
+    // Compute user's cohort params
+    const medKey = BRAND_TO_GLP1_TYPE[(profile.medication_brand as MedicationBrand)] ?? 'other';
+    const treatmentWeek = Math.max(1, Math.round(
+      (Date.now() - new Date(profile.program_start_date).getTime()) / (7 * 86400000),
+    ));
+    // Bucket treatment week to match the materialized view
+    let weekBucket: number;
+    if (treatmentWeek <= 6)  weekBucket = 4;
+    else if (treatmentWeek <= 10) weekBucket = 8;
+    else if (treatmentWeek <= 16) weekBucket = 12;
+    else if (treatmentWeek <= 24) weekBucket = 20;
+    else if (treatmentWeek <= 32) weekBucket = 28;
+    else if (treatmentWeek <= 44) weekBucket = 36;
+    else weekBucket = 52;
+
+    // Bucket dose
+    const dm = profile.dose_mg;
+    let doseTier: number;
+    if (dm <= 0.375) doseTier = 0.25;
+    else if (dm <= 0.75) doseTier = 0.5;
+    else if (dm <= 1.5) doseTier = 1.0;
+    else if (dm <= 2.2) doseTier = 2.0;
+    else if (dm <= 3.5) doseTier = 2.4;
+    else if (dm <= 6.25) doseTier = 5.0;
+    else if (dm <= 8.75) doseTier = 7.5;
+    else if (dm <= 11.25) doseTier = 10.0;
+    else if (dm <= 13.75) doseTier = 12.5;
+    else doseTier = 15.0;
+
+    // User's weight loss %
+    const latestWeight = state.weightLogs[0]?.weight_lbs;
+    if (!latestWeight) { set({ peerComparison: null }); return; }
+    const userLossPct = Math.round(((profile.start_weight_lbs - latestWeight) / profile.start_weight_lbs) * 1000) / 10;
+
+    try {
+      // Try exact cohort match first (medication + dose + week)
+      let { data } = await supabase
+        .from('peer_weight_loss_summary' as any)
+        .select('*')
+        .eq('medication_name', medKey)
+        .eq('dose_tier', doseTier)
+        .eq('treatment_week_bucket', weekBucket)
+        .single();
+
+      // Fallback: wider match (medication + week only, ignoring dose)
+      if (!data || (data as any).cohort_size < 50) {
+        const wider = await supabase
+          .from('peer_weight_loss_summary' as any)
+          .select('*')
+          .eq('medication_name', medKey)
+          .eq('treatment_week_bucket', weekBucket);
+        // Aggregate across dose tiers
+        if (wider.data && wider.data.length > 0) {
+          const totalSize = wider.data.reduce((s: number, r: any) => s + r.cohort_size, 0);
+          if (totalSize >= 50) {
+            // Weighted average of percentiles
+            const wP25 = wider.data.reduce((s: number, r: any) => s + r.p25 * r.cohort_size, 0) / totalSize;
+            const wP50 = wider.data.reduce((s: number, r: any) => s + r.p50 * r.cohort_size, 0) / totalSize;
+            const wP75 = wider.data.reduce((s: number, r: any) => s + r.p75 * r.cohort_size, 0) / totalSize;
+            data = { p25: wP25, p50: wP50, p75: wP75, cohort_size: totalSize, medication_name: medKey, treatment_week_bucket: weekBucket } as any;
+          }
+        }
+      }
+
+      if (!data || (data as any).cohort_size < 50) {
+        set({
+          peerComparison: {
+            percentile: 0,
+            cohortSize: (data as any)?.cohort_size ?? 0,
+            medicationName: medKey,
+            treatmentWeek: weekBucket,
+            insufficientData: true,
+          },
+        });
+        return;
+      }
+
+      const row = data as any;
+      const percentile = computePeerPercentile(userLossPct, row.p25, row.p50, row.p75);
+
+      set({
+        peerComparison: {
+          percentile,
+          cohortSize: row.cohort_size,
+          medicationName: medKey,
+          treatmentWeek: weekBucket,
+          insufficientData: false,
+        },
+      });
+    } catch {
+      set({ peerComparison: null });
+    }
+  },
+
+  updatePeerOptIn: async (optIn: boolean) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('profiles').update({
+      peer_comparison_opted_in: optIn,
+      peer_comparison_opted_in_at: optIn ? new Date().toISOString() : null,
+    }).eq('id', user.id);
+    // Refresh profile
+    const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    set({ profile: prof ?? get().profile });
+    if (optIn) await get().fetchPeerComparison();
+    else set({ peerComparison: null });
   },
 }));

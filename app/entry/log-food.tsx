@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   ScrollView,
@@ -16,20 +17,21 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { callOpenAI } from '../../lib/openai';
+import { callOpenAI, estimateMacrosWithAI } from '../../lib/openai';
 import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
-import { type MealType } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
+import { useFoodTaskStore } from '../../stores/food-task-store';
 import { VoiceButton } from '../../components/ui/voice-button';
+import { VoiceFoodChat } from '../../components/voice-food-chat';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useHealthData } from '@/contexts/health-data';
+import { useUiStore } from '@/stores/ui-store';
 import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-
 type Mode = 'search' | 'scan' | 'describe' | 'camera';
 
 const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
@@ -55,6 +57,12 @@ type DescribeItem = {
   results: FoodResult[];
   selectedIdx: number;
   servingG: string;
+  selectedServingIdx: number;
+  servingOptionsLoading: boolean;
+  qty: string;              // user-facing quantity in the selected unit
+  unitGrams: number;        // grams per 1 unit (e.g. 28.35 for oz)
+  unitLabel: string;        // display label (e.g. "oz", "cup", "g")
+  showUnitPicker: boolean;
 };
 
 type PendingFood = {
@@ -91,38 +99,7 @@ async function lookupBarcode(barcode: string): Promise<OFFProduct | null> {
   }
 }
 
-// ─── AI macro estimation fallback ─────────────────────────────────────────────
-// Called when FatSecret returns no results (IP block, no match, etc.)
-
-const MACRO_ESTIMATE_SYSTEM = `You are a nutrition database. Return ONLY valid JSON for the exact food named, per 100g:
-{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number}
-Use standard nutritional values. No extra text, no markdown.`;
-
-async function estimateMacrosWithAI(foodName: string): Promise<FoodResult | null> {
-  try {
-    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM);
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    const m = JSON.parse(match[0]);
-    return {
-      fdcId: -1,
-      name: foodName,
-      brand: 'AI Estimate',
-      calories: Math.round(m.calories ?? 0),
-      protein_g: parseFloat((m.protein_g ?? 0).toFixed(1)),
-      carbs_g: parseFloat((m.carbs_g ?? 0).toFixed(1)),
-      fat_g: parseFloat((m.fat_g ?? 0).toFixed(1)),
-      fiber_g: parseFloat((m.fiber_g ?? 0).toFixed(1)),
-      serving_options: [
-        { label: '100g', grams: 100 },
-        { label: '150g', grams: 150 },
-        { label: '200g', grams: 200 },
-      ],
-    };
-  } catch {
-    return null;
-  }
-}
+// estimateMacrosWithAI is now imported from lib/openai.ts
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -169,6 +146,9 @@ export default function LogFoodScreen() {
     loading,
   } = useMealTrayStore();
   const hkStore = useHealthKitStore();
+  const { refreshActuals } = useHealthData();
+  const startFoodTask = useFoodTaskStore((s) => s.startTask);
+  const setInsightsDefaultTab = useUiStore((s) => s.setInsightsDefaultTab);
 
   // ── Mode ──────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<Mode>((modeParam as Mode) ?? 'search');
@@ -193,6 +173,7 @@ export default function LogFoodScreen() {
   const [describing, setDescribing] = useState(false);
   const [describeError, setDescribeError] = useState('');
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   // ── Add-to-meal panel ─────────────────────────────────────────────────────
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
@@ -202,11 +183,11 @@ export default function LogFoodScreen() {
   const [detailLoading, setDetailLoading] = useState<number | null>(null);
 
   // ── Tray UI ───────────────────────────────────────────────────────────────
-  const [mealType, setMealType] = useState<MealType>('lunch');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveMealName, setSaveMealName] = useState('');
 
   // ── Custom food modal ─────────────────────────────────────────────────────
+  const [expandedTrayItemId, setExpandedTrayItemId] = useState<string | null>(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [cfName, setCfName] = useState('');
   const [cfBrand, setCfBrand] = useState('');
@@ -404,43 +385,86 @@ export default function LogFoodScreen() {
 
   // ── Describe ──────────────────────────────────────────────────────────────
 
+  // Shared: take parsed items [{item, estimated_g}] → resolve via USDA/AI → set describeItems
+  async function resolveAndSetItems(parsed: { item: string; estimated_g: number }[]) {
+    const withResults = await Promise.all(
+      parsed.map(async (p) => {
+        let results = await searchUSDA(p.item);
+        results = results.filter((r) => r.calories > 0 || r.protein_g > 0 || r.carbs_g > 0 || r.fat_g > 0);
+        if (results.length === 0) {
+          const aiResult = await estimateMacrosWithAI(p.item);
+          if (aiResult) results = [aiResult];
+        }
+        return {
+          item: p.item,
+          estimated_g: p.estimated_g,
+          results,
+          selectedIdx: 0,
+          servingG: String(Math.round(p.estimated_g)),
+          selectedServingIdx: -1,
+          servingOptionsLoading: false,
+          qty: String(Math.round(p.estimated_g)),
+          unitGrams: 1,
+          unitLabel: 'g',
+          showUnitPicker: false,
+        } as DescribeItem;
+      }),
+    );
+    setDescribeItems(withResults);
+    setCheckedItems(new Set(withResults.map((_, i) => i)));
+
+    // Background-fetch serving options
+    withResults.forEach(async (wi, idx) => {
+      const top = wi.results[0];
+      if (!top || top.fdcId === -1) return;
+      setDescribeItems((prev) => prev ? prev.map((it, i) => i === idx ? { ...it, servingOptionsLoading: true } : it) : prev);
+      const detail = await getFatSecretFood(top.fdcId);
+      setDescribeItems((prev) => {
+        if (!prev) return prev;
+        return prev.map((it, i) => {
+          if (i !== idx) return it;
+          if (!detail) return { ...it, servingOptionsLoading: false };
+          const hasNutrition = detail.calories > 0 || detail.protein_g > 0 || detail.carbs_g > 0 || detail.fat_g > 0;
+          return {
+            ...it,
+            servingOptionsLoading: false,
+            results: it.results.map((r, ri) =>
+              ri === 0 ? {
+                ...r,
+                ...(hasNutrition ? { calories: detail.calories, protein_g: detail.protein_g, carbs_g: detail.carbs_g, fat_g: detail.fat_g, fiber_g: detail.fiber_g } : {}),
+                serving_options: detail.serving_options,
+              } : r
+            ),
+          };
+        });
+      });
+    });
+  }
+
   async function handleParse() {
     if (!describeText.trim()) return;
     setDescribing(true);
     setDescribeError('');
-    setDescribeItems(null);
-    setCheckedItems(new Set());
     try {
       const raw = await callOpenAI([{ role: 'user', content: `User input: "${describeText}"` }], PARSE_SYSTEM);
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON');
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty');
-
-      const withResults = await Promise.all(
-        parsed.map(async (p) => {
-          let results = await searchUSDA(p.item);
-          if (results.length === 0) {
-            const aiResult = await estimateMacrosWithAI(p.item);
-            if (aiResult) results = [aiResult];
-          }
-          return {
-            item: p.item,
-            estimated_g: p.estimated_g,
-            results,
-            selectedIdx: 0,
-            servingG: String(Math.round(p.estimated_g)),
-          } as DescribeItem;
-        }),
-      );
-      setDescribeItems(withResults);
-      // default: all checked
-      setCheckedItems(new Set(withResults.map((_, i) => i)));
+      // Dispatch to background processing and navigate away
+      startFoodTask({ source: 'describe', parsedItems: parsed });
+      router.back();
     } catch {
       setDescribeError("Couldn't parse - try being more specific.");
-    } finally {
       setDescribing(false);
     }
+  }
+
+  // Voice chat completed — dispatch to background processing
+  function handleVoiceChatComplete(items: { item: string; estimated_g: number }[]) {
+    setShowVoiceChat(false);
+    startFoodTask({ source: 'voice', parsedItems: items });
+    router.back();
   }
 
   function toggleCheck(idx: number) {
@@ -462,7 +486,8 @@ export default function LogFoodScreen() {
       if (!item) continue;
       const food = item.results[item.selectedIdx];
       if (!food) continue;
-      const g = parseFloat(item.servingG) || item.estimated_g;
+      const q = parseFloat(item.qty) || 1;
+      const g = q * item.unitGrams;
       addToTray({
         food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
         calories: Math.round(food.calories * g / 100),
@@ -472,6 +497,7 @@ export default function LogFoodScreen() {
         fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
         serving_g: g,
         source: 'manual',
+        serving_description: item.unitLabel !== 'g' ? `${item.qty} ${item.unitLabel}` : undefined,
       });
     }
     setDescribeItems(null);
@@ -490,9 +516,11 @@ export default function LogFoodScreen() {
       fat: parseFloat(trayItems.reduce((s, it) => s + it.fat_g, 0).toFixed(1)),
       fiber: parseFloat(trayItems.reduce((s, it) => s + it.fiber_g, 0).toFixed(1)),
     };
-    await logMeal(mealType);
+    await logMeal('snack');
     hkStore.writeNutrition(totals);
-    router.back();
+    refreshActuals();
+    setInsightsDefaultTab('lifestyle');
+    router.replace('/(tabs)/log' as any);
   }
 
   async function handleSaveAsMeal() {
@@ -526,6 +554,9 @@ export default function LogFoodScreen() {
   const trayTotal = {
     calories: trayItems.reduce((s, it) => s + it.calories, 0),
     protein_g: parseFloat(trayItems.reduce((s, it) => s + it.protein_g, 0).toFixed(1)),
+    carbs_g: parseFloat(trayItems.reduce((s, it) => s + it.carbs_g, 0).toFixed(1)),
+    fat_g: parseFloat(trayItems.reduce((s, it) => s + it.fat_g, 0).toFixed(1)),
+    fiber_g: parseFloat(trayItems.reduce((s, it) => s + it.fiber_g, 0).toFixed(1)),
   };
 
   const filteredCustomFoods = customFoods.filter((cf) =>
@@ -549,7 +580,7 @@ export default function LogFoodScreen() {
     camera: 'Camera',
   };
 
-  const trayFooterHeight = trayItems.length > 0 ? (showSaveInput ? 260 : 200) : 0;
+  const trayFooterHeight = trayItems.length > 0 ? (showSaveInput ? 260 : expandedTrayItemId ? 340 : 220) : 0;
 
   return (
     <KeyboardAvoidingView
@@ -804,6 +835,19 @@ export default function LogFoodScreen() {
                 </>
               )}
 
+              {/* Empty state — no query, no data yet */}
+              {!query.trim() && recentFoods.length === 0 && customFoods.length === 0 && savedMeals.length === 0 && (
+                <View style={s.centered}>
+                  <Ionicons name="restaurant-outline" size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'} />
+                  <Text style={[s.emptyText, { marginTop: 12 }]}>Search for a food or restaurant above</Text>
+                  <Text style={[s.emptyText, { fontSize: 12, marginTop: 4 }]}>Your recent items and saved meals will appear here</Text>
+                  <TouchableOpacity style={[s.createFoodBtn, { marginTop: 16 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
+                    <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
+                    <Text style={s.createFoodText}>Create Custom Food</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Custom foods matching query */}
               {!!query.trim() && filteredCustomFoods.length > 0 && (
                 <>
@@ -893,7 +937,13 @@ export default function LogFoodScreen() {
                     <View style={{ padding: 18 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }}>DESCRIBE YOUR MEAL</Text>
-                        <VoiceButton onTranscription={setDescribeText} size="sm" />
+                        <TouchableOpacity
+                          onPress={() => setShowVoiceChat(true)}
+                          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="mic-outline" size={18} color={ORANGE} />
+                        </TouchableOpacity>
                       </View>
                       <TextInput
                         style={s.describeInput}
@@ -932,12 +982,31 @@ export default function LogFoodScreen() {
               ) : (
                 <>
                   <Text style={[{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
-                  {describeItems.map((item, idx) => (
+                  {describeItems.map((item, idx) => {
+                    const q = parseFloat(item.qty) || 0;
+                    const g2 = q * item.unitGrams;
+                    const f = item.results.length > 0 ? item.results[item.selectedIdx] : null;
+                    const servingOpts = f?.serving_options;
+
+                    // Build unit list: always start with grams, then add FatSecret serving options
+                    const unitOptions: { label: string; grams: number }[] = [{ label: 'g', grams: 1 }];
+                    if (servingOpts) {
+                      for (const opt of servingOpts) {
+                        // Extract short label (e.g. "1 cup (200g)" → "cup", "100g" → skip since we have g)
+                        const short = opt.label.replace(/\s*\(.*\)/, '').replace(/^1\s+/, '').trim();
+                        if (short && short !== 'g' && short !== '100g') {
+                          unitOptions.push({ label: short, grams: opt.grams });
+                        }
+                      }
+                    }
+
+                    return (
                     <View key={idx} style={s.describeItemCard}>
                       <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
                       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 18, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} />
                       <GlassBorder r={18} />
                       <View style={{ padding: 14 }}>
+                        {/* Header: checkbox + name */}
                         <View style={s.describeItemHeader}>
                           <TouchableOpacity
                             onPress={() => toggleCheck(idx)}
@@ -948,23 +1017,118 @@ export default function LogFoodScreen() {
                           </TouchableOpacity>
                           <Text style={s.describeItemName}>{item.item}</Text>
                         </View>
-                        {item.results.length > 0 && item.results[item.selectedIdx] && (() => {
-                          const g2 = parseFloat(item.servingG) || item.estimated_g;
-                          const f = item.results[item.selectedIdx];
-                          return (
-                            <View style={[s.macroRow, { marginTop: 8 }]}>
-                              <Text style={s.macroPill}>{Math.round(f.calories * g2 / 100)} kcal</Text>
-                              <Text style={s.macroPill}>{(f.protein_g * g2 / 100).toFixed(1)}g P</Text>
-                              <Text style={s.macroPill}>{item.servingG}g</Text>
+
+                        {f ? (
+                          <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                            {/* LEFT: Mini nutrition label */}
+                            <View style={{ flex: 1, marginRight: 14 }}>
+                              <View style={{ height: 2, backgroundColor: colors.textPrimary, marginBottom: 4 }} />
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 }}>
+                                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
+                                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>{Math.round(f.calories * g2 / 100)}</Text>
+                              </View>
+                              <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
+                              {([
+                                ['Protein', f.protein_g],
+                                ['Carbs', f.carbs_g],
+                                ['Fat', f.fat_g],
+                                ['Fiber', f.fiber_g],
+                              ] as const).map(([label, per100]) => (
+                                <View key={label}>
+                                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>{(per100 * g2 / 100).toFixed(1)}g</Text>
+                                  </View>
+                                  <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
+                                </View>
+                              ))}
+                              <View style={{ height: 2, backgroundColor: colors.textPrimary, marginTop: 2 }} />
                             </View>
-                          );
-                        })()}
-                        {item.results.length === 0 && (
+
+                            {/* RIGHT: Quantity input + unit dropdown */}
+                            <View style={{ width: 110, alignItems: 'center', justifyContent: 'center' }}>
+                              {/* Quantity input */}
+                              <View style={{ width: 90, height: 44, borderRadius: 12, overflow: 'hidden', marginBottom: 8 }}>
+                                <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+                                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} />
+                                <TextInput
+                                  style={{ flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: colors.textPrimary }}
+                                  value={item.qty}
+                                  onChangeText={(v) => {
+                                    const newG = (parseFloat(v) || 0) * item.unitGrams;
+                                    updateDescribeItem(idx, { qty: v, servingG: String(Math.round(newG)) });
+                                  }}
+                                  keyboardType="decimal-pad"
+                                  selectTextOnFocus
+                                />
+                              </View>
+
+                              {/* Unit dropdown */}
+                              {item.servingOptionsLoading ? (
+                                <ActivityIndicator size="small" color={ORANGE} />
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    updateDescribeItem(idx, { showUnitPicker: !item.showUnitPicker });
+                                  }}
+                                  activeOpacity={0.7}
+                                  style={{
+                                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                                    paddingHorizontal: 12, paddingVertical: 8,
+                                    borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                                    borderWidth: 1, borderColor: colors.borderSubtle,
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginRight: 4 }}>{item.unitLabel}</Text>
+                                  <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        ) : (
                           <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>No match found</Text>
+                        )}
+
+                        {/* Unit picker dropdown */}
+                        {item.showUnitPicker && unitOptions.length > 0 && (
+                          <View style={{ marginTop: 8, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderRadius: 12, overflow: 'hidden' }}>
+                            {unitOptions.map((opt, oi) => (
+                              <TouchableOpacity
+                                key={oi}
+                                onPress={() => {
+                                  const newQ = item.unitLabel === 'g' && opt.label !== 'g'
+                                    ? String(Math.round((parseFloat(item.qty) || 0) * item.unitGrams / opt.grams * 10) / 10)
+                                    : item.qty;
+                                  const newG = (parseFloat(newQ) || 0) * opt.grams;
+                                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                  updateDescribeItem(idx, {
+                                    unitLabel: opt.label,
+                                    unitGrams: opt.grams,
+                                    qty: newQ,
+                                    servingG: String(Math.round(newG)),
+                                    showUnitPicker: false,
+                                  });
+                                }}
+                                activeOpacity={0.7}
+                                style={{
+                                  paddingVertical: 10, paddingHorizontal: 14,
+                                  borderBottomWidth: oi < unitOptions.length - 1 ? 1 : 0,
+                                  borderBottomColor: colors.borderSubtle,
+                                  backgroundColor: item.unitLabel === opt.label ? (colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.1)') : 'transparent',
+                                }}
+                              >
+                                <Text style={{ fontSize: 14, fontWeight: item.unitLabel === opt.label ? '700' : '500', color: item.unitLabel === opt.label ? ORANGE : colors.textPrimary }}>
+                                  {opt.label}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
                         )}
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
                     <TouchableOpacity
                       style={s.describeRetryBtn}
@@ -1020,44 +1184,72 @@ export default function LogFoodScreen() {
           <GlassBorder r={0} />
 
           <View style={{ padding: 16 }}>
-            {/* Meal type selector */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.mealTypeRow}>
-              {MEAL_TYPES.map((mt) => (
-                <TouchableOpacity
-                  key={mt}
-                  onPress={() => setMealType(mt)}
-                  style={[s.mealTypePill, mealType === mt && s.mealTypePillActive]}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[s.mealTypePillText, mealType === mt && s.mealTypePillTextActive]}>
-                    {mt.charAt(0).toUpperCase() + mt.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Divider */}
-            <View style={s.trayDivider} />
 
             {/* Tray items */}
-            {trayItems.map((item) => (
-              <View key={item.id} style={s.trayItemRow}>
-                <Text style={s.trayItemName} numberOfLines={1}>{item.food_name}</Text>
-                <Text style={s.trayItemCal}>{item.calories} kcal</Text>
-                <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close" size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
-                </TouchableOpacity>
-              </View>
-            ))}
+            {trayItems.map((item) => {
+              const isExpanded = expandedTrayItemId === item.id;
+              return (
+                <View key={item.id}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      setExpandedTrayItemId(isExpanded ? null : item.id);
+                    }}
+                    activeOpacity={0.7}
+                    style={s.trayItemRow}
+                  >
+                    <Text style={s.trayItemName} numberOfLines={isExpanded ? undefined : 1}>{item.food_name}</Text>
+                    <Text style={s.trayItemCal}>{item.calories} kcal</Text>
+                    <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close" size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  {isExpanded && (
+                    <View style={{ marginLeft: 4, marginRight: 4, marginBottom: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}>
+                      <View style={{ height: 1.5, backgroundColor: colors.textPrimary, marginBottom: 4 }} />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>{item.calories}</Text>
+                      </View>
+                      <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
+                      {([
+                        ['Protein', item.protein_g],
+                        ['Carbs', item.carbs_g],
+                        ['Fat', item.fat_g],
+                        ['Fiber', item.fiber_g],
+                      ] as const).map(([label, val]) => (
+                        <View key={label}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>{val.toFixed(1)}g</Text>
+                          </View>
+                          <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
+                        </View>
+                      ))}
+                      <View style={{ height: 1.5, backgroundColor: colors.textPrimary, marginTop: 2 }} />
+                      {item.serving_description ? (
+                        <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_description}</Text>
+                      ) : (
+                        <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_g}g</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
 
             {/* Totals */}
             <View style={s.trayTotals}>
-              <Text style={s.trayTotalText}>Total: {trayTotal.calories} kcal</Text>
+              <Text style={s.trayTotalText}>{trayTotal.calories} kcal</Text>
               <Text style={s.trayTotalSep}>·</Text>
               <Text style={s.trayTotalText}>{trayTotal.protein_g}g protein</Text>
+              <Text style={s.trayTotalSep}>·</Text>
+              <Text style={s.trayTotalText}>{trayTotal.carbs_g}g carbs</Text>
+              <Text style={s.trayTotalSep}>·</Text>
+              <Text style={s.trayTotalText}>{trayTotal.fat_g}g fat</Text>
+              <Text style={s.trayTotalSep}>·</Text>
+              <Text style={s.trayTotalText}>{trayTotal.fiber_g}g fiber</Text>
             </View>
-
-            <View style={s.trayDivider} />
 
             {/* Save as Recipe input */}
             {showSaveInput && (
@@ -1104,6 +1296,21 @@ export default function LogFoodScreen() {
           </View>
         </View>
       )}
+
+      {/* ── Voice Food Chat ────────────────────────────────────────────────── */}
+      <Modal
+        visible={showVoiceChat}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowVoiceChat(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.bg }}>
+          <VoiceFoodChat
+            onComplete={handleVoiceChatComplete}
+            onCancel={() => setShowVoiceChat(false)}
+          />
+        </View>
+      </Modal>
 
       {/* ── Add-to-meal overlay ─────────────────────────────────────────────── */}
       <Modal
@@ -1572,17 +1779,6 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 20,
     elevation: 16,
   },
-  mealTypeRow: { flexDirection: 'row', gap: 8, paddingBottom: 2 },
-  mealTypePill: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: c.borderSubtle,
-  },
-  mealTypePillActive: { backgroundColor: ORANGE },
-  mealTypePillText: { fontSize: 12, fontWeight: '700', color: c.textSecondary },
-  mealTypePillTextActive: { color: '#FFFFFF' },
-  trayDivider: { height: 1, backgroundColor: c.glassOverlay, marginVertical: 10 },
   trayItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 8 },
   trayItemName: { flex: 1, fontSize: 13, color: c.textPrimary, fontWeight: '500' },
   trayItemCal: { fontSize: 12, color: c.textSecondary, fontWeight: '600' },

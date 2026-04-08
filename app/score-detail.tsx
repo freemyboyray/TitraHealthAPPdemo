@@ -26,6 +26,7 @@ import {
   supportGradient,
   supportMessage,
 } from '@/constants/scoring';
+import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useUiStore } from '@/stores/ui-store';
 
@@ -67,11 +68,12 @@ function getPhaseInterpretation(
   isRecovery: boolean,
   phase: ShotPhase,
   score: number,
+  oral: boolean = false,
 ): BannerContent {
   if (isRecovery) {
     const phaseLabel =
       phase === 'peak'    ? 'Peak Phase' :
-      phase === 'shot'    ? 'Shot Day' :
+      phase === 'shot'    ? (oral ? 'Dose Day' : 'Shot Day') :
       phase === 'balance' ? 'Balance Phase' : 'Reset Phase';
 
     if (phase === 'peak') {
@@ -94,7 +96,7 @@ function getPhaseInterpretation(
 
   const phaseLabel =
     phase === 'peak'    ? 'Peak Phase' :
-    phase === 'shot'    ? 'Shot Day' :
+    phase === 'shot'    ? (oral ? 'Dose Day' : 'Shot Day') :
     phase === 'balance' ? 'Balance Phase' : 'Reset Phase';
 
   if (phase === 'peak') {
@@ -106,12 +108,12 @@ function getPhaseInterpretation(
   if (phase === 'shot') {
     return {
       heading: `GLP-1 Amplifier - ${phaseLabel}`,
-      body: `Injection day. Log your shot to unlock the full 15-point bonus. Protein and hydration are most critical in the first 24 hours.`,
+      body: `${oral ? 'Dose' : 'Injection'} day. Log your ${doseNoun(oral)} to unlock the full 15-point bonus. Protein and hydration are most critical in the first 24 hours.`,
     };
   }
   return {
     heading: `GLP-1 Amplifier - ${phaseLabel}`,
-    body: `Medication levels are ${phase === 'reset' ? 'tapering toward your next shot' : 'stabilizing'}. Consistent protein and movement build on the work your medication is doing.`,
+    body: `Medication levels are ${phase === 'reset' ? `tapering toward your next ${doseNoun(oral)}` : 'stabilizing'}. Consistent protein and movement build on the work your medication is doing.`,
   };
 }
 
@@ -120,13 +122,15 @@ function PhaseInterpretationBanner({
   phase,
   score,
   pb,
+  oral,
 }: {
   isRecovery: boolean;
   phase: ShotPhase;
   score: number;
   pb: ReturnType<typeof createBannerStyles>;
+  oral?: boolean;
 }) {
-  const content = getPhaseInterpretation(isRecovery, phase, score);
+  const content = getPhaseInterpretation(isRecovery, phase, score, oral);
   return (
     <View style={[pb.wrap, glassShadow]}>
       <View style={pb.body}>
@@ -342,15 +346,16 @@ export default function ScoreDetailScreen() {
   const staticCoachNote = isRecovery ? RECOVERY_COACH_NOTE : GLP1_COACH_NOTE;
   const coachNote = aiCoachNote ?? staticCoachNote;
 
+  const oral       = isOralDrug(profile?.glp1Type);
   const dayNum     = daysSinceInjection(profile.lastInjectionDate);
   const freq       = profile.injectionFrequencyDays;
   const phase      = getShotPhase(dayNum);
   const phaseLabel = (() => {
-    if (dayNum === 1) return 'Shot Day';
-    if (dayNum <= 3) return `Shot Phase · Day ${dayNum}`;
+    if (dayNum === 1) return oral ? 'Dose Day' : 'Shot Day';
+    if (dayNum <= 3) return `${oral ? 'Dose' : 'Shot'} Phase · Day ${dayNum}`;
     if (dayNum < freq) return `Recovery Day ${dayNum}`;
-    if (dayNum === freq) return 'Shot Day Tomorrow';
-    return 'Shot Overdue';
+    if (dayNum === freq) return `${oral ? 'Dose' : 'Shot'} Day Tomorrow`;
+    return oral ? 'Dose Overdue' : 'Shot Overdue';
   })();
 
   const targetLabel = isRecovery ? 'Target: 70+' : 'Target: 80+';
@@ -433,13 +438,13 @@ export default function ScoreDetailScreen() {
     const rows = adherenceBreakdown(actuals, targets, sideEffectBurden);
     cards = [
       {
-        icon: <FontAwesome5 name="syringe" size={ICON_SIZE - 2} color={accent} />,
+        icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE - 2} color={accent} />,
         label: 'Medication',
         pts: rows[0].actual, maxPts: rows[0].max,
         value: actuals.injectionLogged ? 'Logged ✓' : 'Not logged',
         pct: rows[0].actual / rows[0].max,
         color: accent,
-        note: 'Logging your injection unlocks the full 35-point medication bonus and enables phase-aware coaching.',
+        note: `Logging your ${doseNoun(oral)} unlocks the full 35-point medication bonus and enables phase-aware coaching.`,
       },
       {
         icon: <Ionicons name="pulse-outline" size={ICON_SIZE} color={accent} />,
@@ -489,7 +494,7 @@ export default function ScoreDetailScreen() {
               const scoreContext = `${score}/100 · ${phaseLabel}`;
               const contextChips = isRecovery
                 ? ['Why is my score this level?', 'How does my phase affect this?', 'What can I do to improve?', 'Is this normal for peak phase?']
-                : ['How do I improve my readiness?', 'What should I prioritize today?', 'How does protein affect my score?', 'When should I log my injection?'];
+                : ['How do I improve my readiness?', 'What should I prioritize today?', 'How does protein affect my score?', `When should I log my ${doseNoun(oral)}?`];
               openAiChat({ type: type as string, contextLabel: scoreLabel, contextValue: scoreContext, chips: JSON.stringify(contextChips) });
             }}
             style={s.chatBtn}
@@ -521,7 +526,7 @@ export default function ScoreDetailScreen() {
 
           {/* Phase interpretation banner - suppressed when no wearable data */}
           {(!isRecovery || hasRecoveryData) && (
-            <PhaseInterpretationBanner isRecovery={isRecovery} phase={phase} score={score} pb={pb} />
+            <PhaseInterpretationBanner isRecovery={isRecovery} phase={phase} score={score} pb={pb} oral={oral} />
           )}
           {isRecovery && !hasRecoveryData && (
             <View style={[pb.wrap, { marginBottom: 20 }]}>

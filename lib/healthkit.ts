@@ -56,7 +56,8 @@ export async function requestPermissions(): Promise<boolean> {
     if (!available) return false;
     await HK.requestAuthorization(READ_TYPES, WRITE_TYPES);
     return true;
-  } catch {
+  } catch (error) {
+    console.error('[HealthKit] requestPermissions failed:', error);
     return false;
   }
 }

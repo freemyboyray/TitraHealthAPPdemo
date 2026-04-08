@@ -20,13 +20,9 @@ import {
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
-// Initial values used before HealthKit data arrives. Overwritten by SYNC_WEARABLE on mount.
-// SpO2 stays at stub (98%) until readLatestSpO2 is added to lib/healthkit.ts.
+// Initial values before HealthKit data arrives. Overwritten by SYNC_WEARABLE on mount.
+// All undefined so focuses/scores don't assume fake values.
 const STUB_WEARABLE: WearableData = {
-  sleepMinutes: 443,
-  hrvMs: 45,
-  restingHR: 58,
-  spo2Pct: 98,
 };
 
 const ZERO_ACTUALS: DailyActuals = {
@@ -50,7 +46,7 @@ type HealthState = {
   wearable: WearableData;
   actuals: DailyActuals;
   targets: DailyTargets;
-  recoveryScore: number;
+  recoveryScore: number | null;
   supportScore: number;
   focuses: FocusItem[];
   lastLogAction: LogAction;
@@ -139,6 +135,7 @@ function reducer(state: HealthState, action: Action): HealthState {
 
 type HealthContextValue = HealthState & {
   dispatch: React.Dispatch<Action>;
+  refreshActuals: () => Promise<void>;
 };
 
 const HealthContext = createContext<HealthContextValue | null>(null);
@@ -237,7 +234,7 @@ export function HealthProvider({
   }, [state.lastLogAction]);
 
   return (
-    <HealthContext.Provider value={{ ...state, dispatch }}>
+    <HealthContext.Provider value={{ ...state, dispatch, refreshActuals: fetchTodayActuals }}>
       {children}
     </HealthContext.Provider>
   );

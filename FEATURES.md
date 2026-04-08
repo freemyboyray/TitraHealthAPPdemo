@@ -2078,6 +2078,38 @@ GLP-1 dose escalation follows strict protocols that vary by medication:
 **Description:** Curated recipe library: high-protein, small-portion, nausea-friendly categories
 **Effort:** ~15–20 hours (content + UI) — Phase 2
 
+#### #15 — Real-World Evidence (RWE) Data Marketplace
+**Competitor:** ZERO consumer GLP-1 apps offer this
+**Description:** Users opt in to share anonymized, longitudinal health data with pharma research partners and get paid for their contributions. TitraHealth acts as the trusted intermediary ensuring privacy, consent, and data quality.
+
+**Why it matters:**
+- Traditional clinical trials cost $30K–$50K per participant; structured RWE data is 10–100× cheaper
+- TitraHealth collects richer behavioral data than any clinical trial: food logs, activity, sleep, HRV, side effects, food noise, injection timing — all time-stamped and correlated
+- GLP-1 market is $50B+ and growing; pharma companies actively seek RWE for: next-gen drug design, label expansion studies, post-market surveillance, comparative effectiveness
+- Users are highly motivated: getting paid to simply track what they already track creates a powerful retention loop
+- Precedents: Evidation Health (valued at $1B+), PatientsLikeMe, Savvy Cooperative, Apple ResearchKit studies
+
+**Use cases for pharma partners:**
+- Real-world weight loss trajectories vs. clinical trial populations
+- Side effect incidence and resolution patterns at scale
+- Behavioral predictors of medication adherence / discontinuation
+- Food and activity pattern correlations with treatment outcomes
+- HRV/sleep/glucose biomarker trends as pharmacodynamic signals
+
+**Revenue model:**
+- Platform takes percentage of data licensing fees
+- Users receive direct compensation ($50–$200/month for complete tracking)
+- Tiered compensation: more data points = more pay (incentivizes comprehensive tracking)
+
+**Prerequisites:**
+- Scale: 100K+ active trackers for statistically meaningful cohorts
+- Partnerships: pharma companies, CROs (contract research organizations)
+- Compliance: IRB approval, informed consent framework, HIPAA/GDPR data handling
+- Data quality: completeness scoring, consistency validation, fraud detection
+- Legal: data use agreements, user terms for research participation
+
+**Effort:** Major initiative — requires business development, legal, and engineering (6+ months)
+
 ---
 
 ## 12. TECHNOLOGY OPPORTUNITIES

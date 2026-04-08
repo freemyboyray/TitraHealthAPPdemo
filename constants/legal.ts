@@ -31,7 +31,7 @@ export const TOS_SECTIONS: LegalSection[] = [
   },
   {
     title: '5. Third-Party Integrations',
-    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit — reads health metrics (steps, heart rate, sleep, etc.) with your explicit permission\n• USDA FoodData Central — provides nutritional information for food logging\n• FatSecret API — provides additional food and nutrition data\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
+    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit — reads health metrics (steps, heart rate, sleep, etc.) with your explicit permission\n• FatSecret API — provides food and nutrition data for food logging\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
   },
   {
     title: '6. User-Generated Health Data',
@@ -72,7 +72,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '3. Third-Party Data Sharing',
-    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice transcriptions\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights\n• OpenAI's data retention: subject to OpenAI's API data usage policy\n\nUSDA FoodData Central & FatSecret:\n• What is shared: food search queries\n• Purpose: nutritional database lookups\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
+    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice transcriptions\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights\n• OpenAI's data retention: subject to OpenAI's API data usage policy\n\nFatSecret:\n• What is shared: food search queries\n• Purpose: nutritional database lookups\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
   },
   {
     title: '4. How We Use Your Data',
@@ -92,6 +92,6 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '8. Contact Information',
-    body: `For questions about this Privacy Policy, to exercise your data rights, or to report a concern:\n\nEmail: privacy@titrahealth.com\n\nWe will respond to all data rights requests within 30 days.`,
+    body: `For questions about this Privacy Policy, to exercise your data rights, or to report a concern:\n\nEmail: titrahealth@gmail.com\n\nWe will respond to all data rights requests within 30 days.`,
   },
 ];

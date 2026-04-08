@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AppColors } from '@/constants/theme';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
+import { FoodProcessingBanner } from '@/components/food-processing-banner';
 import { useAppTheme } from '@/contexts/theme-context';
 
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/tab-bar-visibility';
@@ -192,6 +193,7 @@ export default function TabLayout() {
 
   return (
     <TabBarVisibilityProvider>
+      <FoodProcessingBanner />
       <ReAnimated.View style={[{ flex: 1, overflow: 'hidden' }, bgStyle]}>
         <Tabs
           tabBar={(props) => (

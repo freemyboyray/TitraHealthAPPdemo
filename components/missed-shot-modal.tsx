@@ -24,6 +24,7 @@ type MissedShotModalProps = {
   overdueDays: number;        // Math.abs(rawDaysUntil)
   lastDoseMg: number;
   addInjectionLog: (dose_mg: number, injection_date: string) => Promise<void>;
+  isOral?: boolean;
 };
 
 function formatDateLabel(dateStr: string): string {
@@ -38,6 +39,7 @@ export function MissedShotModal({
   overdueDays,
   lastDoseMg,
   addInjectionLog,
+  isOral = false,
 }: MissedShotModalProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const [mode, setMode] = useState<'question' | 'latePicker'>('question');
@@ -100,9 +102,9 @@ export function MissedShotModal({
           <View style={s.content}>
             {/* Icon + header */}
             <Ionicons name="time-outline" size={40} color={ORANGE} style={{ alignSelf: 'center', marginBottom: 12 }} />
-            <Text style={s.title}>MISSED SHOT</Text>
+            <Text style={s.title}>{isOral ? 'MISSED DOSE' : 'MISSED SHOT'}</Text>
             <Text style={s.body}>
-              Your injection was due {overdueDays} day{overdueDays !== 1 ? 's' : ''} ago
+              Your {isOral ? 'dose' : 'injection'} was due {overdueDays} day{overdueDays !== 1 ? 's' : ''} ago
             </Text>
             <Text style={s.expected}>Expected: {formatDateLabel(expectedShotDate)}</Text>
 
