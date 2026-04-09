@@ -2,7 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Dimensions, FlatList, NativeScrollEvent,
+  ActivityIndicator, Alert, Dimensions, NativeScrollEvent,
   NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
@@ -15,6 +15,7 @@ import { ActivityLevel, Sex, UnitSystem, addWeeks } from '@/constants/user-profi
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { computeBaseTargets } from '@/lib/targets';
+import { useLogStore } from '@/stores/log-store';
 
 const ORANGE = '#FF742A';
 
@@ -72,16 +73,21 @@ export default function EditProfileScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // ─── Body state ────────────────────────────────────────────────────────────
+  // Prefer latest weight log over stale profile value
+  const latestWeightLog = useLogStore((s) => s.weightLogs[0]);
+  const effectiveWeightLbs = latestWeightLog?.weight_lbs ?? profile?.weightLbs ?? 180;
+  const effectiveWeightKg = Math.round(effectiveWeightLbs * 0.453592 * 10) / 10;
+
   const [unit, setUnit] = useState<UnitSystem>(profile?.unitSystem ?? 'imperial');
   const [ftIdx, setFtIdx] = useState(() => Math.max(0, (profile?.heightFt ?? 5) - 4));
   const [inIdx, setInIdx] = useState(() => profile?.heightIn ?? 6);
-  const [lbsIdx, setLbsIdx] = useState(() => Math.max(0, Math.floor(profile?.weightLbs ?? 180) - 80));
-  const [halfIdx, setHalfIdx] = useState(() => ((profile?.weightLbs ?? 0) % 1) >= 0.5 ? 1 : 0);
+  const [lbsIdx, setLbsIdx] = useState(() => Math.max(0, Math.floor(effectiveWeightLbs) - 80));
+  const [halfIdx, setHalfIdx] = useState(() => (effectiveWeightLbs % 1) >= 0.5 ? 1 : 0);
   const [cmIdx, setCmIdx] = useState(() => Math.max(0, (profile?.heightCm ?? 165) - 120));
-  const [kgIdx, setKgIdx] = useState(() => Math.max(0, Math.round(profile?.weightKg ?? 80) - 40));
+  const [kgIdx, setKgIdx] = useState(() => Math.max(0, Math.round(effectiveWeightKg) - 40));
 
   // ─── Goals state ───────────────────────────────────────────────────────────
-  const currentLbs = profile?.weightLbs ?? 180;
+  const currentLbs = effectiveWeightLbs;
   const minLbs = Math.max(80, Math.round(currentLbs - 80));
   const maxLbs = Math.round(currentLbs - 5);
   const count = Math.max(1, maxLbs - minLbs + 1);
@@ -89,7 +95,7 @@ export default function EditProfileScreen() {
   const [selectedLbs, setSelectedLbs] = useState(initialGoalLbs);
   const defaultSpeedIdx = Math.max(0, SNAP_VALUES.indexOf(profile?.targetWeeklyLossLbs ?? 1.0));
   const [speedIdx, setSpeedIdx] = useState(defaultSpeedIdx === -1 ? 2 : defaultSpeedIdx);
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<ScrollView>(null);
 
   // ─── Personal state ────────────────────────────────────────────────────────
   const [sex, setSex] = useState<Sex>(profile?.sex ?? 'prefer_not_to_say');
@@ -297,29 +303,28 @@ export default function EditProfileScreen() {
 
             <View style={s.rulerContainer}>
               <View style={s.indicator} />
-              <FlatList
+              <ScrollView
                 ref={listRef}
-                data={Array.from({ length: count }, (_, i) => minLbs + i)}
-                keyExtractor={(item) => String(item)}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 snapToInterval={UNIT_W}
                 decelerationRate="fast"
                 contentContainerStyle={{ paddingHorizontal: SCREEN_WIDTH / 2 - UNIT_W / 2 }}
-                initialScrollIndex={Math.max(0, initialGoalLbs - minLbs)}
-                getItemLayout={(_, index) => ({ length: UNIT_W, offset: UNIT_W * index, index })}
+                contentOffset={{ x: Math.max(0, initialGoalLbs - minLbs) * UNIT_W, y: 0 }}
                 onMomentumScrollEnd={handleGoalScroll}
-                renderItem={({ item }) => {
+              >
+                {Array.from({ length: count }, (_, i) => {
+                  const item = minLbs + i;
                   const isMajor = item % 10 === 0;
                   const isMid = item % 5 === 0;
                   return (
-                    <View style={[s.tick, { width: UNIT_W }]}>
+                    <View key={item} style={[s.tick, { width: UNIT_W }]}>
                       <View style={[s.tickLine, isMajor && s.tickMajor, isMid && !isMajor && s.tickMid]} />
                       {isMajor && <Text style={s.tickLabel}>{item}</Text>}
                     </View>
                   );
-                }}
-              />
+                })}
+              </ScrollView>
             </View>
 
             <Text style={[s.sectionLabel, { marginTop: 8 }]}>Weekly Loss Rate</Text>
@@ -369,18 +374,20 @@ export default function EditProfileScreen() {
           />
         ))}
 
-        <Text style={[s.sectionLabel, { marginTop: 28 }]}>Birthday</Text>
+        <Text style={[s.sectionLabel, { marginTop: 28, marginBottom: 4 }]}>Birthday</Text>
+        <View style={s.bdayColLabels}>
+          <Text style={[s.colLabel, { flex: 2 }]}>Month</Text>
+          <Text style={[s.colLabel, { flex: 1 }]}>Day</Text>
+          <Text style={[s.colLabel, { flex: 1 }]}>Year</Text>
+        </View>
         <View style={s.bdayRow}>
           <View style={s.pickerWrapLg}>
-            <Text style={s.colLabel}>Month</Text>
             <WheelPicker data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} />
           </View>
           <View style={s.pickerWrapSm}>
-            <Text style={s.colLabel}>Day</Text>
             <WheelPicker data={DAYS} selectedIndex={dayIdx} onSelect={setDayIdx} />
           </View>
           <View style={s.pickerWrapSm}>
-            <Text style={s.colLabel}>Year</Text>
             <WheelPicker data={YEARS} selectedIndex={yearIdx} onSelect={setYearIdx} />
           </View>
         </View>
@@ -490,12 +497,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   warningText: { color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center' },
 
   // Personal
-  bdayRow: { flexDirection: 'row', gap: 8, alignItems: 'center', height: 200 },
+  bdayColLabels: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  bdayRow: { flexDirection: 'row', gap: 8, height: 180 },
   pickerWrapLg: { flex: 2 },
   pickerWrapSm: { flex: 1 },
   colLabel: {
     fontSize: 12, fontWeight: '600', color: c.textSecondary,
-    textAlign: 'center', marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase',
+    textAlign: 'center', letterSpacing: 0.5, textTransform: 'uppercase',
   },
 
   footer: { padding: 16, paddingBottom: 8 },

@@ -232,8 +232,12 @@ function ordinal(n: number): string {
 
 function isProjectedShot(lastDate: string | null, freqDays: number, target: Date): boolean {
   if (!lastDate) return false;
-  const diff = Math.round((target.getTime() - new Date(lastDate).getTime()) / 86400000);
-  return diff > 0 && diff % freqDays === 0;
+  // Parse as local midnight to avoid UTC-offset skew (consistent with daysSinceInjection)
+  const lastMs = new Date(lastDate + 'T00:00:00').getTime();
+  const targetMs = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const diff = Math.round((targetMs - lastMs) / 86400000);
+  // Only match the single next projected shot, not every future multiple
+  return diff === freqDays;
 }
 
 // ─── Calendar Dropdown ────────────────────────────────────────────────────────
@@ -895,7 +899,7 @@ export default function HomeScreen() {
   const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
-  const { updateProfile } = useProfile();
+  const { updateProfile, applyPendingTransition } = useProfile();
 
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
@@ -996,6 +1000,29 @@ export default function HomeScreen() {
   const dateLabel = `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
   const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
+  // ── Medication transition detection ──
+  const hasPendingTransition = profile.pendingFirstDoseDate != null;
+  const pendingFirstDoseStr = profile.pendingFirstDoseDate ?? '';
+  const pendingLastDoseOldStr = profile.pendingLastDoseOld ?? '';
+  const todayStr_transition = localDateStr(today);
+
+  type TransitionPhase = 'none' | 'old_med' | 'washout' | 'new_med_ready';
+  const transitionPhase: TransitionPhase = (() => {
+    if (!hasPendingTransition) return 'none';
+    if (todayStr_transition <= pendingLastDoseOldStr) return 'old_med';
+    if (todayStr_transition < pendingFirstDoseStr) return 'washout';
+    return 'new_med_ready';
+  })();
+
+  // Auto-apply transition when the date arrives
+  const transitionAppliedRef = useRef(false);
+  useEffect(() => {
+    if (transitionPhase === 'new_med_ready' && !transitionAppliedRef.current) {
+      transitionAppliedRef.current = true;
+      applyPendingTransition();
+    }
+  }, [transitionPhase]);
+
   // Use whichever last-injection date is more recent: profile (updated by
   // settings edits) or the most recent injection log (updated by addInjectionLog).
   // This ensures both manual settings changes AND new injection logs are reflected.
@@ -1016,16 +1043,19 @@ export default function HomeScreen() {
   // Use actuals as source of truth for whether today's injection is already logged.
   // daysSinceInjection is capped at 7 so daysUntil can't go negative — we must
   // distinguish "due and not yet logged" from "due and already logged".
-  const todayInjLogged = actuals.injectionLogged;
-  const nextShotLabel = !effectiveLastInjectionDate
-    ? `Log first ${oral ? 'dose' : 'shot'}`
-    : todayInjLogged
-      ? 'Logged today'
-      : daysUntil <= 0
-        ? 'Due today'
-        : daysUntil === 1
-          ? 'Due tomorrow'
-          : `In ${daysUntil} days`;
+  // During washout, treat injection as "logged" so UI doesn't nag about missing dose
+  const todayInjLogged = transitionPhase === 'washout' ? true : actuals.injectionLogged;
+  const nextShotLabel = transitionPhase === 'washout'
+    ? 'Transitioning'
+    : !effectiveLastInjectionDate
+      ? `Log first ${oral ? 'dose' : 'shot'}`
+      : todayInjLogged
+        ? 'Logged today'
+        : daysUntil <= 0
+          ? 'Due today'
+          : daysUntil === 1
+            ? 'Due tomorrow'
+            : `In ${daysUntil} days`;
   const medName = (() => {
     const display = BRAND_DISPLAY_NAMES[profile.medicationBrand ?? ''];
     if (!display || display === 'Other') {
@@ -1073,15 +1103,23 @@ export default function HomeScreen() {
     ? actuals
     : (historicalSnapshot?.actuals ?? ZERO_ACTUALS);
 
-  const baseFocuses: FocusItem[] = isToday
+  // Pass isInjectionDue: false — injection reminder is handled separately by
+  // isShotDay below to avoid the dose showing up on every day.
+  const rawFocuses: FocusItem[] = isToday
     ? focuses
-    : generateFocuses(displayActuals, targets, {}, dayNum);
+    : generateFocuses(displayActuals, targets, {}, dayNum, undefined, false);
+  // During washout, remove any injection-related focuses
+  const baseFocuses: FocusItem[] = transitionPhase === 'washout'
+    ? rawFocuses.filter(f => f.id !== 'injection')
+    : rawFocuses;
 
   // ── Shot-day injection reminder ──────────────────────────────────────────────
   // Shown on any date that is a confirmed or projected injection day.
-  const isShotDay =
+  // Suppressed during washout — no active dose cycle.
+  const isShotDay = transitionPhase === 'washout' ? false : (
     localDateStr(selectedDate) === effectiveLastInjectionDate ||
-    isProjectedShot(effectiveLastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate);
+    isProjectedShot(effectiveLastInjectionDate, profile.injectionFrequencyDays ?? 7, selectedDate)
+  );
 
   const displayFocuses: FocusItem[] = (() => {
     if (!isShotDay) return baseFocuses;
@@ -1231,15 +1269,19 @@ export default function HomeScreen() {
   const lastDoseMg = logStore.injectionLogs[0]?.dose_mg ?? (profile as any).doseMg ?? 0.5;
 
   // Trigger missed shot modal once per session when overdue
+  // Wait for logStore.hydrated so injection logs are loaded before checking
+  const logStoreHydrated = useLogStore((s) => s.hydrated);
   useEffect(() => {
+    if (!logStoreHydrated) return;
     if (missedShotShownRef.current) return;
+    if (transitionPhase !== 'none') return; // Don't show during medication transition
     if (rawDaysUntil == null) return;
     if (!effectiveLastInjectionDate) return;
     if (rawDaysUntil >= 0) return;
     if (todayInjLogged) return;
     missedShotShownRef.current = true;
     setMissedShotVisible(true);
-  }, [rawDaysUntil, todayInjLogged, effectiveLastInjectionDate]);
+  }, [logStoreHydrated, rawDaysUntil, todayInjLogged, effectiveLastInjectionDate]);
 
   // ── Today's individual log entries (from logStore) ──────────────────────────
   const todayStr = localDateStr();
@@ -1470,8 +1512,33 @@ export default function HomeScreen() {
                   </View>
                 </View>
 
-                {/* Cycle day progress bar */}
-                {effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
+                {/* Transition banner during washout */}
+                {(transitionPhase === 'washout' || transitionPhase === 'old_med') && profile.pendingFirstDoseDate && (
+                  (() => {
+                    const startDate = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
+                    const daysAway = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / 86400000));
+                    const dateLabel2 = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const newBrandLabel = BRAND_DISPLAY_NAMES[profile.pendingMedicationBrand as keyof typeof BRAND_DISPLAY_NAMES] ?? profile.pendingMedicationBrand ?? '';
+                    return (
+                      <View style={s.transitionBanner}>
+                        <View style={s.transitionRow}>
+                          <Ionicons name="swap-horizontal" size={16} color={ORANGE} />
+                          <Text style={s.transitionTitle}>Switching Medication</Text>
+                        </View>
+                        <Text style={s.transitionBody}>
+                          Starting {newBrandLabel} {profile.pendingDoseMg}mg on {dateLabel2}
+                          {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
+                        </Text>
+                        {transitionPhase === 'washout' && (
+                          <Text style={s.transitionHint}>Washout period — no active dose cycle</Text>
+                        )}
+                      </View>
+                    );
+                  })()
+                )}
+
+                {/* Cycle day progress bar — hidden during washout */}
+                {transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
                   (() => {
                     // Shot-day override: show start of new cycle instead of end of old one
                     const displayDayNum = (!todayInjLogged && rawDaysUntil === 0) ? 1 : todayDayNum;
@@ -1813,6 +1880,38 @@ const createStyles = (c: AppColors) => {
   heroCycleFill: {
     height: 4,
     borderRadius: 2,
+  },
+  transitionBanner: {
+    backgroundColor: c.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
+    borderWidth: 1,
+    borderColor: c.isDark ? 'rgba(255,116,42,0.2)' : 'rgba(255,116,42,0.15)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  transitionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  transitionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FF742A',
+    fontFamily: 'Helvetica Neue',
+  },
+  transitionBody: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: c.textPrimary,
+    fontFamily: 'Helvetica Neue',
+  },
+  transitionHint: {
+    fontSize: 11,
+    color: c.textSecondary,
+    marginTop: 4,
+    fontFamily: 'Helvetica Neue',
   },
 
   // Section title

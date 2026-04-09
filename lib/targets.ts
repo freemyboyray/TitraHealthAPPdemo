@@ -68,9 +68,10 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
   const calorieFloor = sex === 'male' ? 1500 : 1200;
   const caloriesTarget = Math.max(Math.round(tdee - deficit), calorieFloor);
 
-  // ── Protein (1.6–2.0 g/kg based on loss speed) ────────────────────────────
-  // Higher protein preserves lean mass (26-40% GLP-1 loss is lean mass without intervention)
-  const proteinMult = weeklyLoss >= 1.5 ? 2.0 : weeklyLoss >= 0.8 ? 1.8 : 1.6;
+  // ── Protein (1.0–1.2 g/kg — floor of clinical range) ───────────────────────
+  // Clinical range is 1.2–2.0 g/kg for GLP-1 patients; we use the floor to
+  // keep targets achievable, especially with appetite suppression.
+  const proteinMult = weeklyLoss >= 1.5 ? 1.2 : 1.0;
   const proteinG = Math.round(weightKg * proteinMult);
 
   // ── Fat (28% of calories) ─────────────────────────────────────────────────
@@ -79,15 +80,17 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
   // ── Carbs (remainder calories, floor 50g) ─────────────────────────────────
   const carbsG = Math.max(Math.round((caloriesTarget - proteinG * 4 - fatG * 9) / 4), 50);
 
-  // ── Fiber (IOM gender/age norms) ──────────────────────────────────────────
-  const fiberG = sex === 'male' ? (age >= 50 ? 30 : 38) : (age >= 50 ? 21 : 25);
+  // ── Fiber (conservative: 20–25g) ──────────────────────────────────────────
+  // IOM norms go up to 38g but that's aspirational; most Americans average 15g.
+  const fiberG = sex === 'male' ? (age >= 50 ? 22 : 25) : (age >= 50 ? 18 : 20);
 
-  // ── Water (35 ml/kg, bounded [2000, 4000], +200ml age ≥ 60) ───────────────
-  const waterMl =
-    Math.min(4000, Math.max(2000, Math.round(weightKg * 35))) + (age >= 60 ? 200 : 0);
+  // ── Water (30 ml/kg, bounded [2000, 3000]) ────────────────────────────────
+  // Standard hydration; GLP-1 patients may need more but we start conservative.
+  const waterMl = Math.min(3000, Math.max(2000, Math.round(weightKg * 30)));
 
-  // ── Steps (8000 base + 500 per speed tier) ────────────────────────────────
-  const steps = weeklyLoss >= 1.5 ? 9000 : weeklyLoss >= 0.8 ? 8500 : 8000;
+  // ── Steps (achievable baselines) ──────────────────────────────────────────
+  // Average American walks ~4,000/day. Start near that and scale gently.
+  const steps = weeklyLoss >= 1.5 ? 7000 : weeklyLoss >= 0.8 ? 6000 : 5000;
 
   return { caloriesTarget, proteinG, fatG, carbsG, fiberG, waterMl, steps, activeMinutes: 30 };
 }

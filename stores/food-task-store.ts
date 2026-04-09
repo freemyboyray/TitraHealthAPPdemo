@@ -68,12 +68,17 @@ async function resolveItems(
 ): Promise<ResolvedItem[]> {
   return Promise.all(
     parsedItems.map(async (p) => {
+      console.log('[FoodTask] resolveItems: searching for', p.item);
       let results = await searchUSDA(p.item);
+      console.log('[FoodTask] resolveItems: raw search returned', results.length, 'results for', p.item);
       results = results.filter(
         (r) => r.calories > 0 || r.protein_g > 0 || r.carbs_g > 0 || r.fat_g > 0,
       );
+      console.log('[FoodTask] resolveItems: after nutrition filter:', results.length, 'results for', p.item);
       if (results.length === 0) {
+        console.log('[FoodTask] resolveItems: no FatSecret results, falling back to AI estimation for', p.item);
         const aiResult = await estimateMacrosWithAI(p.item);
+        console.log('[FoodTask] resolveItems: AI estimation result:', JSON.stringify(aiResult));
         if (aiResult) results = [aiResult as FoodResult];
       }
       return {
@@ -161,14 +166,20 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
         // If we have a photo, run vision first to get parsed items
         let itemsToResolve = parsedItems ?? [];
         if (photoBase64 && itemsToResolve.length === 0) {
+          console.log('[FoodTask] Starting vision analysis, base64 length:', photoBase64.length);
           const raw = await callGPT4oMiniVision(
             VISION_SYSTEM,
             photoBase64,
             'Identify all food items in this image.',
           );
+          console.log('[FoodTask] Vision raw response:', raw);
           const jsonMatch = raw.match(/\[[\s\S]*\]/);
-          if (!jsonMatch) throw new Error('No JSON in vision response');
+          if (!jsonMatch) {
+            console.error('[FoodTask] No JSON array found in vision response');
+            throw new Error('No JSON in vision response');
+          }
           const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
+          console.log('[FoodTask] Vision parsed items:', JSON.stringify(parsed));
           if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No food items identified');
           itemsToResolve = parsed;
 
@@ -180,7 +191,13 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
           }));
         }
 
+        console.log('[FoodTask] Resolving', itemsToResolve.length, 'items via FatSecret/USDA...');
         const resolved = await resolveItems(itemsToResolve);
+        console.log('[FoodTask] Resolved items:', resolved.map((r) => ({
+          item: r.item,
+          matchCount: r.results.length,
+          topMatch: r.results[0]?.name ?? 'none',
+        })));
 
         set((s) => ({
           tasks: s.tasks.map((t) =>
@@ -196,6 +213,7 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
           scheduleFoodReadyNotification(id);
         }
       } catch (err) {
+        console.error('[FoodTask] Task failed:', err);
         set((s) => ({
           tasks: s.tasks.map((t) =>
             t.id === id

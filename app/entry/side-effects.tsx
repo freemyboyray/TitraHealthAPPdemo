@@ -30,6 +30,8 @@ import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceSideEffectsResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { useProfile } from '@/contexts/profile-context';
+import { getSideEffectContext } from '@/lib/side-effect-context';
 
 const ORANGE = '#FF742A';
 const GREEN = '#5DB87B';
@@ -148,6 +150,7 @@ export default function SideEffectsScreen() {
   const insets = useSafeAreaInsets();
   const { addSideEffectLog } = useLogStore();
   const { colors } = useAppTheme();
+  const { profile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [activeIds, setActiveIds] = useState<string[]>([]);
@@ -304,6 +307,9 @@ export default function SideEffectsScreen() {
               allActive.map((effect, idx) => {
                 const val = values[effect.id] ?? 0;
                 const isLast = idx === allActive.length - 1;
+                const ctx = val > 0
+                  ? getSideEffectContext(effect.dbType, profile?.doseStartDate)
+                  : null;
                 return (
                   <View
                     key={effect.id}
@@ -329,6 +335,28 @@ export default function SideEffectsScreen() {
                       value={val}
                       onChange={(v) => setValues((prev) => ({ ...prev, [effect.id]: v }))}
                     />
+                    {ctx && (
+                      <View style={{
+                        marginTop: 8, paddingVertical: 6, paddingHorizontal: 10,
+                        borderRadius: 8,
+                        backgroundColor: ctx.severity === 'flag'
+                          ? 'rgba(245,166,35,0.08)'
+                          : ctx.severity === 'watch'
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(93,184,123,0.08)',
+                      }}>
+                        <Text style={{
+                          fontSize: 12, lineHeight: 16,
+                          color: ctx.severity === 'flag'
+                            ? '#F5A623'
+                            : ctx.severity === 'watch'
+                              ? 'rgba(255,255,255,0.5)'
+                              : GREEN,
+                        }}>
+                          {ctx.message}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 );
               })

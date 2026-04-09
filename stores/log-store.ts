@@ -27,6 +27,7 @@ export type UserGoalsRow = Database['public']['Tables']['user_goals']['Row'];
 
 type LogStore = {
   loading: boolean;
+  hydrated: boolean;
   error: string | null;
 
   // ── Fetched data ──────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ type LogStore = {
   ) => Promise<void>;
 
   deleteInjectionLog: (id: string) => Promise<void>;
+  deleteWeightLog: (id: string) => Promise<void>;
 
   // Activity - manual workout fields
   addActivityLog: (
@@ -157,6 +159,7 @@ export type PeerComparisonData = {
 
 export const useLogStore = create<LogStore>((set, get) => ({
   loading: false,
+  hydrated: false,
   error: null,
 
   // ── Initial fetch state ───────────────────────────────────────────────────
@@ -222,6 +225,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         profile:        prof.data ?? null,
         userGoals:      goals.data ?? null,
         loading:        false,
+        hydrated:       true,
         error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
       });
 
@@ -291,6 +295,15 @@ export const useLogStore = create<LogStore>((set, get) => ({
       // Keep profiles.last_injection_date in sync with the new most-recent injection
       const newLastDate = remaining[0]?.injection_date ?? null;
       await supabase.from('profiles').update({ last_injection_date: newLastDate }).eq('id', user.id);
+    }
+  },
+
+  deleteWeightLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('weight_logs').delete().eq('id', id).eq('user_id', user.id);
+    if (!error) {
+      set({ weightLogs: get().weightLogs.filter(l => l.id !== id) });
     }
   },
 

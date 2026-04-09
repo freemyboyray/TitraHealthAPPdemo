@@ -17,8 +17,10 @@ import {
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { DRUG_IS_ORAL, DRUG_WASHOUT_DAYS, DRUG_WASHOUT_LABEL } from '@/constants/drug-pk';
-import { computeBaseTargets } from '@/lib/targets';
+import { getDailyTargets } from '@/constants/scoring';
 import { scheduleDoseReminder } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
+import { useLogStore } from '@/stores/log-store';
 
 const ORANGE = '#FF742A';
 
@@ -70,6 +72,12 @@ const BRAND_GROUPS: BrandGroup[] = [
     subheading: '',
     brands: [{ value: 'other', label: 'Other / Not listed' }],
   },
+];
+
+const INJECTION_SITES = [
+  'Left Abdomen', 'Right Abdomen',
+  'Left Thigh', 'Right Thigh',
+  'Left Upper Arm', 'Right Upper Arm',
 ];
 
 const INJECTABLE_FREQUENCIES = [
@@ -131,13 +139,14 @@ export default function EditTreatmentScreen() {
   const [saving, setSaving] = useState(false);
 
   // ── Confirmation modal state ──
-  type ConfirmStep = 'summary' | 'last_dose' | 'first_dose' | 'dose_time';
+  type ConfirmStep = 'last_dose' | 'first_dose' | 'dose_time' | 'injection_site' | 'summary';
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmStep, setConfirmStep] = useState<ConfirmStep>('summary');
   // These track answers collected during the confirmation flow
   const [confirmLastDoseDate, setConfirmLastDoseDate] = useState<Date>(lastInjDate);
   const [confirmFirstDoseDate, setConfirmFirstDoseDate] = useState<Date>(new Date());
   const [confirmDoseTimeValue, setConfirmDoseTimeValue] = useState<Date>(doseTime);
+  const [confirmSite, setConfirmSite] = useState<string | null>(null);
 
   if (isLoading) {
     return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><ActivityIndicator color={ORANGE} style={{ flex: 1 }} /></SafeAreaView>;
@@ -186,23 +195,34 @@ export default function EditTreatmentScreen() {
   }
 
   // Determine which confirmation steps to show
+  // Questions come first, summary (with target diffs) comes last before confirm
   function getConfirmSteps(): ConfirmStep[] {
     const changeType = getChangeType();
-    const steps: ConfirmStep[] = ['summary'];
+    const steps: ConfirmStep[] = [];
     const newIsDaily = freqDays === 1;
+    const newIsOral = DRUG_IS_ORAL[BRAND_TO_GLP1_TYPE[brand]] ?? false;
 
     if (changeType === 'drug_type') {
-      // Switching active ingredient — need last dose date of old drug + first dose date of new
       steps.push('last_dose', 'first_dose');
       if (newIsDaily) steps.push('dose_time');
     } else if (changeType === 'freq_change') {
-      // Same drug, different frequency (e.g. weekly → daily or daily → weekly)
       steps.push('last_dose');
       if (newIsDaily && !oldIsDaily) steps.push('dose_time');
     } else if (changeType === 'brand_swap') {
-      // Same drug type, different brand — lighter flow
-      // (e.g. Ozempic → Wegovy, both semaglutide)
+      steps.push('last_dose', 'first_dose');
+      if (newIsDaily && !oldIsDaily) steps.push('dose_time');
+    } else if (changeType === 'dose_only') {
+      steps.push('first_dose');
     }
+
+    // If it's an injection (not oral), ask for injection site
+    // so the log entry includes the site for rotation tracking
+    if (!newIsOral && (steps.includes('first_dose') || changeType === 'freq_change')) {
+      steps.push('injection_site');
+    }
+
+    // Summary with target diffs always comes last
+    steps.push('summary');
 
     return steps;
   }
@@ -211,48 +231,152 @@ export default function EditTreatmentScreen() {
     setSaving(true);
     const changeType = getChangeType();
     const newIsDaily = freqDays === 1;
+    const brandDisplay = BRAND_DISPLAY_NAMES[brand] ?? brand;
+    const todayStr = toDateString(new Date());
 
-    // Determine the right dates based on what the user answered
-    let finalLastInjDate = lastInjDate;
-    let finalDoseStartDate = doseStartDate;
+    // Determine dose time
     let finalDoseTime = doseTime;
-
-    if (changeType === 'drug_type') {
-      // User told us when they'll take the new drug
-      finalLastInjDate = confirmFirstDoseDate;
-      finalDoseStartDate = confirmFirstDoseDate;
+    if (changeType === 'drug_type' || changeType === 'brand_swap') {
       if (newIsDaily) finalDoseTime = confirmDoseTimeValue;
     } else if (changeType === 'freq_change') {
-      finalLastInjDate = confirmLastDoseDate;
-      finalDoseStartDate = new Date(); // starting new schedule today
       if (newIsDaily && !oldIsDaily) finalDoseTime = confirmDoseTimeValue;
     }
-
     const formattedDoseTime = newIsDaily
       ? `${String(finalDoseTime.getHours()).padStart(2, '0')}:${String(finalDoseTime.getMinutes()).padStart(2, '0')}`
       : '';
 
-    const finalLastInjDateStr = toDateString(finalLastInjDate);
+    const firstDoseDateStr = toDateString(confirmFirstDoseDate);
+    const lastDoseOldStr = toDateString(confirmLastDoseDate);
+    const isFutureStart = firstDoseDateStr > todayStr;
 
-    await updateProfile({
-      medicationBrand: brand,
-      glp1Type: BRAND_TO_GLP1_TYPE[brand],
-      routeOfAdministration: BRAND_TO_ROUTE[brand],
-      injectionFrequencyDays: freqDays as number,
-      doseMg: doseMg as number,
-      lastInjectionDate: finalLastInjDateStr,
-      doseStartDate: toDateString(finalDoseStartDate),
-      doseTime: formattedDoseTime,
-    });
+    // ── Future start: store as pending transition ──
+    if (isFutureStart && (changeType === 'drug_type' || changeType === 'brand_swap' || changeType === 'dose_only')) {
+      await updateProfile({
+        pendingMedicationBrand: brand,
+        pendingGlp1Type: BRAND_TO_GLP1_TYPE[brand],
+        pendingRoute: BRAND_TO_ROUTE[brand],
+        pendingDoseMg: doseMg as number,
+        pendingFrequencyDays: freqDays as number,
+        pendingDoseTime: formattedDoseTime,
+        pendingFirstDoseDate: firstDoseDateStr,
+        pendingLastDoseOld: lastDoseOldStr,
+      });
 
-    // Reschedule dose reminders for new medication schedule
-    const brandDisplay = BRAND_DISPLAY_NAMES[brand] ?? brand;
-    await scheduleDoseReminder(
-      freqDays as number,
-      formattedDoseTime || '09:00',
-      brandDisplay,
-      finalLastInjDateStr,
-    ).catch(() => {}); // Don't block save on notification failure
+      // Schedule reminder for the first dose date
+      await scheduleDoseReminder(
+        freqDays as number,
+        formattedDoseTime || '09:00',
+        brandDisplay,
+        // Use fakeLastDate so reminder fires on firstDoseDate
+        toDateString(new Date(confirmFirstDoseDate.getTime() - (freqDays as number) * 86400000)),
+      ).catch(() => {});
+
+    // ── Immediate start: apply now ──
+    } else {
+      let finalLastInjDate = lastInjDate;
+      let finalDoseStartDate = doseStartDate;
+
+      if (changeType === 'drug_type') {
+        finalLastInjDate = confirmFirstDoseDate;
+        finalDoseStartDate = confirmFirstDoseDate;
+      } else if (changeType === 'freq_change') {
+        finalLastInjDate = confirmLastDoseDate;
+        finalDoseStartDate = new Date();
+      } else if (changeType === 'brand_swap') {
+        finalLastInjDate = confirmFirstDoseDate;
+        finalDoseStartDate = confirmFirstDoseDate;
+      } else if (changeType === 'dose_only') {
+        finalDoseStartDate = confirmFirstDoseDate;
+      }
+
+      const finalLastInjDateStr = toDateString(finalLastInjDate);
+
+      await updateProfile({
+        medicationBrand: brand,
+        glp1Type: BRAND_TO_GLP1_TYPE[brand],
+        routeOfAdministration: BRAND_TO_ROUTE[brand],
+        injectionFrequencyDays: freqDays as number,
+        doseMg: doseMg as number,
+        lastInjectionDate: finalLastInjDateStr,
+        doseStartDate: toDateString(finalDoseStartDate),
+        doseTime: formattedDoseTime,
+        // Clear any existing pending transition
+        pendingMedicationBrand: null,
+        pendingGlp1Type: null,
+        pendingRoute: null,
+        pendingDoseMg: null,
+        pendingFrequencyDays: null,
+        pendingDoseTime: null,
+        pendingFirstDoseDate: null,
+        pendingLastDoseOld: null,
+      });
+
+      // Recalculate and persist daily targets
+      const updatedProfile = {
+        ...profile!,
+        medicationBrand: brand,
+        glp1Type: BRAND_TO_GLP1_TYPE[brand],
+        routeOfAdministration: BRAND_TO_ROUTE[brand],
+        injectionFrequencyDays: freqDays as number,
+        doseMg: doseMg as number,
+      };
+      const newTargets = getDailyTargets(updatedProfile);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        supabase.from('user_goals').upsert({
+          user_id: user.id,
+          daily_calories_target: newTargets.caloriesTarget,
+          daily_protein_g_target: newTargets.proteinG,
+          daily_fiber_g_target: newTargets.fiberG,
+          daily_steps_target: newTargets.steps,
+          active_calories_target: newTargets.activeMinutes * 3,
+        }).then(() => {}, () => {});
+      }
+
+      // If first dose is today, create injection log
+      if (finalLastInjDateStr === todayStr) {
+        await useLogStore.getState().addInjectionLog(
+          doseMg as number,
+          todayStr,
+          formattedDoseTime || undefined,
+          confirmSite ?? undefined,
+          undefined,
+          brandDisplay,
+        );
+      }
+
+      // Reschedule dose reminders
+      await scheduleDoseReminder(
+        freqDays as number,
+        formattedDoseTime || '09:00',
+        brandDisplay,
+        finalLastInjDateStr,
+      ).catch(() => {});
+    }
+
+    // Record medication change history (for both immediate and future)
+    const { data: { user: historyUser } } = await supabase.auth.getUser();
+    if (historyUser && changeType !== 'none') {
+      supabase.from('medication_changes').insert({
+        user_id: historyUser.id,
+        change_type: changeType,
+        prev_brand: profile!.medicationBrand ?? null,
+        prev_glp1_type: profile!.glp1Type ?? null,
+        prev_dose_mg: profile!.doseMg ?? null,
+        prev_frequency_days: profile!.injectionFrequencyDays ?? null,
+        new_brand: brand,
+        new_glp1_type: BRAND_TO_GLP1_TYPE[brand],
+        new_dose_mg: doseMg as number,
+        new_frequency_days: freqDays as number,
+        last_dose_date: lastDoseOldStr,
+        first_dose_date: firstDoseDateStr,
+        dose_start_date: firstDoseDateStr,
+      }).then(() => {}, () => {});
+    }
+
+    // Refresh log store so home screen reflects the changes immediately
+    useLogStore.getState().fetchInsightsData();
 
     setConfirmVisible(false);
     router.back();
@@ -264,7 +388,6 @@ export default function EditTreatmentScreen() {
     const changeType = getChangeType();
 
     if (changeType === 'none') {
-      // Nothing changed — just go back
       router.back();
       return;
     }
@@ -273,6 +396,7 @@ export default function EditTreatmentScreen() {
     setConfirmLastDoseDate(lastInjDate);
     setConfirmFirstDoseDate(new Date());
     setConfirmDoseTimeValue(doseTime);
+    setConfirmSite(null);
 
     const steps = getConfirmSteps();
     setConfirmStep(steps[0]);
@@ -307,7 +431,7 @@ export default function EditTreatmentScreen() {
     const newGlp1Type = BRAND_TO_GLP1_TYPE[brand];
     const brandName = BRAND_LABEL[brand] ?? brand;
 
-    const currentTargets = computeBaseTargets(profile!);
+    const currentTargets = getDailyTargets(profile!);
     const proposed = {
       ...profile!,
       medicationBrand: brand,
@@ -316,11 +440,37 @@ export default function EditTreatmentScreen() {
       doseMg: doseMg as number,
       injectionFrequencyDays: freqDays as number,
     };
-    const newTargets = computeBaseTargets(proposed);
+    const newTargets = getDailyTargets(proposed);
 
-    const targetsChanged =
-      currentTargets.caloriesTarget !== newTargets.caloriesTarget ||
-      currentTargets.proteinG !== newTargets.proteinG;
+    // Build list of target diffs that actually changed
+    type TargetDiff = { label: string; old: string; new: string };
+    const targetDiffs: TargetDiff[] = [];
+    if (currentTargets.caloriesTarget !== newTargets.caloriesTarget) {
+      targetDiffs.push({ label: 'Calories', old: `${currentTargets.caloriesTarget} kcal`, new: `${newTargets.caloriesTarget} kcal` });
+    }
+    if (currentTargets.proteinG !== newTargets.proteinG) {
+      targetDiffs.push({ label: 'Protein', old: `${currentTargets.proteinG}g`, new: `${newTargets.proteinG}g` });
+    }
+    if (currentTargets.waterMl !== newTargets.waterMl) {
+      const oldL = (currentTargets.waterMl / 1000).toFixed(1);
+      const newL = (newTargets.waterMl / 1000).toFixed(1);
+      targetDiffs.push({ label: 'Water', old: `${oldL}L`, new: `${newL}L` });
+    }
+    if (currentTargets.fiberG !== newTargets.fiberG) {
+      targetDiffs.push({ label: 'Fiber', old: `${currentTargets.fiberG}g`, new: `${newTargets.fiberG}g` });
+    }
+    if (currentTargets.steps !== newTargets.steps) {
+      targetDiffs.push({ label: 'Steps', old: currentTargets.steps.toLocaleString(), new: newTargets.steps.toLocaleString() });
+    }
+    if (currentTargets.carbsG !== newTargets.carbsG) {
+      targetDiffs.push({ label: 'Carbs', old: `${currentTargets.carbsG}g`, new: `${newTargets.carbsG}g` });
+    }
+    if (currentTargets.fatG !== newTargets.fatG) {
+      targetDiffs.push({ label: 'Fat', old: `${currentTargets.fatG}g`, new: `${newTargets.fatG}g` });
+    }
+    if (currentTargets.activeCaloriesTarget !== newTargets.activeCaloriesTarget) {
+      targetDiffs.push({ label: 'Active Cal', old: `${currentTargets.activeCaloriesTarget} kcal`, new: `${newTargets.activeCaloriesTarget} kcal` });
+    }
 
     // Washout warning for drug type changes
     const showWashout = changeType === 'drug_type' && oldGlp1Type !== newGlp1Type;
@@ -331,6 +481,18 @@ export default function EditTreatmentScreen() {
     const freqChanging = freqDays !== oldFreqDays;
     const freqDesc = freqChanging
       ? `${oldFreqDays === 1 ? 'daily' : `every ${oldFreqDays} days`} → ${freqDays === 1 ? 'daily' : `every ${freqDays} days`}`
+      : null;
+
+    // Next shot date projection
+    const nextShotDate = (() => {
+      const lastInj = profile!.lastInjectionDate;
+      if (!lastInj || !freqDays) return null;
+      const d = new Date(lastInj + 'T00:00:00');
+      d.setDate(d.getDate() + (freqDays as number));
+      return d;
+    })();
+    const nextShotLabel = nextShotDate
+      ? nextShotDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : null;
 
     return (
@@ -349,17 +511,32 @@ export default function EditTreatmentScreen() {
           </View>
         )}
 
-        {targetsChanged && (
-          <View style={ms.targetBox}>
-            <Text style={ms.targetTitle}>Daily targets will adjust</Text>
-            <Text style={ms.targetLine}>
-              Calories: {currentTargets.caloriesTarget} → {newTargets.caloriesTarget} kcal
-            </Text>
-            <Text style={ms.targetLine}>
-              Protein: {currentTargets.proteinG}g → {newTargets.proteinG}g
-            </Text>
+        {nextShotLabel && (
+          <View style={ms.changeRow}>
+            <Text style={ms.changeLabel}>Next {isOral ? 'dose' : 'shot'}</Text>
+            <Text style={ms.changeValue}>{nextShotLabel}</Text>
           </View>
         )}
+
+        <View style={ms.targetBox}>
+          <Text style={ms.targetTitle}>
+            {targetDiffs.length > 0 ? 'Daily targets will adjust' : 'Daily targets unchanged'}
+          </Text>
+          {targetDiffs.length > 0 ? (
+            targetDiffs.map((d) => (
+              <View key={d.label} style={ms.targetDiffRow}>
+                <Text style={ms.targetDiffLabel}>{d.label}</Text>
+                <Text style={ms.targetLine}>{d.old}</Text>
+                <Text style={[ms.targetLine, { color: ORANGE, marginHorizontal: 6 }]}>→</Text>
+                <Text style={[ms.targetLine, { color: '#FFFFFF' }]}>{d.new}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={[ms.targetLine, { marginTop: 4 }]}>
+              Your protein, water, fiber, and step targets stay the same with this change.
+            </Text>
+          )}
+        </View>
 
         {showWashout && (
           <View style={ms.washoutBox}>
@@ -457,12 +634,48 @@ export default function EditTreatmentScreen() {
     );
   }
 
+  function renderInjectionSiteStep() {
+    const newBrandName = BRAND_LABEL[brand] ?? brand;
+    return (
+      <>
+        <Text style={ms.modalTitle}>INJECTION SITE</Text>
+        <Text style={ms.stepQuestion}>
+          Where will you inject {newBrandName}?
+        </Text>
+        <Text style={ms.stepHint}>
+          We'll track rotation to help you avoid injection site reactions.
+        </Text>
+        <View style={{ marginTop: 16, gap: 8 }}>
+          {INJECTION_SITES.map((siteName) => (
+            <TouchableOpacity
+              key={siteName}
+              style={[
+                ms.sitePill,
+                confirmSite === siteName && ms.sitePillActive,
+              ]}
+              onPress={() => setConfirmSite(siteName)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                ms.sitePillText,
+                confirmSite === siteName && ms.sitePillTextActive,
+              ]}>
+                {siteName}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </>
+    );
+  }
+
   function renderConfirmStep() {
     switch (confirmStep) {
-      case 'summary':    return renderSummaryStep();
-      case 'last_dose':  return renderLastDoseStep();
-      case 'first_dose': return renderFirstDoseStep();
-      case 'dose_time':  return renderDoseTimeStep();
+      case 'summary':        return renderSummaryStep();
+      case 'last_dose':      return renderLastDoseStep();
+      case 'first_dose':     return renderFirstDoseStep();
+      case 'dose_time':      return renderDoseTimeStep();
+      case 'injection_site': return renderInjectionSiteStep();
     }
   }
 
@@ -557,7 +770,7 @@ export default function EditTreatmentScreen() {
             <DateTimePicker
               value={doseTime}
               mode="time"
-              display={Platform.OS === 'ios' ? 'compact' : 'default'}
+              display="spinner"
               onChange={(_, date) => { if (date) setDoseTime(date); }}
               style={{ alignSelf: 'flex-start', marginTop: 8 }}
             />
@@ -820,6 +1033,18 @@ const ms = StyleSheet.create({
     marginBottom: 6,
     fontFamily: FF,
   },
+  targetDiffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  targetDiffLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    width: 70,
+    fontFamily: FF,
+  },
   targetLine: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
@@ -862,5 +1087,27 @@ const ms = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     fontFamily: FF,
+  },
+  sitePill: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+  },
+  sitePillActive: {
+    backgroundColor: 'rgba(255,116,42,0.15)',
+    borderColor: ORANGE,
+  },
+  sitePillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: FF,
+  },
+  sitePillTextActive: {
+    color: '#FFFFFF',
   },
 });

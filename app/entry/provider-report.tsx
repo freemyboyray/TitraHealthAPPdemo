@@ -5,17 +5,13 @@ import { BlurView } from 'expo-blur';
 let Print: typeof import('expo-print') | undefined;
 try { Print = require('expo-print'); } catch {}
 import { router } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -55,7 +51,7 @@ function formatDateDisplay(d: string): string {
 
 // ─── Range presets ──────────────────────────────────────────────────────────
 
-type RangePreset = '30d' | '90d' | 'program' | 'custom';
+type RangePreset = '30d' | '90d' | 'program';
 
 function getDateRange(preset: RangePreset, programStart: string | null): { start: string; end: string } {
   const today = new Date();
@@ -69,22 +65,23 @@ function getDateRange(preset: RangePreset, programStart: string | null): { start
   }
 }
 
-// ─── Section toggle data ────────────────────────────────────────────────────
+// ─── Included sections (fixed, not user-configurable) ──────────────────────
 
-const SECTION_TOGGLES: { key: keyof ProviderReportConfig['sections']; label: string; defaultOn: boolean }[] = [
-  { key: 'weight', label: 'Weight Trend', defaultOn: true },
-  { key: 'adherence', label: 'Medication Adherence', defaultOn: true },
-  { key: 'sideEffects', label: 'Side Effect Profile', defaultOn: true },
-  { key: 'nutrition', label: 'Nutrition Summary', defaultOn: true },
-  { key: 'activity', label: 'Activity & Exercise', defaultOn: true },
-  { key: 'biometrics', label: 'Biometrics (HealthKit)', defaultOn: true },
-  { key: 'checkins', label: 'Weekly Check-in Trends', defaultOn: false },
+const INCLUDED_SECTIONS = [
+  'Weight Trend',
+  'Medication Adherence',
+  'Side Effect Profile',
+  'Nutrition Summary',
+  'Activity & Exercise',
+  'Biometrics (HealthKit)',
+  'Clinical Flags',
+  'AI Summary',
 ];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ProviderReportScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { profile, isLoading: profileLoading } = useProfile();
@@ -94,17 +91,7 @@ export default function ProviderReportScreen() {
     injectionLogs, weeklyCheckins, foodNoiseLogs,
   } = useLogStore();
 
-  // ── Config state ──────────────────────────────────────────────────────────
-
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
-  const [sections, setSections] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    for (const t of SECTION_TOGGLES) init[t.key] = t.defaultOn;
-    return init;
-  });
-  const [providerName, setProviderName] = useState('');
-  const [practiceName, setPracticeName] = useState('');
-  const [includeAi, setIncludeAi] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatingStage, setGeneratingStage] = useState('');
 
@@ -112,10 +99,6 @@ export default function ProviderReportScreen() {
     () => getDateRange(rangePreset, profile?.startDate ?? null),
     [rangePreset, profile?.startDate],
   );
-
-  const toggleSection = useCallback((key: string) => {
-    setSections(prev => ({ ...prev, [key]: !prev[key] }));
-  }, []);
 
   // ── Generate PDF ──────────────────────────────────────────────────────────
 
@@ -139,56 +122,45 @@ export default function ProviderReportScreen() {
         cursor.setDate(cursor.getDate() + 1);
       }
 
-      // 2. Build config
+      // 2. Build config — all sections always on
       const config: ProviderReportConfig = {
         dateRange,
         sections: {
-          weight: sections.weight ?? true,
-          adherence: sections.adherence ?? true,
-          sideEffects: sections.sideEffects ?? true,
-          nutrition: sections.nutrition ?? true,
-          activity: sections.activity ?? true,
-          biometrics: sections.biometrics ?? true,
-          checkins: sections.checkins ?? false,
+          weight: true,
+          adherence: true,
+          sideEffects: true,
+          nutrition: true,
+          activity: true,
+          biometrics: true,
+          checkins: true,
         },
-        providerName: providerName.trim() || undefined,
-        practiceName: practiceName.trim() || undefined,
-        includeAiSummary: includeAi,
+        includeAiSummary: true,
         includeDetailedTables: false,
       };
 
       // 3. Compute report data
       const input: ProviderReportInput = {
-        foodLogs,
-        weightLogs,
-        activityLogs,
-        sideEffectLogs,
-        injectionLogs,
-        weeklyCheckins,
-        foodNoiseLogs,
-        profile,
-        targets,
+        foodLogs, weightLogs, activityLogs, sideEffectLogs,
+        injectionLogs, weeklyCheckins, foodNoiseLogs,
+        profile, targets,
         wearable: wearable ?? {},
         waterByDate,
       };
 
       const reportData = computeProviderReport(input, config);
 
-      // 4. Optional AI summary
+      // 4. AI summary
       let aiSummary: string | null = null;
-      if (includeAi) {
-        setGeneratingStage('Generating AI summary...');
-        try {
-          // Reuse weekly summary compute for AI insight generation
-          const weeklySummary = computeWeeklySummary(
-            { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs },
-            targets,
-            waterByDate,
-          );
-          aiSummary = await generateWeeklyInsight(weeklySummary, profile);
-        } catch {
-          aiSummary = null;
-        }
+      setGeneratingStage('Generating AI summary...');
+      try {
+        const weeklySummary = computeWeeklySummary(
+          { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs },
+          targets,
+          waterByDate,
+        );
+        aiSummary = await generateWeeklyInsight(weeklySummary, profile);
+      } catch {
+        aiSummary = null;
       }
 
       // 5. Build HTML & generate PDF
@@ -196,18 +168,25 @@ export default function ProviderReportScreen() {
       const html = buildProviderReportHtml(reportData, config, aiSummary);
       const { uri } = await Print.printToFileAsync({ html, width: 612, height: 792 });
 
-      // Reset spinner before share sheet — shareAsync may never resolve on iOS dismiss
       setGenerating(false);
       setGeneratingStage('');
 
-      // 6. Share (fire-and-forget so iOS share sheet dismiss doesn't hang)
-      Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' }).catch(() => {});
+      // 6. Navigate to preview screen with the PDF URI
+      router.push({
+        pathname: '/entry/report-preview',
+        params: {
+          pdfUri: uri,
+          rangeStart: dateRange.start,
+          rangeEnd: dateRange.end,
+        },
+      } as any);
     } catch (err) {
       console.warn('Provider report error:', err);
+      Alert.alert('Error', 'Something went wrong generating the report. Please try again.');
       setGenerating(false);
       setGeneratingStage('');
     }
-  }, [profile, profileLoading, dateRange, sections, providerName, practiceName, includeAi,
+  }, [profile, profileLoading, dateRange,
       foodLogs, weightLogs, activityLogs, sideEffectLogs, injectionLogs,
       weeklyCheckins, foodNoiseLogs, targets, wearable]);
 
@@ -258,74 +237,23 @@ export default function ProviderReportScreen() {
           </Text>
         </View>
 
-        {/* Sections */}
+        {/* What's Included */}
         <View style={s.sectionCard}>
-          <Text style={s.sectionLabel}>REPORT SECTIONS</Text>
-          <View style={s.toggleList}>
-            {/* Always-on sections */}
-            <View style={s.toggleRow}>
-              <Text style={[s.toggleLabel, { color: colors.textSecondary }]}>Patient Summary & Medication</Text>
-              <Text style={[s.alwaysOnText]}>Always included</Text>
+          <Text style={s.sectionLabel}>INCLUDED IN REPORT</Text>
+          {INCLUDED_SECTIONS.map((label, i) => (
+            <View key={label} style={[s.includedRow, i === INCLUDED_SECTIONS.length - 1 && { borderBottomWidth: 0 }]}>
+              <Ionicons name="checkmark-circle" size={18} color={ORANGE} />
+              <Text style={s.includedLabel}>{label}</Text>
             </View>
-
-            {SECTION_TOGGLES.map(t => (
-              <View key={t.key} style={s.toggleRow}>
-                <Text style={s.toggleLabel}>{t.label}</Text>
-                <Switch
-                  value={sections[t.key] ?? t.defaultOn}
-                  onValueChange={() => toggleSection(t.key)}
-                  trackColor={{ false: 'rgba(255,255,255,0.15)', true: ORANGE + '80' }}
-                  thumbColor={sections[t.key] ? ORANGE : '#999'}
-                  ios_backgroundColor="rgba(255,255,255,0.15)"
-                />
-              </View>
-            ))}
-
-            {/* Clinical flags always on */}
-            <View style={s.toggleRow}>
-              <Text style={[s.toggleLabel, { color: colors.textSecondary }]}>Clinical Flags</Text>
-              <Text style={s.alwaysOnText}>Always included</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
-        {/* Provider Info */}
-        <View style={s.sectionCard}>
-          <Text style={s.sectionLabel}>PROVIDER INFORMATION (OPTIONAL)</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Provider Name (e.g., Dr. Jane Smith)"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={providerName}
-            onChangeText={setProviderName}
-            returnKeyType="next"
-          />
-          <TextInput
-            style={s.input}
-            placeholder="Practice / Clinic"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={practiceName}
-            onChangeText={setPracticeName}
-            returnKeyType="done"
-          />
-        </View>
-
-        {/* Options */}
-        <View style={s.sectionCard}>
-          <Text style={s.sectionLabel}>OPTIONS</Text>
-          <View style={s.toggleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.toggleLabel}>Include AI Summary</Text>
-              <Text style={s.toggleSub}>AI-generated clinical narrative at the top</Text>
-            </View>
-            <Switch
-              value={includeAi}
-              onValueChange={setIncludeAi}
-              trackColor={{ false: 'rgba(255,255,255,0.15)', true: ORANGE + '80' }}
-              thumbColor={includeAi ? ORANGE : '#999'}
-              ios_backgroundColor="rgba(255,255,255,0.15)"
-            />
-          </View>
+        {/* Info note */}
+        <View style={s.infoCard}>
+          <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.4)" />
+          <Text style={s.infoText}>
+            Your report includes all logged data for the selected period, clinical flags, and an AI-generated summary for your provider.
+          </Text>
         </View>
       </ScrollView>
 
@@ -391,7 +319,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
 
-  // Section card
   sectionCard: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
@@ -423,30 +350,36 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   pillTextActive: { color: '#fff' },
   rangeSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: FF },
 
-  // Toggles
-  toggleList: { gap: 2 },
-  toggleRow: {
+  // Included sections list
+  includedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  toggleLabel: { fontSize: 14, color: '#fff', fontFamily: FF },
-  toggleSub: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2, fontFamily: FF },
-  alwaysOnText: { fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: FF },
-
-  // Inputs
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  includedLabel: {
     fontSize: 14,
     color: '#fff',
     fontFamily: FF,
-    marginBottom: 8,
+  },
+
+  // Info card
+  infoCard: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    marginBottom: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: FF,
   },
 
   // Footer

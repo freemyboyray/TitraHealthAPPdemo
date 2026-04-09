@@ -138,6 +138,57 @@ export type Database = {
           },
         ]
       }
+      courses: {
+        Row: {
+          accent_color: string
+          category: string
+          created_at: string
+          estimated_minutes: number
+          icon_name: string
+          icon_set: string
+          id: string
+          is_published: boolean
+          lesson_count: number
+          phase_unlock: string | null
+          slug: string
+          sort_order: number
+          subtitle: string | null
+          title: string
+        }
+        Insert: {
+          accent_color?: string
+          category: string
+          created_at?: string
+          estimated_minutes?: number
+          icon_name: string
+          icon_set?: string
+          id?: string
+          is_published?: boolean
+          lesson_count?: number
+          phase_unlock?: string | null
+          slug: string
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+        }
+        Update: {
+          accent_color?: string
+          category?: string
+          created_at?: string
+          estimated_minutes?: number
+          icon_name?: string
+          icon_set?: string
+          id?: string
+          is_published?: boolean
+          lesson_count?: number
+          phase_unlock?: string | null
+          slug?: string
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       daily_article_schedule: {
         Row: {
           article_id: string
@@ -406,6 +457,232 @@ export type Database = {
           },
         ]
       }
+      journal_entries: {
+        Row: {
+          content_json: Json
+          entry_type: string
+          id: string
+          logged_at: string
+          mood_after: number | null
+          mood_before: number | null
+          prompt_id: string | null
+          user_id: string
+        }
+        Insert: {
+          content_json: Json
+          entry_type?: string
+          id?: string
+          logged_at?: string
+          mood_after?: number | null
+          mood_before?: number | null
+          prompt_id?: string | null
+          user_id: string
+        }
+        Update: {
+          content_json?: Json
+          entry_type?: string
+          id?: string
+          logged_at?: string
+          mood_after?: number | null
+          mood_before?: number | null
+          prompt_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_progress: {
+        Row: {
+          completed_at: string
+          course_id: string
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          course_id: string
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          course_id?: string
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_progress_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lessons: {
+        Row: {
+          body_markdown: string | null
+          content_json: Json | null
+          content_type: string
+          course_id: string
+          estimated_minutes: number
+          id: string
+          is_published: boolean
+          slug: string
+          sort_order: number
+          subtitle: string | null
+          title: string
+        }
+        Insert: {
+          body_markdown?: string | null
+          content_json?: Json | null
+          content_type?: string
+          course_id: string
+          estimated_minutes?: number
+          id?: string
+          is_published?: boolean
+          slug: string
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+        }
+        Update: {
+          body_markdown?: string | null
+          content_json?: Json | null
+          content_type?: string
+          course_id?: string
+          estimated_minutes?: number
+          id?: string
+          is_published?: boolean
+          slug?: string
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_changes: {
+        Row: {
+          change_type: string
+          changed_at: string
+          dose_start_date: string | null
+          first_dose_date: string | null
+          id: string
+          last_dose_date: string | null
+          new_brand: string
+          new_dose_mg: number
+          new_frequency_days: number
+          new_glp1_type: string
+          prev_brand: string | null
+          prev_dose_mg: number | null
+          prev_frequency_days: number | null
+          prev_glp1_type: string | null
+          user_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          dose_start_date?: string | null
+          first_dose_date?: string | null
+          id?: string
+          last_dose_date?: string | null
+          new_brand: string
+          new_dose_mg: number
+          new_frequency_days: number
+          new_glp1_type: string
+          prev_brand?: string | null
+          prev_dose_mg?: number | null
+          prev_frequency_days?: number | null
+          prev_glp1_type?: string | null
+          user_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          dose_start_date?: string | null
+          first_dose_date?: string | null
+          id?: string
+          last_dose_date?: string | null
+          new_brand?: string
+          new_dose_mg?: number
+          new_frequency_days?: number
+          new_glp1_type?: string
+          prev_brand?: string | null
+          prev_dose_mg?: number | null
+          prev_frequency_days?: number | null
+          prev_glp1_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mindfulness_sessions: {
+        Row: {
+          context: string | null
+          duration_seconds: number
+          id: string
+          logged_at: string
+          session_type: string
+          user_id: string
+        }
+        Insert: {
+          context?: string | null
+          duration_seconds: number
+          id?: string
+          logged_at?: string
+          session_type: string
+          user_id: string
+        }
+        Update: {
+          context?: string | null
+          duration_seconds?: number
+          id?: string
+          logged_at?: string
+          session_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mindfulness_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           activity_level: string | null
@@ -433,6 +710,14 @@ export type Database = {
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           peer_comparison_opted_in: boolean
           peer_comparison_opted_in_at: string | null
+          pending_dose_mg: number | null
+          pending_dose_time: string | null
+          pending_first_dose_date: string | null
+          pending_frequency_days: number | null
+          pending_glp1_type: string | null
+          pending_last_dose_old: string | null
+          pending_medication_brand: string | null
+          pending_route: string | null
           program_start_date: string | null
           route_of_administration: string | null
           sex: string | null
@@ -469,6 +754,14 @@ export type Database = {
             | null
           peer_comparison_opted_in?: boolean
           peer_comparison_opted_in_at?: string | null
+          pending_dose_mg?: number | null
+          pending_dose_time?: string | null
+          pending_first_dose_date?: string | null
+          pending_frequency_days?: number | null
+          pending_glp1_type?: string | null
+          pending_last_dose_old?: string | null
+          pending_medication_brand?: string | null
+          pending_route?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
           sex?: string | null
@@ -505,6 +798,14 @@ export type Database = {
             | null
           peer_comparison_opted_in?: boolean
           peer_comparison_opted_in_at?: string | null
+          pending_dose_mg?: number | null
+          pending_dose_time?: string | null
+          pending_first_dose_date?: string | null
+          pending_frequency_days?: number | null
+          pending_glp1_type?: string | null
+          pending_last_dose_old?: string | null
+          pending_medication_brand?: string | null
+          pending_route?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
           sex?: string | null

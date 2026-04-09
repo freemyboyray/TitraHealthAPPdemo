@@ -11,6 +11,9 @@ import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = '@titrahealth_profile';
 const DRAFT_KEY   = '@titrahealth_profile_draft';
+const TARGETS_VERSION_KEY = '@titrahealth_targets_version';
+// Bump this when target formulas change to force a one-time server-side recomputation
+const TARGETS_VERSION = 2;
 
 // ─── Context Type ─────────────────────────────────────────────────────────────
 
@@ -21,6 +24,8 @@ type ProfileContextValue = {
   completeOnboarding: () => Promise<void>;
   resetProfile: () => Promise<void>;
   updateProfile: (fields: Partial<FullUserProfile>) => Promise<void>;
+  /** Apply a pending medication transition — copies pending fields to active, clears pending. */
+  applyPendingTransition: () => Promise<void>;
   /** Directly set the in-memory profile (e.g. demo mode). */
   setProfile: (p: FullUserProfile | null) => void;
   isLoading: boolean;
@@ -79,6 +84,16 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     tosVersion: row.tos_version ?? undefined,
     privacyAcceptedAt: row.privacy_accepted_at ?? undefined,
     privacyVersion: row.privacy_version ?? undefined,
+
+    // Pending medication transition
+    pendingMedicationBrand: row.pending_medication_brand ?? null,
+    pendingGlp1Type:        row.pending_glp1_type ?? null,
+    pendingRoute:           row.pending_route ?? null,
+    pendingDoseMg:          row.pending_dose_mg ?? null,
+    pendingFrequencyDays:   row.pending_frequency_days ?? null,
+    pendingDoseTime:        row.pending_dose_time ?? null,
+    pendingFirstDoseDate:   row.pending_first_dose_date ?? null,
+    pendingLastDoseOld:     row.pending_last_dose_old ?? null,
   };
 }
 
@@ -132,6 +147,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     init();
   }, []);
+
+  // One-time targets recalculation when formula version changes.
+  // Existing users get their Supabase user_goals row recomputed on next launch.
+  useEffect(() => {
+    if (!profile) return;
+    (async () => {
+      const stored = await AsyncStorage.getItem(TARGETS_VERSION_KEY);
+      if (stored === String(TARGETS_VERSION)) return;
+      // Trigger recomputation by "updating" weightLbs to its current value.
+      // updateProfile sees weightLbs in NUTRITION_AFFECTING → recomputes user_goals.
+      await updateProfile({ weightLbs: profile.weightLbs });
+      await AsyncStorage.setItem(TARGETS_VERSION_KEY, String(TARGETS_VERSION));
+    })();
+  }, [profile != null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateDraft = (fields: Partial<FullUserProfile>) => {
     setDraft((prev) => {
@@ -241,6 +270,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         row.height_inches = updated.heightFt * 12 + updated.heightIn;
       }
 
+      // Pending medication transition fields
+      if (fields.pendingMedicationBrand !== undefined) row.pending_medication_brand = fields.pendingMedicationBrand;
+      if (fields.pendingGlp1Type        !== undefined) row.pending_glp1_type        = fields.pendingGlp1Type;
+      if (fields.pendingRoute           !== undefined) row.pending_route            = fields.pendingRoute;
+      if (fields.pendingDoseMg          !== undefined) row.pending_dose_mg          = fields.pendingDoseMg;
+      if (fields.pendingFrequencyDays   !== undefined) row.pending_frequency_days   = fields.pendingFrequencyDays;
+      if (fields.pendingDoseTime        !== undefined) row.pending_dose_time        = fields.pendingDoseTime;
+      if (fields.pendingFirstDoseDate   !== undefined) row.pending_first_dose_date  = fields.pendingFirstDoseDate;
+      if (fields.pendingLastDoseOld     !== undefined) row.pending_last_dose_old    = fields.pendingLastDoseOld;
+
       if (Object.keys(row).length > 0) {
         await supabase.from('profiles').update(row).eq('id', user.id);
       }
@@ -250,6 +289,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         'heightFt','heightIn','heightCm','weightLbs','weightKg','startWeightLbs',
         'activityLevel','goalWeightLbs','goalWeightKg','targetWeeklyLossLbs',
         'sex','birthday',
+        // Medication fields affect protein, water, and calorie targets
+        'glp1Type','doseMg','glp1Status','injectionFrequencyDays',
       ]);
       if (Object.keys(fields).some(k => NUTRITION_AFFECTING.has(k))) {
         const baseTargets = computeBaseTargets(updated);
@@ -265,6 +306,39 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const applyPendingTransition = async () => {
+    if (!profile?.pendingFirstDoseDate || !profile?.pendingMedicationBrand) return;
+
+    // Set lastInjectionDate = firstDoseDate - freq so that
+    // lastInjDate + freq = firstDoseDate → "Due today" on transition day
+    const freq = profile.pendingFrequencyDays ?? 7;
+    const firstDose = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
+    const fakeLastDate = new Date(firstDose);
+    fakeLastDate.setDate(fakeLastDate.getDate() - freq);
+    const fakeLastDateStr = `${fakeLastDate.getFullYear()}-${String(fakeLastDate.getMonth() + 1).padStart(2, '0')}-${String(fakeLastDate.getDate()).padStart(2, '0')}`;
+
+    await updateProfile({
+      // Apply new medication
+      medicationBrand: profile.pendingMedicationBrand,
+      glp1Type: profile.pendingGlp1Type as any,
+      routeOfAdministration: profile.pendingRoute as any,
+      doseMg: profile.pendingDoseMg!,
+      injectionFrequencyDays: profile.pendingFrequencyDays!,
+      doseTime: profile.pendingDoseTime ?? '',
+      lastInjectionDate: fakeLastDateStr,
+      doseStartDate: profile.pendingFirstDoseDate,
+      // Clear pending fields
+      pendingMedicationBrand: null,
+      pendingGlp1Type: null,
+      pendingRoute: null,
+      pendingDoseMg: null,
+      pendingFrequencyDays: null,
+      pendingDoseTime: null,
+      pendingFirstDoseDate: null,
+      pendingLastDoseOld: null,
+    });
+  };
+
   const resetProfile = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     await AsyncStorage.removeItem(DRAFT_KEY);
@@ -278,7 +352,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider
-      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, setProfile, isLoading }}>
+      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, applyPendingTransition, setProfile, isLoading }}>
       {children}
     </ProfileContext.Provider>
   );

@@ -7,12 +7,14 @@ import { usePreferencesStore } from '@/stores/preferences-store';
 import { useRemindersStore } from '@/stores/reminders-store';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useLogStore } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { useMemo, useState } from 'react';
 import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
+import { supabase } from '@/lib/supabase';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -66,15 +68,33 @@ export default function SettingsScreen() {
     : p.injectionFrequencyDays === 14 ? 'biweekly'
     : `every ${p.injectionFrequencyDays}d`
     : '';
-  const nextDose = p ? computeNextDose(p.lastInjectionDate, p.injectionFrequencyDays) : null;
-  const treatmentLine1 = p ? `${brandName} ${p.doseMg} mg · ${freqLabel}` : '-';
-  const treatmentLine2 = nextDose ? `Next dose: ${nextDose}` : '';
+  // If there's a pending transition, show that as the next dose instead of the stale cycle
+  const hasPendingTransition = p?.pendingFirstDoseDate != null;
+  const nextDose = hasPendingTransition
+    ? (() => {
+        const d = new Date(p!.pendingFirstDoseDate! + 'T12:00:00');
+        const today = new Date(); today.setHours(12, 0, 0, 0);
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        const diff = Math.ceil((d.getTime() - today.getTime()) / 86400000);
+        if (diff === 1) return 'Tomorrow';
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      })()
+    : p ? computeNextDose(p.lastInjectionDate, p.injectionFrequencyDays) : null;
 
-  // Body & Goals summary
+  const pendingBrandName = p?.pendingMedicationBrand ? (BRAND_LABEL[p.pendingMedicationBrand] ?? p.pendingMedicationBrand) : null;
+  const treatmentLine1 = p ? `${brandName} ${p.doseMg} mg · ${freqLabel}` : '-';
+  const treatmentLine2 = hasPendingTransition
+    ? `Switching to ${pendingBrandName} ${p!.pendingDoseMg}mg · Next dose: ${nextDose}`
+    : nextDose ? `Next dose: ${nextDose}` : '';
+
+  // Body & Goals summary — prefer latest weight log over profile
+  const latestWeightLog = useLogStore((s) => s.weightLogs[0]);
+  const displayWeightLbs = latestWeightLog?.weight_lbs ?? p?.weightLbs ?? 0;
+  const displayWeightKg = Math.round(displayWeightLbs * 0.453592 * 10) / 10;
   const bodyLine = p
     ? p.unitSystem === 'imperial'
-      ? `${p.heightFt}'${p.heightIn}" · ${p.weightLbs} lbs`
-      : `${p.heightCm} cm · ${p.weightKg} kg`
+      ? `${p.heightFt}'${p.heightIn}" · ${displayWeightLbs} lbs`
+      : `${p.heightCm} cm · ${displayWeightKg} kg`
     : '-';
   const goalsLine = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '';
 
@@ -151,6 +171,8 @@ export default function SettingsScreen() {
 
   const displayName = (authProfile as any)?.username ?? (authProfile as any)?.full_name ?? 'You';
   const displayEmail = session?.user.email ?? '';
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(displayName);
 
   return (
     <TabScreenWrapper>
@@ -162,15 +184,40 @@ export default function SettingsScreen() {
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
         {/* Profile card */}
-        <View style={s.profileCard}>
+        <Pressable style={s.profileCard} onPress={() => { setNameInput(displayName); setEditingName(true); }}>
           <View style={s.avatar}>
             <Text style={s.avatarLetter}>{displayName.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.profileName}>{displayName}</Text>
+            {editingName ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TextInput
+                  style={[s.profileName, { flex: 1, borderBottomWidth: 1, borderBottomColor: ORANGE, paddingBottom: 4 }]}
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={async () => {
+                    const trimmed = nameInput.trim();
+                    if (trimmed) {
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (user) {
+                        await supabase.from('profiles').update({ full_name: trimmed }).eq('id', user.id);
+                        await useUserStore.getState().loadProfile();
+                      }
+                    }
+                    setEditingName(false);
+                  }}
+                  onBlur={() => setEditingName(false)}
+                />
+              </View>
+            ) : (
+              <Text style={s.profileName}>{displayName}</Text>
+            )}
             {displayEmail ? <Text style={s.profileEmail}>{displayEmail}</Text> : null}
           </View>
-        </View>
+          {!editingName && <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />}
+        </Pressable>
 
         {/* MY PLAN section */}
         <Text style={s.sectionLabel}>MY PLAN</Text>

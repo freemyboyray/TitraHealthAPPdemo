@@ -151,7 +151,7 @@ export default function ScheduleScreen() {
                 <DateTimePicker
                   value={doseTime}
                   mode="time"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  display="spinner"
                   onChange={(_, date) => { if (date) setDoseTime(date); }}
                   style={s.datePicker}
                 />

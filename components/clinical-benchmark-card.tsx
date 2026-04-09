@@ -40,6 +40,40 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
   const { openAiChat } = useUiStore();
   const [svgWidth, setSvgWidth] = useState(0);
 
+  // All hooks must be called unconditionally (before any early returns).
+  // We compute userPts here so the hook always receives consistent data.
+  const isFullChart = result.hasEnoughData && !result.unknownMedication && !result.noTrialData && !result.tooEarly;
+  const _userPts: { x: number; y: number }[] = useMemo(() => {
+    if (!isFullChart || svgWidth <= 0) return [];
+    const ut = result.userTrajectory ?? [];
+    const maxW = Math.max(result.trialMaxWeek ?? 12, result.treatmentWeek ?? 0, 12);
+    const pw = Math.max(0, svgWidth - ML - MR);
+    const allP = [...(result.trialTrajectory ?? []).map((p: any) => p.high), ...ut.map((p: any) => p.lossPct), 0];
+    const yR = (Math.max(...allP) * 1.15) || 25;
+    return ut.map((p: any) => ({ x: ML + (p.week / maxW) * pw, y: MT + CHART_HEIGHT - (p.lossPct / yR) * CHART_HEIGHT }));
+  }, [isFullChart, svgWidth, result.userTrajectory, result.trialTrajectory, result.trialMaxWeek, result.treatmentWeek]);
+
+  const tooltipFormatter = useCallback((idx: number) => {
+    const ut = result.userTrajectory;
+    if (!ut || idx < 0 || idx >= ut.length) return { title: '', subtitle: '' };
+    const pt = ut[idx];
+    const trialAtWeek = result.trialTrajectory ? interpolateBenchmarkBand(result.trialTrajectory, pt.week) : null;
+    const trialStr = trialAtWeek ? `Trial: ${trialAtWeek.mean}%` : '';
+    return {
+      title: `${pt.lossPct}% lost`,
+      subtitle: `Week ${pt.week}${trialStr ? ` · ${trialStr}` : ''}`,
+    };
+  }, [result.userTrajectory, result.trialTrajectory]);
+
+  const scrub = useChartScrub({
+    points: _userPts,
+    chartWidth: svgWidth,
+    marginLeft: ML,
+    marginRight: MR,
+    mode: 'longpress-only',
+    enabled: _userPts.length > 0 && svgWidth > 0,
+  });
+
   const onLayout = (e: LayoutChangeEvent) => setSvgWidth(e.nativeEvent.layout.width);
 
   const handleLongPress = () => {
@@ -170,25 +204,7 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
       })()
     : [];
 
-  const tooltipFormatter = useCallback((idx: number) => {
-    if (!userTrajectory || idx < 0 || idx >= userTrajectory.length) return { title: '', subtitle: '' };
-    const pt = userTrajectory[idx];
-    const trialAtWeek = interpolateBenchmarkBand(trialTierData, pt.week);
-    const trialStr = trialAtWeek ? `Trial: ${trialAtWeek.mean}%` : '';
-    return {
-      title: `${pt.lossPct}% lost`,
-      subtitle: `Week ${pt.week}${trialStr ? ` · ${trialStr}` : ''}`,
-    };
-  }, [userTrajectory, trialTierData]);
-
-  const scrub = useChartScrub({
-    points: userPts,
-    chartWidth: svgWidth,
-    marginLeft: ML,
-    marginRight: MR,
-    mode: 'longpress-only',
-    enabled: userPts.length > 0 && svgWidth > 0,
-  });
+  // userPts for rendering (same as _userPts computed above for the hook)
 
   // Friendly trial label: use brand name if available, otherwise trial name
   const brandLabel = medicationBrand && medicationBrand !== 'other'

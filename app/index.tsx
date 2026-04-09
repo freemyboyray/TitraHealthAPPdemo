@@ -17,8 +17,19 @@ export default function Index() {
   const { isLoading, profile } = useProfile();
   const { session, sessionLoaded, demoMode } = useUserStore();
   const { injectionLogs } = useLogStore();
+  const logStoreHydrated = useLogStore((s) => s.hydrated);
+  const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
   const { lastWeeklySummaryDate } = usePreferencesStore();
   const router = useRouter();
+
+  // Kick off data fetch as soon as we have a valid session + profile
+  useEffect(() => {
+    if (!sessionLoaded || (!session && !demoMode)) return;
+    if (isLoading || !profile) return;
+    if (!logStoreHydrated) {
+      fetchInsightsData();
+    }
+  }, [sessionLoaded, session, demoMode, isLoading, profile, logStoreHydrated]);
 
   useEffect(() => {
     if (!sessionLoaded) return;
@@ -38,6 +49,10 @@ export default function Index() {
       return;
     }
 
+    // Wait for log store to finish loading so the home screen renders
+    // with real data immediately — no flash of stale state
+    if (!logStoreHydrated) return;
+
     // Shot-day gate: show weekly summary once per calendar day on injection day
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -46,7 +61,9 @@ export default function Index() {
     const nextShot = lastInjDate ? new Date(new Date(lastInjDate + 'T00:00:00').getTime() + freq * 86400000) : null;
     const ns = nextShot;
     const nextShotStr = ns ? `${ns.getFullYear()}-${String(ns.getMonth() + 1).padStart(2, '0')}-${String(ns.getDate()).padStart(2, '0')}` : null;
-    const isShotDay = nextShotStr === today;
+    // During washout (pending transition with future start date), no active cycle
+    const inWashout = profile.pendingFirstDoseDate != null && today < profile.pendingFirstDoseDate;
+    const isShotDay = !inWashout && nextShotStr === today;
     const alreadyShown = lastWeeklySummaryDate === today;
 
     if (freq >= 7 && isShotDay && !alreadyShown) {
@@ -54,13 +71,13 @@ export default function Index() {
     } else {
       router.replace('/(tabs)');
     }
-  }, [sessionLoaded, session, isLoading, profile, injectionLogs]);
+  }, [sessionLoaded, session, isLoading, profile, injectionLogs, logStoreHydrated]);
 
   return (
     <View style={s.container}>
-      <Text style={s.wordmark}>titra</Text>
-      <Text style={s.tagline}>GLP-1 Companion</Text>
-      {isLoading && <ActivityIndicator style={s.spinner} color="#FF742A" />}
+      <Text style={s.wordmark}>Titra Health</Text>
+      <Text style={s.tagline}>Personalized GLP-1 Management</Text>
+      <ActivityIndicator style={s.spinner} color="#FF742A" />
     </View>
   );
 }

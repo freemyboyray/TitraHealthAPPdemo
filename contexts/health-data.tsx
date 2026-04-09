@@ -71,7 +71,10 @@ function buildInitialState(profile: FullUserProfile): HealthState {
   const recoveryScore = computeRecovery(STUB_WEARABLE, phase);
   const targets = getDailyTargets(profile);
   const supportScore = computeGlp1Support(ZERO_ACTUALS, targets);
-  const focuses = generateFocuses(ZERO_ACTUALS, targets, STUB_WEARABLE, daysSinceShot);
+  // Pass isInjectionDue: false — the home screen handles injection reminders
+  // separately via isShotDay logic. Without this, the fallback
+  // (daysSinceShot >= injFreqDays) causes injection to show up every day.
+  const focuses = generateFocuses(ZERO_ACTUALS, targets, STUB_WEARABLE, daysSinceShot, undefined, false);
   return {
     profile,
     wearable: STUB_WEARABLE,
@@ -90,7 +93,7 @@ function recompute(state: HealthState): HealthState {
   const recoveryScore = computeRecovery(state.wearable, phase);
   const targets = getDailyTargets(state.profile);
   const supportScore = computeGlp1Support(state.actuals, targets);
-  const focuses = generateFocuses(state.actuals, targets, state.wearable, daysSinceShot);
+  const focuses = generateFocuses(state.actuals, targets, state.wearable, daysSinceShot, undefined, false);
   return { ...state, targets, recoveryScore, supportScore, focuses };
 }
 

@@ -944,11 +944,6 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return dayLabels.map((_, i) => {
       const d = new Date(injDate.getTime() + i * 24 * 3600000);
-      const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const diff = Math.round((dDay.getTime() - today.getTime()) / 86400000);
-      if (diff === 0) return 'Today';
-      if (diff === 1) return 'Tmrw';
-      if (diff === -1) return 'Yday';
       return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
     });
   }, [injTimestamp, isDailyDrug, dayLabels]);
@@ -2665,7 +2660,7 @@ export default function InsightsScreen() {
   const { onScroll, onScrollEnd } = useTabBarVisibility();
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, weeklyCheckins, peerComparison, fetchInsightsData } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, deleteWeightLog, weeklyCheckins, peerComparison, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
@@ -3164,7 +3159,12 @@ export default function InsightsScreen() {
                   )}
                 </ProgressStatCard>
               </View>
-              <RecentLogsCard entries={progressLogs} />
+              <RecentLogsCard entries={progressLogs} onDelete={(id) => {
+                Alert.alert('Delete Weight Log', 'Remove this weight entry?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => deleteWeightLog(id) },
+                ]);
+              }} />
               <View style={{ marginTop: 16 }}>
                 <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
                 <WeeklyCheckinCard lastLoggedAt={lastCheckinLoggedAt} />

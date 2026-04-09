@@ -70,7 +70,11 @@ export default function CaptureFoodScreen() {
   async function handleCaptureShutter() {
     if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.6 });
+      const photo = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.6,
+        imageType: 'jpg',
+      });
       if (photo?.base64 && photo.uri) {
         setPhotoBase64(photo.base64);
         setPhotoUri(photo.uri);
@@ -84,6 +88,7 @@ export default function CaptureFoodScreen() {
   async function handlePickLibrary() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsEditing: true,
       base64: true,
       quality: 0.6,
     });
@@ -98,7 +103,7 @@ export default function CaptureFoodScreen() {
     if (!photoBase64) return;
     // Dispatch everything to background — vision + USDA lookup happen in the store
     useFoodTaskStore.getState().startTask({ source: 'camera', photoBase64 });
-    router.back();
+    router.dismissTo('/(tabs)');
   }
 
   // ── Camera phase ───────────────────────────────────────────────────────────

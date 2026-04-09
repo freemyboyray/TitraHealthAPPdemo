@@ -89,6 +89,16 @@ export type FullUserProfile = {
   tosVersion?: string;              // e.g. '1.0'
   privacyAcceptedAt?: string;       // ISO 8601 timestamp
   privacyVersion?: string;          // e.g. '1.0'
+
+  // Pending medication transition (null when no transition scheduled)
+  pendingMedicationBrand?: MedicationBrand | null;
+  pendingGlp1Type?: string | null;
+  pendingRoute?: string | null;
+  pendingDoseMg?: number | null;
+  pendingFrequencyDays?: number | null;
+  pendingDoseTime?: string | null;
+  pendingFirstDoseDate?: string | null;   // YYYY-MM-DD — first dose of new med
+  pendingLastDoseOld?: string | null;     // YYYY-MM-DD — last dose of old med
 };
 
 export type ProfileDraft = Partial<FullUserProfile>;

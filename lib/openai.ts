@@ -153,9 +153,11 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
+      console.log(`[OpenAI] attempt ${attempt + 1}/${MAX_RETRIES + 1}, model: ${body.model}`);
       const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
 
       if (error) {
+        console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, error.message, 'context:', JSON.stringify(error).slice(0, 300));
         lastError = new Error(`OpenAI proxy error: ${error.message}`);
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
@@ -164,9 +166,22 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
         throw lastError;
       }
 
+      // Check if the proxy wrapped an upstream OpenAI error
+      if (data?.openai_error) {
+        console.error(`[OpenAI] upstream error (attempt ${attempt + 1}): status=${data.openai_status} body=${data.openai_body}`);
+        lastError = new Error(`OpenAI API error ${data.openai_status}: ${data.openai_body}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+          continue;
+        }
+        throw lastError;
+      }
+
+      console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
       return data as Record<string, unknown>;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
       if (attempt < MAX_RETRIES) {
         await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
         continue;
@@ -403,6 +418,19 @@ export async function callGPT4oMiniVision(
   userText: string,
   mediaType: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<string> {
+  // Detect actual image format from base64 magic bytes
+  let detectedType: string = mediaType;
+  if (imageBase64.startsWith('/9j/')) {
+    detectedType = 'image/jpeg';
+  } else if (imageBase64.startsWith('iVBOR')) {
+    detectedType = 'image/png';
+  } else if (imageBase64.startsWith('R0lGO')) {
+    detectedType = 'image/gif';
+  } else if (imageBase64.startsWith('UklGR')) {
+    detectedType = 'image/webp';
+  }
+  console.log('[OpenAI] vision: detectedType=', detectedType, 'first4=', imageBase64.slice(0, 4));
+
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
     max_tokens: 1024,
@@ -414,7 +442,7 @@ export async function callGPT4oMiniVision(
           {
             type: 'image_url',
             image_url: {
-              url: `data:${mediaType};base64,${imageBase64}`,
+              url: `data:${detectedType};base64,${imageBase64}`,
               detail: 'low',
             },
           },

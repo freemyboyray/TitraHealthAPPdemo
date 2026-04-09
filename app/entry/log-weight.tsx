@@ -22,6 +22,7 @@ import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { useProfile } from '@/contexts/profile-context';
 
 const ORANGE = '#FF742A';
 const LB_TO_KG = 0.453592;
@@ -197,6 +198,7 @@ export default function LogWeightScreen() {
   const { loading, addWeightLog } = useLogStore();
   const hkStore = useHealthKitStore();
   const { colors } = useAppTheme();
+  const { updateProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [lbs, setLbs]   = useState(185.0);
@@ -237,8 +239,11 @@ export default function LogWeightScreen() {
 
   async function handleLog() {
     if (loading) return;
-    await addWeightLog(parseFloat(lbs.toFixed(1)));
-    hkStore.writeWeight(parseFloat(lbs.toFixed(1)));
+    const weightLbs = parseFloat(lbs.toFixed(1));
+    await addWeightLog(weightLbs);
+    hkStore.writeWeight(weightLbs);
+    // Update profile weight so targets recalculate automatically
+    await updateProfile({ weightLbs });
     router.back();
   }
 

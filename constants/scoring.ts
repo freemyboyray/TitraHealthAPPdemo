@@ -123,17 +123,17 @@ export function daysBetween(dateA: string, dateB: string): number {
 // ─── Dynamic Daily Targets ────────────────────────────────────────────────────
 
 const stepsMap: Record<ActivityLevel, number> = {
-  sedentary: 6000,
-  light: 8000,
-  active: 10000,
-  very_active: 12000,
+  sedentary: 4000,
+  light: 6000,
+  active: 8000,
+  very_active: 10000,
 };
 
 const activeCaloriesMap: Record<ActivityLevel, number> = {
-  sedentary: 200,
-  light: 300,
-  active: 400,
-  very_active: 500,
+  sedentary: 150,
+  light: 250,
+  active: 350,
+  very_active: 450,
 };
 
 export function getDailyTargets(
@@ -148,54 +148,44 @@ export function getDailyTargets(
 ): DailyTargets {
   const programPhase: ProgramPhase = opts?.programPhase ?? 'initiation';
 
-  // Protein: kg-based (1.2 g/kg/day per 2025 ACLM/ASN/OMA/TOS joint advisory)
-  let proteinG = profile.weightKg * 1.2;
+  // Protein: 1.0 g/kg base — floor of clinical range (1.0–1.6 g/kg)
+  // We start conservative so targets feel achievable with appetite suppression.
+  // Higher doses / later phases get a modest bump, not aggressive stacking.
+  let proteinG = profile.weightKg * 1.0;
 
-  // Medication-specific dose breakpoints (sema vs tize have different dose scales)
+  // Medication-specific: higher doses = slightly more lean mass risk → gentle bump
   if (profile.glp1Type === 'semaglutide') {
-    if (profile.doseMg >= 1.7) proteinG *= 1.15;
-    else if (profile.doseMg >= 1.0) proteinG *= 1.1;
+    if (profile.doseMg >= 1.7) proteinG *= 1.1;
+    else if (profile.doseMg >= 1.0) proteinG *= 1.05;
   } else if (profile.glp1Type === 'tirzepatide') {
-    if (profile.doseMg >= 10) proteinG *= 1.15;
-    else if (profile.doseMg >= 7.5) proteinG *= 1.1;
+    if (profile.doseMg >= 10) proteinG *= 1.1;
+    else if (profile.doseMg >= 7.5) proteinG *= 1.05;
   }
 
-  // Activity level boost
-  if (profile.activityLevel === 'active' || profile.activityLevel === 'very_active') {
-    proteinG *= 1.1;
-  }
-
-  // Program phase multiplier (stacks with dose-based boosts - clinically appropriate)
-  // Titration: higher lean mass loss risk during dose escalation → push protein harder
-  // Maintenance: max lean mass protection at plateau
+  // Program phase: modest increase as user progresses (no aggressive stacking)
   const programPhaseMultiplier: Record<ProgramPhase, number> = {
     initiation:  1.0,
-    titration:   1.15,
-    maintenance: 1.25,
+    titration:   1.05,
+    maintenance: 1.1,
   };
   proteinG *= programPhaseMultiplier[programPhase];
 
-  // Hard cap: 2.0 g/kg/day
-  proteinG = Math.min(proteinG, profile.weightKg * 2.0);
+  // Hard cap: 1.6 g/kg/day (clinical floor-to-mid range)
+  proteinG = Math.min(proteinG, profile.weightKg * 1.6);
 
-  // GLP-1 ramp for new starters (first 3 weeks)
+  // GLP-1 ramp for new starters (first 3 weeks) — ease in gently
   if (profile.glp1Status === 'starting') {
     const startDate = new Date(profile.startDate ?? Date.now());
     const daysSinceStart = Math.floor((Date.now() - startDate.getTime()) / 86400000);
-    if (daysSinceStart < 7) proteinG *= 0.75;
-    else if (daysSinceStart < 21) proteinG *= 0.875;
+    if (daysSinceStart < 7) proteinG *= 0.8;
+    else if (daysSinceStart < 21) proteinG *= 0.9;
   }
 
-  // Hydration: 0.5 oz per lb body weight + GLP-1 medication multipliers, capped at 128 oz (1 gal)
-  let waterOz = profile.weightLbs * 0.5;
-  if (profile.glp1Type === 'semaglutide') waterOz *= 1.1;
-  if (profile.doseMg >= 7.5) waterOz *= 1.1;
-  else if (profile.doseMg >= 5) waterOz *= 1.05;
-  waterOz = Math.min(waterOz, 128); // hard cap: 1 gallon
-  const waterMl = Math.round(waterOz * 29.5735);
+  // Hydration: 30 ml/kg base, capped at 3L (conservative, achievable)
+  const waterMl = Math.min(3000, Math.max(2000, Math.round(profile.weightKg * 30)));
 
-  // Fiber: flat 30g - shot cycle does not affect fiber target
-  const fiberG = 30;
+  // Fiber: 20g — achievable baseline (average American eats ~15g)
+  const fiberG = 20;
 
   // Steps: activity level driven, with maintenance boost to counter metabolic adaptation
   let steps = stepsMap[profile.activityLevel] ?? 8000;
