@@ -5,7 +5,7 @@ export default function EntryLayout() {
     <Stack screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
       <Stack.Screen name="log-weight" />
       <Stack.Screen name="side-effects" />
-      <Stack.Screen name="log-injection" />
+      <Stack.Screen name="log-dose" />
       <Stack.Screen name="log-activity" />
       <Stack.Screen name="search-food" />
       <Stack.Screen name="describe-food" />

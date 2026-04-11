@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -229,6 +229,7 @@ export default function EditTreatmentScreen() {
 
   async function doSave() {
     setSaving(true);
+    try {
     const changeType = getChangeType();
     const newIsDaily = freqDays === 1;
     const brandDisplay = BRAND_DISPLAY_NAMES[brand] ?? brand;
@@ -324,14 +325,15 @@ export default function EditTreatmentScreen() {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        supabase.from('user_goals').upsert({
+        const { error: goalsErr } = await supabase.from('user_goals').upsert({
           user_id: user.id,
           daily_calories_target: newTargets.caloriesTarget,
           daily_protein_g_target: newTargets.proteinG,
           daily_fiber_g_target: newTargets.fiberG,
           daily_steps_target: newTargets.steps,
           active_calories_target: newTargets.activeMinutes * 3,
-        }).then(() => {}, () => {});
+        });
+        if (goalsErr) console.warn('edit-treatment: user_goals.upsert failed:', goalsErr);
       }
 
       // If first dose is today, create injection log
@@ -358,7 +360,7 @@ export default function EditTreatmentScreen() {
     // Record medication change history (for both immediate and future)
     const { data: { user: historyUser } } = await supabase.auth.getUser();
     if (historyUser && changeType !== 'none') {
-      supabase.from('medication_changes').insert({
+      const { error: historyErr } = await supabase.from('medication_changes').insert({
         user_id: historyUser.id,
         change_type: changeType,
         prev_brand: profile!.medicationBrand ?? null,
@@ -372,7 +374,8 @@ export default function EditTreatmentScreen() {
         last_dose_date: lastDoseOldStr,
         first_dose_date: firstDoseDateStr,
         dose_start_date: firstDoseDateStr,
-      }).then(() => {}, () => {});
+      });
+      if (historyErr) console.warn('edit-treatment: medication_changes.insert failed:', historyErr);
     }
 
     // Refresh log store so home screen reflects the changes immediately
@@ -380,6 +383,19 @@ export default function EditTreatmentScreen() {
 
     setConfirmVisible(false);
     router.back();
+    } catch (err) {
+      // updateProfile now throws on DB write failures (e.g. enum constraint
+      // violations from a Glp1Type that the medication_type enum doesn't yet
+      // accept). Surface it instead of letting the screen close as if everything
+      // worked, which is what used to happen and was the source of the
+      // "I switched but the app didn't update" bug.
+      console.warn('edit-treatment doSave failed:', err);
+      Alert.alert(
+        'Could not save changes',
+        err instanceof Error ? err.message : 'Something went wrong saving your medication change. Please try again.',
+      );
+      setSaving(false);
+    }
   }
 
   function handleSave() {

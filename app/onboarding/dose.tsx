@@ -33,7 +33,7 @@ export default function DoseScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={4} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={5} total={14} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>What's your current dose?</Text>
           <Text style={s.subtitle}>Select the dosage you're currently on.</Text>

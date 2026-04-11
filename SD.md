@@ -123,7 +123,7 @@ TitraHealthAPPdemo/
 │   │   └── sign-up.tsx          # Email/password registration
 │   ├── entry/
 │   │   ├── _layout.tsx          # Stack navigator for entry flows
-│   │   ├── log-injection.tsx    # Log a GLP-1 injection (dose, site, notes)
+│   │   ├── log-dose.tsx         # Log a GLP-1 dose — injection (site/batch) or oral (fasting window)
 │   │   ├── describe-food.tsx    # AI natural language food description entry
 │   │   ├── capture-food.tsx     # Photo food recognition (GPT-4o-mini vision)
 │   │   ├── scan-food.tsx        # Barcode scanner (expo-camera)
@@ -256,7 +256,7 @@ Root Stack (GestureHandlerRootView > ProfileProvider > AppWithHealth > ThemeProv
 │   ├── index    (Step 1)
 │   ├── medication … side-effects (Steps 2–14)
 ├── entry/                        ← Entry flow Stack (modal-style screens)
-│   ├── log-injection
+│   ├── log-dose
 │   ├── describe-food
 │   ├── capture-food
 │   ├── scan-food
@@ -556,7 +556,7 @@ Fully implemented education hub with 5 interactive sections and a Supabase artic
 
 Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its dedicated entry screen (via `router.push`) or opens an inline form.
 
-- **LOG INJECTION** — navigates to `app/entry/log-injection.tsx`
+- **LOG DOSE / LOG INJECTION** (label depends on `isOralDrug`) — navigates to `app/entry/log-dose.tsx`
 - **DESCRIBE FOOD** — AI-powered natural language parser:
   1. User types description (e.g. "2 scrambled eggs with avocado toast")
   2. "Parse with AI" calls `parseFoodDescription(description, profile)` (GPT-4o-mini `json_object` mode)
@@ -578,7 +578,7 @@ Bottom sheet modal triggered by FAB. 10-item grid. Each item navigates to its de
 
 | Screen | File | Description |
 |---|---|---|
-| Log Injection | `log-injection.tsx` | Dose (pre-filled from profile), injection date, site rotation, notes. Saves via `useLogStore.addInjectionLog()` |
+| Log Dose | `log-dose.tsx` | Dose (pre-filled from profile), date, route-aware UI: injectables show site rotation + batch #, oral show fasting-window toggle. Header/save labels switch on `isOralDrug(medication_type)`. Saves via `useLogStore.addInjectionLog()` (the underlying log row shape is shared). |
 | Describe Food | `describe-food.tsx` | Natural language food entry. Calls `parseFoodDescription()` → confirmation card → `addFoodLog()` |
 | Capture Food | `capture-food.tsx` | Camera view (`expo-camera`) or gallery pick (`expo-image-picker`). Base64 image → `callGPT4oMiniVision()` for food identification → parsed macros → `addFoodLog()` |
 | Scan Food | `scan-food.tsx` | Barcode scanner (`expo-camera` `CameraView`). Barcode → USDA lookup via `lib/usda.ts` → food result → `addFoodLog()` |

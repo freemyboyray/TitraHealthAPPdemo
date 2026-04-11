@@ -1,5 +1,7 @@
 // ─── Enums / Union Types ──────────────────────────────────────────────────────
 
+import type { Database } from '@/lib/database.types';
+
 export type Glp1Status = 'active' | 'starting';
 
 export type MedicationBrand =
@@ -22,16 +24,12 @@ export type MedicationBrand =
   // ── Catch-all ─────────────────────────────────────────────────────────────
   | 'other';
 
-export type Glp1Type =
-  // Injectable - weekly
-  | 'semaglutide'
-  | 'tirzepatide'
-  | 'dulaglutide'
-  // Injectable - daily
-  | 'liraglutide'
-  // Oral - daily
-  | 'oral_semaglutide'
-  | 'orforglipron';
+// Derived from the live DB enum so the union can never silently drift from
+// the schema again. Adding a new GLP-1 type now requires both an
+// `ALTER TYPE medication_type ADD VALUE` migration AND a database.types.ts
+// regen — and any consumer that hasn't handled the new value will be a
+// compile error rather than a runtime enum violation.
+export type Glp1Type = NonNullable<Database['public']['Enums']['medication_type']>;
 export type Sex = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 export type ActivityLevel = 'sedentary' | 'light' | 'active' | 'very_active';
 export type SideEffect =
@@ -99,6 +97,12 @@ export type FullUserProfile = {
   pendingDoseTime?: string | null;
   pendingFirstDoseDate?: string | null;   // YYYY-MM-DD — first dose of new med
   pendingLastDoseOld?: string | null;     // YYYY-MM-DD — last dose of old med
+
+  // Remote Therapeutic Monitoring (RTM) — provider linkage
+  rtmEnabled?: boolean;
+  rtmClinicianId?: string | null;
+  rtmClinicianName?: string | null;       // cached display name (not persisted to profiles)
+  rtmConsentText?: string | null;         // snapshot of consent shown at link time
 };
 
 export type ProfileDraft = Partial<FullUserProfile>;

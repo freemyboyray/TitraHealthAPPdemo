@@ -38,7 +38,7 @@ export default function ActivityScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={13} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={14} total={14} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Tell us a bit about your daily routine.</Text>
           <Text style={s.subtitle}>On most days you are...</Text>

@@ -8,6 +8,12 @@ import {
 } from '@/constants/user-profile';
 import { computeBaseTargets } from '@/lib/targets';
 import { supabase } from '@/lib/supabase';
+import type { Database } from '@/lib/database.types';
+
+// Strict-typed UPDATE shape for profiles. Prevents the Glp1Type/medication_type
+// drift bug from recurring: any column name typo or unknown column becomes a
+// compile-time error here instead of a silent runtime PGRST204 failure.
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 
 const STORAGE_KEY = '@titrahealth_profile';
 const DRAFT_KEY   = '@titrahealth_profile_draft';
@@ -94,6 +100,11 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     pendingDoseTime:        row.pending_dose_time ?? null,
     pendingFirstDoseDate:   row.pending_first_dose_date ?? null,
     pendingLastDoseOld:     row.pending_last_dose_old ?? null,
+
+    // RTM
+    rtmEnabled:       row.rtm_enabled ?? false,
+    rtmClinicianId:   row.rtm_clinician_id ?? null,
+    rtmConsentText:   row.rtm_consent_text ?? null,
   };
 }
 
@@ -184,8 +195,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // 1. Upsert profiles row
-      await supabase.from('profiles').upsert({
+      // 1. Upsert profiles row.
+      // Errors here are critical: a failed upsert leaves the user with no
+      // profile row, which makes the app behave as if they're not signed in.
+      // Throw so the caller (onboarding finish screen) can show an error.
+      const { error: profileErr } = await supabase.from('profiles').upsert({
         id: user.id,
         dob:                      complete.birthday,
         dose_mg:                  complete.doseMg,
@@ -213,11 +227,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         tos_version:              complete.tosVersion || null,
         privacy_accepted_at:      complete.privacyAcceptedAt || null,
         privacy_version:          complete.privacyVersion || null,
+        rtm_enabled:              complete.rtmEnabled ?? false,
+        rtm_clinician_id:         complete.rtmClinicianId ?? null,
+        rtm_linked_at:            complete.rtmEnabled ? new Date().toISOString() : null,
+        rtm_consent_text:         complete.rtmConsentText ?? null,
       });
+      if (profileErr) {
+        console.warn('completeOnboarding: profiles.upsert failed:', profileErr);
+        throw new Error(`Failed to save profile during onboarding: ${profileErr.message}`);
+      }
 
-      // 2. Upsert user_goals (computed from Mifflin-St Jeor base targets)
+      // 2. Upsert user_goals (computed from Mifflin-St Jeor base targets).
+      // Non-critical: if this fails the targets are recomputable on next launch.
       const baseTargets = computeBaseTargets(complete);
-      await supabase.from('user_goals').upsert({
+      const { error: goalsErr } = await supabase.from('user_goals').upsert({
         user_id:                 user.id,
         daily_protein_g_target:  baseTargets.proteinG,
         daily_fiber_g_target:    baseTargets.fiberG,
@@ -225,21 +248,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         daily_calories_target:   baseTargets.caloriesTarget,
         active_calories_target:  baseTargets.activeMinutes * 3, // ~3 cal/min
       }, { onConflict: 'user_id' });
-
+      if (goalsErr) {
+        console.warn('completeOnboarding: user_goals.upsert failed:', goalsErr);
+      }
     }
   };
 
   const updateProfile = async (fields: Partial<FullUserProfile>) => {
     if (!profile) return;
+    const previousProfile = profile;
     const derived = computeProfileDerivedMetrics(fields);
     const updated: FullUserProfile = { ...profile, ...fields, ...derived };
+    // Optimistic local update — reverted below if the DB write fails.
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setProfile(updated);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const row: Record<string, any> = {};
+      const row: ProfileUpdate = {};
       if (fields.doseMg                  !== undefined) row.dose_mg                  = fields.doseMg;
       if (fields.glp1Type                !== undefined) row.medication_type           = fields.glp1Type;
       if (fields.medicationBrand         !== undefined) row.medication_brand          = fields.medicationBrand;
@@ -280,11 +306,34 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.pendingFirstDoseDate   !== undefined) row.pending_first_dose_date  = fields.pendingFirstDoseDate;
       if (fields.pendingLastDoseOld     !== undefined) row.pending_last_dose_old    = fields.pendingLastDoseOld;
 
+      // RTM fields
+      if (fields.rtmEnabled             !== undefined) {
+        row.rtm_enabled    = fields.rtmEnabled;
+        row.rtm_linked_at  = fields.rtmEnabled ? new Date().toISOString() : null;
+      }
+      if (fields.rtmClinicianId         !== undefined) row.rtm_clinician_id  = fields.rtmClinicianId;
+      if (fields.rtmConsentText         !== undefined) row.rtm_consent_text  = fields.rtmConsentText;
+
       if (Object.keys(row).length > 0) {
-        await supabase.from('profiles').update(row).eq('id', user.id);
+        const { error: profileErr } = await supabase
+          .from('profiles')
+          .update(row)
+          .eq('id', user.id);
+        if (profileErr) {
+          // Revert optimistic local state so the UI matches what's actually persisted.
+          // Without this, the user sees the value they tried to set, but the next
+          // loadProfile() will overwrite it with the stale DB row, leaving them
+          // confused about whether their change took effect.
+          console.warn('updateProfile: profiles.update failed:', profileErr);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(previousProfile));
+          setProfile(previousProfile);
+          throw new Error(`Failed to save profile changes: ${profileErr.message}`);
+        }
       }
 
-      // Recompute user_goals when nutrition-affecting fields change
+      // Recompute user_goals when nutrition-affecting fields change.
+      // Only runs if the profiles UPDATE above succeeded — otherwise we'd be
+      // writing nutrition targets derived from a state that didn't actually persist.
       const NUTRITION_AFFECTING = new Set([
         'heightFt','heightIn','heightCm','weightLbs','weightKg','startWeightLbs',
         'activityLevel','goalWeightLbs','goalWeightKg','targetWeeklyLossLbs',
@@ -294,7 +343,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ]);
       if (Object.keys(fields).some(k => NUTRITION_AFFECTING.has(k))) {
         const baseTargets = computeBaseTargets(updated);
-        await supabase.from('user_goals').upsert({
+        const { error: goalsErr } = await supabase.from('user_goals').upsert({
           user_id:                user.id,
           daily_protein_g_target: baseTargets.proteinG,
           daily_fiber_g_target:   baseTargets.fiberG,
@@ -302,6 +351,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           daily_calories_target:  baseTargets.caloriesTarget,
           active_calories_target: baseTargets.activeMinutes * 3,
         }, { onConflict: 'user_id' });
+        if (goalsErr) {
+          // Profile already saved successfully — log but don't revert; user_goals
+          // is recomputable from profile state on next launch.
+          console.warn('updateProfile: user_goals.upsert failed:', goalsErr);
+        }
       }
     }
   };
@@ -346,7 +400,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setDraft({});
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('profiles').update({ program_start_date: null }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update({ program_start_date: null }).eq('id', user.id);
+      if (error) console.warn('resetProfile: profiles.update failed:', error);
     }
   };
 

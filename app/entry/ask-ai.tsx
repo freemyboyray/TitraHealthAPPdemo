@@ -104,7 +104,7 @@ export default function AskAIScreen() {
   const storeProfile = useLogStore((s) => s.profile);
   const userProfile = useUserStore((s) => s.profile);
   const profile = storeProfile ?? userProfile;
-  const userName = profile?.full_name ?? null;
+  const userName = profile?.username ?? null;
 
   const score = computeScore(injectionLogs, foodLogs, activityLogs, sideEffectLogs, userGoals, profile);
   const contextSnapshot = buildContextSnapshot({

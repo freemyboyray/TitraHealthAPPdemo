@@ -279,7 +279,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
         batch_number: batch_number ?? null,
       });
     if (!error) {
-      await supabase.from('profiles').update({ last_injection_date: injection_date }).eq('id', user.id);
+      const { error: pErr } = await supabase
+        .from('profiles')
+        .update({ last_injection_date: injection_date })
+        .eq('id', user.id);
+      if (pErr) console.warn('addInjectionLog: profiles.update last_injection_date failed:', pErr);
       await get().fetchInsightsData();
     }
     set({ loading: false, error: error?.message ?? null });
@@ -294,7 +298,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
       set({ injectionLogs: remaining });
       // Keep profiles.last_injection_date in sync with the new most-recent injection
       const newLastDate = remaining[0]?.injection_date ?? null;
-      await supabase.from('profiles').update({ last_injection_date: newLastDate }).eq('id', user.id);
+      const { error: pErr } = await supabase
+        .from('profiles')
+        .update({ last_injection_date: newLastDate })
+        .eq('id', user.id);
+      if (pErr) console.warn('deleteInjectionLog: profiles.update last_injection_date failed:', pErr);
     }
   },
 
@@ -548,10 +556,14 @@ export const useLogStore = create<LogStore>((set, get) => ({
   updatePeerOptIn: async (optIn: boolean) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').update({
       peer_comparison_opted_in: optIn,
       peer_comparison_opted_in_at: optIn ? new Date().toISOString() : null,
     }).eq('id', user.id);
+    if (error) {
+      console.warn('updatePeerOptIn: profiles.update failed:', error);
+      return; // bail before refresh — local state would be misleading
+    }
     // Refresh profile
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
     set({ profile: prof ?? get().profile });

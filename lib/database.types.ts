@@ -138,6 +138,36 @@ export type Database = {
           },
         ]
       }
+      clinicians: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          display_name: string
+          id: string
+          npi: string | null
+          practice_name: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          display_name: string
+          id?: string
+          npi?: string | null
+          practice_name?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          npi?: string | null
+          practice_name?: string | null
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           accent_color: string
@@ -695,7 +725,6 @@ export type Database = {
           dose_mg: number | null
           dose_start_date: string | null
           dose_time: string | null
-          full_name: string | null
           glp1_status: string | null
           goal_weight_lbs: number | null
           height_inches: number | null
@@ -718,13 +747,22 @@ export type Database = {
           pending_last_dose_old: string | null
           pending_medication_brand: string | null
           pending_route: string | null
+          privacy_accepted_at: string | null
+          privacy_version: string | null
           program_start_date: string | null
           route_of_administration: string | null
+          rtm_clinician_id: string | null
+          rtm_consent_text: string | null
+          rtm_enabled: boolean
+          rtm_linked_at: string | null
           sex: string | null
           start_weight_lbs: number | null
           target_weekly_loss_lbs: number | null
+          tos_accepted_at: string | null
+          tos_version: string | null
           unit_system: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
           activity_level?: string | null
@@ -737,7 +775,6 @@ export type Database = {
           dose_mg?: number | null
           dose_start_date?: string | null
           dose_time?: string | null
-          full_name?: string | null
           glp1_status?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
@@ -762,13 +799,22 @@ export type Database = {
           pending_last_dose_old?: string | null
           pending_medication_brand?: string | null
           pending_route?: string | null
+          privacy_accepted_at?: string | null
+          privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
+          rtm_clinician_id?: string | null
+          rtm_consent_text?: string | null
+          rtm_enabled?: boolean
+          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           unit_system?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
           activity_level?: string | null
@@ -781,7 +827,6 @@ export type Database = {
           dose_mg?: number | null
           dose_start_date?: string | null
           dose_time?: string | null
-          full_name?: string | null
           glp1_status?: string | null
           goal_weight_lbs?: number | null
           height_inches?: number | null
@@ -806,15 +851,32 @@ export type Database = {
           pending_last_dose_old?: string | null
           pending_medication_brand?: string | null
           pending_route?: string | null
+          privacy_accepted_at?: string | null
+          privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
+          rtm_clinician_id?: string | null
+          rtm_consent_text?: string | null
+          rtm_enabled?: boolean
+          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           unit_system?: string | null
           updated_at?: string
+          username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_rtm_clinician_id_fkey"
+            columns: ["rtm_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinicians"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       side_effect_logs: {
         Row: {
@@ -1179,7 +1241,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      rtm_engagement_days: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       activity_source: "manual" | "apple_health" | "fitbit"
@@ -1193,7 +1258,13 @@ export type Database = {
       food_source: "manual" | "barcode" | "photo_ai" | "mfp_sync" | "search_db"
       integration_provider: "apple_health" | "fitbit" | "myfitnesspal"
       meal_type: "breakfast" | "lunch" | "dinner" | "snack"
-      medication_type: "semaglutide" | "tirzepatide" | "liraglutide"
+      medication_type:
+        | "semaglutide"
+        | "tirzepatide"
+        | "liraglutide"
+        | "dulaglutide"
+        | "oral_semaglutide"
+        | "orforglipron"
       phase_type: "shot" | "peak" | "balance" | "reset"
       side_effect_type:
         | "nausea"
@@ -1352,7 +1423,14 @@ export const Constants = {
       food_source: ["manual", "barcode", "photo_ai", "mfp_sync", "search_db"],
       integration_provider: ["apple_health", "fitbit", "myfitnesspal"],
       meal_type: ["breakfast", "lunch", "dinner", "snack"],
-      medication_type: ["semaglutide", "tirzepatide", "liraglutide"],
+      medication_type: [
+        "semaglutide",
+        "tirzepatide",
+        "liraglutide",
+        "dulaglutide",
+        "oral_semaglutide",
+        "orforglipron",
+      ],
       phase_type: ["shot", "peak", "balance", "reset"],
       side_effect_type: [
         "nausea",

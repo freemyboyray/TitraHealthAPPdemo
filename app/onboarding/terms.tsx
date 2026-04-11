@@ -55,7 +55,7 @@ export default function TermsScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={2} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={3} total={14} onBack={() => router.back()} />
 
         <Text style={s.title}>Terms & Privacy</Text>
         <Text style={s.subtitle}>

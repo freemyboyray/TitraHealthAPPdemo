@@ -11,7 +11,7 @@ import { useLogStore } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { supabase } from '@/lib/supabase';
@@ -98,6 +98,28 @@ export default function SettingsScreen() {
     : '-';
   const goalsLine = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '';
 
+  // ── Care Team (clinician linkage) ──────────────────────────────────────────
+  const clinicianLinked = p?.rtmEnabled ?? false;
+  const clinicianId = p?.rtmClinicianId ?? null;
+  const [clinicianName, setClinicianName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!clinicianLinked || !clinicianId) {
+      setClinicianName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: clin } = await supabase
+        .from('clinicians')
+        .select('display_name')
+        .eq('id', clinicianId)
+        .maybeSingle();
+      if (!cancelled && clin) setClinicianName(clin.display_name);
+    })();
+    return () => { cancelled = true; };
+  }, [clinicianLinked, clinicianId]);
+
   async function handleAppleHealthToggle(value: boolean) {
     if (!value) {
       setAppleHealthEnabled(false);
@@ -112,11 +134,19 @@ export default function SettingsScreen() {
     const granted = await requestPermissions();
     if (granted) {
       setAppleHealthEnabled(true);
-      fetchAll();
+      // iOS never reveals which read categories were actually granted. The
+      // sheet has been presented; try a fetch and trust that any categories
+      // the user toggled on will start returning data. If reads come back
+      // empty, it almost always means the user declined individual toggles.
+      await fetchAll();
     } else {
       Alert.alert(
-        'Permission Required',
-        'Please allow access in Settings → Privacy & Security → Health → Titra, then try again.',
+        'Apple Health Unavailable',
+        'The HealthKit module could not be loaded on this device. This usually means one of:\n\n' +
+        '• You are running in Expo Go (HealthKit requires a custom dev client or TestFlight build)\n' +
+        '• The device is an iPad or simulator that does not support HealthKit\n' +
+        '• The native module failed to link in this build\n\n' +
+        'Check the Metro console for [HealthKit] log lines — they will identify the exact cause.',
         [{ text: 'OK' }],
       );
     }
@@ -169,7 +199,7 @@ export default function SettingsScreen() {
     );
   }
 
-  const displayName = (authProfile as any)?.username ?? (authProfile as any)?.full_name ?? 'You';
+  const displayName = (authProfile as any)?.username ?? 'You';
   const displayEmail = session?.user.email ?? '';
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(displayName);
@@ -202,8 +232,9 @@ export default function SettingsScreen() {
                     if (trimmed) {
                       const { data: { user } } = await supabase.auth.getUser();
                       if (user) {
-                        await supabase.from('profiles').update({ full_name: trimmed }).eq('id', user.id);
-                        await useUserStore.getState().loadProfile();
+                        const { error } = await supabase.from('profiles').update({ username: trimmed }).eq('id', user.id);
+                        if (error) console.warn('settings: username update failed:', error);
+                        else await useUserStore.getState().loadProfile();
                       }
                     }
                     setEditingName(false);
@@ -324,22 +355,59 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* TOOLS section */}
-        <Text style={s.sectionLabel}>TOOLS</Text>
+        {/* CARE TEAM section */}
+        <Text style={s.sectionLabel}>CARE TEAM</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/entry/provider-report' as any)}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/rtm-link' as any)}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name="document-text-outline" size={18} color={ORANGE} />
+                <Ionicons name="medkit-outline" size={18} color={ORANGE} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Provider Report</Text>
-                <Text style={s.rowSub}>Generate a clinical PDF for your doctor</Text>
+                <Text style={s.rowLabel}>Clinician</Text>
+                <Text style={s.rowSub}>
+                  {clinicianLinked
+                    ? `${clinicianName ?? 'Linked'} · Linked`
+                    : 'Not linked'}
+                </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
+        </View>
+
+        {/* TOOLS section */}
+        <Text style={s.sectionLabel}>TOOLS</Text>
+
+        <View style={s.card}>
+          {clinicianLinked ? (
+            <Pressable style={s.cardRow} onPress={() => router.push('/entry/provider-report' as any)}>
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                  <Ionicons name="document-text-outline" size={18} color={ORANGE} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rowLabel}>Provider Report</Text>
+                  <Text style={s.rowSub}>Generate a clinical PDF for your doctor</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : (
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/rtm-link' as any)}>
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.rowLabel, { color: colors.textSecondary }]}>Provider Report</Text>
+                  <Text style={s.rowSub}>Link your clinician to unlock</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          )}
         </View>
 
         {/* LEGAL & ACCOUNT section */}

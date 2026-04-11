@@ -110,7 +110,7 @@ async function upsertFoodPreference(item: TrayItem) {
       })
       .eq('id', existing.id);
   } else {
-    await supabase.from('user_food_preferences').insert({
+    const { error } = await supabase.from('user_food_preferences').insert({
       food_name: item.food_name,
       calories: item.calories,
       protein_g: item.protein_g,
@@ -120,6 +120,7 @@ async function upsertFoodPreference(item: TrayItem) {
       source: item.source,
       barcode: item.barcode ?? null,
     });
+    if (error) console.warn('upsertFoodPreference: insert failed:', error);
   }
 }
 
@@ -193,7 +194,7 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
         .single();
       if (error || !meal) throw error;
 
-      await supabase.from('user_saved_meal_items').insert(
+      const { error: itemsErr } = await supabase.from('user_saved_meal_items').insert(
         trayItems.map((it) => ({
           saved_meal_id: meal.id,
           food_name: it.food_name,
@@ -205,6 +206,12 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
           serving_g: it.serving_g,
         })),
       );
+      if (itemsErr) {
+        console.warn('saveAsMeal: user_saved_meal_items.insert failed:', itemsErr);
+        // Roll back the parent meal so we don't leave an empty saved meal behind
+        await supabase.from('user_saved_meals').delete().eq('id', meal.id);
+        throw itemsErr;
+      }
 
       await get().fetchSavedMeals();
     } finally {
@@ -257,7 +264,11 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
   },
 
   deleteSavedMeal: async (id) => {
-    await supabase.from('user_saved_meals').delete().eq('id', id);
+    const { error } = await supabase.from('user_saved_meals').delete().eq('id', id);
+    if (error) {
+      console.warn('deleteSavedMeal: delete failed:', error);
+      return; // keep local state in sync with DB
+    }
     set((s) => ({ savedMeals: s.savedMeals.filter((m) => m.id !== id) }));
   },
 
@@ -327,7 +338,11 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
   },
 
   deleteCustomFood: async (id) => {
-    await supabase.from('user_custom_foods').delete().eq('id', id);
+    const { error } = await supabase.from('user_custom_foods').delete().eq('id', id);
+    if (error) {
+      console.warn('deleteCustomFood: delete failed:', error);
+      return; // keep local state in sync with DB
+    }
     set((s) => ({ customFoods: s.customFoods.filter((f) => f.id !== id) }));
   },
 }));

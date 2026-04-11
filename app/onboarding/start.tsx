@@ -46,7 +46,7 @@ export default function StartScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={10} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={11} total={14} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Tell us where you started.</Text>
           <Text style={s.subtitle}>

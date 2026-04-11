@@ -46,7 +46,7 @@ export const usePersonalizationStore = create<PersonalizationStore>((set, get) =
       activityLogs:   logState.activityLogs,
       userGoals:      logState.userGoals,
       profileRow:     logState.profile,
-      userName:          logState.profile.full_name ?? null,
+      userName:          logState.profile.username ?? null,
       foodNoiseLogs:     (logState as any).foodNoiseLogs ?? [],
       weeklyCheckinLogs: (logState as any).weeklyCheckins ?? {},
     });
@@ -139,7 +139,7 @@ export const usePersonalizationStore = create<PersonalizationStore>((set, get) =
         activityLogs:   freshLogState.activityLogs,
         userGoals:      freshLogState.userGoals,
         profileRow:     freshLogState.profile,
-        userName:          freshLogState.profile.full_name ?? null,
+        userName:          freshLogState.profile.username ?? null,
         foodNoiseLogs:     foodNoiseLogs as any,
         weeklyCheckinLogs: (freshLogState as any).weeklyCheckins ?? {},
       });

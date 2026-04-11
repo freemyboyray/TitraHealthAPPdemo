@@ -86,9 +86,9 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     setTimeout(() => openAiChat(), 300);
   };
 
-  const handleLogInjection = () => {
+  const handleLogDose = () => {
     closeSheet();
-    router.push('/entry/log-injection');
+    router.push('/entry/log-dose');
   };
 
   const handleConfirmWater = () => {
@@ -159,7 +159,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: oral ? 'LOG DOSE' : 'LOG INJECTION',
       icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: handleLogInjection,
+      onPress: handleLogDose,
     },
     {
       label: 'CAPTURE FOOD',

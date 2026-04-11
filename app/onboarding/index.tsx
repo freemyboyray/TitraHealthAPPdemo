@@ -20,13 +20,13 @@ export default function JourneyScreen() {
   const handleContinue = () => {
     if (!selected) return;
     updateDraft({ glp1Status: selected });
-    router.push('/onboarding/terms' as any);
+    router.push('/onboarding/clinician' as any);
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={1} total={13} />
+        <OnboardingHeader step={1} total={14} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Where are you in your GLP-1 journey?</Text>
           <Text style={s.subtitle}>This helps us tailor your experience from day one.</Text>

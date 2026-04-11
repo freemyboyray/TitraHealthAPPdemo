@@ -119,7 +119,7 @@ export async function scheduleDoseReminder(
       c.dailyBody,
       h,
       m ?? 0,
-      'titrahealth://entry/log-injection',
+      'titrahealth://entry/log-dose',
     );
   } else {
     // Weekly/bi-weekly: cancel daily reminder, set one-time reminder on injection day
@@ -140,7 +140,7 @@ export async function scheduleDoseReminder(
         content: {
           title: c.shotDayTitle,
           body: c.shotDayBody,
-          data: { url: 'titrahealth://entry/log-injection' },
+          data: { url: 'titrahealth://entry/log-dose' },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -160,7 +160,7 @@ export async function scheduleDoseReminder(
         content: {
           title: c.eveTitle,
           body: c.eveBody,
-          data: { url: 'titrahealth://entry/log-injection' },
+          data: { url: 'titrahealth://entry/log-dose' },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,

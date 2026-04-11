@@ -33,7 +33,7 @@ export default function SexScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={6} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={7} total={14} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Help us get the basics right.</Text>
           <Text style={s.subtitle}>

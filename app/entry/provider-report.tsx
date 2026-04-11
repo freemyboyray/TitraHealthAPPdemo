@@ -23,9 +23,11 @@ import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { computeProviderReport, type ProviderReportConfig, type ProviderReportInput } from '@/lib/provider-report-data';
 import { buildProviderReportHtml } from '@/lib/provider-report-html';
-import { generateWeeklyInsight } from '@/lib/openai';
+import { generateWeeklyInsight, generateProviderReportNarrative } from '@/lib/openai';
 import { computeWeeklySummary } from '@/lib/weekly-summary';
 import { useLogStore } from '@/stores/log-store';
+import { fetchEngagementDaysRange } from '@/lib/rtm';
+import { supabase } from '@/lib/supabase';
 
 const ORANGE = '#FF742A';
 const FF = 'Helvetica Neue';
@@ -68,14 +70,11 @@ function getDateRange(preset: RangePreset, programStart: string | null): { start
 // ─── Included sections (fixed, not user-configurable) ──────────────────────
 
 const INCLUDED_SECTIONS = [
-  'Weight Trend',
-  'Medication Adherence',
-  'Side Effect Profile',
-  'Nutrition Summary',
-  'Activity & Exercise',
-  'Biometrics (HealthKit)',
-  'Clinical Flags',
-  'AI Summary',
+  'Patient Header & Medication',
+  'Subjective — Patient-Reported',
+  'Objective — Measured Data',
+  'Assessment — Clinical Observations',
+  'Topics for Discussion',
 ];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -139,17 +138,42 @@ export default function ProviderReportScreen() {
       };
 
       // 3. Compute report data
+      // 3a. RTM engagement (only if patient has linked a clinician)
+      let rtmInput: ProviderReportInput['rtm'];
+      if (profile.rtmEnabled && profile.rtmClinicianId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const days = await fetchEngagementDaysRange(user.id, dateRange.start, dateRange.end);
+            const { data: clin } = await supabase
+              .from('clinicians')
+              .select('display_name, practice_name')
+              .eq('id', profile.rtmClinicianId)
+              .maybeSingle();
+            const name = clin
+              ? clin.practice_name
+                ? `${clin.display_name} · ${clin.practice_name}`
+                : clin.display_name
+              : null;
+            rtmInput = { clinicianName: name, engagementDays: days };
+          }
+        } catch {
+          // swallow — report will simply omit the RTM block
+        }
+      }
+
       const input: ProviderReportInput = {
         foodLogs, weightLogs, activityLogs, sideEffectLogs,
         injectionLogs, weeklyCheckins, foodNoiseLogs,
         profile, targets,
         wearable: wearable ?? {},
         waterByDate,
+        rtm: rtmInput,
       };
 
       const reportData = computeProviderReport(input, config);
 
-      // 4. AI summary
+      // 4. AI summary (legacy weekly insight, kept for parity)
       let aiSummary: string | null = null;
       setGeneratingStage('Generating AI summary...');
       try {
@@ -163,9 +187,26 @@ export default function ProviderReportScreen() {
         aiSummary = null;
       }
 
+      // 4b. Assessment narrative — rules-first, LLM polishes the prose.
+      // Rendered as the prose paragraph at the top of the SOAP "Assessment" section.
+      setGeneratingStage('Polishing clinical narrative...');
+      let assessmentNarrative: string | null = null;
+      try {
+        assessmentNarrative = await generateProviderReportNarrative(
+          reportData.narrative.assessment,
+          {
+            sex: profile.sex ?? 'unspecified',
+            programWeek: reportData.patient.programWeek,
+            medication: reportData.medication.brand ?? reportData.medication.type,
+          },
+        );
+      } catch {
+        assessmentNarrative = null;
+      }
+
       // 5. Build HTML & generate PDF
       setGeneratingStage('Creating PDF...');
-      const html = buildProviderReportHtml(reportData, config, aiSummary);
+      const html = buildProviderReportHtml(reportData, config, aiSummary, assessmentNarrative);
       const { uri } = await Print.printToFileAsync({ html, width: 612, height: 792 });
 
       setGenerating(false);
@@ -197,6 +238,50 @@ export default function ProviderReportScreen() {
     { key: '90d', label: 'Last 90 Days' },
     { key: 'program', label: 'Since Start' },
   ];
+
+  // ── Locked state: no clinician linked ─────────────────────────────────────
+  if (!profileLoading && profile && !profile.rtmEnabled) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top }]}>
+        <View style={s.header}>
+          <View>
+            <Text style={s.headerTitle}>Provider Report</Text>
+            <Text style={s.headerSub}>Generate a PDF for your healthcare provider</Text>
+          </View>
+          <TouchableOpacity style={s.closeBtn} onPress={() => router.back()}>
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{
+            width: 84, height: 84, borderRadius: 42,
+            backgroundColor: 'rgba(255,116,42,0.12)',
+            alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+          }}>
+            <Ionicons name="lock-closed" size={36} color={ORANGE} />
+          </View>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 12, fontFamily: FF }}>
+            Link Your Clinician
+          </Text>
+          <Text style={{ fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 }}>
+            The Provider Report is a clinical PDF you can share with your doctor.
+            Enter your provider code to unlock it.
+          </Text>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 8,
+              backgroundColor: ORANGE, paddingHorizontal: 24, height: 50, borderRadius: 25,
+            }}
+            onPress={() => router.replace('/settings/rtm-link' as any)}
+          >
+            <Ionicons name="medkit-outline" size={18} color="#000" />
+            <Text style={{ color: '#000', fontSize: 15, fontWeight: '700' }}>Link Clinician</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>

@@ -61,7 +61,7 @@ export default function HealthSyncScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={9} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={10} total={14} onBack={() => router.back()} />
 
         <Text style={s.title}>Sync with Apple Health</Text>
         <Text style={s.subtitle}>

@@ -63,7 +63,7 @@ export default function GoalWeightScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={11} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={12} total={14} onBack={() => router.back()} />
 
         <Text style={s.title}>Set your goal weight.</Text>
         <Text style={s.subtitle}>We'll use this to guide your progress and keep your plan on track.</Text>

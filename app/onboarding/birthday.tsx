@@ -57,7 +57,7 @@ export default function BirthdayScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={7} total={13} onBack={() => router.back()} />
+        <OnboardingHeader step={8} total={14} onBack={() => router.back()} />
 
         <Text style={s.title}>When's your birthday?</Text>
         <Text style={s.subtitle}>Your age helps us fine-tune your nutrition goals.</Text>

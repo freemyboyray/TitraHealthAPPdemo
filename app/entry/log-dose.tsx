@@ -22,6 +22,8 @@ import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
+import { isOralDrug } from '@/constants/drug-pk';
+import type { Glp1Type } from '@/constants/user-profile';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -108,7 +110,7 @@ function GlassCard({ children, colors }: { children: React.ReactNode; colors: Ap
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export default function LogInjectionScreen() {
+export default function LogDoseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
@@ -130,7 +132,15 @@ export default function LogInjectionScreen() {
   const doseMg = profile?.dose_mg;
   const doseLabel = doseMg != null ? `${doseMg}mg` : 'Not set';
 
-  const isOral = profile?.route_of_administration === 'oral';
+  // Belt-and-suspenders: derive "is oral" from BOTH the medication_type
+  // (via isOralDrug, the same source add-entry-sheet uses) AND the
+  // route_of_administration column. Either one being truthy is enough.
+  // This protects against stale rows where one column is set but not the other —
+  // e.g. an in-flight medication switch via pendingRoute that hasn't fully
+  // synced, or a profile created before route_of_administration existed.
+  const isOral =
+    isOralDrug(profile?.medication_type as Glp1Type | undefined) ||
+    profile?.route_of_administration === 'oral';
 
   // Injection site: derive from last injection log
   const lastInjectionSite = injectionLogs[0]?.site ?? null;

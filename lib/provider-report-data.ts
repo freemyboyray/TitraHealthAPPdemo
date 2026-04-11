@@ -74,6 +74,11 @@ export interface ProviderReportInput {
     spo2Pct?: number;
   };
   waterByDate: Record<string, number>;
+  /** Optional RTM context — pass when the patient has linked a clinician. */
+  rtm?: {
+    clinicianName: string | null;
+    engagementDays: number;
+  };
 }
 
 export interface WeightSection {
@@ -153,10 +158,54 @@ export interface CheckinSection {
   foodNoiseHistory: { date: string; score: number }[];
 }
 
+/**
+ * Clinician-context block at the top of the provider report.
+ * Holds the linked clinician's display name plus a simple count of distinct
+ * days the patient logged data within the reporting window — informational
+ * context only, not a billing or attestation artifact.
+ */
+export interface RtmSection {
+  enabled: boolean;
+  clinicianName: string | null;
+  periodStart: string;          // YYYY-MM-DD
+  periodEnd: string;            // YYYY-MM-DD
+  engagementDays: number;
+}
+
 export interface ClinicalFlag {
   severity: 'warning' | 'info';
   title: string;
   body: string;
+}
+
+// ─── SOAP Narrative ───────────────────────────────────────────────────────────
+// Structured, neutral observations used by the new SOAP-format renderer.
+// All text is pre-written in non-judgmental, observation-only language —
+// no recommendations, no directives, safe for both clinician and patient eyes.
+
+export type ObservationCategory =
+  | 'weight'
+  | 'nutrition'
+  | 'side_effects'
+  | 'adherence'
+  | 'activity'
+  | 'checkins'
+  | 'program';
+
+export interface ObservationItem {
+  severity: 'warning' | 'info';
+  category: ObservationCategory;
+  text: string;
+}
+
+export interface DiscussionItem {
+  category: ObservationCategory;
+  text: string;
+}
+
+export interface NarrativeSections {
+  assessment: ObservationItem[];
+  discussion: DiscussionItem[];
 }
 
 export interface ProviderReportData {
@@ -194,6 +243,8 @@ export interface ProviderReportData {
   biometrics: BiometricsSection;
   checkins: CheckinSection;
   clinicalFlags: ClinicalFlag[];
+  narrative: NarrativeSections;
+  rtm?: RtmSection;
 }
 
 // ─── BMI helpers ──────────────────────────────────────────────────────────────
@@ -259,7 +310,7 @@ export function computeProviderReport(
   const bmi = currentWeightLbs ? computeBmi(currentWeightLbs, heightCm) : null;
 
   const patient = {
-    name: (profile as any).fullName ?? (profile as any).full_name ?? null,
+    name: (profile as any).fullName ?? (profile as any).username ?? null,
     dob: (profile as any).dob ?? null,
     age: profile.age ?? null,
     sex: profile.sex ?? 'Not specified',
@@ -652,10 +703,20 @@ export function computeProviderReport(
 
   // ── Check-ins ─────────────────────────────────────────────────────────────
 
+  // food_noise_logs.score is stored as a raw 0–20 sum (5 questions × 0–4),
+  // where HIGHER is WORSE (more food noise). The other check-ins are stored
+  // as 0–100 where HIGHER is BETTER. Normalize food noise to that same scale
+  // here so the SOAP report can render every check-in as "X/100" with a
+  // consistent "higher = better" semantic. Mirror of the conversion at
+  // app/entry/food-noise-survey.tsx:134.
+  function normalizeFoodNoiseScore(raw: number): number {
+    return Math.round((1 - raw / 20) * 100);
+  }
+
   function latestCheckinScore(type: string): number | null {
     if (type === 'food_noise') {
       const recent = input.foodNoiseLogs.find(fn => tsInWindow(fn.logged_at));
-      return recent ? recent.score : null;
+      return recent ? normalizeFoodNoiseScore(recent.score) : null;
     }
     const rows = input.weeklyCheckins[type] ?? [];
     const recent = rows.find(r => tsInWindow((r as any).logged_at ?? ''));
@@ -674,7 +735,7 @@ export function computeProviderReport(
     },
     foodNoiseHistory: input.foodNoiseLogs
       .filter(fn => tsInWindow(fn.logged_at))
-      .map(fn => ({ date: dateStrFromTs(fn.logged_at), score: fn.score })),
+      .map(fn => ({ date: dateStrFromTs(fn.logged_at), score: normalizeFoodNoiseScore(fn.score) })),
   };
 
   // ── Clinical Flags (aggregate) ────────────────────────────────────────────
@@ -709,6 +770,274 @@ export function computeProviderReport(
   // Sort: warnings first
   clinicalFlags.sort((a, b) => (a.severity === 'warning' ? 0 : 1) - (b.severity === 'warning' ? 0 : 1));
 
+  // ── Clinician context block ───────────────────────────────────────────────
+  // Built only when the patient has linked a clinician and the caller passes
+  // in pre-computed engagement days (RPC happens outside this pure function).
+  // Purely informational — no billing thresholds, no attestation logic.
+  let rtm: RtmSection | undefined;
+  if (profile.rtmEnabled && input.rtm) {
+    rtm = {
+      enabled: true,
+      clinicianName: input.rtm.clinicianName,
+      periodStart: start,
+      periodEnd: end,
+      engagementDays: input.rtm.engagementDays,
+    };
+  }
+
+  // ── SOAP Narrative (Assessment + Discussion) ──────────────────────────────
+  // Pure observations, neutral phrasing. No recommendations, no directives.
+  // Safe for both clinician and patient to read.
+
+  const assessment: ObservationItem[] = [];
+  const discussion: DiscussionItem[] = [];
+
+  // Weight observations
+  if (weeklyRate != null) {
+    if (weeklyRate < -3) {
+      assessment.push({
+        severity: 'warning',
+        category: 'weight',
+        text: `Weight loss averaged ${Math.abs(weeklyRate).toFixed(1)} lbs per week during this period.`,
+      });
+    } else if (weeklyRate < -2) {
+      assessment.push({
+        severity: 'info',
+        category: 'weight',
+        text: `Weight loss averaged ${Math.abs(weeklyRate).toFixed(1)} lbs per week during this period.`,
+      });
+    } else if (Math.abs(weeklyRate) < 0.5 && programWeek != null && programWeek >= 4) {
+      assessment.push({
+        severity: 'info',
+        category: 'weight',
+        text: `Weight change averaged ${weeklyRate >= 0 ? '+' : ''}${weeklyRate.toFixed(1)} lbs per week — a relatively stable period at week ${programWeek} of the program.`,
+      });
+    }
+  }
+  if (wEnd != null && bmi != null && bmi < 18.5) {
+    assessment.push({
+      severity: 'warning',
+      category: 'weight',
+      text: `Most recent BMI is ${bmi.toFixed(1)}, which is below the standard reference range of 18.5–24.9.`,
+    });
+  }
+
+  // Nutrition observations
+  if (proteinPct != null && proteinPct < 70 && avgPro != null) {
+    assessment.push({
+      severity: 'warning',
+      category: 'nutrition',
+      text: `Average daily protein intake was ${avgPro} g, approximately ${proteinPct}% of the ${targets.proteinG} g target for this user.`,
+    });
+  } else if (proteinPct != null && proteinPct >= 70 && proteinPct < 90 && avgPro != null) {
+    assessment.push({
+      severity: 'info',
+      category: 'nutrition',
+      text: `Average daily protein intake was ${avgPro} g (${proteinPct}% of target).`,
+    });
+  }
+  const lowCalThresholdObs = profile.sex === 'female' ? 1200 : 1500;
+  if (avgCal != null && avgCal < lowCalThresholdObs) {
+    assessment.push({
+      severity: 'warning',
+      category: 'nutrition',
+      text: `Average daily caloric intake was ${avgCal} kcal, below the ${lowCalThresholdObs} kcal reference threshold.`,
+    });
+  }
+  if (nutDaysLogged > 0 && (nutDaysLogged / totalDays) < 0.5) {
+    assessment.push({
+      severity: 'info',
+      category: 'nutrition',
+      text: `Nutrition was logged on ${nutDaysLogged} of ${totalDays} days (${Math.round((nutDaysLogged / totalDays) * 100)}%) during this period.`,
+    });
+  }
+
+  // Side effect observations
+  if (severe > 0) {
+    const severeTypes = byTypeRows.filter(r => r.maxSeverity >= 8).map(r => capitalize(r.type));
+    assessment.push({
+      severity: 'warning',
+      category: 'side_effects',
+      text: `Severe-range events (8/10 or higher) were reported for: ${severeTypes.join(', ')}.`,
+    });
+  }
+  if (giCluster) {
+    assessment.push({
+      severity: 'info',
+      category: 'side_effects',
+      text: `Multiple gastrointestinal symptoms were logged this period (${giTypesLogged.map(capitalize).join(', ')}).`,
+    });
+  }
+  const worseningTypes = byTypeRows.filter(r => r.trend === 'worsening').map(r => capitalize(r.type));
+  if (worseningTypes.length > 0) {
+    assessment.push({
+      severity: 'warning',
+      category: 'side_effects',
+      text: `Severity increased between the first and second halves of the period for: ${worseningTypes.join(', ')}.`,
+    });
+  }
+  const improvingTypes = byTypeRows.filter(r => r.trend === 'improving').map(r => capitalize(r.type));
+  if (improvingTypes.length > 0) {
+    assessment.push({
+      severity: 'info',
+      category: 'side_effects',
+      text: `Severity decreased or resolved between the first and second halves of the period for: ${improvingTypes.join(', ')}.`,
+    });
+  }
+
+  // Adherence observations
+  if (expectedDoses > 0 && adherencePct < 80) {
+    assessment.push({
+      severity: 'warning',
+      category: 'adherence',
+      text: `Doses were logged for ${loggedDoses} of ${expectedDoses} expected windows (${adherencePct}%) during this period.`,
+    });
+  } else if (expectedDoses > 0 && adherencePct >= 80 && adherencePct < 100) {
+    assessment.push({
+      severity: 'info',
+      category: 'adherence',
+      text: `${loggedDoses} of ${expectedDoses} expected dose windows had a logged injection (${adherencePct}%).`,
+    });
+  } else if (expectedDoses > 0 && adherencePct >= 100) {
+    assessment.push({
+      severity: 'info',
+      category: 'adherence',
+      text: `All ${expectedDoses} expected dose windows had a logged injection during this period.`,
+    });
+  }
+
+  // Activity observations
+  if (avgDailySteps != null && targets.steps > 0 && avgDailySteps < targets.steps * 0.5) {
+    const pct = Math.round((avgDailySteps / targets.steps) * 100);
+    assessment.push({
+      severity: 'info',
+      category: 'activity',
+      text: `Average daily step count was ${avgDailySteps.toLocaleString()}, approximately ${pct}% of the ${targets.steps.toLocaleString()} target.`,
+    });
+  }
+  const hasStrengthObs = exerciseByType.some(e => e.type.toLowerCase().includes('strength'));
+  if (!hasStrengthObs && exerciseLogs.length > 0) {
+    assessment.push({
+      severity: 'info',
+      category: 'activity',
+      text: `${exerciseLogs.length} exercise session${exerciseLogs.length === 1 ? '' : 's'} were logged this period; none were categorized as strength or resistance training.`,
+    });
+  }
+
+  // Program-week observations (informational, not directive)
+  if (programWeek != null && programWeek >= 8 && programWeek % 4 === 0) {
+    assessment.push({
+      severity: 'info',
+      category: 'program',
+      text: `This report covers week ${programWeek} of the program.`,
+    });
+  }
+
+  // Sort assessment: warnings first, then info
+  assessment.sort((a, b) => (a.severity === 'warning' ? 0 : 1) - (b.severity === 'warning' ? 0 : 1));
+
+  // ── Discussion items: period-anchored facts worth raising ──
+  // Computed from within-window deltas, not transformations of the assessment list.
+
+  // Check-in deltas (first vs latest within window)
+  function checkinDelta(type: string, label: string): { latest: number; first: number } | null {
+    const rows = (input.weeklyCheckins[type] ?? [])
+      .filter(r => tsInWindow((r as any).logged_at ?? ''))
+      .sort((a, b) => ((a as any).logged_at ?? '').localeCompare((b as any).logged_at ?? ''));
+    if (rows.length < 2) return null;
+    return { first: (rows[0] as any).score, latest: (rows[rows.length - 1] as any).score };
+  }
+
+  const checkinTypes: [string, string][] = [
+    ['sleep_quality', 'Sleep quality'],
+    ['energy_mood', 'Energy and mood'],
+    ['gi_burden', 'GI symptom burden'],
+    ['mental_health', 'Mental health'],
+    ['appetite', 'Appetite'],
+    ['activity_quality', 'Activity quality'],
+  ];
+  for (const [type, label] of checkinTypes) {
+    const d = checkinDelta(type, label);
+    if (d == null) continue;
+    const delta = d.latest - d.first;
+    if (Math.abs(delta) >= 15) {
+      const direction = delta > 0 ? 'rose' : 'declined';
+      discussion.push({
+        category: 'checkins',
+        text: `${label} self-rating ${direction} from ${d.first}/100 to ${d.latest}/100 across the period.`,
+      });
+    }
+  }
+
+  // Food noise delta
+  const fnInWindow = input.foodNoiseLogs
+    .filter(fn => tsInWindow(fn.logged_at))
+    .sort((a, b) => a.logged_at.localeCompare(b.logged_at));
+  if (fnInWindow.length >= 2) {
+    const first = fnInWindow[0].score;
+    const last = fnInWindow[fnInWindow.length - 1].score;
+    if (Math.abs(last - first) >= 15) {
+      const direction = last > first ? 'rose' : 'declined';
+      discussion.push({
+        category: 'checkins',
+        text: `Food noise self-rating ${direction} from ${first}/100 to ${last}/100 during this period.`,
+      });
+    }
+  }
+
+  // New side effect types appearing this period
+  const firstHalfTypes = new Set(
+    seInWindow.filter(s => new Date(s.logged_at).getTime() < midpointMs).map(s => s.effect_type),
+  );
+  const secondHalfTypes = new Set(
+    seInWindow.filter(s => new Date(s.logged_at).getTime() >= midpointMs).map(s => s.effect_type),
+  );
+  const newTypes = [...secondHalfTypes].filter(t => !firstHalfTypes.has(t));
+  if (newTypes.length > 0) {
+    discussion.push({
+      category: 'side_effects',
+      text: `New symptom type${newTypes.length === 1 ? '' : 's'} first reported in the second half of the period: ${newTypes.map(capitalize).join(', ')}.`,
+    });
+  }
+
+  // Missed dose dates (specific)
+  if (missedWindows.length > 0 && missedWindows.length <= 3) {
+    discussion.push({
+      category: 'adherence',
+      text: `Dose window${missedWindows.length === 1 ? '' : 's'} without a logged injection: ${missedWindows.join(', ')}.`,
+    });
+  } else if (missedWindows.length > 3) {
+    discussion.push({
+      category: 'adherence',
+      text: `${missedWindows.length} dose windows had no logged injection during this period.`,
+    });
+  }
+
+  // Weight rate change (acceleration / deceleration within period)
+  if (dataPoints.length >= 4) {
+    const half = Math.floor(dataPoints.length / 2);
+    const firstAvg = dataPoints.slice(0, half).reduce((a, b) => a + b.weight, 0) / half;
+    const secondAvg = dataPoints.slice(half).reduce((a, b) => a + b.weight, 0) / (dataPoints.length - half);
+    const halfDelta = secondAvg - firstAvg;
+    if (Math.abs(halfDelta) >= 2) {
+      const direction = halfDelta < 0 ? 'lower' : 'higher';
+      discussion.push({
+        category: 'weight',
+        text: `Average weight in the second half of the period was ${Math.abs(halfDelta).toFixed(1)} lbs ${direction} than the first half.`,
+      });
+    }
+  }
+
+  // Activity volume note if very few active days
+  if (activeDays > 0 && activeDays / totalDays < 0.4) {
+    discussion.push({
+      category: 'activity',
+      text: `Step data was recorded on ${activeDays} of ${totalDays} days during this period.`,
+    });
+  }
+
+  const narrative: NarrativeSections = { assessment, discussion };
+
   return {
     dateRange: { start, end, totalDays },
     patient,
@@ -721,6 +1050,8 @@ export function computeProviderReport(
     biometrics,
     checkins,
     clinicalFlags,
+    narrative,
+    rtm,
   };
 }
 

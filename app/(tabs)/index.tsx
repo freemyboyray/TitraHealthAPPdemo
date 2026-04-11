@@ -496,8 +496,9 @@ function DailyLogSummaryCard({
     if (!editTarget) return;
     setSaving(true);
     try {
+      let saveError: { message: string } | null = null;
       if (editTarget.kind === 'food') {
-        await supabase.from('food_logs').update({
+        const { error } = await supabase.from('food_logs').update({
           food_name: editForm.food_name,
           calories:  Number(editForm.calories)  || 0,
           protein_g: Number(editForm.protein_g) || 0,
@@ -505,17 +506,25 @@ function DailyLogSummaryCard({
           fat_g:     Number(editForm.fat_g)     || 0,
           meal_type: editForm.meal_type as any,
         }).eq('id', editTarget.item.id);
+        saveError = error;
       } else if (editTarget.kind === 'activity') {
-        await supabase.from('activity_logs').update({
+        const { error } = await supabase.from('activity_logs').update({
           exercise_type:   editForm.exercise_type,
           duration_min:    Number(editForm.duration_min)    || 0,
           steps:           Number(editForm.steps)           || 0,
           active_calories: Number(editForm.active_calories) || 0,
         }).eq('id', editTarget.item.id);
+        saveError = error;
       } else {
-        await supabase.from('weight_logs').update({
+        const { error } = await supabase.from('weight_logs').update({
           weight_lbs: Number(editForm.weight_lbs) || 0,
         }).eq('id', editTarget.item.id);
+        saveError = error;
+      }
+      if (saveError) {
+        console.warn('inline edit save failed:', saveError);
+        Alert.alert('Could not save', saveError.message);
+        return;
       }
       setEditTarget(null);
       onRefresh();
@@ -528,7 +537,12 @@ function DailyLogSummaryCard({
     Alert.alert('Remove Entry', `Delete "${label}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-          await supabase.from(table as any).delete().eq('id', id);
+          const { error } = await supabase.from(table as any).delete().eq('id', id);
+          if (error) {
+            console.warn('inline delete failed:', error);
+            Alert.alert('Could not delete', error.message);
+            return;
+          }
           onRefresh();
         }
       },
@@ -1333,7 +1347,7 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={s.greetingLabel}>Welcome,</Text>
               <Text style={s.greetingName}>
-                {logStore.profile?.full_name?.split(' ')[0] ?? 'there'}!
+                {logStore.profile?.username?.split(' ')[0] ?? 'there'}!
               </Text>
             </View>
             {/* Right: date + weekday */}
