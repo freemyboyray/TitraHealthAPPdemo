@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -53,8 +53,8 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
   const { masterEnabled } = useRemindersStore();
-  const { isLightMode, toggleLightMode, appleHealthEnabled, setAppleHealthEnabled } = usePreferencesStore();
-  const { permissionsGranted, requestPermissions, fetchAll, lastRefreshed } = useHealthKitStore();
+  const { isLightMode, toggleLightMode, appleHealthEnabled } = usePreferencesStore();
+  const { lastRefreshed, liveCategories } = useHealthKitStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -119,38 +119,6 @@ export default function SettingsScreen() {
     })();
     return () => { cancelled = true; };
   }, [clinicianLinked, clinicianId]);
-
-  async function handleAppleHealthToggle(value: boolean) {
-    if (!value) {
-      setAppleHealthEnabled(false);
-      return;
-    }
-
-    if (Platform.OS !== 'ios') {
-      Alert.alert('Not Available', 'Apple Health is only available on iOS.');
-      return;
-    }
-
-    const granted = await requestPermissions();
-    if (granted) {
-      setAppleHealthEnabled(true);
-      // iOS never reveals which read categories were actually granted. The
-      // sheet has been presented; try a fetch and trust that any categories
-      // the user toggled on will start returning data. If reads come back
-      // empty, it almost always means the user declined individual toggles.
-      await fetchAll();
-    } else {
-      Alert.alert(
-        'Apple Health Unavailable',
-        'The HealthKit module could not be loaded on this device. This usually means one of:\n\n' +
-        '• You are running in Expo Go (HealthKit requires a custom dev client or TestFlight build)\n' +
-        '• The device is an iPad or simulator that does not support HealthKit\n' +
-        '• The native module failed to link in this build\n\n' +
-        'Check the Metro console for [HealthKit] log lines — they will identify the exact cause.',
-        [{ text: 'OK' }],
-      );
-    }
-  }
 
   async function handleSignOut() {
     Alert.alert('Sign Out', 'Are you sure?', [
@@ -329,30 +297,22 @@ export default function SettingsScreen() {
         <Text style={s.sectionLabel}>CONNECTIONS</Text>
 
         <View style={s.card}>
-          <View style={s.cardRow}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
                 <Ionicons name="heart" size={18} color="#FF3B30" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Apple Health</Text>
-                {appleHealthEnabled && (
-                  <Text style={s.rowSub}>
-                    {lastRefreshed
-                      ? `Synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                      : 'Syncing…'}
-                  </Text>
-                )}
+                <Text style={s.rowSub}>
+                  {appleHealthEnabled
+                    ? `${liveCategories.size} categories live${lastRefreshed ? ` · Synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
+                    : 'Not connected'}
+                </Text>
               </View>
             </View>
-            <Switch
-              value={appleHealthEnabled}
-              onValueChange={handleAppleHealthToggle}
-              trackColor={{ false: '#333', true: '#FF3B30' }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#333"
-            />
-          </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
         </View>
 
         {/* CARE TEAM section */}

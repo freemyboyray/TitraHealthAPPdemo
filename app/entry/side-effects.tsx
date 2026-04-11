@@ -28,6 +28,7 @@ import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceSideEffectsResult } from '../../lib/openai';
+import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
@@ -156,6 +157,7 @@ export default function SideEffectsScreen() {
   const [activeIds, setActiveIds] = useState<string[]>([]);
   const [customDefs, setCustomDefs] = useState<CustomEffect[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
+  const [hkSuggestedIds, setHkSuggestedIds] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<PhaseType>('balance');
   const [loading, setLoading] = useState(false);
 
@@ -183,9 +185,10 @@ export default function SideEffectsScreen() {
   useFocusEffect(
     useCallback(() => {
       async function load() {
-        const [storedIds, storedCustom] = await Promise.all([
+        const [storedIds, storedCustom, hkSeverities] = await Promise.all([
           AsyncStorage.getItem(ACTIVE_EFFECTS_KEY),
           AsyncStorage.getItem(CUSTOM_EFFECTS_KEY),
+          readTodaySymptomSeverities().catch(() => ({} as Record<string, number>)),
         ]);
         const ids: string[] = storedIds
           ? JSON.parse(storedIds)
@@ -193,10 +196,21 @@ export default function SideEffectsScreen() {
         const customs: CustomEffect[] = storedCustom ? JSON.parse(storedCustom) : [];
         setActiveIds(ids);
         setCustomDefs(customs);
-        // Reset all values to 0 on each focus
+        // Reset all values to 0, then pre-fill any symptom the user already
+        // logged in Apple Health today. The user can still slide back to 0
+        // to dismiss — HK is a suggestion, not a commitment.
         const init: Record<string, number> = {};
         [...ids, ...customs.map((c) => c.id)].forEach((id) => { init[id] = 0; });
+        const suggested = new Set<string>();
+        for (const id of ids) {
+          const hkValue = hkSeverities[id];
+          if (hkValue && hkValue > 0) {
+            init[id] = hkValue;
+            suggested.add(id);
+          }
+        }
         setValues(init);
+        setHkSuggestedIds(suggested);
       }
       load();
     }, []),
@@ -307,6 +321,7 @@ export default function SideEffectsScreen() {
               allActive.map((effect, idx) => {
                 const val = values[effect.id] ?? 0;
                 const isLast = idx === allActive.length - 1;
+                const fromHK = hkSuggestedIds.has(effect.id) && val > 0;
                 const ctx = val > 0
                   ? getSideEffectContext(effect.dbType, profile?.doseStartDate)
                   : null;
@@ -320,7 +335,21 @@ export default function SideEffectsScreen() {
                     }}
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
+                        {fromHK && (
+                          <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 3,
+                            backgroundColor: 'rgba(255,59,48,0.12)',
+                            paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+                          }}>
+                            <Ionicons name="heart" size={9} color="#FF3B30" />
+                            <Text style={{ fontSize: 9, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.3 }}>
+                              HEALTH
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text
                         style={{
                           fontSize: 15, fontWeight: '800',

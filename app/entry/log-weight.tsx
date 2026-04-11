@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
+import { readLatestWeightSample } from '../../lib/healthkit';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -203,6 +204,38 @@ export default function LogWeightScreen() {
 
   const [lbs, setLbs]   = useState(185.0);
   const [unit, setUnit] = useState<Unit>('lbs');
+  const [hkSuggestion, setHkSuggestion] = useState<{ lbs: number; recordedAt: Date } | null>(null);
+
+  // Pull the most recent scale reading from Apple Health and, if it's within
+  // the last 24h, offer it as a one-tap auto-fill. HK only — Android falls
+  // through to null.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const sample = await readLatestWeightSample();
+        if (cancelled || !sample) return;
+        const ageMs = Date.now() - sample.recordedAt.getTime();
+        if (ageMs > 24 * 60 * 60 * 1000) return;
+        setHkSuggestion(sample);
+      })();
+      return () => { cancelled = true; };
+    }, []),
+  );
+
+  function handleUseHKSuggestion() {
+    if (!hkSuggestion) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLbs(hkSuggestion.lbs);
+  }
+
+  function formatAge(recordedAt: Date): string {
+    const mins = Math.round((Date.now() - recordedAt.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    return hrs === 1 ? '1 hr ago' : `${hrs} hrs ago`;
+  }
 
   const disp = unit === 'lbs' ? lbs : parseFloat((lbs * LB_TO_KG).toFixed(1));
   const min  = unit === 'lbs' ? 50  : 22;
@@ -285,6 +318,46 @@ export default function LogWeightScreen() {
           <Ionicons name="calendar-outline" size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
           <Text style={s.dateText}>{dateStr}</Text>
         </View>
+
+        {/* HK scale auto-fill chip */}
+        {hkSuggestion && (
+          <TouchableOpacity
+            onPress={handleUseHKSuggestion}
+            activeOpacity={0.75}
+            style={{
+              marginHorizontal: 20,
+              marginTop: 8,
+              borderRadius: 14,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(255,59,48,0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,59,48,0.22)',
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <Ionicons name="heart" size={16} color="#FF3B30" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.4 }}>
+                FROM YOUR SCALE
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginTop: 1 }}>
+                {(unit === 'lbs' ? hkSuggestion.lbs : hkSuggestion.lbs * LB_TO_KG).toFixed(1)} {unit} · {formatAge(hkSuggestion.recordedAt)}
+              </Text>
+            </View>
+            <View style={{
+              borderRadius: 12,
+              backgroundColor: '#FF3B30',
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 0.3 }}>USE</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Weight display */}
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
