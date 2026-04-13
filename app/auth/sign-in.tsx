@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  KeyboardAvoidingView,
+  Image,
   Platform,
   ScrollView,
   StatusBar,
@@ -181,6 +181,8 @@ export default function SignInScreen() {
   const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError]                 = useState<string | null>(null);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [otpCode, setOtpCode]             = useState('');
 
   function handleTabChange(t: 'login' | 'register') {
     setActiveTab(t);
@@ -219,8 +221,7 @@ export default function SignInScreen() {
     if (data.session) {
       setSession(data.session);
       await loadProfile();
-      const sbProfile = useUserStore.getState().profile;
-      router.replace(sbProfile?.program_start_date ? '/(tabs)' : '/onboarding');
+      router.replace('/');
     }
     setLoading(false);
   }
@@ -261,11 +262,62 @@ export default function SignInScreen() {
       setSession(data.session);
       await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
       await loadProfile();
-      router.replace('/onboarding');
+      router.replace('/');
     } else {
-      setError('Check your email for a confirmation link, then sign in.');
+      // No session = email confirmation required. Show OTP screen.
+      setPendingVerification(true);
     }
 
+    setLoading(false);
+  }
+
+  // ── OTP verification ───────────────────────────────────────────────────
+  async function handleVerifyOtp() {
+    const code = otpCode.trim();
+    if (!code) {
+      setError('Please enter the code from your email.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const { data, error: err } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code,
+      type: 'signup',
+    });
+
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.session) {
+      setSession(data.session);
+      const trimmedUsername = username.trim();
+      if (trimmedUsername) {
+        await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
+      }
+      await loadProfile();
+      router.replace('/');
+    }
+    setLoading(false);
+  }
+
+  async function handleResendCode() {
+    setLoading(true);
+    setError(null);
+    const { error: err } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+    });
+    if (err) {
+      setError(err.message);
+    } else {
+      setError('A new code has been sent to your email.');
+    }
     setLoading(false);
   }
 
@@ -287,8 +339,7 @@ export default function SignInScreen() {
     }
     setSession(session);
     await loadProfile();
-    const sbProfile = useUserStore.getState().profile;
-    router.replace(sbProfile?.program_start_date ? '/(tabs)' : '/onboarding');
+    router.replace('/');
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────
@@ -351,42 +402,94 @@ export default function SignInScreen() {
 
 
   const isLogin = activeTab === 'login';
-  const headline = isLogin ? 'Welcome back' : 'Create account';
+  const headline = isLogin ? 'Welcome back' : 'Get started';
   const subtitle = isLogin
-    ? 'Track your GLP-1 journey'
-    : 'Start your GLP-1 journey today';
+    ? 'Your GLP-1 companion, always in your corner.'
+    : 'Smarter tracking for your GLP-1 journey.';
 
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />
 
-      {/* ── Dark header ── */}
-      <View style={s.header}>
-        <SafeAreaView edges={['top']}>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </SafeAreaView>
-        <View style={s.headerContent}>
-          <Ionicons name="leaf-outline" size={26} color={ORANGE} style={s.leafIcon} />
-          <Text style={s.headline}>{headline}</Text>
-          <Text style={s.subtitle}>{subtitle}</Text>
-        </View>
-      </View>
-
-      {/* ── White card ── */}
-      <KeyboardAvoidingView
-        style={s.kavRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        automaticallyAdjustKeyboardInsets
       >
-        <ScrollView
-          contentContainerStyle={s.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={s.card}>
+        {/* ── Dark header ── */}
+        <View style={s.header}>
+          <SafeAreaView edges={['top']} />
+          <View style={s.headerContent}>
+            <View style={s.brandRow}>
+              <Image
+                source={require('@/assets/images/icon.png')}
+                style={s.logoMark}
+              />
+              <Text style={s.brandName}>Titra Health</Text>
+            </View>
+            <Text style={s.headline}>{headline}</Text>
+            <Text style={s.subtitle}>{subtitle}</Text>
+          </View>
+        </View>
 
+        {/* ── White card ── */}
+        <View style={s.card}>
+
+          {pendingVerification ? (
+            <>
+              <Text style={s.otpTitle}>Check your email</Text>
+              <Text style={s.otpSubtitle}>
+                We sent a verification code to {email.trim()}
+              </Text>
+
+              <PillInput
+                icon="key-outline"
+                placeholder="Enter verification code"
+                value={otpCode}
+                onChangeText={setOtpCode}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                returnKeyType="go"
+                onSubmitEditing={handleVerifyOtp}
+              />
+
+              {error ? <Text style={s.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity
+                style={[s.ctaBtn, loading && s.btnDisabled]}
+                onPress={handleVerifyOtp}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={s.ctaBtnText}>Verify</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.resendBtn}
+                onPress={handleResendCode}
+                activeOpacity={0.7}
+                disabled={loading}
+              >
+                <Text style={s.resendText}>Didn't get a code? Resend</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.resendBtn}
+                onPress={() => { setPendingVerification(false); setOtpCode(''); setError(null); }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.resendText}>Back to sign up</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
             <AuthTabSwitcher active={activeTab} onChange={handleTabChange} />
 
             {/* Register-only: Full Name */}
@@ -496,10 +599,11 @@ export default function SignInScreen() {
             >
               <Text style={s.demoLinkText}>Try demo - no account needed</Text>
             </TouchableOpacity>
+            </>
+          )}
 
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -511,26 +615,31 @@ const createStyles = (c: AppColors) => {
 
   // Header (dark, theme-aware)
   header: {
-    height: SCREEN_H * 0.42,
     backgroundColor: c.bg,
     paddingHorizontal: 28,
-  },
-  backBtn: {
-    marginTop: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: w(0.35),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
     paddingBottom: 28,
   },
-  leafIcon: { marginBottom: 12 },
+  headerContent: {
+    paddingTop: 24,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+  },
+  brandName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: ORANGE,
+    fontFamily: FONT,
+    marginLeft: 12,
+    letterSpacing: 0.3,
+  },
   headline: {
     fontSize: 34,
     fontWeight: '800',
@@ -547,7 +656,6 @@ const createStyles = (c: AppColors) => {
   },
 
   // Card (fixed light - intentional design contrast)
-  kavRoot:     { flex: 1 },
   scrollContent: { flexGrow: 1 },
   card: {
     flex: 1,
@@ -555,7 +663,7 @@ const createStyles = (c: AppColors) => {
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
-    minHeight: SCREEN_H * 0.6,
+    paddingBottom: 40,
   },
 
   // Remember me row
@@ -633,5 +741,34 @@ const createStyles = (c: AppColors) => {
   // Demo link
   demoLink:     { alignItems: 'center', paddingVertical: 8 },
   demoLinkText: { fontSize: 14, color: INPUT_ICON, fontFamily: FONT },
+
+  // OTP verification
+  otpTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: INPUT_TEXT,
+    fontFamily: FONT,
+    textAlign: 'center',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  otpSubtitle: {
+    fontSize: 15,
+    color: INPUT_ICON,
+    fontFamily: FONT,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 21,
+  },
+  resendBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  resendText: {
+    fontSize: 14,
+    color: ORANGE,
+    fontWeight: '600',
+    fontFamily: FONT,
+  },
   });
 };
