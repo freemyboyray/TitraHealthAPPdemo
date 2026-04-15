@@ -38,6 +38,9 @@ const CONTEXT_NOTES: Record<string, string> = {
 export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const stepNum = isStarting ? 9 : 13;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [speedIdx, setSpeedIdx] = useState(2);
@@ -60,7 +63,7 @@ export default function GoalSpeedScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={13} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={stepNum} total={total} onBack={() => router.back()} />
 
         <Text style={s.title}>How quickly do you want to reach your goal?</Text>
         <Text style={s.subtitle}>

@@ -19,7 +19,10 @@ const OPTIONS: { value: Sex; label: string }[] = [
 
 export default function SexScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 4 : 7;
   const [selected, setSelected] = useState<Sex | null>(null);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -33,7 +36,7 @@ export default function SexScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={7} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Help us get the basics right.</Text>
           <Text style={s.subtitle}>

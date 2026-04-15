@@ -1,4 +1,4 @@
-import { Glp1Type, Glp1Status } from './user-profile';
+import { Glp1Type } from './user-profile';
 
 interface DrugPkParams {
   ka: number;  // absorption rate constant, h⁻¹
@@ -175,10 +175,9 @@ export function pkConcentrationPct(
 
 export function generatePkCurveCycle(
   glp1Type: Glp1Type,
-  glp1Status: Glp1Status,
+  atSteadyState: boolean,
   injFreqDays: number,
 ): number[] {
-  const atSteadyState = glp1Status === 'active';
   const intervalH = Math.max(1, injFreqDays) * 24;
   return Array.from({ length: injFreqDays }, (_, i) => {
     const tHours = (i + 1) * 24; // day 1 = 24h, day 2 = 48h, ..., day N = N*24h
@@ -192,10 +191,9 @@ export function generatePkCurveCycle(
 export function generatePkCurve(
   daysSince: number,
   glp1Type: Glp1Type,
-  glp1Status: Glp1Status,
+  atSteadyState: boolean,
   injFreqDays: number,
 ): number[] {
-  const atSteadyState = glp1Status === 'active';
   const intervalH = Math.max(1, injFreqDays) * 24;
   return Array.from({ length: 7 }, (_, i) => {
     const daysAfterInj = daysSince - (6 - i);
@@ -237,11 +235,10 @@ export const INTRADAY_TIME_LABELS = ['Dose', '+4h', '+8h', '+12h', '+16h', '+20h
 
 export function generatePkCurveHighRes(
   glp1Type: Glp1Type,
-  glp1Status: Glp1Status,
+  atSteadyState: boolean,
   injFreqDays: number,
   nPoints = 28,
 ): number[] {
-  const atSteadyState = glp1Status === 'active';
   const intervalH = Math.max(1, injFreqDays) * 24;
   return Array.from({ length: nPoints }, (_, i) => {
     const tHours = (i / (nPoints - 1)) * intervalH;

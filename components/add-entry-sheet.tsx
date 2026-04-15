@@ -26,6 +26,7 @@ import { parseFoodDescription, ParsedFood } from '@/lib/openai';
 import { useUiStore } from '@/stores/ui-store';
 import { useProfile } from '@/contexts/profile-context';
 import { isOralDrug, doseIconName } from '@/constants/drug-pk';
+import { isOnTreatment } from '@/constants/user-profile';
 
 const ORANGE = '#FF742A';
 const ICON_SIZE = 24;
@@ -150,17 +151,19 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
   // ─── Grid items ─────────────────────────────────────────────────────────────
 
+  const onTreatment = isOnTreatment(fullProfile);
+
   const GRID = [
     {
       label: 'DESCRIBE FOOD',
       icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
     },
-    {
+    ...(onTreatment ? [{
       label: oral ? 'LOG DOSE' : 'LOG INJECTION',
       icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: handleLogDose,
-    },
+    }] : []),
     {
       label: 'CAPTURE FOOD',
       icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={colors.textPrimary} />,
@@ -177,11 +180,11 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       icon: null,
       onPress: handleAskAI,
     },
-    {
+    ...(onTreatment ? [{
       label: 'SIDE EFFECTS',
       icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
-    },
+    }] : []),
     {
       label: 'LOG WEIGHT',
       icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={colors.textPrimary} />,

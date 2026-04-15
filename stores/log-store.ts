@@ -247,7 +247,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const { error } = await supabase
       .from('weight_logs')
       .insert({ user_id: user.id, weight_lbs, notes: notes ?? null });
-    if (!error) await get().fetchInsightsData();
+    if (!error) {
+      // Keep profile current_weight_lbs in sync with latest weigh-in
+      await supabase.from('profiles').update({ current_weight_lbs: weight_lbs }).eq('id', user.id);
+      await get().fetchInsightsData();
+    }
     set({ loading: false, error: error?.message ?? null });
   },
 

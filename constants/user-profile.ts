@@ -4,6 +4,8 @@ import type { Database } from '@/lib/database.types';
 
 export type Glp1Status = 'active' | 'starting';
 
+export type TreatmentStatus = 'on' | 'off';
+
 export type MedicationBrand =
   // ── Weekly SC injectables ─────────────────────────────────────────────────
   | 'zepbound'
@@ -55,6 +57,7 @@ export type RouteOfAdministration = 'injection' | 'oral';
 
 export type FullUserProfile = {
   glp1Status: Glp1Status;
+  treatmentStatus: TreatmentStatus;
   medicationBrand: MedicationBrand;
   glp1Type: Glp1Type;
   routeOfAdministration: RouteOfAdministration;
@@ -73,6 +76,8 @@ export type FullUserProfile = {
   heightIn: number;
   weightLbs: number;
   weightKg: number;
+  currentWeightLbs: number;
+  currentWeightKg: number;
   appleHealthEnabled: boolean;
   startWeightLbs: number;
   startDate: string;                // YYYY-MM-DD
@@ -204,6 +209,13 @@ export function computeProfileDerivedMetrics(draft: ProfileDraft): Partial<FullU
     result.weightLbs = Math.round(draft.weightKg * 2.20462 * 10) / 10;
   }
 
+  // Current weight conversions
+  if (draft.currentWeightLbs !== undefined) {
+    result.currentWeightKg = Math.round(draft.currentWeightLbs * 0.453592 * 10) / 10;
+  } else if (draft.currentWeightKg !== undefined) {
+    result.currentWeightLbs = Math.round(draft.currentWeightKg * 2.20462 * 10) / 10;
+  }
+
   // Imperial ↔ metric goal weight
   if (draft.goalWeightLbs !== undefined) {
     result.goalWeightKg = Math.round(draft.goalWeightLbs * 0.453592 * 10) / 10;
@@ -289,3 +301,9 @@ export const BRAND_STARTING_DOSE: Partial<Record<MedicationBrand, number>> = {
   compounded_tirzepatide:2.5,
   compounded_liraglutide:0.6,
 };
+
+// ─── Treatment Status Helper ─────────────────────────────────────────────────
+
+export function isOnTreatment(profile: Pick<FullUserProfile, 'treatmentStatus'> | null | undefined): boolean {
+  return profile?.treatmentStatus === 'on';
+}

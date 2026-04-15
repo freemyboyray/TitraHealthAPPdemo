@@ -47,11 +47,13 @@ function deficitForWeeklyLoss(lbs: number): number {
  * Stored in user_goals at onboarding completion; recalculated if profile metrics change.
  */
 export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
-  const { weightKg, heightCm, age, sex, activityLevel, targetWeeklyLossLbs } = profile;
+  const { currentWeightKg, weightKg, heightCm, age, sex, activityLevel, targetWeeklyLossLbs } = profile;
+  // Prefer current weight for nutrition calcs; fall back to weightKg (legacy)
+  const effectiveWeightKg = currentWeightKg || weightKg;
   const weeklyLoss = targetWeeklyLossLbs ?? 1.0;
 
   // ── BMR (Mifflin-St Jeor) ──────────────────────────────────────────────────
-  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + (sex === 'male' ? 5 : -161);
+  const bmr = 10 * effectiveWeightKg + 6.25 * heightCm - 5 * age + (sex === 'male' ? 5 : -161);
 
   // ── TDEE ───────────────────────────────────────────────────────────────────
   const activityMult: Record<string, number> = {
@@ -72,7 +74,7 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
   // Clinical range is 1.2–2.0 g/kg for GLP-1 patients; we use the floor to
   // keep targets achievable, especially with appetite suppression.
   const proteinMult = weeklyLoss >= 1.5 ? 1.2 : 1.0;
-  const proteinG = Math.round(weightKg * proteinMult);
+  const proteinG = Math.round(effectiveWeightKg * proteinMult);
 
   // ── Fat (28% of calories) ─────────────────────────────────────────────────
   const fatG = Math.round((caloriesTarget * 0.28) / 9);
@@ -86,7 +88,7 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
 
   // ── Water (30 ml/kg, bounded [2000, 3000]) ────────────────────────────────
   // Standard hydration; GLP-1 patients may need more but we start conservative.
-  const waterMl = Math.min(3000, Math.max(2000, Math.round(weightKg * 30)));
+  const waterMl = Math.min(3000, Math.max(2000, Math.round(effectiveWeightKg * 30)));
 
   // ── Steps (achievable baselines) ──────────────────────────────────────────
   // Average American walks ~4,000/day. Start near that and scale gently.

@@ -119,7 +119,7 @@ export default function RemindersScreen() {
       if (!granted) {
         Alert.alert(
           'Notifications Blocked',
-          'Enable notifications in Settings → TitraHealth → Notifications.',
+          'Enable notifications in Settings → Titra Health → Notifications.',
         );
         return;
       }
@@ -146,7 +146,7 @@ export default function RemindersScreen() {
 
   async function handleTestNotification() {
     await scheduleTestNotification(
-      'TitraHealth Reminder',
+      'Titra Health Reminder',
       'This is a test - your reminders are working!',
     );
     setTestSent(true);

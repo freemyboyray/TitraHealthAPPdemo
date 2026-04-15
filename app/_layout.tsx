@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 // expo-notifications requires a dev build; guard so Expo Go doesn't crash.
 let Notifications: typeof import('expo-notifications') | undefined;
 try { Notifications = require('expo-notifications'); } catch {}
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -54,6 +55,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         loadProfile();
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
+        AsyncStorage.multiRemove([
+          '@titrahealth_profile', '@titrahealth_profile_uid',
+          '@titrahealth_profile_draft', '@titrahealth_profile_draft_uid',
+        ]).catch(() => {});
         resetProfile();
         useBiometricStore.getState().resetBaseline();
         useRemindersStore.getState().reset();
@@ -63,14 +68,31 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     });
 
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
         if (session) {
-          setSession(session);
-          loadProfile();
+          // Verify the user still exists before trusting the cached session
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (error || !user) {
+            // User was deleted or token is invalid — clear everything
+            await AsyncStorage.multiRemove([
+              '@titrahealth_profile', '@titrahealth_profile_uid',
+              '@titrahealth_profile_draft', '@titrahealth_profile_draft_uid',
+            ]).catch(() => {});
+            await supabase.auth.signOut().catch(() => {});
+            setSession(null);
+          } else {
+            setSession(session);
+            loadProfile();
+          }
         }
         setSessionLoaded(true);
       })
-      .catch(() => setSessionLoaded(true));
+      .catch(async () => {
+        // Stale/invalid token (e.g. user deleted) — sign out to clear it
+        await supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setSessionLoaded(true);
+      });
 
     return () => subscription.unsubscribe();
   }, []);

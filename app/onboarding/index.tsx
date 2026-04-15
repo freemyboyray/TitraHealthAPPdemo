@@ -6,20 +6,24 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
-import { Glp1Status } from '@/constants/user-profile';
+import type { TreatmentStatus } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+
+type JourneyOption = 'active' | 'starting' | 'off';
 
 export default function JourneyScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
-  const [selected, setSelected] = useState<Glp1Status | null>(null);
+  const [selected, setSelected] = useState<JourneyOption | null>(null);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleContinue = () => {
     if (!selected) return;
-    updateDraft({ glp1Status: selected });
+    const treatmentStatus: TreatmentStatus = selected === 'active' ? 'on' : 'off';
+    const glp1Status = selected === 'starting' ? 'starting' : 'active';
+    updateDraft({ glp1Status, treatmentStatus });
     router.push('/onboarding/clinician' as any);
   };
 
@@ -33,16 +37,22 @@ export default function JourneyScreen() {
 
           <View style={s.options}>
             <OptionPill
-              label="I'm already on a GLP-1"
-              subtitle="Currently injecting, tracking progress"
+              label="I'm currently on a GLP-1"
+              subtitle="Currently taking medication, tracking progress"
               selected={selected === 'active'}
               onPress={() => setSelected('active')}
             />
             <OptionPill
               label="I'm about to start a GLP-1"
-              subtitle="Preparing for my first injection"
+              subtitle="Preparing for my first dose"
               selected={selected === 'starting'}
               onPress={() => setSelected('starting')}
+            />
+            <OptionPill
+              label="I'm not on a GLP-1 right now"
+              subtitle="Lifestyle tracking only — weight, food, activity"
+              selected={selected === 'off'}
+              onPress={() => setSelected('off')}
             />
           </View>
         </ScrollView>

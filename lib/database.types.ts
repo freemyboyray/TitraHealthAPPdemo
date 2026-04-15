@@ -720,6 +720,7 @@ export type Database = {
           avatar_url: string | null
           craving_days: Json | null
           created_at: string
+          current_weight_lbs: number | null
           dismissed_flags: Json | null
           dob: string | null
           dose_mg: number | null
@@ -770,6 +771,7 @@ export type Database = {
           avatar_url?: string | null
           craving_days?: Json | null
           created_at?: string
+          current_weight_lbs?: number | null
           dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null
@@ -822,6 +824,7 @@ export type Database = {
           avatar_url?: string | null
           craving_days?: Json | null
           created_at?: string
+          current_weight_lbs?: number | null
           dismissed_flags?: Json | null
           dob?: string | null
           dose_mg?: number | null

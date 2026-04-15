@@ -338,6 +338,17 @@ export default function SignInScreen() {
       return;
     }
     setSession(session);
+    // For OAuth users, populate username from provider metadata if missing
+    const user = session.user;
+    if (user) {
+      const { data: existing } = await supabase.from('profiles').select('username').eq('id', user.id).single();
+      if (!existing?.username) {
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0];
+        if (name) {
+          await supabase.from('profiles').upsert({ id: user.id, username: name }, { onConflict: 'id' });
+        }
+      }
+    }
     await loadProfile();
     router.replace('/');
   }

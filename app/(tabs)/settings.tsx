@@ -10,6 +10,7 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useLogStore } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
+import { isOnTreatment } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 import { useEffect, useMemo, useState } from 'react';
 import { TextInput } from 'react-native';
@@ -82,10 +83,13 @@ export default function SettingsScreen() {
     : p ? computeNextDose(p.lastInjectionDate, p.injectionFrequencyDays) : null;
 
   const pendingBrandName = p?.pendingMedicationBrand ? (BRAND_LABEL[p.pendingMedicationBrand] ?? p.pendingMedicationBrand) : null;
-  const treatmentLine1 = p ? `${brandName} ${p.doseMg} mg · ${freqLabel}` : '-';
-  const treatmentLine2 = hasPendingTransition
-    ? `Switching to ${pendingBrandName} ${p!.pendingDoseMg}mg · Next dose: ${nextDose}`
-    : nextDose ? `Next dose: ${nextDose}` : '';
+  const onTreatment = isOnTreatment(p);
+  const treatmentLine1 = !p ? '-' : onTreatment ? `${brandName} ${p.doseMg} mg · ${freqLabel}` : 'Not on medication';
+  const treatmentLine2 = !onTreatment
+    ? 'Tap to start or resume a GLP-1'
+    : hasPendingTransition
+      ? `Switching to ${pendingBrandName} ${p!.pendingDoseMg}mg · Next dose: ${nextDose}`
+      : nextDose ? `Next dose: ${nextDose}` : '';
 
   // Body & Goals summary — prefer latest weight log over profile
   const latestWeightLog = useLogStore((s) => s.weightLogs[0]);
@@ -321,53 +325,20 @@ export default function SettingsScreen() {
         <View style={s.card}>
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/rtm-link' as any)}>
             <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name="medkit-outline" size={18} color={ORANGE} />
+              <View style={[s.iconBadge, { backgroundColor: clinicianLinked ? 'rgba(255,116,42,0.15)' : 'rgba(255,255,255,0.06)' }]}>
+                <Ionicons name="medkit-outline" size={18} color={clinicianLinked ? ORANGE : colors.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Clinician</Text>
+                <Text style={s.rowLabel}>Clinician Report</Text>
                 <Text style={s.rowSub}>
                   {clinicianLinked
-                    ? `${clinicianName ?? 'Linked'} · Linked`
-                    : 'Not linked'}
+                    ? `${clinicianName ?? 'Linked'} · Generate PDF`
+                    : 'Link your clinician to unlock'}
                 </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
-        </View>
-
-        {/* TOOLS section */}
-        <Text style={s.sectionLabel}>TOOLS</Text>
-
-        <View style={s.card}>
-          {clinicianLinked ? (
-            <Pressable style={s.cardRow} onPress={() => router.push('/entry/provider-report' as any)}>
-              <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <Ionicons name="document-text-outline" size={18} color={ORANGE} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.rowLabel}>Provider Report</Text>
-                  <Text style={s.rowSub}>Generate a clinical PDF for your doctor</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          ) : (
-            <Pressable style={s.cardRow} onPress={() => router.push('/settings/rtm-link' as any)}>
-              <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
-                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.rowLabel, { color: colors.textSecondary }]}>Provider Report</Text>
-                  <Text style={s.rowSub}>Link your clinician to unlock</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          )}
         </View>
 
         {/* LEGAL & ACCOUNT section */}

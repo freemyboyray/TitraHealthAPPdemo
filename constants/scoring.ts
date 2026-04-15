@@ -173,13 +173,11 @@ export function getDailyTargets(
   // Hard cap: 1.6 g/kg/day (clinical floor-to-mid range)
   proteinG = Math.min(proteinG, profile.weightKg * 1.6);
 
-  // GLP-1 ramp for new starters (first 3 weeks) — ease in gently
-  if (profile.glp1Status === 'starting') {
-    const startDate = new Date(profile.startDate ?? Date.now());
-    const daysSinceStart = Math.floor((Date.now() - startDate.getTime()) / 86400000);
-    if (daysSinceStart < 7) proteinG *= 0.8;
-    else if (daysSinceStart < 21) proteinG *= 0.9;
-  }
+  // GLP-1 ramp for new starters (first 3 weeks on current dose) — ease in gently
+  const doseStart = new Date(profile.doseStartDate ?? profile.startDate ?? Date.now());
+  const daysSinceStart = Math.floor((Date.now() - doseStart.getTime()) / 86400000);
+  if (daysSinceStart < 7) proteinG *= 0.8;
+  else if (daysSinceStart < 21) proteinG *= 0.9;
 
   // Hydration: 30 ml/kg base, capped at 3L (conservative, achievable)
   const waterMl = Math.min(3000, Math.max(2000, Math.round(profile.weightKg * 30)));

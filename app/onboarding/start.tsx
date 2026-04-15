@@ -16,6 +16,9 @@ export default function StartScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const unit = draft.unitSystem ?? 'imperial';
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 8 : 11;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -46,7 +49,7 @@ export default function StartScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={11} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Tell us where you started.</Text>
           <Text style={s.subtitle}>

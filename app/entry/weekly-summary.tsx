@@ -244,7 +244,7 @@ export default function WeeklySummaryScreen() {
       const doseTime = (profile as any).doseTime ?? '08:00';
       const blocks = generateIntradayForecast(
         profile.glp1Type,
-        profile.glp1Status,
+        profile.glp1Status === 'active',
         doseTime,
         profile.doseMg ?? null,
       );
@@ -265,7 +265,7 @@ export default function WeeklySummaryScreen() {
       lastInjection,
       injFreqDays,
       profile.glp1Type,
-      profile.glp1Status,
+      profile.glp1Status === 'active',
       profile.doseMg ?? null,
     );
     if (strip.length === 0) return null;

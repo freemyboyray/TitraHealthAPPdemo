@@ -30,7 +30,7 @@ type Tab = 'tos' | 'privacy';
 
 export default function TermsScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { draft, updateDraft } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -49,7 +49,7 @@ export default function TermsScreen() {
       privacyAcceptedAt: now,
       privacyVersion: PRIVACY_VERSION,
     });
-    router.push('/onboarding/medication');
+    router.push(draft.glp1Status === 'active' ? '/onboarding/medication' : '/onboarding/sex');
   };
 
   return (

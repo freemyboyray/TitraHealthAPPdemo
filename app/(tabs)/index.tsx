@@ -22,7 +22,7 @@ import {
   type ShotPhase,
   type IntradayPhase,
 } from '@/constants/scoring';
-import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
+import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
 import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
@@ -913,7 +913,8 @@ export default function HomeScreen() {
   const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
-  const { updateProfile, applyPendingTransition } = useProfile();
+  const { updateProfile, applyPendingTransition, profile: fullUserProfile } = useProfile();
+  const onTreatment = isOnTreatment(fullUserProfile);
 
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
@@ -1347,7 +1348,7 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={s.greetingLabel}>Welcome,</Text>
               <Text style={s.greetingName}>
-                {logStore.profile?.username?.split(' ')[0] ?? 'there'}!
+                {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
               </Text>
             </View>
             {/* Right: date + weekday */}
@@ -1435,22 +1436,32 @@ export default function HomeScreen() {
           )}
 
           {/* ── First-Use Checklist ── */}
-          {logStore.injectionLogs.length === 0 && logStore.weightLogs.length === 0 && (
+          {(() => {
+            const checklistItems = onTreatment
+              ? [
+                  { label: `Log your first ${doseNoun(oral)}`, done: logStore.injectionLogs.length > 0 },
+                  { label: 'Log your starting weight', done: logStore.weightLogs.length > 0 },
+                ]
+              : [
+                  { label: 'Log your current weight', done: logStore.weightLogs.length > 0 },
+                ];
+            const allDone = checklistItems.every((i) => i.done);
+            if (allDone) return null;
+            return (
             <View style={[s.cardWrap, { marginBottom: 20 }]}>
               <View style={[s.cardBody, { backgroundColor: colors.surface, padding: 20 }]}>
                 <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '700', letterSpacing: 2, fontFamily: FF, marginBottom: 8 }}>
                   GET STARTED
                 </Text>
                 <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', fontFamily: FF, marginBottom: 4 }}>
-                  Set up your journey
+                  {onTreatment ? 'Set up your journey' : 'Start tracking'}
                 </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: FF, marginBottom: 16 }}>
-                  Complete these steps to unlock your personalized phase tracking.
+                  {onTreatment
+                    ? 'Complete these steps to unlock your personalized phase tracking.'
+                    : 'Log your first entry to get personalized insights.'}
                 </Text>
-                {[
-                  { label: `Log your first ${doseNoun(oral)}`, done: logStore.injectionLogs.length > 0 },
-                  { label: 'Log your starting weight', done: logStore.weightLogs.length > 0 },
-                ].map((item, i) => (
+                {checklistItems.map((item, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     <View style={{
                       width: 22, height: 22, borderRadius: 11,
@@ -1467,9 +1478,11 @@ export default function HomeScreen() {
                 ))}
               </View>
             </View>
-          )}
+            );
+          })()}
 
-          {/* ── Treatment Hero Card ── */}
+          {/* ── Treatment Hero Card (medication users only) ── */}
+          {onTreatment ? (
           <Pressable
             style={[s.cardWrap, { marginBottom: 20 }]}
             onLongPress={handlePhasePillPress}
@@ -1527,7 +1540,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Transition banner during washout */}
-                {(transitionPhase === 'washout' || transitionPhase === 'old_med') && profile.pendingFirstDoseDate && (
+                {onTreatment && (transitionPhase === 'washout' || transitionPhase === 'old_med') && profile.pendingFirstDoseDate && (
                   (() => {
                     const startDate = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
                     const daysAway = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / 86400000));
@@ -1551,8 +1564,8 @@ export default function HomeScreen() {
                   })()
                 )}
 
-                {/* Cycle day progress bar — hidden during washout */}
-                {transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
+                {/* Cycle day progress bar — hidden during washout and off-treatment */}
+                {onTreatment && transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
                   (() => {
                     // Shot-day override: show start of new cycle instead of end of old one
                     const displayDayNum = (!todayInjLogged && rawDaysUntil === 0) ? 1 : todayDayNum;
@@ -1597,6 +1610,37 @@ export default function HomeScreen() {
               </View>
             </View>
           </Pressable>
+          ) : (
+          /* ── Wellness Card (non-medication users) ── */
+          <View style={[s.cardWrap, { marginBottom: 20 }]}>
+            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
+              <View style={s.heroCard}>
+                <View style={s.heroStats}>
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatVal}>
+                      {profile.currentWeightLbs ?? profile.weightLbs ?? '—'}
+                    </Text>
+                    <Text style={s.heroStatLbl}>{'current\nweight'}</Text>
+                  </View>
+                  <View style={s.heroStatDiv} />
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatVal}>{profile.goalWeightLbs ?? '—'}</Text>
+                    <Text style={s.heroStatLbl}>{'goal\nweight'}</Text>
+                  </View>
+                  <View style={s.heroStatDiv} />
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatVal}>
+                      {profile.currentWeightLbs && profile.goalWeightLbs
+                        ? `${Math.max(0, Math.round(((profile.currentWeightLbs ?? profile.weightLbs) - profile.goalWeightLbs) * 10) / 10)}`
+                        : '—'}
+                    </Text>
+                    <Text style={s.heroStatLbl}>{'lbs\nto go'}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+          )}
 
           {/* ── Daily Focuses ── */}
           <View style={s.focusCard}>
@@ -1753,7 +1797,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         <MissedShotModal
-          visible={missedShotVisible}
+          visible={onTreatment && missedShotVisible}
           onClose={() => setMissedShotVisible(false)}
           expectedShotDate={expectedShotDate}
           overdueDays={overdueDays}

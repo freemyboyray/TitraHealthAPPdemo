@@ -19,7 +19,10 @@ import type { AppColors } from '@/constants/theme';
 
 export default function HealthSyncScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 7 : 10;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -50,18 +53,29 @@ export default function HealthSyncScreen() {
     }
 
     updateDraft({ appleHealthEnabled: true });
-    router.push('/onboarding/start');
+    if (isStarting) {
+      // No medication yet — current weight is their starting weight
+      updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
+      router.push('/onboarding/goal-weight');
+    } else {
+      router.push('/onboarding/start');
+    }
   };
 
   const handleSkip = () => {
     updateDraft({ appleHealthEnabled: false });
-    router.push('/onboarding/start');
+    if (isStarting) {
+      updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
+      router.push('/onboarding/goal-weight');
+    } else {
+      router.push('/onboarding/start');
+    }
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={10} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
         <Text style={s.title}>Sync with Apple Health</Text>
         <Text style={s.subtitle}>

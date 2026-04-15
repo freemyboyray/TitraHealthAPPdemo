@@ -4,7 +4,7 @@ import {
   type ShotPhase, type IntradayPhase,
 } from '@/constants/scoring';
 import { pkConcentrationPct, DRUG_DOSE_APPETITE_RANGE } from '@/constants/drug-pk';
-import type { Glp1Type, Glp1Status } from '@/constants/user-profile';
+import type { Glp1Type } from '@/constants/user-profile';
 import { localDateStr } from '@/lib/date-utils';
 import type { ActivityLog, WeightLog } from '@/stores/log-store';
 
@@ -61,13 +61,12 @@ export type HourBlock = {
  */
 export function generateIntradayForecast(
   glp1Type: Glp1Type,
-  glp1Status: Glp1Status,
+  atSteadyState: boolean,
   doseTime: string = '08:00',
   doseMg?: number | null,
 ): HourBlock[] {
   const [hh, mm] = doseTime.split(':').map(Number);
   const intervalH = 24;
-  const atSteadyState = glp1Status === 'active';
   const now = new Date();
   const doseDate = new Date(now);
   doseDate.setHours(hh, mm ?? 0, 0, 0);
@@ -172,7 +171,7 @@ export function generateForecastStrip(
   lastInjectionDate: string | null,
   injFreqDays: number,
   glp1Type: Glp1Type,
-  glp1Status: Glp1Status,
+  atSteadyState: boolean,
   doseMg?: number | null,
 ): ForecastDay[] {
   if (!lastInjectionDate) return [];
@@ -189,8 +188,6 @@ export function generateForecastStrip(
 
   const displayDays = injFreqDays; // show full cycle (7 or 14 pills)
   const intervalH = injFreqDays * 24;
-  const atSteadyState = glp1Status === 'active';
-
   return Array.from({ length: displayDays }, (_, i) => {
     const injDate = new Date(anchorDateStr + 'T00:00:00');
     const dayDate = new Date(injDate.getTime() + i * 86400000);

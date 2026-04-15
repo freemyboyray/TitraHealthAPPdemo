@@ -19,7 +19,10 @@ const KG = Array.from({ length: 161 }, (_, i) => `${i + 40} kg`);
 
 export default function BodyScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 6 : 9;
   const [unit, setUnit] = useState<UnitSystem>('imperial');
   const [ftIdx, setFtIdx] = useState(2);
   const [inIdx, setInIdx] = useState(0);
@@ -42,6 +45,8 @@ export default function BodyScreen() {
         heightCm: Math.round(((ft * 12) + inches) * 2.54),
         weightLbs: lbs,
         weightKg: Math.round(lbs * 0.453592 * 10) / 10,
+        currentWeightLbs: lbs,
+        currentWeightKg: Math.round(lbs * 0.453592 * 10) / 10,
       });
     } else {
       const cm = cmIdx + 120;
@@ -53,6 +58,8 @@ export default function BodyScreen() {
         heightIn: Math.round((cm / 2.54) % 12),
         weightKg: kg,
         weightLbs: Math.round(kg * 2.20462 * 10) / 10,
+        currentWeightLbs: Math.round(kg * 2.20462 * 10) / 10,
+        currentWeightKg: kg,
       });
     }
     router.push('/onboarding/health-sync');
@@ -61,12 +68,12 @@ export default function BodyScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={9} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={s.title}>Your Height & Weight</Text>
+          <Text style={s.title}>Your Height & Current Weight</Text>
           <Text style={s.subtitle}>
-            Helps us calculate your BMI and personalize daily nutrition and activity goals.
+            What you weigh right now — helps us personalize your nutrition and activity goals.
           </Text>
 
           {/* Unit toggle */}

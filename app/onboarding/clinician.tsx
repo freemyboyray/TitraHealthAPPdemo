@@ -22,7 +22,7 @@ import { supabase } from '@/lib/supabase';
 const ORANGE = '#FF742A';
 
 const CONSENT_TEXT =
-  'I consent to my clinician reviewing the health data I log in TitraHealth.';
+  'I consent to my clinician reviewing the health data I log in Titra Health.';
 
 type Choice = 'yes' | 'no' | null;
 
@@ -93,7 +93,7 @@ export default function ClinicianScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={s.title}>Are you using TitraHealth through a clinician?</Text>
+            <Text style={s.title}>Are you using Titra Health through a clinician?</Text>
             <Text style={s.subtitle}>
               If your doctor referred you, enter their code so they can review the
               progress reports you generate.

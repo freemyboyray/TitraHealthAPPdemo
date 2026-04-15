@@ -23,7 +23,10 @@ const YEARS = Array.from({ length: CURRENT_YEAR - 1939 }, (_, i) =>
 
 export default function BirthdayScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 5 : 8;
   const [monthIdx, setMonthIdx] = useState(0);
   const [dayIdx, setDayIdx] = useState(0);
   const [yearIdx, setYearIdx] = useState(20);
@@ -57,7 +60,7 @@ export default function BirthdayScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={8} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
         <Text style={s.title}>When's your birthday?</Text>
         <Text style={s.subtitle}>Your age helps us fine-tune your nutrition goals.</Text>

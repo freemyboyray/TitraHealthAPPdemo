@@ -21,7 +21,10 @@ const OPTIONS: { value: ActivityLevel; label: string; icon: React.ReactNode; sub
 
 export default function ActivityScreen() {
   const router = useRouter();
-  const { updateDraft, completeOnboarding } = useProfile();
+  const { draft, updateDraft, completeOnboarding } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const step = isStarting ? 10 : 14;
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
@@ -31,14 +34,13 @@ export default function ActivityScreen() {
     if (!selected || saving) return;
     setSaving(true);
     updateDraft({ activityLevel: selected });
-    await completeOnboarding();
-    router.replace('/(tabs)');
+    router.replace('/onboarding/building-plan');
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={14} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Tell us a bit about your daily routine.</Text>
           <Text style={s.subtitle}>On most days you are...</Text>

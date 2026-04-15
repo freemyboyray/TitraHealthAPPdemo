@@ -13,7 +13,8 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
 import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
-import { BRAND_DISPLAY_NAMES } from '@/constants/user-profile';
+import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
+import { useProfile } from '@/contexts/profile-context';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog, type SideEffectLog } from '@/stores/log-store';
 import { computeWeightProjection, type WeightProjection } from '@/lib/weight-projection';
 import { localDateStr } from '@/lib/date-utils';
@@ -433,12 +434,13 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'progress', label: 'Progress' },
 ];
 
-function SegmentedControl({ active, onChange, colors }: { active: Tab; onChange: (t: Tab) => void; colors: AppColors }) {
+function SegmentedControl({ active, onChange, colors, tabs }: { active: Tab; onChange: (t: Tab) => void; colors: AppColors; tabs?: typeof TABS }) {
   const sc = useMemo(() => createSegmentedStyles(colors), [colors]);
+  const displayTabs = tabs ?? TABS;
   return (
     <View style={sc.wrap}>
       <View style={sc.row}>
-        {TABS.map(({ key, label }) => {
+        {displayTabs.map(({ key, label }) => {
           const isActive = active === key;
           return (
             <TouchableOpacity
@@ -2664,7 +2666,9 @@ export default function InsightsScreen() {
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
-  const [activeTab, setActiveTab] = useState<Tab>('medication');
+  const { profile: fullProfile } = useProfile();
+  const onTreatment = isOnTreatment(fullProfile);
+  const [activeTab, setActiveTab] = useState<Tab>(onTreatment ? 'medication' : 'lifestyle');
   const { openAiChat, insightsDefaultTab, setInsightsDefaultTab } = useUiStore();
 
   // Allow external navigation to a specific tab (e.g. after food logging)
@@ -2770,7 +2774,7 @@ export default function InsightsScreen() {
       ? generateIntradayPkCurve(health.profile.glp1Type)
       : generatePkCurveHighRes(
           health.profile.glp1Type,
-          health.profile.glp1Status,
+          health.profile.glp1Status === 'active',
           health.profile.injectionFrequencyDays ?? 7,
           28,
         )
@@ -2946,7 +2950,7 @@ export default function InsightsScreen() {
           </View>
 
           {/* ── Segmented Control ── */}
-          <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} />
+          <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} tabs={onTreatment ? TABS : TABS.filter(t => t.key !== 'medication')} />
           {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
             <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
             <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue' }}>

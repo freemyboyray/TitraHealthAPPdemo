@@ -49,6 +49,7 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
 
   return {
     glp1Status:             row.glp1_status ?? 'active',
+    treatmentStatus:        row.treatment_status ?? 'on',
     medicationBrand:        row.medication_brand ?? 'other',
     unitSystem:             row.unit_system ?? 'imperial',
     glp1Type:               row.medication_type ?? 'semaglutide',
@@ -74,8 +75,10 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     heightCm: Math.round(heightInches * 2.54),
     heightFt,
     heightIn,
-    weightLbs: row.start_weight_lbs ?? 0,
-    weightKg: Math.round((row.start_weight_lbs ?? 0) * 0.453592 * 10) / 10,
+    weightLbs: row.current_weight_lbs ?? row.start_weight_lbs ?? 0,
+    weightKg: Math.round((row.current_weight_lbs ?? row.start_weight_lbs ?? 0) * 0.453592 * 10) / 10,
+    currentWeightLbs: row.current_weight_lbs ?? row.start_weight_lbs ?? 0,
+    currentWeightKg: Math.round((row.current_weight_lbs ?? row.start_weight_lbs ?? 0) * 0.453592 * 10) / 10,
     appleHealthEnabled: row.apple_health_enabled ?? false,
     startWeightLbs: row.start_weight_lbs ?? 0,
     startDate: row.program_start_date ?? '',
@@ -119,19 +122,34 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function init() {
       try {
-        // 1. Try AsyncStorage first (fast, offline-capable)
-        const json = await AsyncStorage.getItem(STORAGE_KEY);
-        if (json) {
-          setProfile(JSON.parse(json) as FullUserProfile);
-          return;
+        // One-time cache migration: wipe legacy caches without uid tagging
+        const migrated = await AsyncStorage.getItem('@titrahealth_cache_v2');
+        if (!migrated) {
+          await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
+          await AsyncStorage.setItem('@titrahealth_cache_v2', '1');
         }
 
-        // 2. If empty + session exists → try Supabase profiles table
+        // 1. Get current user first so we can verify cache ownership
         const { data: { user } } = await supabase.auth.getUser();
+
+        // 2. Try AsyncStorage (fast, offline-capable) — but only if it belongs to this user
+        const json = await AsyncStorage.getItem(STORAGE_KEY);
+        const cachedUserId = await AsyncStorage.getItem(STORAGE_KEY + '_uid');
+        if (json) {
+          // Only trust cache if we have a matching uid (no uid = legacy cache, discard it)
+          if (cachedUserId && (!user || cachedUserId === user.id)) {
+            setProfile(JSON.parse(json) as FullUserProfile);
+            return;
+          }
+          // Cache is stale, belongs to a different user, or has no uid — clear it
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          await AsyncStorage.removeItem(STORAGE_KEY + '_uid');
+          await AsyncStorage.removeItem(DRAFT_KEY);
+          await AsyncStorage.removeItem(DRAFT_KEY + '_uid');
+        }
         if (!user) {
-          // Rehydrate draft so returning users don't lose onboarding progress
-          const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
-          if (draftJson) setDraft(JSON.parse(draftJson) as ProfileDraft);
+          // No authenticated user — clear any stale caches from previous users
+          await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
           return;
         }
 
@@ -145,11 +163,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (row && row.program_start_date) {
           const reconstructed = mapSupabaseToProfile(row);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reconstructed));
+          await AsyncStorage.setItem(STORAGE_KEY + '_uid', user.id);
           setProfile(reconstructed);
         } else {
-          // No completed profile yet — rehydrate in-progress draft
+          // No completed profile yet — only rehydrate draft if it belongs to this user
           const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
-          if (draftJson) setDraft(JSON.parse(draftJson) as ProfileDraft);
+          const draftUid = await AsyncStorage.getItem(DRAFT_KEY + '_uid');
+          if (draftJson && draftUid === user.id) {
+            setDraft(JSON.parse(draftJson) as ProfileDraft);
+          } else if (draftJson) {
+            // Draft belongs to a different user — clear it
+            await AsyncStorage.removeItem(DRAFT_KEY);
+            await AsyncStorage.removeItem(DRAFT_KEY + '_uid');
+          }
         }
       } finally {
         setIsLoading(false);
@@ -158,6 +184,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     init();
   }, []);
+
+  // Auto-apply pending medication transitions when the start date has arrived.
+  // Runs once per profile load — if pendingFirstDoseDate <= today, the pending
+  // medication becomes the active medication and treatmentStatus is set to 'on'.
+  useEffect(() => {
+    if (!profile?.pendingFirstDoseDate || !profile?.pendingMedicationBrand) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pending = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
+    if (pending.getTime() <= today.getTime()) {
+      console.log('profile-context: pending transition date reached, auto-applying');
+      applyPendingTransition().catch((err) =>
+        console.warn('profile-context: auto-apply pending transition failed:', err),
+      );
+    }
+  }, [profile?.pendingFirstDoseDate]);
 
   // One-time targets recalculation when formula version changes.
   // Existing users get their Supabase user_goals row recomputed on next launch.
@@ -177,6 +219,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setDraft((prev) => {
       const next = { ...prev, ...fields };
       AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(next)).catch(() => {});
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) AsyncStorage.setItem(DRAFT_KEY + '_uid', user.id).catch(() => {});
+      }).catch(() => {});
       return next;
     });
   };
@@ -190,6 +235,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } as FullUserProfile;
 
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(complete));
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) await AsyncStorage.setItem(STORAGE_KEY + '_uid', currentUser.id);
     await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(complete);
 
@@ -207,6 +254,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         injection_frequency_days: complete.injectionFrequencyDays,
         dose_time:                complete.doseTime || null,
         program_start_date:       complete.startDate,
+        current_weight_lbs:       complete.currentWeightLbs ?? complete.weightLbs,
         start_weight_lbs:         complete.startWeightLbs,
         goal_weight_lbs:          complete.goalWeightLbs,
         height_inches:            complete.heightFt * 12 + complete.heightIn,
@@ -219,6 +267,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         medication_brand:         complete.medicationBrand,
         route_of_administration:  complete.routeOfAdministration,
         glp1_status:              complete.glp1Status,
+        treatment_status:         complete.treatmentStatus ?? 'on',
         unit_system:              complete.unitSystem,
         initial_dose_mg:          complete.initialDoseMg,
         dose_start_date:          complete.doseStartDate || null,
@@ -271,6 +320,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.medicationBrand         !== undefined) row.medication_brand          = fields.medicationBrand;
       if (fields.routeOfAdministration   !== undefined) row.route_of_administration   = fields.routeOfAdministration;
       if (fields.glp1Status              !== undefined) row.glp1_status               = fields.glp1Status;
+      if (fields.treatmentStatus        !== undefined) (row as any).treatment_status  = fields.treatmentStatus;
       if (fields.initialDoseMg           !== undefined) row.initial_dose_mg           = fields.initialDoseMg;
       if (fields.injectionFrequencyDays  !== undefined) row.injection_frequency_days  = fields.injectionFrequencyDays;
       if (fields.doseTime                !== undefined) row.dose_time                 = fields.doseTime || null;
@@ -287,10 +337,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.targetWeeklyLossLbs     !== undefined) row.target_weekly_loss_lbs    = fields.targetWeeklyLossLbs;
       if (fields.goalWeightLbs           !== undefined) row.goal_weight_lbs           = fields.goalWeightLbs;
       else if (fields.goalWeightKg       !== undefined) row.goal_weight_lbs           = Math.round(fields.goalWeightKg / 0.453592);
-      // weightLbs / startWeightLbs both map to start_weight_lbs - prefer weightLbs
-      if (fields.weightLbs               !== undefined) row.start_weight_lbs          = fields.weightLbs;
-      else if (fields.startWeightLbs     !== undefined) row.start_weight_lbs          = fields.startWeightLbs;
-      else if (fields.weightKg           !== undefined) row.start_weight_lbs          = Math.round(fields.weightKg * 2.20462);
+      // currentWeightLbs → current_weight_lbs (what user weighs now)
+      if (fields.currentWeightLbs        !== undefined) row.current_weight_lbs        = fields.currentWeightLbs;
+      // weightLbs updates current_weight_lbs (used for nutrition calcs)
+      if (fields.weightLbs               !== undefined) row.current_weight_lbs        = fields.weightLbs;
+      else if (fields.weightKg           !== undefined) row.current_weight_lbs        = Math.round(fields.weightKg * 2.20462);
+      // startWeightLbs → start_weight_lbs (what user weighed when starting GLP-1)
+      if (fields.startWeightLbs          !== undefined) row.start_weight_lbs          = fields.startWeightLbs;
       // height - trigger if any height field appears
       if (fields.heightFt !== undefined || fields.heightIn !== undefined || fields.heightCm !== undefined) {
         row.height_inches = updated.heightFt * 12 + updated.heightIn;
@@ -335,11 +388,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Only runs if the profiles UPDATE above succeeded — otherwise we'd be
       // writing nutrition targets derived from a state that didn't actually persist.
       const NUTRITION_AFFECTING = new Set([
-        'heightFt','heightIn','heightCm','weightLbs','weightKg','startWeightLbs',
+        'heightFt','heightIn','heightCm','weightLbs','weightKg','currentWeightLbs','startWeightLbs',
         'activityLevel','goalWeightLbs','goalWeightKg','targetWeeklyLossLbs',
         'sex','birthday',
         // Medication fields affect protein, water, and calorie targets
-        'glp1Type','doseMg','glp1Status','injectionFrequencyDays',
+        'glp1Type','doseMg','glp1Status','treatmentStatus','injectionFrequencyDays',
       ]);
       if (Object.keys(fields).some(k => NUTRITION_AFFECTING.has(k))) {
         const baseTargets = computeBaseTargets(updated);
@@ -373,6 +426,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     await updateProfile({
       // Apply new medication
+      treatmentStatus: 'on',
       medicationBrand: profile.pendingMedicationBrand,
       glp1Type: profile.pendingGlp1Type as any,
       routeOfAdministration: profile.pendingRoute as any,
@@ -395,6 +449,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const resetProfile = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.removeItem(STORAGE_KEY + '_uid');
     await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(null);
     setDraft({});

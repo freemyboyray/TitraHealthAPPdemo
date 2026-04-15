@@ -5,10 +5,14 @@ export type UserProfile = FullUserProfile;
 
 export const MOCK_PROFILE: FullUserProfile = {
   glp1Status: 'active',
+  treatmentStatus: 'on',
   medicationBrand: 'ozempic',
   glp1Type: 'semaglutide',
   routeOfAdministration: 'injection',
   doseMg: 1.0,
+  initialDoseMg: 0.25,
+  doseStartDate: '2024-09-01',
+  doseTime: '',
   injectionFrequencyDays: 7,
   lastInjectionDate: (() => {
     const d = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);

@@ -26,6 +26,9 @@ const UNIT_W = ITEM_W + TICK_SPACING;
 export default function GoalWeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
+  const isStarting = draft.glp1Status !== 'active';
+  const total = isStarting ? 10 : 14;
+  const stepNum = isStarting ? 8 : 12;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const unit = draft.unitSystem ?? 'imperial';
@@ -63,7 +66,7 @@ export default function GoalWeightScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={12} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={stepNum} total={total} onBack={() => router.back()} />
 
         <Text style={s.title}>Set your goal weight.</Text>
         <Text style={s.subtitle}>We'll use this to guide your progress and keep your plan on track.</Text>
