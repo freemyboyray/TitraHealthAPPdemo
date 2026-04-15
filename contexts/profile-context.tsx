@@ -300,6 +300,37 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (goalsErr) {
         console.warn('completeOnboarding: user_goals.upsert failed:', goalsErr);
       }
+
+      // 3. Seed weight_logs with onboarding weight so the graph has a starting point.
+      const seedWeightLbs = complete.startWeightLbs ?? complete.weightLbs;
+      if (seedWeightLbs) {
+        const seedDate = complete.startDate
+          ? new Date(complete.startDate + 'T12:00:00').toISOString()
+          : new Date().toISOString();
+        const { error: wErr } = await supabase.from('weight_logs').insert({
+          user_id: user.id,
+          weight_lbs: seedWeightLbs,
+          logged_at: seedDate,
+          notes: 'Starting weight from onboarding',
+        });
+        if (wErr) console.warn('completeOnboarding: weight_logs seed failed:', wErr);
+      }
+
+      // 4. Seed injection_logs if user is on-treatment and has a last injection date.
+      const isOnTx = complete.treatmentStatus === 'on' && complete.lastInjectionDate;
+      if (isOnTx) {
+        const brandDisplay = complete.medicationBrand
+          ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
+          : null;
+        const { error: iErr } = await supabase.from('injection_logs').insert({
+          user_id: user.id,
+          dose_mg: complete.doseMg,
+          injection_date: complete.lastInjectionDate,
+          injection_time: complete.doseTime || null,
+          medication_name: brandDisplay,
+        });
+        if (iErr) console.warn('completeOnboarding: injection_logs seed failed:', iErr);
+      }
     }
   };
 
