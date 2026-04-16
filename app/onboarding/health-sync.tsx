@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import {
-  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,6 +13,7 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import { requestPermissions } from '@/lib/healthkit';
 import type { AppColors } from '@/constants/theme';
 
 export default function HealthSyncScreen() {
@@ -27,31 +26,7 @@ export default function HealthSyncScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {
-    // NitroModules (HealthKit) crash in Expo Go - skip the native call there.
-    // Check both appOwnership (SDK <52) and executionEnvironment (SDK 52+).
-    const isExpoGo =
-      Constants.appOwnership === 'expo' ||
-      (Constants as any).executionEnvironment === 'storeClient';
-
-    if (Platform.OS === 'ios' && !isExpoGo) {
-      try {
-        const HealthKit = require('@kingstinct/react-native-healthkit').default;
-        const { HKQuantityTypeIdentifier } = require('@kingstinct/react-native-healthkit');
-
-        const typesToRead = [
-          HKQuantityTypeIdentifier.stepCount,
-          HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
-          HKQuantityTypeIdentifier.restingHeartRate,
-          HKQuantityTypeIdentifier.oxygenSaturation,
-          HKQuantityTypeIdentifier.bodyMass,
-        ];
-
-        await HealthKit.requestAuthorization(typesToRead, []);
-      } catch {
-        // Permission denied or unavailable - still mark as enabled and continue
-      }
-    }
-
+    await requestPermissions();
     updateDraft({ appleHealthEnabled: true });
     if (isStarting) {
       // No medication yet — current weight is their starting weight

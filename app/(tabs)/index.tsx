@@ -1049,11 +1049,11 @@ export default function HomeScreen() {
     return profileLastInj >= logStoreLastInj ? profileLastInj : logStoreLastInj;
   })();
 
-  const dayNum = daysSinceInjection(effectiveLastInjectionDate, selectedDate);
   const freq = profile.injectionFrequencyDays;
+  const dayNum = daysSinceInjection(effectiveLastInjectionDate, selectedDate, freq ?? 7);
 
   // Medication strip - always relative to today
-  const todayDayNum = daysSinceInjection(effectiveLastInjectionDate, today);
+  const todayDayNum = daysSinceInjection(effectiveLastInjectionDate, today, freq ?? 7);
   const daysUntil = Math.max(0, (freq ?? 7) - (todayDayNum - 1));
   // Use actuals as source of truth for whether today's injection is already logged.
   // daysSinceInjection is capped at 7 so daysUntil can't go negative — we must

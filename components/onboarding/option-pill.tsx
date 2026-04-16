@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const FF = 'Helvetica Neue';
 
@@ -12,6 +14,9 @@ type Props = {
 };
 
 export function OptionPill({ label, selected, onPress, icon, subtitle }: Props) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -30,47 +35,50 @@ export function OptionPill({ label, selected, onPress, icon, subtitle }: Props) 
   );
 }
 
-const s = StyleSheet.create({
-  pill: {
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    marginBottom: 10,
-  },
-  pillSelected: {
-    backgroundColor: 'rgba(255,116,42,0.12)',
-    borderColor: '#FF742A',
-  },
-  inner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconWrap: {
-    marginRight: 12,
-  },
-  textWrap: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: FF,
-  },
-  labelSelected: {
-    color: '#FF742A',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
-    marginTop: 1,
-    fontFamily: FF,
-  },
-  subtitleSelected: {
-    color: 'rgba(255,116,42,0.65)',
-  },
-});
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    pill: {
+      height: 56,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: w(0.12),
+      backgroundColor: c.bg,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      marginBottom: 10,
+    },
+    pillSelected: {
+      backgroundColor: 'rgba(255,116,42,0.12)',
+      borderColor: '#FF742A',
+    },
+    inner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    iconWrap: {
+      marginRight: 12,
+    },
+    textWrap: {
+      flex: 1,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.textPrimary,
+      fontFamily: FF,
+    },
+    labelSelected: {
+      color: '#FF742A',
+    },
+    subtitle: {
+      fontSize: 13,
+      color: c.textSecondary,
+      marginTop: 1,
+      fontFamily: FF,
+    },
+    subtitleSelected: {
+      color: 'rgba(255,116,42,0.65)',
+    },
+  });
+};

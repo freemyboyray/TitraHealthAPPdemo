@@ -11,12 +11,11 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const ACTIVITY_ICON_COLOR = 'rgba(255,255,255,0.7)';
-const OPTIONS: { value: ActivityLevel; label: string; icon: React.ReactNode; subtitle: string }[] = [
-  { value: 'sedentary',   label: 'Sedentary',      icon: <MaterialIcons name="event-seat"    size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Mostly seated, little exercise' },
-  { value: 'light',       label: 'Lightly Active',  icon: <MaterialIcons name="directions-walk" size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Some walking or light movement' },
-  { value: 'active',      label: 'Active',           icon: <MaterialIcons name="directions-run"  size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active',      icon: <MaterialIcons name="flash-on"        size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Intense exercise or very physical job' },
+const OPTION_DATA: { value: ActivityLevel; label: string; iconName: string; subtitle: string }[] = [
+  { value: 'sedentary',   label: 'Sedentary',      iconName: 'event-seat',      subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active',  iconName: 'directions-walk', subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',           iconName: 'directions-run',  subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',      iconName: 'flash-on',       subtitle: 'Intense exercise or very physical job' },
 ];
 
 export default function ActivityScreen() {
@@ -29,6 +28,7 @@ export default function ActivityScreen() {
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const iconColor = colors.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)';
 
   const handleContinue = async () => {
     if (!selected || saving) return;
@@ -46,11 +46,11 @@ export default function ActivityScreen() {
           <Text style={s.subtitle}>On most days you are...</Text>
 
           <View style={s.options}>
-            {OPTIONS.map((o) => (
+            {OPTION_DATA.map((o) => (
               <OptionPill
                 key={o.value}
                 label={o.label}
-                icon={o.icon}
+                icon={<MaterialIcons name={o.iconName as any} size={20} color={iconColor} />}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
                 onPress={() => setSelected(o.value)}

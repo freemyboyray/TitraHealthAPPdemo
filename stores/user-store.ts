@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
@@ -69,6 +70,7 @@ export const useUserStore = create<UserStore>((set) => ({
       throw new Error(res.error.message ?? 'Account deletion failed');
     }
 
+    await AsyncStorage.clear().catch(() => {});
     await supabase.auth.signOut();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },

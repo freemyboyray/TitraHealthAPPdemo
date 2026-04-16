@@ -130,58 +130,61 @@ export default function GoalWeightScreen() {
   );
 }
 
-const createStyles = (c: AppColors) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.bg },
-  container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
-  display: { alignItems: 'center', marginBottom: 16 },
-  displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
-  displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
-  toggle: {
-    flexDirection: 'row',
-    backgroundColor: c.glassOverlay,
-    borderRadius: 10,
-    padding: 3,
-    alignSelf: 'center',
-    marginBottom: 24,
-  },
-  toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: '#FF742A' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
-  toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
-  rulerContainer: {
-    height: 72,
-    position: 'relative',
-    marginBottom: 32,
-    marginHorizontal: -24,
-  },
-  indicator: {
-    position: 'absolute',
-    top: 0,
-    left: '50%',
-    width: 2,
-    height: 48,
-    backgroundColor: '#FF742A',
-    zIndex: 2,
-    marginLeft: -1,
-  },
-  tick: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-  },
-  tickLine: {
-    width: 1.5,
-    height: 18,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.55)' },
-  tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
-  tickLabel: {
-    fontSize: 11,
-    color: c.textSecondary,
-    marginTop: 4,
-    fontFamily: 'Helvetica Neue',
-  },
-});
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, paddingHorizontal: 24 },
+    title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
+    subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+    display: { alignItems: 'center', marginBottom: 16 },
+    displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+    displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
+    toggle: {
+      flexDirection: 'row',
+      backgroundColor: c.glassOverlay,
+      borderRadius: 10,
+      padding: 3,
+      alignSelf: 'center',
+      marginBottom: 24,
+    },
+    toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
+    toggleBtnActive: { backgroundColor: '#FF742A' },
+    toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
+    toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+    rulerContainer: {
+      height: 72,
+      position: 'relative',
+      marginBottom: 32,
+      marginHorizontal: -24,
+    },
+    indicator: {
+      position: 'absolute',
+      top: 0,
+      left: '50%',
+      width: 2,
+      height: 48,
+      backgroundColor: '#FF742A',
+      zIndex: 2,
+      marginLeft: -1,
+    },
+    tick: {
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 4,
+    },
+    tickLine: {
+      width: 1.5,
+      height: 18,
+      backgroundColor: w(0.3),
+    },
+    tickMid: { height: 26, backgroundColor: w(0.55) },
+    tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
+    tickLabel: {
+      fontSize: 11,
+      color: c.textSecondary,
+      marginTop: 4,
+      fontFamily: 'Helvetica Neue',
+    },
+  });
+};

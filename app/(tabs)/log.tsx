@@ -57,6 +57,42 @@ function hmHrvStatus(ms: number): HMStatus { return ms >= 50 ? 'good' : ms >= 30
 function hmHrvLabel(ms: number): string { return ms >= 50 ? 'Strong' : ms >= 30 ? 'Normal' : 'Low'; }
 function hmSleepStatus(min: number): HMStatus { return min >= 420 ? 'good' : min >= 360 ? 'normal' : 'low'; }
 function hmSleepLabel(min: number): string { return min >= 420 ? 'On Target' : min >= 360 ? 'Normal' : 'Below Goal'; }
+// Steps
+function hmStepsStatus(n: number): HMStatus { return n >= 10000 ? 'good' : n >= 6000 ? 'normal' : 'low'; }
+function hmStepsLabel(n: number): string { return n >= 10000 ? 'Active' : n >= 6000 ? 'Normal' : 'Below Goal'; }
+// Active calories
+function hmCalStatus(n: number): HMStatus { return n >= 400 ? 'good' : n >= 200 ? 'normal' : 'low'; }
+function hmCalLabel(n: number): string { return n >= 400 ? 'Active' : n >= 200 ? 'Normal' : 'Low'; }
+// Weight — no good/bad, just informational
+function hmWeightStatus(): HMStatus { return 'normal'; }
+function hmWeightLabel(): string { return 'Latest'; }
+// Body fat
+function hmBodyFatStatus(pct: number): HMStatus { return pct <= 20 ? 'good' : pct <= 30 ? 'normal' : 'elevated'; }
+function hmBodyFatLabel(pct: number): string { return pct <= 20 ? 'Lean' : pct <= 30 ? 'Normal' : 'High'; }
+// Lean mass — informational
+function hmLeanMassStatus(): HMStatus { return 'normal'; }
+function hmLeanMassLabel(): string { return 'Latest'; }
+// Waist — informational
+function hmWaistStatus(): HMStatus { return 'normal'; }
+function hmWaistLabel(): string { return 'Latest'; }
+// BMI
+function hmBmiStatus(v: number): HMStatus { return v < 18.5 ? 'low' : v < 25 ? 'good' : v < 30 ? 'normal' : 'elevated'; }
+function hmBmiLabel(v: number): string { return v < 18.5 ? 'Underweight' : v < 25 ? 'Normal' : v < 30 ? 'Overweight' : 'Obese'; }
+// VO2 Max
+function hmVo2Status(v: number): HMStatus { return v >= 45 ? 'good' : v >= 35 ? 'normal' : 'low'; }
+function hmVo2Label(v: number): string { return v >= 45 ? 'Excellent' : v >= 35 ? 'Normal' : 'Below Avg'; }
+// SpO2
+function hmSpo2Status(v: number): HMStatus { return v >= 96 ? 'good' : v >= 92 ? 'normal' : 'low'; }
+function hmSpo2Label(v: number): string { return v >= 96 ? 'Normal' : v >= 92 ? 'Borderline' : 'Low'; }
+// Blood pressure
+function hmBpStatus(sys: number): HMStatus { return sys < 120 ? 'good' : sys < 140 ? 'normal' : 'elevated'; }
+function hmBpLabel(sys: number): string { return sys < 120 ? 'Normal' : sys < 140 ? 'Elevated' : 'High'; }
+// Exercise minutes
+function hmExMinStatus(v: number): HMStatus { return v >= 30 ? 'good' : v >= 15 ? 'normal' : 'low'; }
+function hmExMinLabel(v: number): string { return v >= 30 ? 'On Target' : v >= 15 ? 'Normal' : 'Below Goal'; }
+// Water
+function hmWaterStatus(oz: number): HMStatus { return oz >= 64 ? 'good' : oz >= 32 ? 'normal' : 'low'; }
+function hmWaterLabel(oz: number): string { return oz >= 64 ? 'On Target' : oz >= 32 ? 'Normal' : 'Low'; }
 function fmtSleep(min: number): string { return `${Math.floor(min / 60)}h ${min % 60}m`; }
 const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
   good:     { bg: 'rgba(39,174,96,0.15)',   text: '#27AE60' },
@@ -68,13 +104,23 @@ function hmGaugePos(id: string, rawVal: number | null): number | null {
   if (rawVal == null) return null;
   const c = (v: number) => Math.max(0, Math.min(1, v));
   switch (id) {
-    case 'rhr':     return c(1 - (rawVal - 40) / 55);        // 40-95 bpm, lower = top
-    case 'hrv':     return c((rawVal - 15) / 85);             // 15-100 ms, higher = top
-    case 'sleep':   return c((rawVal - 240) / 360);           // 4h-10h, higher = top
-    case 'spo2':    return c((rawVal - 88) / 12);             // 88-100%, higher = top
-    case 'temp':    return c(1 - Math.abs(rawVal - 98.6) / 3); // optimal at 98.6°F
-    case 'glucose': return c(1 - (rawVal - 70) / 80);        // 70-150, lower = top
-    default:        return 0.5;
+    case 'rhr':       return c(1 - (rawVal - 40) / 55);        // 40-95 bpm, lower = top
+    case 'hrv':       return c((rawVal - 15) / 85);             // 15-100 ms, higher = top
+    case 'sleep':     return c((rawVal - 240) / 360);           // 4h-10h, higher = top
+    case 'spo2':      return c((rawVal - 88) / 12);             // 88-100%, higher = top
+    case 'glucose':   return c(1 - (rawVal - 70) / 80);        // 70-150, lower = top
+    case 'steps':     return c(rawVal / 15000);                 // 0-15k, higher = top
+    case 'activeCal': return c(rawVal / 800);                   // 0-800 kcal
+    case 'weight':    return 0.5;                               // informational
+    case 'bodyFat':   return c(1 - (rawVal - 5) / 40);         // 5-45%, lower = top
+    case 'leanMass':  return 0.5;                               // informational
+    case 'waist':     return 0.5;                               // informational
+    case 'bmi':       return c(1 - (rawVal - 15) / 25);        // 15-40, lower = top
+    case 'vo2max':    return c((rawVal - 20) / 40);             // 20-60, higher = top
+    case 'bp':        return c(1 - (rawVal - 90) / 70);        // 90-160 sys, lower = top
+    case 'exMin':     return c(rawVal / 60);                    // 0-60 min
+    case 'water':     return c(rawVal / 100);                   // 0-100 fl oz
+    default:          return 0.5;
   }
 }
 const GAUGE_TRACK_H = 76;
@@ -675,14 +721,14 @@ function DailyMetricCard({
   );
 }
 
-// ─── Wearables connect prompt ──────────────────────────────────────────────────
+// ─── Health Data connect prompt ──────────────────────────────────────────────────
 
-function WearablesConnectPrompt() {
+function HealthDataConnectPrompt() {
   const { colors } = useAppTheme();
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
       <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Helvetica Neue' }}>
-        Connect wearables in Settings to unlock deeper insights: resting heart rate, HRV, sleep, and more.
+        Connect Apple Health in Settings to see your vitals, body composition, activity, and more — all in one place.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
@@ -694,6 +740,68 @@ function WearablesConnectPrompt() {
       </Pressable>
     </View>
   );
+}
+
+function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getState>): { category: string; metrics: HealthMetric[] }[] {
+  const groups: { category: string; metrics: HealthMetric[] }[] = [];
+
+  // ── Vitals ──
+  const vitals: HealthMetric[] = [];
+  const rhr = hkStore.restingHR;
+  if (rhr != null) vitals.push({ id: 'rhr', label: 'Resting HR', value: String(rhr), unit: 'bpm', status: hmRhrStatus(rhr), iconSet: 'Ionicons', iconName: 'heart-outline', rangeLabel: hmRhrLabel(rhr), gaugePosition: hmGaugePos('rhr', rhr) });
+  const hrv = hkStore.hrv;
+  if (hrv != null) vitals.push({ id: 'hrv', label: 'HRV', value: String(hrv), unit: 'ms', status: hmHrvStatus(hrv), iconSet: 'MaterialIcons', iconName: 'show-chart', rangeLabel: hmHrvLabel(hrv), gaugePosition: hmGaugePos('hrv', hrv) });
+  const sleep = hkStore.sleepHours;
+  if (sleep != null) { const min = Math.round(sleep * 60); vitals.push({ id: 'sleep', label: 'Sleep', value: fmtSleep(min), unit: '', status: hmSleepStatus(min), iconSet: 'Ionicons', iconName: 'moon-outline', rangeLabel: hmSleepLabel(min), gaugePosition: hmGaugePos('sleep', min) }); }
+  const glucose = hkStore.bloodGlucose;
+  if (glucose != null) vitals.push({ id: 'glucose', label: 'Blood Glucose', value: String(glucose), unit: 'mg/dL', status: glucose < 100 ? 'good' : glucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: glucose < 100 ? 'Normal' : glucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', glucose) });
+  const spo2 = hkStore.spo2;
+  if (spo2 != null) vitals.push({ id: 'spo2', label: 'SpO2', value: `${spo2}`, unit: '%', status: hmSpo2Status(spo2), iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: hmSpo2Label(spo2), gaugePosition: hmGaugePos('spo2', spo2) });
+  const bp = hkStore.bloodPressure;
+  if (bp != null) vitals.push({ id: 'bp', label: 'Blood Pressure', value: `${bp.systolic}/${bp.diastolic}`, unit: 'mmHg', status: hmBpStatus(bp.systolic), iconSet: 'Ionicons', iconName: 'pulse-outline', rangeLabel: hmBpLabel(bp.systolic), gaugePosition: hmGaugePos('bp', bp.systolic) });
+  if (vitals.length > 0) groups.push({ category: 'Vitals', metrics: vitals });
+
+  // ── Body Composition ──
+  const body: HealthMetric[] = [];
+  const wt = hkStore.latestWeight;
+  if (wt != null) body.push({ id: 'weight', label: 'Weight', value: String(wt), unit: 'lbs', status: hmWeightStatus(), iconSet: 'Ionicons', iconName: 'scale-outline', rangeLabel: hmWeightLabel(), gaugePosition: hmGaugePos('weight', wt) });
+  const bf = hkStore.bodyFat;
+  if (bf != null) body.push({ id: 'bodyFat', label: 'Body Fat', value: `${bf}`, unit: '%', status: hmBodyFatStatus(bf), iconSet: 'Ionicons', iconName: 'body-outline', rangeLabel: hmBodyFatLabel(bf), gaugePosition: hmGaugePos('bodyFat', bf) });
+  const lm = hkStore.leanMass;
+  if (lm != null) body.push({ id: 'leanMass', label: 'Lean Mass', value: `${lm}`, unit: 'lbs', status: hmLeanMassStatus(), iconSet: 'Ionicons', iconName: 'fitness-outline', rangeLabel: hmLeanMassLabel(), gaugePosition: hmGaugePos('leanMass', lm) });
+  const waist = hkStore.waist;
+  if (waist != null) body.push({ id: 'waist', label: 'Waist', value: `${waist}`, unit: 'in', status: hmWaistStatus(), iconSet: 'MaterialIcons', iconName: 'straighten', rangeLabel: hmWaistLabel(), gaugePosition: hmGaugePos('waist', waist) });
+  const bmi = hkStore.bmi;
+  if (bmi != null) body.push({ id: 'bmi', label: 'BMI', value: `${bmi}`, unit: '', status: hmBmiStatus(bmi), iconSet: 'MaterialIcons', iconName: 'monitor-weight', rangeLabel: hmBmiLabel(bmi), gaugePosition: hmGaugePos('bmi', bmi) });
+  if (body.length > 0) groups.push({ category: 'Body Composition', metrics: body });
+
+  // ── Activity ──
+  const activity: HealthMetric[] = [];
+  const steps = hkStore.steps;
+  if (steps != null && steps > 0) activity.push({ id: 'steps', label: 'Steps', value: steps.toLocaleString(), unit: '', status: hmStepsStatus(steps), iconSet: 'Ionicons', iconName: 'footsteps-outline', rangeLabel: hmStepsLabel(steps), gaugePosition: hmGaugePos('steps', steps) });
+  const cal = hkStore.activeCalories;
+  if (cal != null && cal > 0) activity.push({ id: 'activeCal', label: 'Active Calories', value: cal.toLocaleString(), unit: 'kcal', status: hmCalStatus(cal), iconSet: 'Ionicons', iconName: 'flame-outline', rangeLabel: hmCalLabel(cal), gaugePosition: hmGaugePos('activeCal', cal) });
+  const exMin = hkStore.exerciseMinutes;
+  if (exMin != null && exMin > 0) activity.push({ id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) });
+  const vo2 = hkStore.vo2max;
+  if (vo2 != null) activity.push({ id: 'vo2max', label: 'VO2 Max', value: `${vo2}`, unit: 'mL/kg/min', status: hmVo2Status(vo2), iconSet: 'Ionicons', iconName: 'speedometer-outline', rangeLabel: hmVo2Label(vo2), gaugePosition: hmGaugePos('vo2max', vo2) });
+  if (activity.length > 0) groups.push({ category: 'Activity', metrics: activity });
+
+  // ── Nutrition (from Apple Health, not Titra logs) ──
+  const nutrition: HealthMetric[] = [];
+  const nut = hkStore.todayNutrition;
+  if (nut != null && (nut.protein > 0 || nut.calories > 0)) {
+    if (nut.calories > 0) nutrition.push({ id: 'hkCalories', label: 'Calories (HK)', value: nut.calories.toLocaleString(), unit: 'kcal', status: 'normal', iconSet: 'MaterialIcons', iconName: 'local-fire-department', rangeLabel: 'Today', gaugePosition: null });
+    if (nut.protein > 0) nutrition.push({ id: 'hkProtein', label: 'Protein (HK)', value: `${nut.protein}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'egg-alt', rangeLabel: 'Today', gaugePosition: null });
+    if (nut.carbs > 0) nutrition.push({ id: 'hkCarbs', label: 'Carbs (HK)', value: `${nut.carbs}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'grain', rangeLabel: 'Today', gaugePosition: null });
+    if (nut.fat > 0) nutrition.push({ id: 'hkFat', label: 'Fat (HK)', value: `${nut.fat}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'opacity', rangeLabel: 'Today', gaugePosition: null });
+    if (nut.fiber > 0) nutrition.push({ id: 'hkFiber', label: 'Fiber (HK)', value: `${nut.fiber}`, unit: 'g', status: 'normal', iconSet: 'Ionicons', iconName: 'leaf-outline', rangeLabel: 'Today', gaugePosition: null });
+  }
+  const water = hkStore.waterToday;
+  if (water != null && water > 0) nutrition.push({ id: 'water', label: 'Water', value: `${water}`, unit: 'fl oz', status: hmWaterStatus(water), iconSet: 'Ionicons', iconName: 'water-outline', rangeLabel: hmWaterLabel(water), gaugePosition: hmGaugePos('water', water) });
+  if (nutrition.length > 0) groups.push({ category: 'Nutrition', metrics: nutrition });
+
+  return groups;
 }
 
 // ─── Med AI Insights card ─────────────────────────────────────────────────────
@@ -3018,37 +3126,32 @@ export default function InsightsScreen() {
                 />
               </View>
 
-              {/* ── Wearables ── */}
-              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Wearables</Text>
+              {/* ── Health Data ── */}
+              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Data</Text>
               {!appleHealthEnabled ? (
-                <WearablesConnectPrompt />
+                <HealthDataConnectPrompt />
               ) : (
-                <View style={s.hmGrid}>
-                  {(() => {
-                    const rhrVal    = hkStore.restingHR ?? null;
-                    const hrvVal    = hkStore.hrv ?? null;
-                    const hkSleep   = hkStore.sleepHours ?? null;
-                    const sleepMin  = hkSleep != null ? Math.round(hkSleep * 60) : null;
-                    const hkGlucose = hkStore.bloodGlucose ?? null;
-
-                    const metrics: HealthMetric[] = [];
-                    if (sleepMin != null) metrics.push({ id: 'sleep', label: 'Sleep', value: fmtSleep(sleepMin), unit: '', status: hmSleepStatus(sleepMin), iconSet: 'Ionicons', iconName: 'moon-outline', rangeLabel: hmSleepLabel(sleepMin), gaugePosition: hmGaugePos('sleep', sleepMin) });
-                    if (rhrVal != null) metrics.push({ id: 'rhr', label: 'Resting HR', value: String(rhrVal), unit: 'bpm', status: hmRhrStatus(rhrVal), iconSet: 'Ionicons', iconName: 'heart-outline', rangeLabel: hmRhrLabel(rhrVal), gaugePosition: hmGaugePos('rhr', rhrVal) });
-                    if (hrvVal != null) metrics.push({ id: 'hrv', label: 'HRV', value: String(hrvVal), unit: 'ms', status: hmHrvStatus(hrvVal), iconSet: 'MaterialIcons', iconName: 'show-chart', rangeLabel: hmHrvLabel(hrvVal), gaugePosition: hmGaugePos('hrv', hrvVal) });
-                    if (hkGlucose != null) metrics.push({ id: 'glucose', label: 'Blood Glucose', value: String(hkGlucose), unit: 'mg/dL', status: hkGlucose < 100 ? 'good' : hkGlucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: hkGlucose < 100 ? 'Normal' : hkGlucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', hkGlucose) });
-
-                    if (metrics.length === 0) return (
-                      <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue', paddingVertical: 8 }}>
-                        No wearable data available yet. Wear your Apple Watch to see sleep, heart rate, and more.
-                      </Text>
-                    );
-
-                    const isOdd = metrics.length % 2 !== 0;
-                    return metrics.map((m, i) => (
-                      <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === metrics.length - 1} />
-                    ));
-                  })()}
-                </View>
+                (() => {
+                  const healthGroups = buildHealthMetrics(hkStore);
+                  if (healthGroups.length === 0) return (
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue', paddingVertical: 8 }}>
+                      No health data available yet. Data will appear here as Apple Health collects it.
+                    </Text>
+                  );
+                  return healthGroups.map((group) => (
+                    <View key={group.category} style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'Helvetica Neue', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>{group.category}</Text>
+                      <View style={s.hmGrid}>
+                        {(() => {
+                          const isOdd = group.metrics.length % 2 !== 0;
+                          return group.metrics.map((m, i) => (
+                            <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
+                          ));
+                        })()}
+                      </View>
+                    </View>
+                  ));
+                })()
               )}
               <RecentLogsCard entries={lifestyleLogs} />
             </>

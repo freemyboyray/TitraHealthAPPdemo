@@ -1,5 +1,7 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { FlatList, Text, View, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const DEFAULT_ITEM_HEIGHT = 52;
 const DEFAULT_VISIBLE_COUNT = 5;
@@ -19,6 +21,8 @@ export function WheelPicker({
   itemHeight = DEFAULT_ITEM_HEIGHT,
   visibleCount = DEFAULT_VISIBLE_COUNT,
 }: WheelPickerProps) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const listRef = useRef<FlatList>(null);
   const containerHeight = itemHeight * visibleCount;
   const padding = itemHeight * Math.floor(visibleCount / 2);
@@ -92,7 +96,7 @@ export function WheelPicker({
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   container: {
     overflow: 'hidden',
     position: 'relative',
@@ -110,7 +114,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   itemText: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
   },
   centerLine: {
     position: 'absolute',

@@ -406,17 +406,22 @@ export default function EditTreatmentScreen() {
       }
 
       // If first dose is today or in the past, create injection log
-      // (user is telling us they already took it, so record it)
-      const firstDoseStr = toDateString(confirmFirstDoseDate);
-      if (firstDoseStr <= todayStr) {
-        await useLogStore.getState().addInjectionLog(
-          doseMg as number,
-          firstDoseStr,
-          formattedDoseTime || undefined,
-          confirmSite ?? undefined,
-          undefined,
-          brandDisplay,
-        );
+      // (user is telling us they already took it, so record it).
+      // Skip for freq_change — that flow doesn't ask for a first dose date,
+      // so confirmFirstDoseDate is just today's default and would create a
+      // phantom injection log that makes the home screen think "Day 1".
+      if (changeType !== 'freq_change') {
+        const firstDoseStr = toDateString(confirmFirstDoseDate);
+        if (firstDoseStr <= todayStr) {
+          await useLogStore.getState().addInjectionLog(
+            doseMg as number,
+            firstDoseStr,
+            formattedDoseTime || undefined,
+            confirmSite ?? undefined,
+            undefined,
+            brandDisplay,
+          );
+        }
       }
 
       // Reschedule dose reminders

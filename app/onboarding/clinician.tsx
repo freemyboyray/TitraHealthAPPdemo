@@ -131,7 +131,7 @@ export default function ClinicianScreen() {
                     setError(null);
                   }}
                   placeholder="e.g. TITRA-SMITH-A4F2"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   returnKeyType="done"
@@ -149,8 +149,9 @@ export default function ClinicianScreen() {
   );
 }
 
-const createStyles = (c: AppColors) =>
-  StyleSheet.create({
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     container: { flex: 1, paddingHorizontal: 24 },
     content: { paddingBottom: 16 },
@@ -176,17 +177,17 @@ const createStyles = (c: AppColors) =>
       fontSize: 11,
       fontWeight: '700',
       letterSpacing: 1.5,
-      color: 'rgba(255,255,255,0.5)',
+      color: w(0.5),
       marginBottom: 8,
     },
     codeInput: {
       height: 56,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.18)',
-      backgroundColor: '#000000',
+      borderColor: w(0.18),
+      backgroundColor: c.surface,
       paddingHorizontal: 18,
-      color: '#FFFFFF',
+      color: c.textPrimary,
       fontSize: 16,
       fontWeight: '600',
       fontFamily: 'Helvetica Neue',
@@ -202,6 +203,7 @@ const createStyles = (c: AppColors) =>
       marginTop: 14,
       fontSize: 12,
       lineHeight: 17,
-      color: 'rgba(255,255,255,0.5)',
+      color: w(0.5),
     },
   });
+};

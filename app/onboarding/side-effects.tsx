@@ -11,14 +11,14 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const SE_ICON_COLOR = 'rgba(255,255,255,0.7)';
-const OPTIONS: { value: SideEffect; label: string; icon: React.ReactNode }[] = [
-  { value: 'nausea',       label: 'Nausea',        icon: <MaterialIcons name="sick"          size={20} color={SE_ICON_COLOR} /> },
-  { value: 'fatigue',      label: 'Fatigue',        icon: <Ionicons      name="bed-outline"   size={20} color={SE_ICON_COLOR} /> },
-  { value: 'hair_loss',    label: 'Hair Loss',      icon: <MaterialIcons name="face"          size={20} color={SE_ICON_COLOR} /> },
-  { value: 'constipation', label: 'Constipation',   icon: <MaterialIcons name="accessibility" size={20} color={SE_ICON_COLOR} /> },
-  { value: 'bloating',     label: 'Bloating',       icon: <MaterialIcons name="air"           size={20} color={SE_ICON_COLOR} /> },
-  { value: 'sulfur_burps', label: 'Sulfur Burps',   icon: <MaterialIcons name="air"           size={20} color={SE_ICON_COLOR} /> },
+type IconSet = 'Ionicons' | 'MaterialIcons';
+const OPTION_DATA: { value: SideEffect; label: string; iconSet: IconSet; iconName: string }[] = [
+  { value: 'nausea',       label: 'Nausea',        iconSet: 'MaterialIcons', iconName: 'sick' },
+  { value: 'fatigue',      label: 'Fatigue',        iconSet: 'Ionicons',      iconName: 'bed-outline' },
+  { value: 'hair_loss',    label: 'Hair Loss',      iconSet: 'MaterialIcons', iconName: 'face' },
+  { value: 'constipation', label: 'Constipation',   iconSet: 'MaterialIcons', iconName: 'accessibility' },
+  { value: 'bloating',     label: 'Bloating',       iconSet: 'MaterialIcons', iconName: 'air' },
+  { value: 'sulfur_burps', label: 'Sulfur Burps',   iconSet: 'MaterialIcons', iconName: 'air' },
 ];
 
 export default function SideEffectsScreen() {
@@ -28,6 +28,7 @@ export default function SideEffectsScreen() {
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const iconColor = colors.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)';
 
   const toggle = (effect: SideEffect) => {
     setSelected((prev) =>
@@ -52,15 +53,18 @@ export default function SideEffectsScreen() {
           <Text style={s.subtitle}>Let us know so we can help you manage them better.</Text>
 
           <View style={s.options}>
-            {OPTIONS.map((o) => (
-              <OptionPill
-                key={o.value}
-                label={o.label}
-                icon={o.icon}
-                selected={selected.includes(o.value)}
-                onPress={() => toggle(o.value)}
-              />
-            ))}
+            {OPTION_DATA.map((o) => {
+              const Icon = o.iconSet === 'Ionicons' ? Ionicons : MaterialIcons;
+              return (
+                <OptionPill
+                  key={o.value}
+                  label={o.label}
+                  icon={<Icon name={o.iconName as any} size={20} color={iconColor} />}
+                  selected={selected.includes(o.value)}
+                  onPress={() => toggle(o.value)}
+                />
+              );
+            })}
           </View>
         </ScrollView>
 

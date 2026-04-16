@@ -301,7 +301,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         console.warn('completeOnboarding: user_goals.upsert failed:', goalsErr);
       }
 
-      // 3. Seed weight_logs with onboarding weight so the graph has a starting point.
+      // 3. Seed weight_logs with onboarding weight(s) so the graph has data from day one.
       const seedWeightLbs = complete.startWeightLbs ?? complete.weightLbs;
       if (seedWeightLbs) {
         const seedDate = complete.startDate
@@ -314,6 +314,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           notes: 'Starting weight from onboarding',
         });
         if (wErr) console.warn('completeOnboarding: weight_logs seed failed:', wErr);
+
+        // If the user also provided a current weight that differs from start weight,
+        // seed a second entry at today's date so the chart shows both points.
+        const currentLbs = complete.currentWeightLbs ?? complete.weightLbs;
+        const isDistinctWeight = currentLbs && currentLbs !== seedWeightLbs;
+        const isHistoricalStart = complete.startDate && seedDate !== new Date().toISOString();
+        if (isDistinctWeight && isHistoricalStart) {
+          const { error: cwErr } = await supabase.from('weight_logs').insert({
+            user_id: user.id,
+            weight_lbs: currentLbs,
+            logged_at: new Date().toISOString(),
+            notes: 'Current weight from onboarding',
+          });
+          if (cwErr) console.warn('completeOnboarding: current weight seed failed:', cwErr);
+        }
       }
 
       // 4. Seed injection_logs if user is on-treatment and has a last injection date.

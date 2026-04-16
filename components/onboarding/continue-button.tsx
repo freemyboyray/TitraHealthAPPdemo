@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
 
 const FF = 'Helvetica Neue';
 
@@ -12,6 +14,8 @@ type Props = {
 
 export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props) {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 24) }]}>
@@ -26,15 +30,15 @@ export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props)
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   wrapper: {
     paddingTop: 16,
-    backgroundColor: '#000000',
+    backgroundColor: c.bg,
   },
   btn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.isDark ? '#FFFFFF' : '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -44,7 +48,7 @@ const s = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000000',
+    color: c.isDark ? '#000000' : '#FFFFFF',
     letterSpacing: 0.2,
     fontFamily: FF,
   },

@@ -18,9 +18,6 @@ import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
-import { useBiometricStore } from '@/stores/biometric-store';
-import { useRemindersStore } from '@/stores/reminders-store';
-import { usePreferencesStore } from '@/stores/preferences-store';
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 
 export const unstable_settings = {
@@ -55,14 +52,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         loadProfile();
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
-        AsyncStorage.multiRemove([
-          '@titrahealth_profile', '@titrahealth_profile_uid',
-          '@titrahealth_profile_draft', '@titrahealth_profile_draft_uid',
-        ]).catch(() => {});
+        AsyncStorage.clear().catch(() => {});
         resetProfile();
-        useBiometricStore.getState().resetBaseline();
-        useRemindersStore.getState().reset();
-        usePreferencesStore.getState().reset();
         router.replace('/auth/sign-in');
       }
     });
@@ -74,10 +65,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           const { data: { user }, error } = await supabase.auth.getUser();
           if (error || !user) {
             // User was deleted or token is invalid — clear everything
-            await AsyncStorage.multiRemove([
-              '@titrahealth_profile', '@titrahealth_profile_uid',
-              '@titrahealth_profile_draft', '@titrahealth_profile_draft_uid',
-            ]).catch(() => {});
+            await AsyncStorage.clear().catch(() => {});
             await supabase.auth.signOut().catch(() => {});
             setSession(null);
           } else {
