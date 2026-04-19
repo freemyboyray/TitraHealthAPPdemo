@@ -7,6 +7,7 @@ import {
   computeProfileDerivedMetrics,
 } from '@/constants/user-profile';
 import { computeBaseTargets } from '@/lib/targets';
+import { scheduleDoseReminder } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 
@@ -29,6 +30,8 @@ type ProfileContextValue = {
   updateDraft: (fields: Partial<FullUserProfile>) => void;
   completeOnboarding: () => Promise<void>;
   resetProfile: () => Promise<void>;
+  /** Re-fetch profile from Supabase (e.g. after sign-in). */
+  reloadProfile: () => Promise<void>;
   updateProfile: (fields: Partial<FullUserProfile>) => Promise<void>;
   /** Apply a pending medication transition — copies pending fields to active, clears pending. */
   applyPendingTransition: () => Promise<void>;
@@ -119,70 +122,75 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [draft, setDraft] = useState<ProfileDraft>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function init() {
-      try {
-        // One-time cache migration: wipe legacy caches without uid tagging
-        const migrated = await AsyncStorage.getItem('@titrahealth_cache_v2');
-        if (!migrated) {
-          await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
-          await AsyncStorage.setItem('@titrahealth_cache_v2', '1');
+  // Shared logic for loading the profile from cache / Supabase.
+  // Called on mount and again after sign-in to ensure fresh state.
+  async function loadProfileFromServer() {
+    setIsLoading(true);
+    try {
+      // One-time cache migration: wipe legacy caches without uid tagging
+      const migrated = await AsyncStorage.getItem('@titrahealth_cache_v2');
+      if (!migrated) {
+        await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
+        await AsyncStorage.setItem('@titrahealth_cache_v2', '1');
+      }
+
+      // 1. Get current user first so we can verify cache ownership
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 2. Try AsyncStorage (fast, offline-capable) — but only if it belongs to this user
+      const json = await AsyncStorage.getItem(STORAGE_KEY);
+      const cachedUserId = await AsyncStorage.getItem(STORAGE_KEY + '_uid');
+      if (json) {
+        // Only trust cache if we have a matching uid (no uid = legacy cache, discard it)
+        if (cachedUserId && (!user || cachedUserId === user.id)) {
+          setProfile(JSON.parse(json) as FullUserProfile);
+          return;
         }
+        // Cache is stale, belongs to a different user, or has no uid — clear it
+        await AsyncStorage.removeItem(STORAGE_KEY);
+        await AsyncStorage.removeItem(STORAGE_KEY + '_uid');
+        await AsyncStorage.removeItem(DRAFT_KEY);
+        await AsyncStorage.removeItem(DRAFT_KEY + '_uid');
+      }
+      if (!user) {
+        // No authenticated user — clear any stale caches from previous users
+        await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
+        setProfile(null);
+        return;
+      }
 
-        // 1. Get current user first so we can verify cache ownership
-        const { data: { user } } = await supabase.auth.getUser();
+      const { data: row } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-        // 2. Try AsyncStorage (fast, offline-capable) — but only if it belongs to this user
-        const json = await AsyncStorage.getItem(STORAGE_KEY);
-        const cachedUserId = await AsyncStorage.getItem(STORAGE_KEY + '_uid');
-        if (json) {
-          // Only trust cache if we have a matching uid (no uid = legacy cache, discard it)
-          if (cachedUserId && (!user || cachedUserId === user.id)) {
-            setProfile(JSON.parse(json) as FullUserProfile);
-            return;
-          }
-          // Cache is stale, belongs to a different user, or has no uid — clear it
-          await AsyncStorage.removeItem(STORAGE_KEY);
-          await AsyncStorage.removeItem(STORAGE_KEY + '_uid');
+      // 3. If Supabase has a row with program_start_date → reconstruct + cache
+      if (row && row.program_start_date) {
+        const reconstructed = mapSupabaseToProfile(row);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reconstructed));
+        await AsyncStorage.setItem(STORAGE_KEY + '_uid', user.id);
+        setProfile(reconstructed);
+      } else {
+        setProfile(null);
+        // No completed profile yet — only rehydrate draft if it belongs to this user
+        const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
+        const draftUid = await AsyncStorage.getItem(DRAFT_KEY + '_uid');
+        if (draftJson && draftUid === user.id) {
+          setDraft(JSON.parse(draftJson) as ProfileDraft);
+        } else if (draftJson) {
+          // Draft belongs to a different user — clear it
           await AsyncStorage.removeItem(DRAFT_KEY);
           await AsyncStorage.removeItem(DRAFT_KEY + '_uid');
         }
-        if (!user) {
-          // No authenticated user — clear any stale caches from previous users
-          await AsyncStorage.multiRemove([STORAGE_KEY, STORAGE_KEY + '_uid', DRAFT_KEY, DRAFT_KEY + '_uid']).catch(() => {});
-          return;
-        }
-
-        const { data: row } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        // 3. If Supabase has a row with program_start_date → reconstruct + cache
-        if (row && row.program_start_date) {
-          const reconstructed = mapSupabaseToProfile(row);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reconstructed));
-          await AsyncStorage.setItem(STORAGE_KEY + '_uid', user.id);
-          setProfile(reconstructed);
-        } else {
-          // No completed profile yet — only rehydrate draft if it belongs to this user
-          const draftJson = await AsyncStorage.getItem(DRAFT_KEY);
-          const draftUid = await AsyncStorage.getItem(DRAFT_KEY + '_uid');
-          if (draftJson && draftUid === user.id) {
-            setDraft(JSON.parse(draftJson) as ProfileDraft);
-          } else if (draftJson) {
-            // Draft belongs to a different user — clear it
-            await AsyncStorage.removeItem(DRAFT_KEY);
-            await AsyncStorage.removeItem(DRAFT_KEY + '_uid');
-          }
-        }
-      } finally {
-        setIsLoading(false);
       }
+    } finally {
+      setIsLoading(false);
     }
+  }
 
-    init();
+  useEffect(() => {
+    loadProfileFromServer();
   }, []);
 
   // Auto-apply pending medication transitions when the start date has arrived.
@@ -346,6 +354,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         });
         if (iErr) console.warn('completeOnboarding: injection_logs seed failed:', iErr);
       }
+
+      // 5. Schedule dose reminders from the treatment plan.
+      if (complete.treatmentStatus === 'on') {
+        const brandDisplay = complete.medicationBrand
+          ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
+          : 'GLP-1';
+        await scheduleDoseReminder(
+          complete.injectionFrequencyDays ?? 7,
+          complete.doseTime || '09:00',
+          brandDisplay,
+          complete.lastInjectionDate || null,
+        ).catch(() => {});
+      }
     }
   };
 
@@ -508,7 +529,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider
-      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, updateProfile, applyPendingTransition, setProfile, isLoading }}>
+      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, reloadProfile: loadProfileFromServer, updateProfile, applyPendingTransition, setProfile, isLoading }}>
       {children}
     </ProfileContext.Provider>
   );

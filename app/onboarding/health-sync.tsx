@@ -13,7 +13,8 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
-import { requestPermissions } from '@/lib/healthkit';
+import { useHealthKitStore } from '@/stores/healthkit-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import type { AppColors } from '@/constants/theme';
 
 export default function HealthSyncScreen() {
@@ -24,10 +25,14 @@ export default function HealthSyncScreen() {
   const step = isStarting ? 7 : 10;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const requestPermissions = useHealthKitStore((s) => s.requestPermissions);
+  const setAppleHealthEnabled = usePreferencesStore((s) => s.setAppleHealthEnabled);
 
   const handleConnect = async () => {
-    await requestPermissions();
+    const granted = await requestPermissions();
+    if (!granted) return;
     updateDraft({ appleHealthEnabled: true });
+    setAppleHealthEnabled(true);
     if (isStarting) {
       // No medication yet — current weight is their starting weight
       updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });

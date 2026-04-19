@@ -304,7 +304,7 @@ export default function ClinicianReportScreen() {
                 value={code}
                 onChangeText={(t) => { setCode(t); setError(null); }}
                 placeholder="e.g. TITRA-SMITH-A4F2"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor="rgba(255,255,255,0.55)"
                 autoCapitalize="characters"
                 autoCorrect={false}
                 returnKeyType="done"

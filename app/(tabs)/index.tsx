@@ -940,7 +940,7 @@ export default function HomeScreen() {
   const biometricStore = useBiometricStore();
 
   useFocusEffect(useCallback(() => {
-    hkStore.fetchAll();
+    hkStore.fetchAll().then(() => logStore.syncWeightFromHealthKit()).catch(() => {});
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
     getDismissedFlags().then(setDismissedFlags);
@@ -1172,8 +1172,14 @@ export default function HomeScreen() {
       iconSet: 'MaterialIcons',
     };
 
-    // Replace any existing injection item and put reminder first
-    return [reminder, ...baseFocuses.filter(f => f.id !== 'injection')];
+    // Merge injection item with other focuses, sorted: incomplete first, completed last
+    const merged = [reminder, ...baseFocuses.filter(f => f.id !== 'injection')];
+    merged.sort((a, b) => {
+      const aComplete = a.status === 'completed' ? 1 : 0;
+      const bComplete = b.status === 'completed' ? 1 : 0;
+      return aComplete - bComplete;
+    });
+    return merged;
   })();
 
   const isProjectedInjectionDay = isFuture
@@ -1241,7 +1247,7 @@ export default function HomeScreen() {
   const selectedDateEndStr = localDateStr(selectedDate);
   const latestWeight = isPast
     ? (weightLogsArr.find(w => localDateStr(new Date(w.logged_at)) <= selectedDateEndStr)?.weight_lbs ?? null)
-    : (weightLogsArr[0]?.weight_lbs ?? null);
+    : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null);
   const firstWeight = weightLogsArr.length > 0
     ? weightLogsArr[weightLogsArr.length - 1].weight_lbs
     : null;
@@ -1804,6 +1810,10 @@ export default function HomeScreen() {
           lastDoseMg={lastDoseMg}
           addInjectionLog={async (dose_mg, injection_date) => {
             await logStore.addInjectionLog(dose_mg, injection_date);
+            // If the logged date is today, immediately update daily focuses
+            if (injection_date === localDateStr()) {
+              healthData.dispatch({ type: 'LOG_INJECTION' });
+            }
             await updateProfile({ lastInjectionDate: injection_date });
           }}
           isOral={oral}

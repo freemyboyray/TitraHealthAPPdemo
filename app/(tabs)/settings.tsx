@@ -171,10 +171,32 @@ export default function SettingsScreen() {
     );
   }
 
-  const displayName = (authProfile as any)?.username ?? 'You';
+  const displayName = authProfile?.username ?? 'You';
   const displayEmail = session?.user.email ?? '';
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(displayName);
+  const [savingName, setSavingName] = useState(false);
+
+  // Keep nameInput in sync when profile reloads (e.g. after save)
+  useEffect(() => { if (!editingName) setNameInput(displayName); }, [displayName, editingName]);
+
+  const saveUsername = async () => {
+    if (savingName) return;
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === displayName) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { error } = await supabase.from('profiles').update({ username: trimmed }).eq('id', user.id);
+      if (error) console.warn('settings: username update failed:', error);
+      else await useUserStore.getState().loadProfile();
+    }
+    setSavingName(false);
+    setEditingName(false);
+  };
 
   return (
     <TabScreenWrapper>
@@ -199,19 +221,8 @@ export default function SettingsScreen() {
                   onChangeText={setNameInput}
                   autoFocus
                   returnKeyType="done"
-                  onSubmitEditing={async () => {
-                    const trimmed = nameInput.trim();
-                    if (trimmed) {
-                      const { data: { user } } = await supabase.auth.getUser();
-                      if (user) {
-                        const { error } = await supabase.from('profiles').update({ username: trimmed }).eq('id', user.id);
-                        if (error) console.warn('settings: username update failed:', error);
-                        else await useUserStore.getState().loadProfile();
-                      }
-                    }
-                    setEditingName(false);
-                  }}
-                  onBlur={() => setEditingName(false)}
+                  onSubmitEditing={saveUsername}
+                  onBlur={saveUsername}
                 />
               </View>
             ) : (

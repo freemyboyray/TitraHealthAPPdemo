@@ -42,7 +42,7 @@ function AppWithHealth({ children }: { children: React.ReactNode }) {
 // Lives inside ProfileProvider so it can call resetProfile() on sign-out.
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { setSession, setSessionLoaded, loadProfile } = useUserStore();
-  const { resetProfile } = useProfile();
+  const { resetProfile, reloadProfile } = useProfile();
   const router = useRouter();
 
   useEffect(() => {
@@ -50,6 +50,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       setSession(session);
       if (session) {
         loadProfile();
+        reloadProfile();
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
         AsyncStorage.clear().catch(() => {});
@@ -71,6 +72,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           } else {
             setSession(session);
             loadProfile();
+            reloadProfile();
           }
         }
         setSessionLoaded(true);

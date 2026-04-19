@@ -24,6 +24,7 @@ import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
 import { isOralDrug } from '@/constants/drug-pk';
 import type { Glp1Type } from '@/constants/user-profile';
+import { useHealthData } from '@/contexts/health-data';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export default function LogDoseScreen() {
   const insets = useSafeAreaInsets();
   const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
   const { updateProfile } = useProfile();
+  const { dispatch } = useHealthData();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -190,6 +192,9 @@ export default function LogDoseScreen() {
       medication,
       isOral ? undefined : (batchNumber.trim() || undefined),
     );
+    // Immediately mark injection as logged in the health data context so
+    // daily focuses update without waiting for a full data refresh.
+    dispatch({ type: 'LOG_INJECTION' });
     // Keep ProfileContext in sync so cycle-intelligence reads the correct date immediately
     await updateProfile({ lastInjectionDate: date });
     router.back();

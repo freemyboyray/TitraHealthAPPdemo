@@ -594,7 +594,7 @@ export default function SignInScreen() {
                   <ActivityIndicator size="small" color={INPUT_TEXT} />
                 ) : (
                   <>
-                    <Ionicons name="logo-google" size={20} color="#4285F4" />
+                    <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} />
                     <Text style={s.socialBtnText}>Google</Text>
                   </>
                 )}

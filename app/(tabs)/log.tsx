@@ -1144,11 +1144,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             <React.Fragment key={`y-${tick}`}>
               <Line
                 x1={ML} y1={y} x2={cWFull - MR} y2={y}
-                stroke="rgba(255,255,255,0.07)" strokeWidth={1} strokeDasharray="3,4"
+                stroke={colors.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'} strokeWidth={1} strokeDasharray="3,4"
               />
               <SvgText
                 x={ML - 5} y={y + 3.5}
-                fontSize={9} fill="rgba(255,255,255,0.35)"
+                fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
                 textAnchor="end" fontFamily="Helvetica Neue"
               >
                 {tick}%
@@ -1176,7 +1176,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
           <>
             <Line
               x1={nowX} y1={0} x2={nowX} y2={chartH}
-              stroke="rgba(255,255,255,0.45)" strokeWidth={1.5} strokeDasharray="4,3"
+              stroke={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'} strokeWidth={1.5} strokeDasharray="4,3"
             />
             <Circle cx={nowX} cy={nowY} r={8} fill="rgba(255,116,42,0.2)" />
             <Circle cx={nowX} cy={nowY} r={5.5} fill="#FFFFFF" stroke={ORANGE} strokeWidth={2.5} />
@@ -1682,11 +1682,11 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                     <React.Fragment key={`y-${tick}`}>
                       <Line
                         x1={WML} y1={y} x2={WML + plotW} y2={y}
-                        stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
+                        stroke={colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'} strokeWidth={1} strokeDasharray="4,4"
                       />
                       <SvgText
                         x={WML - 6} y={y + 4}
-                        fontSize={10} fill="rgba(255,255,255,0.35)"
+                        fontSize={10} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
                         textAnchor="end" fontFamily="Helvetica Neue"
                       >
                         {Math.round(tick)}
@@ -1700,11 +1700,11 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                   <React.Fragment key={`x-${label}-${x}`}>
                     <Line
                       x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
-                      stroke="rgba(255,255,255,0.05)" strokeWidth={1}
+                      stroke={colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'} strokeWidth={1}
                     />
                     <SvgText
                       x={WML + x} y={WMT + plotH + 18}
-                      fontSize={9} fill="rgba(255,255,255,0.35)"
+                      fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
                       textAnchor="middle" fontFamily="Helvetica Neue"
                     >
                       {label}
@@ -2285,6 +2285,9 @@ function LifestyleTrendCard({
 }) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const dk = colors.isDark;
+  const tc = (a: number) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
   const [metricId, setMetricId] = useState('protein');
   const [periodDays, setPeriodDays] = useState(30);
@@ -2444,12 +2447,12 @@ function LifestyleTrendCard({
             onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); onSelect(m.id); setSelIdx(null); }}
             style={{
               paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
-              backgroundColor: metricId === m.id ? m.color : 'rgba(255,255,255,0.08)',
+              backgroundColor: metricId === m.id ? m.color : tc(0.08),
             }}
           >
             <Text style={{
               fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
-              color: metricId === m.id ? '#FFF' : 'rgba(255,255,255,0.45)',
+              color: metricId === m.id ? '#FFF' : tc(0.45),
             }}>
               {m.label}
             </Text>
@@ -2468,12 +2471,12 @@ function LifestyleTrendCard({
             onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setPeriodDays(p.days); }}
             style={{
               paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-              backgroundColor: periodDays === p.days ? 'rgba(255,255,255,0.15)' : 'transparent',
+              backgroundColor: periodDays === p.days ? tc(0.15) : 'transparent',
             }}
           >
             <Text style={{
               fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
-              color: periodDays === p.days ? '#FFF' : 'rgba(255,255,255,0.35)',
+              color: periodDays === p.days ? colors.textPrimary : tc(0.35),
             }}>
               {p.label}
             </Text>
@@ -2493,7 +2496,7 @@ function LifestyleTrendCard({
     if (!hasData) {
       return (
         <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 12, color: tc(0.35), fontFamily: 'Helvetica Neue' }}>
             Start logging to see data
           </Text>
         </View>
@@ -2521,9 +2524,9 @@ function LifestyleTrendCard({
           return (
             <React.Fragment key={`y-${tick}`}>
               <Line x1={LT_TML} y1={y} x2={w - LT_TMR} y2={y}
-                stroke="rgba(255,255,255,0.07)" strokeWidth={1} strokeDasharray="3,4" />
+                stroke={tc(0.07)} strokeWidth={1} strokeDasharray="3,4" />
               <SvgText x={LT_TML - 6} y={y + 3.5}
-                fontSize={9} fill="rgba(255,255,255,0.35)"
+                fontSize={9} fill={tc(0.35)}
                 textAnchor="end" fontFamily="Helvetica Neue">
                 {label}
               </SvgText>
@@ -2535,9 +2538,9 @@ function LifestyleTrendCard({
         {labels.map((lbl, i) => (
           <React.Fragment key={i}>
             <Line x1={lbl.x} y1={LT_TMT} x2={lbl.x} y2={LT_TMT + plotH}
-              stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+              stroke={tc(0.04)} strokeWidth={1} />
             <SvgText x={lbl.x} y={chartH - 5}
-              fontSize={9} fill="rgba(255,255,255,0.35)"
+              fontSize={9} fill={tc(0.35)}
               textAnchor="middle" fontFamily="Helvetica Neue">
               {lbl.label}
             </SvgText>
@@ -2586,9 +2589,9 @@ function LifestyleTrendCard({
       <View
         style={{
           borderRadius: 16,
-          backgroundColor: 'rgba(255,255,255,0.06)',
+          backgroundColor: tc(0.06),
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
+          borderColor: tc(0.1),
           padding: 14,
         }}
       >
@@ -2616,7 +2619,7 @@ function LifestyleTrendCard({
         {renderMetricPills(setMetricId)}
         {/* Footer stats */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 11, color: tc(0.5), fontFamily: 'Helvetica Neue' }}>
             Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
           </Text>
           {hasData && (

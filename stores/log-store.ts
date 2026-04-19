@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
@@ -112,6 +113,9 @@ type LogStore = {
   ) => Promise<void>;
   fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health' | 'food_noise') => Promise<void>;
   deleteWeeklyCheckinSession: (date: string) => Promise<void>;
+
+  // Apple Health weight sync — imports latest weight sample if newer than last log
+  syncWeightFromHealthKit: () => Promise<void>;
 
   // Peer comparison
   peerComparison: PeerComparisonData | null;
@@ -253,6 +257,44 @@ export const useLogStore = create<LogStore>((set, get) => ({
       await get().fetchInsightsData();
     }
     set({ loading: false, error: error?.message ?? null });
+  },
+
+  syncWeightFromHealthKit: async () => {
+    if (Platform.OS !== 'ios') return;
+    try {
+      // Dynamic import to avoid crashes in Expo Go
+      const HK = require('../lib/healthkit') as typeof import('../lib/healthkit');
+      const sample = await HK.readLatestWeightSample();
+      if (!sample) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if we already have a weight log at or after this sample's timestamp
+      const latestLog = get().weightLogs[0]; // sorted desc by logged_at
+      if (latestLog) {
+        const logTime = new Date(latestLog.logged_at).getTime();
+        const sampleTime = sample.recordedAt.getTime();
+        // Skip if our latest log is newer than or equal to the HK sample
+        if (logTime >= sampleTime) return;
+        // Skip if weight is identical (avoids re-logging the same reading)
+        if (Math.abs(latestLog.weight_lbs - sample.lbs) < 0.05) return;
+      }
+
+      // Insert the Apple Health weight as a new log
+      const { error } = await supabase.from('weight_logs').insert({
+        user_id: user.id,
+        weight_lbs: sample.lbs,
+        logged_at: sample.recordedAt.toISOString(),
+        notes: 'Synced from Apple Health',
+      });
+      if (!error) {
+        await supabase.from('profiles').update({ current_weight_lbs: sample.lbs }).eq('id', user.id);
+        await get().fetchInsightsData();
+      }
+    } catch {
+      // HealthKit unavailable (Expo Go, Android) — silently skip
+    }
   },
 
   addSideEffectLog: async (effect_type, severity, phase_at_log, notes) => {
