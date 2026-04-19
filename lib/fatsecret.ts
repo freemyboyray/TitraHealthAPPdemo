@@ -26,7 +26,7 @@ async function callEdge(params: Record<string, string>): Promise<unknown> {
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-  console.log('[FatSecret] callEdge →', params);
+  __DEV__ && console.log('[FatSecret] callEdge →', params);
   const res = await fetch(url.toString(), {
     headers: {
       'x-proxy-secret': PROXY_SECRET,
@@ -35,13 +35,13 @@ async function callEdge(params: Record<string, string>): Promise<unknown> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error('[FatSecret] callEdge HTTP error:', res.status, body);
+    __DEV__ && console.error('[FatSecret] callEdge HTTP error:', res.status, body);
     throw new Error(`Proxy error: ${res.status}`);
   }
   const json = await res.json();
-  console.log('[FatSecret] callEdge ← response:', JSON.stringify(json).slice(0, 500));
+  __DEV__ && console.log('[FatSecret] callEdge ← response:', JSON.stringify(json).slice(0, 500));
   if (json.error) {
-    console.error('[FatSecret] callEdge API error:', json.error);
+    __DEV__ && console.error('[FatSecret] callEdge API error:', json.error);
     throw new Error(json.error);
   }
   return json;
@@ -103,18 +103,18 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchFatSecret(query: string): Promise<FoodResult[]> {
-  console.log('[FatSecret] searchFatSecret called with query:', query);
+  __DEV__ && console.log('[FatSecret] searchFatSecret called with query:', query);
   try {
     const data = await callEdge({ action: 'search', q: query }) as any;
 
     const foods = data?.foods?.food;
     if (!foods) {
-      console.log('[FatSecret] searchFatSecret: no foods in response');
+      __DEV__ && console.log('[FatSecret] searchFatSecret: no foods in response');
       return [];
     }
 
     const list = Array.isArray(foods) ? foods : [foods];
-    console.log('[FatSecret] searchFatSecret: got', list.length, 'results for', query);
+    __DEV__ && console.log('[FatSecret] searchFatSecret: got', list.length, 'results for', query);
     const mapped = list.map((f: any) => {
       const macros = parseDescription(f.food_description ?? '');
       return {
@@ -124,10 +124,10 @@ export async function searchFatSecret(query: string): Promise<FoodResult[]> {
         ...macros,
       };
     });
-    console.log('[FatSecret] searchFatSecret: first result →', JSON.stringify(mapped[0]));
+    __DEV__ && console.log('[FatSecret] searchFatSecret: first result →', JSON.stringify(mapped[0]));
     return mapped;
   } catch (e) {
-    console.warn('[FatSecret] search failed:', e);
+    __DEV__ && console.warn('[FatSecret] search failed:', e);
     return [];
   }
 }
@@ -135,13 +135,13 @@ export async function searchFatSecret(query: string): Promise<FoodResult[]> {
 // ─── Get full food detail (with serving options) ───────────────────────────────
 
 export async function getFatSecretFood(foodId: number): Promise<FoodResult | null> {
-  console.log('[FatSecret] getFatSecretFood called with id:', foodId);
+  __DEV__ && console.log('[FatSecret] getFatSecretFood called with id:', foodId);
   try {
     const data = await callEdge({ action: 'food', id: String(foodId) }) as any;
 
     const food = data?.food;
     if (!food) {
-      console.log('[FatSecret] getFatSecretFood: no food in response for id', foodId);
+      __DEV__ && console.log('[FatSecret] getFatSecretFood: no food in response for id', foodId);
       return null;
     }
 
@@ -161,7 +161,7 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
       serving_options: options.length > 0 ? options : undefined,
     };
   } catch (e) {
-    console.warn('[FatSecret] food detail failed:', e);
+    __DEV__ && console.warn('[FatSecret] food detail failed:', e);
     return null;
   }
 }
@@ -169,13 +169,13 @@ export async function getFatSecretFood(foodId: number): Promise<FoodResult | nul
 // ─── Barcode lookup ────────────────────────────────────────────────────────────
 
 export async function lookupFatSecretBarcode(barcode: string): Promise<FoodResult | null> {
-  console.log('[FatSecret] lookupFatSecretBarcode called with:', barcode);
+  __DEV__ && console.log('[FatSecret] lookupFatSecretBarcode called with:', barcode);
   try {
     const data = await callEdge({ action: 'barcode', code: barcode }) as any;
 
     const food = data?.food;
     if (!food) {
-      console.log('[FatSecret] lookupFatSecretBarcode: no food for barcode', barcode);
+      __DEV__ && console.log('[FatSecret] lookupFatSecretBarcode: no food for barcode', barcode);
       return null;
     }
 
@@ -195,7 +195,7 @@ export async function lookupFatSecretBarcode(barcode: string): Promise<FoodResul
       serving_options: options.length > 0 ? options : undefined,
     };
   } catch (e) {
-    console.warn('[FatSecret] barcode lookup failed:', e);
+    __DEV__ && console.warn('[FatSecret] barcode lookup failed:', e);
     return null;
   }
 }

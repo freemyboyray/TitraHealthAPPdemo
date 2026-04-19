@@ -55,6 +55,12 @@ export const useUserStore = create<UserStore>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
+    // Clear all cached user data from AsyncStorage
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const appKeys = keys.filter(k => k.startsWith('@titrahealth_'));
+      if (appKeys.length > 0) await AsyncStorage.multiRemove(appKeys);
+    } catch {}
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 
@@ -62,30 +68,20 @@ export const useUserStore = create<UserStore>((set) => ({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not signed in');
 
-    const userId = session.user.id;
-
-    // 1. Delete all user data client-side (RLS ensures only own rows)
-    const tables = [
-      'weight_logs', 'injection_logs', 'side_effect_logs', 'food_logs',
-      'activity_logs', 'food_noise_logs', 'weekly_checkins', 'chat_messages',
-      'garmin_tokens', 'user_goals',
-    ];
-    for (const table of tables) {
-      await supabase.from(table).delete().eq('user_id', userId);
-    }
-
-    // 2. Delete the profile row
-    await supabase.from('profiles').delete().eq('id', userId);
-
-    // 3. Call edge function to delete the auth user (requires service-role key)
+    // Call edge function to delete all user data + auth user (requires service-role key).
+    // The edge function handles table deletions, profile deletion, and auth user removal.
     const res = await supabase.functions.invoke('delete-account', {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     if (res.error) {
-      console.warn('delete-account edge function failed:', res.error.message);
+      throw new Error(`Account deletion failed: ${res.error.message}`);
+    }
+    // Check for error in the response body (edge function returned 200 with error JSON)
+    if (res.data?.error) {
+      throw new Error(`Account deletion failed: ${res.data.error}`);
     }
 
-    // 4. Sign out first (while Supabase client still has valid state), then clear storage
+    // Sign out and clear local storage
     await supabase.auth.signOut();
     await AsyncStorage.clear().catch(() => {});
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });

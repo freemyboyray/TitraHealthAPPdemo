@@ -61,6 +61,8 @@ export function buildSystemPrompt(
 ): string {
   const { profile, recoveryScore, supportScore, wearable, actuals, targets, focuses } = health;
 
+  const isOnMedication = profile.treatmentStatus === 'on' && !!profile.lastInjectionDate;
+
   const dayNum = daysSinceInjection(profile.lastInjectionDate);
   const phase = getShotPhase(dayNum);
   const phaseDesc =
@@ -72,7 +74,7 @@ export function buildSystemPrompt(
   const sleepH = wearable.sleepMinutes != null ? Math.floor(wearable.sleepMinutes / 60) : null;
   const sleepM = wearable.sleepMinutes != null ? wearable.sleepMinutes % 60 : null;
 
-  const startDateObj = new Date(profile.startDate);
+  const startDateObj = profile.startDate ? new Date(profile.startDate) : new Date();
   const daysOnMed = Math.max(1, Math.floor((Date.now() - startDateObj.getTime()) / 86400000));
   const weeksOnMed = daysOnMed / 7;
   const totalLost = (profile.startWeightLbs ?? profile.weightLbs) - profile.weightLbs;
@@ -83,55 +85,71 @@ export function buildSystemPrompt(
   const targetWaterOz = Math.round(targets.waterMl / 29.57);
 
   const focusList = (focuses ?? []).slice(0, 3).map(f => `• ${f.label}: ${f.subtitle}`).join('\n');
+  const sideEffects = profile.sideEffects ?? [];
 
   let typeContext = '';
   if (type === 'recovery') {
-    typeContext = '\n\nFOCUS: This user is asking about their Recovery Score (wearable biometrics: sleep, HRV, resting HR, SpO₂). Emphasize recovery, sleep quality, and how GLP-1 medication phase affects biometrics.';
+    typeContext = '\n\nFOCUS: This user is asking about their Recovery Score (wearable biometrics: sleep, HRV, resting HR, SpO₂). Emphasize recovery, sleep quality, and how biometrics affect wellness.';
   } else if (type === 'support') {
-    typeContext = '\n\nFOCUS: This user is asking about their GLP-1 Readiness Score (lifestyle inputs: protein, hydration, steps, fiber, injection logging). Emphasize nutrition adherence, hydration, and movement.';
+    typeContext = '\n\nFOCUS: This user is asking about their Wellness Score (lifestyle inputs: protein, hydration, steps, fiber). Emphasize nutrition adherence, hydration, and movement.';
   }
 
-  return `You are Titra, a GLP-1 medication companion AI coach. You have access to the user's real-time health data.
-
-USER PROFILE:
-- Age: ${profile.age}, Sex: ${profile.sex}
-- Medication: ${profile.medicationBrand} (${profile.glp1Type}), ${profile.doseMg}mg, every ${profile.injectionFrequencyDays} days
+  const medicationBlock = isOnMedication
+    ? `- Medication: ${profile.medicationBrand} (${profile.glp1Type}), ${profile.doseMg}mg, every ${profile.injectionFrequencyDays} days
 - Days on medication: ${daysOnMed}
-- Activity level: ${profile.activityLevel}
-- Current weight: ${Math.round(profile.weightLbs)} lbs (${Math.round(profile.weightKg)} kg)
-- Goal weight: ${profile.goalWeightLbs} lbs
-- Side effects reported: ${profile.sideEffects.length > 0 ? profile.sideEffects.join(', ') : 'none'}
+- Side effects reported: ${sideEffects.length > 0 ? sideEffects.join(', ') : 'none'}`
+    : '- Medication: Not currently on GLP-1 medication (lifestyle tracking only)';
 
-WEIGHT PROGRESS:
+  const weightProgressBlock = `WEIGHT PROGRESS:
 - Start weight: ${Math.round(profile.startWeightLbs ?? profile.weightLbs)} lbs
 - Current weight: ${Math.round(profile.weightLbs)} lbs
 - Total lost: ${totalLost.toFixed(1)} lbs
-- Weeks on medication: ${weeksOnMed.toFixed(1)}
+- Weeks tracking: ${weeksOnMed.toFixed(1)}
 - Weekly loss rate: ${weeklyRate.toFixed(2)} lbs/wk
 - Target weekly loss: ${profile.targetWeeklyLossLbs ?? 1.0} lbs/wk
-- Remaining to goal: ${remaining.toFixed(1)} lbs
+- Remaining to goal: ${remaining.toFixed(1)} lbs`;
 
-DOSE CYCLE:
+  const doseCycleBlock = isOnMedication
+    ? `DOSE CYCLE:
 - Last dose: ${profile.lastInjectionDate}
 - Days since last dose: ${dayNum}
-- Phase: ${phaseDesc}
+- Phase: ${phaseDesc}`
+    : '';
 
+  const doseLogLine = isOnMedication
+    ? `\n- Dose logged: ${actuals.injectionLogged ? 'Yes' : 'No'}`
+    : '';
+
+  const roleDesc = isOnMedication
+    ? 'You are Titra, a GLP-1 medication companion AI coach.'
+    : 'You are Titra, a health and wellness AI coach helping the user track weight, nutrition, and activity.';
+
+  return `${roleDesc} You have access to the user's real-time health data.
+
+USER PROFILE:
+- Age: ${profile.age}, Sex: ${profile.sex}
+${medicationBlock}
+- Activity level: ${profile.activityLevel}
+- Current weight: ${Math.round(profile.weightLbs)} lbs (${Math.round(profile.weightKg)} kg)
+- Goal weight: ${profile.goalWeightLbs} lbs
+
+${weightProgressBlock}
+${doseCycleBlock ? `\n${doseCycleBlock}` : ''}
 TODAY'S SCORES:
 - Recovery Score: ${recoveryScore}/100
-- Readiness Score: ${supportScore}/100
+- Wellness Score: ${supportScore}/100
 
 WEARABLE BIOMETRICS:
 - Sleep: ${sleepH != null ? `${sleepH}h ${sleepM}m` : 'No data'}
 - HRV: ${wearable.hrvMs ?? 'No data'} ${wearable.hrvMs != null ? 'ms' : ''}
-- Resting HR: ${wearable.restingHR} bpm
-- SpO₂: ${wearable.spo2Pct}%${wearable.respRateRpm != null ? `\n- Resp. Rate: ${wearable.respRateRpm} rpm` : ''}
+- Resting HR: ${wearable.restingHR ?? 'No data'} ${wearable.restingHR != null ? 'bpm' : ''}
+- SpO₂: ${wearable.spo2Pct ?? 'No data'}${wearable.spo2Pct != null ? '%' : ''}${wearable.respRateRpm != null ? `\n- Resp. Rate: ${wearable.respRateRpm} rpm` : ''}
 
 DAILY ACTUALS vs TARGETS:
 - Protein: ${actuals.proteinG}g / ${targets.proteinG}g
 - Hydration: ${waterOz}oz / ${targetWaterOz}oz
 - Steps: ${actuals.steps.toLocaleString()} / ${targets.steps.toLocaleString()}
-- Fiber: ${actuals.fiberG}g / ${targets.fiberG}g
-- Dose logged: ${actuals.injectionLogged ? 'Yes' : 'No'}
+- Fiber: ${actuals.fiberG}g / ${targets.fiberG}g${doseLogLine}
 
 TODAY'S TOP FOCUSES:
 ${focusList || '• All metrics on track'}
@@ -154,13 +172,13 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      console.log(`[OpenAI] attempt ${attempt + 1}/${MAX_RETRIES + 1}, model: ${body.model}`);
+      __DEV__ && console.log(`[OpenAI] attempt ${attempt + 1}/${MAX_RETRIES + 1}, model: ${body.model}`);
       const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
 
       if (error) {
         const errMsg = error.message ?? '';
         const errJson = JSON.stringify(error).slice(0, 300);
-        console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg, 'context:', errJson);
+        __DEV__ && console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg, 'context:', errJson);
 
         // Don't retry auth errors — the session is expired/invalid
         if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
@@ -178,14 +196,14 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 
       // Check if the response itself is an auth error (edge function returned 401 as JSON)
       if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
-        console.error('[OpenAI] auth error from proxy:', data.error);
+        __DEV__ && console.error('[OpenAI] auth error from proxy:', data.error);
         throw new Error('AUTH_EXPIRED');
       }
 
       // Check if the proxy wrapped an upstream OpenAI error
       if (data?.openai_error) {
-        console.error(`[OpenAI] upstream error (attempt ${attempt + 1}): status=${data.openai_status} body=${data.openai_body}`);
-        lastError = new Error(`OpenAI API error ${data.openai_status}: ${data.openai_body}`);
+        __DEV__ && console.error(`[OpenAI] upstream error (attempt ${attempt + 1}): status=${data.openai_status}`);
+        lastError = new Error(`OpenAI API error ${data.openai_status}`);
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
           continue;
@@ -193,13 +211,13 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
         throw lastError;
       }
 
-      console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
+      __DEV__ && console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
       return data as Record<string, unknown>;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       // Don't retry auth errors
       if (lastError.message === 'AUTH_EXPIRED') throw lastError;
-      console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
+      __DEV__ && console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
       if (attempt < MAX_RETRIES) {
         await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
         continue;
@@ -431,7 +449,7 @@ export async function callGPT4oMiniVision(
   } else if (imageBase64.startsWith('UklGR')) {
     detectedType = 'image/webp';
   }
-  console.log('[OpenAI] vision: detectedType=', detectedType, 'first4=', imageBase64.slice(0, 4));
+  __DEV__ && console.log('[OpenAI] vision: detectedType=', detectedType, 'first4=', imageBase64.slice(0, 4));
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',

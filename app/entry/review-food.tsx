@@ -376,7 +376,7 @@ export default function ReviewFoodScreen() {
         <View style={styles.totalsRow}>
           <View style={styles.totalItem}>
             <Text style={styles.totalValue}>{totals.calories}</Text>
-            <Text style={styles.totalLabel}>kcal</Text>
+            <Text style={styles.totalLabel}>cal</Text>
           </View>
           <View style={styles.totalItem}>
             <Text style={styles.totalValue}>{totals.protein}g</Text>

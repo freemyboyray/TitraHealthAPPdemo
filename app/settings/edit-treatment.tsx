@@ -626,7 +626,7 @@ export default function EditTreatmentScreen() {
     type TargetDiff = { label: string; old: string; new: string };
     const targetDiffs: TargetDiff[] = [];
     if (currentTargets.caloriesTarget !== newTargets.caloriesTarget) {
-      targetDiffs.push({ label: 'Calories', old: `${currentTargets.caloriesTarget} kcal`, new: `${newTargets.caloriesTarget} kcal` });
+      targetDiffs.push({ label: 'Calories', old: `${currentTargets.caloriesTarget} cal`, new: `${newTargets.caloriesTarget} cal` });
     }
     if (currentTargets.proteinG !== newTargets.proteinG) {
       targetDiffs.push({ label: 'Protein', old: `${currentTargets.proteinG}g`, new: `${newTargets.proteinG}g` });
@@ -649,7 +649,7 @@ export default function EditTreatmentScreen() {
       targetDiffs.push({ label: 'Fat', old: `${currentTargets.fatG}g`, new: `${newTargets.fatG}g` });
     }
     if (currentTargets.activeCaloriesTarget !== newTargets.activeCaloriesTarget) {
-      targetDiffs.push({ label: 'Active Cal', old: `${currentTargets.activeCaloriesTarget} kcal`, new: `${newTargets.activeCaloriesTarget} kcal` });
+      targetDiffs.push({ label: 'Active Cal', old: `${currentTargets.activeCaloriesTarget} cal`, new: `${newTargets.activeCaloriesTarget} cal` });
     }
 
     // Washout warning for drug type changes (not for off→on since there's no old drug)

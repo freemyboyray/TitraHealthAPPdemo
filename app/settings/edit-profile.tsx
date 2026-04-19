@@ -214,7 +214,7 @@ export default function EditProfileScreen() {
       currentTargets.steps !== newTargets.steps;
 
     const targetsDiff = targetsChanged
-      ? `\n\nYour daily targets will change:\nCalories: ${currentTargets.caloriesTarget} → ${newTargets.caloriesTarget} kcal\nProtein: ${currentTargets.proteinG}g → ${newTargets.proteinG}g\nSteps: ${currentTargets.steps.toLocaleString()} → ${newTargets.steps.toLocaleString()}`
+      ? `\n\nYour daily targets will change:\nCalories: ${currentTargets.caloriesTarget} → ${newTargets.caloriesTarget} cal\nProtein: ${currentTargets.proteinG}g → ${newTargets.proteinG}g\nSteps: ${currentTargets.steps.toLocaleString()} → ${newTargets.steps.toLocaleString()}`
       : '';
 
     Alert.alert(

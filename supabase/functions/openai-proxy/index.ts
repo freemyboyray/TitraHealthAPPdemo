@@ -1,11 +1,9 @@
-import { verifyAuth } from '../_shared/auth.ts';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, CORS } from '../_shared/auth.ts';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const ALLOWED_MODELS = ['gpt-4o-mini'];
+const MAX_TOKENS_CAP = 2000;
+const MAX_PAYLOAD_BYTES = 50_000;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -27,8 +25,25 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
 
+    // Enforce model whitelist
+    if (!ALLOWED_MODELS.includes(body.model)) {
+      body.model = 'gpt-4o-mini';
+    }
+
+    // Cap max_tokens
+    if (typeof body.max_tokens === 'number') {
+      body.max_tokens = Math.min(body.max_tokens, MAX_TOKENS_CAP);
+    }
+
     const payload = JSON.stringify(body);
-    console.log('[openai-proxy] model:', body.model, 'payload size:', payload.length, 'bytes');
+
+    // Reject oversized payloads
+    if (payload.length > MAX_PAYLOAD_BYTES) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
 
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
@@ -42,15 +57,12 @@ Deno.serve(async (req: Request) => {
     const data = await res.text();
 
     if (!res.ok) {
-      console.error('[openai-proxy] OpenAI error:', res.status, data);
-      // Wrap the upstream error in a 200 so supabase.functions.invoke
-      // doesn't swallow the body — the client reads .openai_error instead.
+      console.error('[openai-proxy] OpenAI error:', res.status);
       return new Response(JSON.stringify({
         openai_error: true,
         openai_status: res.status,
-        openai_body: data,
       }), {
-        status: 200,
+        status: 502,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
@@ -60,7 +72,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('[openai-proxy] Internal error:', err);
+    console.error('[openai-proxy] Internal error:', (err as Error).message);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },

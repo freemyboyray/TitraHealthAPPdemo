@@ -1,7 +1,8 @@
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type, x-proxy-secret',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
 };
 
 const FS_BASE = 'https://platform.fatsecret.com/rest/server.api';

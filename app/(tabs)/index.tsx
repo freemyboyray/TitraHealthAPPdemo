@@ -431,7 +431,7 @@ function MetricBar({ label, current, target, unit, colors, color }: {
           {current}{unit} / {target}{unit}
         </Text>
       </View>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: w(0.08), overflow: 'hidden' }}>
+      <View style={{ height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden' }}>
         <View style={{ width: `${pct * 100}%`, height: 4, borderRadius: 2, backgroundColor: over ? ORANGE : color }} />
       </View>
     </View>
@@ -1472,7 +1472,7 @@ export default function HomeScreen() {
                     <View style={{
                       width: 22, height: 22, borderRadius: 11,
                       backgroundColor: item.done ? ORANGE : 'transparent',
-                      borderWidth: 2, borderColor: item.done ? ORANGE : 'rgba(255,255,255,0.3)',
+                      borderWidth: 2, borderColor: item.done ? ORANGE : (colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'),
                       alignItems: 'center', justifyContent: 'center',
                     }}>
                       {item.done && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -1507,7 +1507,7 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   ) : (
-                    <View style={[s.heroPhaseBadge, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+                    <View style={[s.heroPhaseBadge, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
                       <Ionicons name="flame-outline" size={13} color={colors.textSecondary} />
                       <Text style={[s.heroPhaseText, { color: colors.textSecondary }]}>
                         NO STREAK
@@ -1852,7 +1852,9 @@ const createStyles = (c: AppColors) => {
   connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Helvetica Neue' },
 
   // Card containers
-  cardWrap: { borderRadius: 28, ...glassShadow },
+  cardWrap: { borderRadius: 28, ...(c.isDark
+    ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.30, shadowRadius: 24, elevation: 8 }
+    : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }) },
   cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
 
   // Insights card (kept for DailyLogSummaryCard insightsTitle usage)
@@ -1910,7 +1912,7 @@ const createStyles = (c: AppColors) => {
   heroStatDiv: {
     width: StyleSheet.hairlineWidth,
     height: 40,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)',
   },
   heroStatVal: {
     fontSize: 26,
@@ -1942,7 +1944,7 @@ const createStyles = (c: AppColors) => {
   heroCycleBar: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
     overflow: 'hidden',
   },
   heroCycleFill: {
@@ -1993,27 +1995,29 @@ const createStyles = (c: AppColors) => {
   },
 
   // Focus coaching cards
-  focusCard: { borderRadius: 28, ...glassShadow, marginBottom: 24, marginTop: 8 },
+  focusCard: { borderRadius: 28, ...(c.isDark
+    ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.30, shadowRadius: 24, elevation: 8 }
+    : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }), marginBottom: 24, marginTop: 8 },
   focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, padding: 22 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.45), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
+  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
   focusRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
   focusIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
   focusIconDone: { backgroundColor: 'rgba(255,116,42,0.06)' },
   focusBody: { flex: 1 },
   focusLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   focusLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue', flex: 1 },
-  focusLabelDone: { color: w(0.35), textDecorationLine: 'line-through' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.45), lineHeight: 17, marginBottom: 10, fontFamily: 'Helvetica Neue' },
-  focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.1), overflow: 'hidden', marginBottom: 6 },
+  focusLabelDone: { color: w(0.38), textDecorationLine: 'line-through' },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'Helvetica Neue' },
+  focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden', marginBottom: 6 },
   focusBarFill: { height: 4, borderRadius: 2, backgroundColor: ORANGE },
   focusBarDone: { backgroundColor: '#4CAF50' },
-  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.4), letterSpacing: 0.3, fontFamily: 'Helvetica Neue' },
+  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.45), letterSpacing: 0.3, fontFamily: 'Helvetica Neue' },
   injectionPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,116,42,0.12)', marginTop: 4 },
   injectionPillDone: { backgroundColor: 'rgba(76,175,80,0.12)' },
   injectionPillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
-  focusDivider: { height: 0.5, backgroundColor: w(0.08), marginLeft: 50 },
+  focusDivider: { height: 0.5, backgroundColor: w(0.12), marginLeft: 50 },
 
   // Escalation Phase Banner
   phaseBanner: {

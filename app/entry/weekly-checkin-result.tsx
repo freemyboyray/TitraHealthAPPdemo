@@ -188,9 +188,9 @@ export default function WeeklyCheckinResultScreen() {
     if (Math.abs(calDiff) >= 50) rows.push({
       icon: <MaterialIcons name="local-fire-department" size={18} color={ORANGE} />,
       label: 'Daily Calories',
-      before: `${baseWithActive.caloriesTarget} kcal`,
-      after:  `${adjusted.caloriesTarget} kcal`,
-      delta:  `${calDiff > 0 ? '+' : ''}${calDiff} kcal`,
+      before: `${baseWithActive.caloriesTarget} cal`,
+      after:  `${adjusted.caloriesTarget} cal`,
+      delta:  `${calDiff > 0 ? '+' : ''}${calDiff} cal`,
       increased: calDiff > 0,
       reason: calDiff < 0
         ? 'Calorie target eased to reduce the burden on your body this week.'

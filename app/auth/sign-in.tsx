@@ -167,7 +167,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
-  const { setProfile } = useProfile();
+  const { setProfile, reloadProfile } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -183,10 +183,31 @@ export default function SignInScreen() {
   const [error, setError]                 = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otpCode, setOtpCode]             = useState('');
+  const [resetSent, setResetSent]         = useState(false);
 
   function handleTabChange(t: 'login' | 'register') {
     setActiveTab(t);
     setError(null);
+    setResetSent(false);
+  }
+
+  // ── Forgot password ─────────────────────────────────────────────────────
+  async function handleForgotPassword() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Enter your email address first, then tap "Forgot password?"');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+    } else {
+      setResetSent(true);
+      setError(null);
+    }
   }
 
   // ── Demo login ──────────────────────────────────────────────────────────
@@ -221,7 +242,12 @@ export default function SignInScreen() {
     if (data.session) {
       setSession(data.session);
       await loadProfile();
-      router.replace('/');
+      const { data: row } = await supabase.from('profiles').select('program_start_date').eq('id', data.session.user.id).single();
+      if (row?.program_start_date) {
+        router.replace('/');
+      } else {
+        router.replace('/onboarding');
+      }
     }
     setLoading(false);
   }
@@ -341,16 +367,26 @@ export default function SignInScreen() {
     // For OAuth users, populate username from provider metadata if missing
     const user = session.user;
     if (user) {
-      const { data: existing } = await supabase.from('profiles').select('username').eq('id', user.id).single();
+      const { data: existing } = await supabase.from('profiles').select('username, program_start_date').eq('id', user.id).single();
       if (!existing?.username) {
         const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0];
         if (name) {
           await supabase.from('profiles').upsert({ id: user.id, username: name }, { onConflict: 'id' });
         }
       }
+      await loadProfile();
+      // Navigate based on server state directly — don't rely on React state
+      // which may not have committed yet due to batching
+      if (existing?.program_start_date) {
+        await reloadProfile();
+        router.replace('/');
+      } else {
+        router.replace('/onboarding');
+      }
+    } else {
+      await loadProfile();
+      router.replace('/');
     }
-    await loadProfile();
-    router.replace('/');
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────
@@ -551,11 +587,14 @@ export default function SignInScreen() {
                   </View>
                   <Text style={s.rememberLabel}>Remember me</Text>
                 </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.7}>
+                <TouchableOpacity activeOpacity={0.7} onPress={handleForgotPassword}>
                   <Text style={s.forgotText}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Reset confirmation */}
+            {resetSent ? <Text style={[s.errorText, { color: '#27AE60' }]}>Check your email for password reset instructions.</Text> : null}
 
             {/* Error */}
             {error ? <Text style={s.errorText}>{error}</Text> : null}

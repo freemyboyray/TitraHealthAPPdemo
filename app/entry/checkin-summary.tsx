@@ -228,9 +228,9 @@ export default function CheckinSummaryScreen() {
       rows.push({
         icon: <MaterialIcons name="local-fire-department" size={18} color={ORANGE} />,
         label: 'Daily Calories',
-        before: `${baseWithActive.caloriesTarget} kcal`,
-        after:  `${adjusted.caloriesTarget} kcal`,
-        delta:  `${calDiff > 0 ? '+' : ''}${calDiff} kcal`,
+        before: `${baseWithActive.caloriesTarget} cal`,
+        after:  `${adjusted.caloriesTarget} cal`,
+        delta:  `${calDiff > 0 ? '+' : ''}${calDiff} cal`,
         increased: calDiff > 0,
         reason: calDiff < 0
           ? 'Calorie target eased to reduce the burden on your body this week.'
@@ -260,9 +260,9 @@ export default function CheckinSummaryScreen() {
       rows.push({
         icon: <MaterialIcons name="flash-on" size={18} color="#F6CB45" />,
         label: 'Active Calories',
-        before: `${baseWithActive.activeCaloriesTarget} kcal`,
-        after:  `${adjusted.activeCaloriesTarget} kcal`,
-        delta:  `${activeCalDiff > 0 ? '+' : ''}${activeCalDiff} kcal`,
+        before: `${baseWithActive.activeCaloriesTarget} cal`,
+        after:  `${adjusted.activeCaloriesTarget} cal`,
+        delta:  `${activeCalDiff > 0 ? '+' : ''}${activeCalDiff} cal`,
         increased: activeCalDiff > 0,
         reason: activeCalDiff < 0
           ? 'Active calorie target adjusted down so recovery is prioritized.'

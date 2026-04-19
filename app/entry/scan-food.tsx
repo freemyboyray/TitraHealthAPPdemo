@@ -267,7 +267,7 @@ export default function ScanFoodScreen() {
 
           {/* Macros */}
           <View style={s.macroRow}>
-            <MacroPill label="Calories" value={Math.round(product.calories * g / 100)} unit=" kcal" colors={colors} />
+            <MacroPill label="Calories" value={Math.round(product.calories * g / 100)} unit=" cal" colors={colors} />
             <MacroPill label="Protein" value={(product.protein_g * g / 100).toFixed(1)} unit="g" colors={colors} />
             <MacroPill label="Carbs" value={(product.carbs_g * g / 100).toFixed(1)} unit="g" colors={colors} />
             <MacroPill label="Fat" value={(product.fat_g * g / 100).toFixed(1)} unit="g" colors={colors} />

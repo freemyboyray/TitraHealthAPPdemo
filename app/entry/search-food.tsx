@@ -139,7 +139,7 @@ export default function SearchFoodScreen() {
           </View>
 
           <View style={styles.resultRight}>
-            <Text style={styles.resultCalories}>{item.calories} kcal</Text>
+            <Text style={styles.resultCalories}>{item.calories} cal</Text>
             <Text style={styles.resultMacros}>
               {item.protein_g}p · {item.carbs_g}c · {item.fat_g}f
             </Text>
@@ -279,7 +279,7 @@ export default function SearchFoodScreen() {
           </View>
 
           <View style={styles.macroRow}>
-            <MacroPill label="Calories" value={Math.round(selected.calories * g / 100)} unit=" kcal" colors={colors} />
+            <MacroPill label="Calories" value={Math.round(selected.calories * g / 100)} unit=" cal" colors={colors} />
             <MacroPill label="Protein" value={(selected.protein_g * g / 100).toFixed(1)} unit="g" colors={colors} />
             <MacroPill label="Carbs" value={(selected.carbs_g * g / 100).toFixed(1)} unit="g" colors={colors} />
             <MacroPill label="Fat" value={(selected.fat_g * g / 100).toFixed(1)} unit="g" colors={colors} />

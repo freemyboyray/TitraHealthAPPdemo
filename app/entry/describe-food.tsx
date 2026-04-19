@@ -218,7 +218,7 @@ export default function DescribeFoodScreen() {
                       <Text style={s.matchName} numberOfLines={1}>{r.name}</Text>
                       {!!r.brand && <Text style={s.matchBrand} numberOfLines={1}>{r.brand}</Text>}
                     </View>
-                    <Text style={s.matchCal}>{r.calories} kcal/100g</Text>
+                    <Text style={s.matchCal}>{r.calories} cal/100g</Text>
                   </TouchableOpacity>
                 ))}
 
@@ -246,7 +246,7 @@ export default function DescribeFoodScreen() {
                   const f = item.results[item.selectedIdx];
                   return (
                     <View style={s.macroRow}>
-                      <Text style={s.macroPill}>{Math.round(f.calories * g / 100)} kcal</Text>
+                      <Text style={s.macroPill}>{Math.round(f.calories * g / 100)} cal</Text>
                       <Text style={s.macroPill}>{(f.protein_g * g / 100).toFixed(1)}g P</Text>
                       <Text style={s.macroPill}>{(f.carbs_g * g / 100).toFixed(1)}g C</Text>
                       <Text style={s.macroPill}>{(f.fat_g * g / 100).toFixed(1)}g F</Text>

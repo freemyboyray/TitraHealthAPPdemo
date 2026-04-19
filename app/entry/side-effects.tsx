@@ -190,10 +190,20 @@ export default function SideEffectsScreen() {
           AsyncStorage.getItem(CUSTOM_EFFECTS_KEY),
           readTodaySymptomSeverities().catch(() => ({} as Record<string, number>)),
         ]);
-        const ids: string[] = storedIds
-          ? JSON.parse(storedIds)
-          : SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
-        const customs: CustomEffect[] = storedCustom ? JSON.parse(storedCustom) : [];
+        let ids: string[];
+        try {
+          ids = storedIds
+            ? JSON.parse(storedIds)
+            : SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
+        } catch {
+          ids = SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
+        }
+        let customs: CustomEffect[];
+        try {
+          customs = storedCustom ? JSON.parse(storedCustom) : [];
+        } catch {
+          customs = [];
+        }
         setActiveIds(ids);
         setCustomDefs(customs);
         // Reset all values to 0, then pre-fill any symptom the user already

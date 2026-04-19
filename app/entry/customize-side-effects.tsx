@@ -67,10 +67,20 @@ export default function CustomizeSideEffectsScreen() {
         AsyncStorage.getItem(ACTIVE_EFFECTS_KEY),
         AsyncStorage.getItem(CUSTOM_EFFECTS_KEY),
       ]);
-      const ids: string[] = storedIds
-        ? JSON.parse(storedIds)
-        : SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
-      const customs: CustomEffect[] = storedCustom ? JSON.parse(storedCustom) : [];
+      let ids: string[];
+      try {
+        ids = storedIds
+          ? JSON.parse(storedIds)
+          : SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
+      } catch {
+        ids = SIDE_EFFECTS.filter((e) => e.defaultEnabled).map((e) => e.id);
+      }
+      let customs: CustomEffect[];
+      try {
+        customs = storedCustom ? JSON.parse(storedCustom) : [];
+      } catch {
+        customs = [];
+      }
       setEnabled(new Set(ids));
       setCustomDefs(customs);
     }

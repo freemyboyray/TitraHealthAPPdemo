@@ -423,7 +423,7 @@ export default function LogActivityScreen() {
       >
         {/* Summary cards row */}
         <View style={s.cardsRow}>
-          <SummaryCard icon="flame-outline" label="Est. Calories" value={estCalories} unit="kcal" colors={colors} />
+          <SummaryCard icon="flame-outline" label="Est. Calories" value={estCalories} unit="cal" colors={colors} />
           <SummaryCard icon="time-outline" label="Duration" value={durationMin} unit="min" colors={colors} />
         </View>
 

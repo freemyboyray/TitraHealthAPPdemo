@@ -276,7 +276,7 @@ export default function LogWeightScreen() {
     await addWeightLog(weightLbs);
     hkStore.writeWeight(weightLbs);
     // Update profile weight so targets recalculate automatically
-    await updateProfile({ weightLbs });
+    await updateProfile({ weightLbs, currentWeightLbs: weightLbs });
     router.back();
   }
 

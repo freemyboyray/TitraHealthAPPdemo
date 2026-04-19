@@ -318,9 +318,9 @@ const LIFESTYLE_METRICS: MetricConfig[] = [
   { id: 'carbs',      label: 'Carbs',      unit: 'g',     color: '#5B8BF5', getTarget: t => t.carbsG,               getValue: (f, _, d) => f[d]?.carbs ?? null },
   { id: 'fat',        label: 'Fat',        unit: 'g',     color: '#F6CB45', getTarget: t => t.fatG,                 getValue: (f, _, d) => f[d]?.fat ?? null },
   { id: 'fiber',      label: 'Fiber',      unit: 'g',     color: '#27AE60', getTarget: t => t.fiberG,               getValue: (f, _, d) => f[d]?.fiber ?? null },
-  { id: 'calories',   label: 'Calories',   unit: 'kcal',  color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
+  { id: 'calories',   label: 'Calories',   unit: 'cal',   color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
   { id: 'steps',      label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
-  { id: 'active_cal', label: 'Active Cal', unit: 'kcal',  color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
+  { id: 'active_cal', label: 'Active Cal', unit: 'cal',   color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
 ];
 
 const LT_TML = 44, LT_TMR = 12, LT_TMT = 10, LT_TMB = 24;
@@ -780,7 +780,7 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   const steps = hkStore.steps;
   if (steps != null && steps > 0) activity.push({ id: 'steps', label: 'Steps', value: steps.toLocaleString(), unit: '', status: hmStepsStatus(steps), iconSet: 'Ionicons', iconName: 'footsteps-outline', rangeLabel: hmStepsLabel(steps), gaugePosition: hmGaugePos('steps', steps) });
   const cal = hkStore.activeCalories;
-  if (cal != null && cal > 0) activity.push({ id: 'activeCal', label: 'Active Calories', value: cal.toLocaleString(), unit: 'kcal', status: hmCalStatus(cal), iconSet: 'Ionicons', iconName: 'flame-outline', rangeLabel: hmCalLabel(cal), gaugePosition: hmGaugePos('activeCal', cal) });
+  if (cal != null && cal > 0) activity.push({ id: 'activeCal', label: 'Active Calories', value: cal.toLocaleString(), unit: 'cal', status: hmCalStatus(cal), iconSet: 'Ionicons', iconName: 'flame-outline', rangeLabel: hmCalLabel(cal), gaugePosition: hmGaugePos('activeCal', cal) });
   const exMin = hkStore.exerciseMinutes;
   if (exMin != null && exMin > 0) activity.push({ id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) });
   const vo2 = hkStore.vo2max;
@@ -791,7 +791,7 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   const nutrition: HealthMetric[] = [];
   const nut = hkStore.todayNutrition;
   if (nut != null && (nut.protein > 0 || nut.calories > 0)) {
-    if (nut.calories > 0) nutrition.push({ id: 'hkCalories', label: 'Calories (HK)', value: nut.calories.toLocaleString(), unit: 'kcal', status: 'normal', iconSet: 'MaterialIcons', iconName: 'local-fire-department', rangeLabel: 'Today', gaugePosition: null });
+    if (nut.calories > 0) nutrition.push({ id: 'hkCalories', label: 'Calories (HK)', value: nut.calories.toLocaleString(), unit: 'cal', status: 'normal', iconSet: 'MaterialIcons', iconName: 'local-fire-department', rangeLabel: 'Today', gaugePosition: null });
     if (nut.protein > 0) nutrition.push({ id: 'hkProtein', label: 'Protein (HK)', value: `${nut.protein}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'egg-alt', rangeLabel: 'Today', gaugePosition: null });
     if (nut.carbs > 0) nutrition.push({ id: 'hkCarbs', label: 'Carbs (HK)', value: `${nut.carbs}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'grain', rangeLabel: 'Today', gaugePosition: null });
     if (nut.fat > 0) nutrition.push({ id: 'hkFat', label: 'Fat (HK)', value: `${nut.fat}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'opacity', rangeLabel: 'Today', gaugePosition: null });
@@ -2374,7 +2374,7 @@ function LifestyleTrendCard({
   const hitRateColor = hitRate >= 0.7 ? '#27AE60' : hitRate >= 0.4 ? '#F6CB45' : '#E74C3C';
   const hitRatePct = Math.round(hitRate * 100);
   const fmtVal = (v: number) =>
-    metric.unit === 'kcal' || metric.unit === 'steps' ? Math.round(v).toLocaleString() : v.toFixed(0);
+    metric.unit === 'cal' || metric.unit === 'steps' ? Math.round(v).toLocaleString() : v.toFixed(0);
   const trendSign = trendPct >= 0 ? '+' : '';
   const selValue = selIdx !== null ? values[selIdx] : null;
   const selDate = selIdx !== null ? dates[selIdx] : null;
@@ -2389,7 +2389,7 @@ function LifestyleTrendCard({
     const v = values[idx];
     const d = dates[idx];
     if (v === null || !d) return { title: '', subtitle: '' };
-    const formatted = metric.unit === 'kcal' || metric.unit === 'steps'
+    const formatted = metric.unit === 'cal' || metric.unit === 'steps'
       ? Math.round(v).toLocaleString()
       : v.toFixed(0);
     return {
@@ -3238,12 +3238,16 @@ export default function InsightsScreen() {
                 goalWeight={goalWeight}
                 toGoalPct={toGoalPct}
               />
-              <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
-              <MetabolicAdaptationCard result={metabolicAdaptationResult} />
-              <PeerComparisonCard
-                data={peerComparison}
-                isOptedIn={!!profile?.peer_comparison_opted_in}
-              />
+              {onTreatment && (
+                <>
+                  <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
+                  <MetabolicAdaptationCard result={metabolicAdaptationResult} />
+                  <PeerComparisonCard
+                    data={peerComparison}
+                    isOptedIn={!!profile?.peer_comparison_opted_in}
+                  />
+                </>
+              )}
               <View style={s.dailyGrid}>
                 <ProgressStatCard
                   icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}

@@ -739,7 +739,7 @@ export default function LogFoodScreen() {
                   <Text style={s.scanProductName} numberOfLines={2}>{scanProduct.name}</Text>
                   {!!scanProduct.brand && <Text style={s.scanProductBrand}>{scanProduct.brand}</Text>}
                   <View style={s.macroRow}>
-                    <Text style={s.macroPill}>{Math.round(scanProduct.calories * (parseFloat(scanServingG) || 100) / 100)} kcal</Text>
+                    <Text style={s.macroPill}>{Math.round(scanProduct.calories * (parseFloat(scanServingG) || 100) / 100)} cal</Text>
                     <Text style={s.macroPill}>{(scanProduct.protein_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g P</Text>
                     <Text style={s.macroPill}>{(scanProduct.carbs_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g C</Text>
                     <Text style={s.macroPill}>{(scanProduct.fat_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g F</Text>
@@ -896,7 +896,7 @@ export default function LogFoodScreen() {
                         <Text style={s.resultSub}>{item.log_count}× logged</Text>
                       </View>
                       <View style={s.resultRight}>
-                        <Text style={s.resultCal}>{item.calories} kcal</Text>
+                        <Text style={s.resultCal}>{item.calories} cal</Text>
                         <TouchableOpacity
                           onPress={() => toggleFavorite(item.food_name)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -932,7 +932,7 @@ export default function LogFoodScreen() {
                         {!!cf.brand && <Text style={s.resultSub}>{cf.brand}</Text>}
                       </View>
                       <View style={s.resultRight}>
-                        <Text style={s.resultCal}>{cf.calories_per_100g} kcal</Text>
+                        <Text style={s.resultCal}>{cf.calories_per_100g} cal</Text>
                         <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
                       </View>
                     </TouchableOpacity>
@@ -956,7 +956,7 @@ export default function LogFoodScreen() {
                         <Text style={s.resultSub}>{meal.items.length} items</Text>
                       </View>
                       <View style={s.resultRight}>
-                        <Text style={s.resultCal}>{meal.total_calories} kcal</Text>
+                        <Text style={s.resultCal}>{meal.total_calories} cal</Text>
                         <Ionicons name="play-circle-outline" size={18} color={ORANGE} />
                       </View>
                     </TouchableOpacity>
@@ -996,7 +996,7 @@ export default function LogFoodScreen() {
                         {!!cf.brand && <Text style={s.resultSub}>{cf.brand}</Text>}
                       </View>
                       <View style={s.resultRight}>
-                        <Text style={s.resultCal}>{cf.calories_per_100g} kcal</Text>
+                        <Text style={s.resultCal}>{cf.calories_per_100g} cal</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -1029,7 +1029,7 @@ export default function LogFoodScreen() {
                             <ActivityIndicator size="small" color={ORANGE} />
                           ) : (
                             <>
-                              <Text style={s.resultCal}>{item.calories} kcal</Text>
+                              <Text style={s.resultCal}>{item.calories} cal</Text>
                               <Text style={s.resultPer}>/ 100g</Text>
                             </>
                           )}
@@ -1308,7 +1308,7 @@ export default function LogFoodScreen() {
                     style={s.trayItemRow}
                   >
                     <Text style={s.trayItemName} numberOfLines={isExpanded ? undefined : 1}>{item.food_name}</Text>
-                    <Text style={s.trayItemCal}>{item.calories} kcal</Text>
+                    <Text style={s.trayItemCal}>{item.calories} cal</Text>
                     <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Ionicons name="close" size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
                     </TouchableOpacity>
@@ -1349,7 +1349,7 @@ export default function LogFoodScreen() {
 
             {/* Totals */}
             <View style={s.trayTotals}>
-              <Text style={s.trayTotalText}>{trayTotal.calories} kcal</Text>
+              <Text style={s.trayTotalText}>{trayTotal.calories} cal</Text>
               <Text style={s.trayTotalSep}>·</Text>
               <Text style={s.trayTotalText}>{trayTotal.protein_g}g protein</Text>
               <Text style={s.trayTotalSep}>·</Text>
