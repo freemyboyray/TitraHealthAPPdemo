@@ -342,7 +342,10 @@ export function AiChatOverlay() {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('not set')) {
+      const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+      if (isAuth) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Your session has expired. Please sign out and sign back in to continue.', isError: false } as Message]);
+      } else if (err instanceof Error && err.message.includes('not set')) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'AI not configured. Restart the dev server with: npx expo start --clear', isError: true, retryText: text, retryImageBase64: imageBase64 } as Message]);
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Tap to retry.', isError: true, retryText: text, retryImageBase64: imageBase64 } as Message]);

@@ -183,11 +183,14 @@ export default function AskAIScreen() {
       if (userId) {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
       }
-    } catch {
+    } catch (err) {
+      const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
       setMessages((prev) => [...prev, {
         id: `local-err-${Date.now()}`,
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Please try again in a moment.",
+        content: isAuth
+          ? "Your session has expired. Please sign out and sign back in to continue."
+          : "I'm having trouble connecting right now. Please try again in a moment.",
         created_at: new Date().toISOString(),
       }]);
     } finally {
@@ -214,8 +217,9 @@ export default function AskAIScreen() {
         setMessages((prev) => [...prev, aMsg]);
         if (userId) supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
       })
-      .catch(() => {
-        setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: "I'm having trouble connecting. Please try again.", created_at: new Date().toISOString() }]);
+      .catch((err: unknown) => {
+        const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+        setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: isAuth ? "Your session has expired. Please sign out and sign back in to continue." : "I'm having trouble connecting. Please try again.", created_at: new Date().toISOString() }]);
       })
       .finally(() => setTyping(false));
   }

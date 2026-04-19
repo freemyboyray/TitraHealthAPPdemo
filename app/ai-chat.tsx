@@ -257,8 +257,14 @@ export default function AiChatScreen() {
       if (userId) {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
       }
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach AI. Check your connection and try again.' }]);
+    } catch (err) {
+      const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: isAuth
+          ? 'Your session has expired. Please sign out and sign back in to continue.'
+          : 'Unable to reach AI. Check your connection and try again.',
+      }]);
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);

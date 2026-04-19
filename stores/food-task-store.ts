@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { AppState } from 'react-native';
 import { searchUSDA, getFatSecretFood } from '../lib/usda';
-import { estimateMacrosWithAI, callGPT4oMiniVision } from '../lib/openai';
+import { estimateMacrosWithAI, callGPT4oMiniVision, generateSearchVariants, selectBestFoodMatches } from '../lib/openai';
 import { scheduleFoodReadyNotification } from '../lib/notifications';
 import type { FoodResult } from '../lib/fatsecret';
 
@@ -66,34 +66,84 @@ function uuid(): string {
 async function resolveItems(
   parsedItems: { item: string; estimated_g: number }[],
 ): Promise<ResolvedItem[]> {
-  return Promise.all(
-    parsedItems.map(async (p) => {
-      console.log('[FoodTask] resolveItems: searching for', p.item);
-      let results = await searchUSDA(p.item);
-      console.log('[FoodTask] resolveItems: raw search returned', results.length, 'results for', p.item);
-      results = results.filter(
-        (r) => r.calories > 0 || r.protein_g > 0 || r.carbs_g > 0 || r.fat_g > 0,
+  // ── Layer 1: Generate search variants via GPT ──────────────────────────
+  console.log('[FoodTask] resolveItems: generating search variants for', parsedItems.length, 'items');
+  const variantData = await generateSearchVariants(parsedItems.map((p) => p.item));
+  console.log('[FoodTask] resolveItems: variants generated:', JSON.stringify(variantData));
+
+  // ── Layer 2: Fan-out FatSecret searches per variant, deduplicate ───────
+  const itemsWithCandidates = await Promise.all(
+    parsedItems.map(async (p, idx) => {
+      const variants = variantData[idx]?.variants ?? [p.item];
+      console.log('[FoodTask] resolveItems: searching variants for', p.item, '→', variants);
+
+      // Search all variants in parallel
+      const allSearches = await Promise.all(
+        variants.map(async (v) => {
+          const results = await searchUSDA(v);
+          return results.filter(
+            (r) => r.calories > 0 || r.protein_g > 0 || r.carbs_g > 0 || r.fat_g > 0,
+          );
+        }),
       );
-      console.log('[FoodTask] resolveItems: after nutrition filter:', results.length, 'results for', p.item);
-      if (results.length === 0) {
+
+      // Flatten and deduplicate by fdcId, keeping first occurrence
+      const seen = new Set<number>();
+      const candidates: FoodResult[] = [];
+      for (const batch of allSearches) {
+        for (const r of batch) {
+          if (!seen.has(r.fdcId)) {
+            seen.add(r.fdcId);
+            candidates.push(r);
+          }
+        }
+      }
+
+      console.log('[FoodTask] resolveItems: found', candidates.length, 'unique candidates for', p.item);
+
+      // Fallback to AI estimation if no database results at all
+      if (candidates.length === 0) {
         console.log('[FoodTask] resolveItems: no FatSecret results, falling back to AI estimation for', p.item);
         const aiResult = await estimateMacrosWithAI(p.item);
-        console.log('[FoodTask] resolveItems: AI estimation result:', JSON.stringify(aiResult));
-        if (aiResult) results = [aiResult as FoodResult];
+        if (aiResult) candidates.push(aiResult as FoodResult);
       }
-      return {
-        item: p.item,
-        estimated_g: p.estimated_g,
-        results,
-        selectedIdx: 0,
-        servingG: String(Math.round(p.estimated_g)),
-        selectedServingIdx: -1,
-        qty: String(Math.round(p.estimated_g)),
-        unitGrams: 1,
-        unitLabel: 'g',
-      };
+
+      return { parsed: p, candidates };
     }),
   );
+
+  // ── Layer 3: GPT selects the best match per item ───────────────────────
+  // Only run selection if we have candidates to choose from
+  const needsSelection = itemsWithCandidates.filter((ic) => ic.candidates.length > 1);
+  let selectedIndices: number[] = itemsWithCandidates.map(() => 0);
+
+  if (needsSelection.length > 0) {
+    console.log('[FoodTask] resolveItems: running GPT selection for', needsSelection.length, 'items');
+    const selectInput = itemsWithCandidates.map((ic) => ({
+      originalItem: ic.parsed.item,
+      candidates: ic.candidates.slice(0, 8).map((c) => ({
+        name: c.name,
+        brand: c.brand,
+        calories: c.calories,
+      })),
+    }));
+
+    selectedIndices = await selectBestFoodMatches(selectInput);
+    console.log('[FoodTask] resolveItems: GPT selected indices:', selectedIndices);
+  }
+
+  // ── Build resolved items with top candidates kept for user override ────
+  return itemsWithCandidates.map((ic, idx) => ({
+    item: ic.parsed.item,
+    estimated_g: ic.parsed.estimated_g,
+    results: ic.candidates.slice(0, 5), // Keep top 5 for user to override
+    selectedIdx: selectedIndices[idx] ?? 0,
+    servingG: String(Math.round(ic.parsed.estimated_g)),
+    selectedServingIdx: -1,
+    qty: String(Math.round(ic.parsed.estimated_g)),
+    unitGrams: 1,
+    unitLabel: 'g',
+  }));
 }
 
 async function fetchServingOptions(

@@ -158,13 +158,28 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
       const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
 
       if (error) {
-        console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, error.message, 'context:', JSON.stringify(error).slice(0, 300));
-        lastError = new Error(`OpenAI proxy error: ${error.message}`);
+        const errMsg = error.message ?? '';
+        const errJson = JSON.stringify(error).slice(0, 300);
+        console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg, 'context:', errJson);
+
+        // Don't retry auth errors — the session is expired/invalid
+        if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
+            errJson.includes('401') || errJson.includes('Invalid or expired token')) {
+          throw new Error('AUTH_EXPIRED');
+        }
+
+        lastError = new Error(`OpenAI proxy error: ${errMsg}`);
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
           continue;
         }
         throw lastError;
+      }
+
+      // Check if the response itself is an auth error (edge function returned 401 as JSON)
+      if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
+        console.error('[OpenAI] auth error from proxy:', data.error);
+        throw new Error('AUTH_EXPIRED');
       }
 
       // Check if the proxy wrapped an upstream OpenAI error
@@ -182,6 +197,8 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
       return data as Record<string, unknown>;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      // Don't retry auth errors
+      if (lastError.message === 'AUTH_EXPIRED') throw lastError;
       console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
       if (attempt < MAX_RETRIES) {
         await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
@@ -270,33 +287,17 @@ Rules:
 export async function converseFoodLog(
   messages: { role: 'user' | 'assistant'; content: string }[],
 ): Promise<ConverseFoodResult> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY not set');
-
-  const res = await fetchWithRetry(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: CONVERSE_FOOD_SYSTEM },
-        ...messages,
-      ],
-      max_tokens: 500,
-      temperature: 0.5,
-    }),
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: CONVERSE_FOOD_SYSTEM },
+      ...messages,
+    ],
+    max_tokens: 500,
+    temperature: 0.5,
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${err}`);
-  }
-
-  const data = await res.json();
-  const content: string = data.choices[0].message.content ?? '';
+  const content: string = (data as any).choices?.[0]?.message?.content ?? '';
 
   // Check if the response contains the FOOD_JSON marker
   const jsonMatch = content.match(/FOOD_JSON:\s*(\[[\s\S]*\])/);
@@ -454,6 +455,116 @@ export async function callGPT4oMiniVision(
   });
 
   return (data as any).choices[0].message.content as string;
+}
+
+// ─── Smart Food Resolution (variant search + AI selection) ───────────────────
+
+/**
+ * Layer 1: Takes parsed food item names and generates search-friendly variants
+ * for each one. This helps bridge the gap between how people describe food
+ * ("toast with pb") and how nutrition databases index it ("whole wheat bread").
+ */
+const VARIANT_SYSTEM = `You are a food search assistant helping query a nutrition database (FatSecret/USDA).
+
+For each food item, generate 3 short search-friendly name variants that would match well in a nutrition database. Think about:
+- The standard/generic database name (e.g. "banana, raw")
+- A brand or common preparation variant (e.g. "banana fresh")
+- A more specific variant (e.g. "banana medium")
+
+Return ONLY valid JSON, no other text:
+[
+  {"item": "original item name", "variants": ["variant1", "variant2", "variant3"]}
+]
+
+Rules:
+- Keep variants short (1-4 words) — they are search queries, not descriptions
+- Include the most common/generic name as the first variant
+- Do NOT include portion sizes or quantities in variants
+- If the item is already very specific (e.g. "Coca-Cola"), still generate variants (e.g. ["coca cola", "coca cola classic", "coke"])`;
+
+export async function generateSearchVariants(
+  items: string[],
+): Promise<{ item: string; variants: string[] }[]> {
+  const input = items.map((it, i) => `${i + 1}. "${it}"`).join('\n');
+
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: VARIANT_SYSTEM },
+      { role: 'user', content: `Generate search variants for these food items:\n${input}` },
+    ],
+    max_tokens: 600,
+    temperature: 0.3,
+  });
+
+  const raw = (data as any).choices?.[0]?.message?.content ?? '';
+  const match = raw.match(/\[[\s\S]*\]/);
+  if (!match) {
+    // Fallback: just use original names
+    return items.map((it) => ({ item: it, variants: [it] }));
+  }
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return items.map((it) => ({ item: it, variants: [it] }));
+  }
+}
+
+/**
+ * Layer 3: Given original item descriptions and their FatSecret candidate matches,
+ * selects the most accurate match for each item.
+ */
+const SELECT_SYSTEM = `You are a nutrition matching assistant. The user described foods they ate, and we searched a nutrition database for each item. Your job is to select which database result best matches what the user actually meant.
+
+For each item, you'll see the user's original description and numbered candidates from the database (with name, brand, and calories per 100g).
+
+Return ONLY valid JSON — an array of selected indices (0-based), one per item:
+[0, 2, 0, 1]
+
+Rules:
+- Pick the candidate closest to what the user described
+- Prefer unbranded/generic matches unless the user specified a brand
+- Prefer entries with reasonable calorie values (not 0)
+- If all candidates seem wrong, pick the closest one anyway (index 0 as last resort)`;
+
+export async function selectBestFoodMatches(
+  selections: {
+    originalItem: string;
+    candidates: { name: string; brand: string; calories: number }[];
+  }[],
+): Promise<number[]> {
+  const prompt = selections
+    .map((s, i) => {
+      const candidateList = s.candidates
+        .map((c, ci) => `  ${ci}. ${c.name}${c.brand ? ` (${c.brand})` : ''} — ${c.calories} kcal/100g`)
+        .join('\n');
+      return `Item ${i + 1}: "${s.originalItem}"\nCandidates:\n${candidateList}`;
+    })
+    .join('\n\n');
+
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: SELECT_SYSTEM },
+      { role: 'user', content: prompt },
+    ],
+    max_tokens: 100,
+    temperature: 0.1,
+  });
+
+  const raw = (data as any).choices?.[0]?.message?.content ?? '';
+  const match = raw.match(/\[[\s\S]*\]/);
+  if (!match) return selections.map(() => 0);
+  try {
+    const indices = JSON.parse(match[0]) as number[];
+    // Clamp indices to valid range
+    return indices.map((idx, i) => {
+      const max = selections[i]?.candidates?.length ?? 1;
+      return idx >= 0 && idx < max ? idx : 0;
+    });
+  } catch {
+    return selections.map(() => 0);
+  }
 }
 
 // ─── AI Macro Estimation Fallback ─────────────────────────────────────────────

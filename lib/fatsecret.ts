@@ -31,6 +31,7 @@ async function callEdge(params: Record<string, string>): Promise<unknown> {
     headers: {
       'x-proxy-secret': PROXY_SECRET,
     },
+    cache: 'no-store',
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');

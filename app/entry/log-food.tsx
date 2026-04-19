@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   LayoutAnimation,
   Modal,
@@ -80,7 +82,7 @@ type PendingFood = {
 
 async function lookupBarcode(barcode: string): Promise<OFFProduct | null> {
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`, { cache: 'no-store' });
     const json = await res.json();
     if (json.status !== 1 || !json.product) return null;
     const p = json.product;
@@ -165,7 +167,15 @@ export default function LogFoodScreen() {
   const [scanProduct, setScanProduct] = useState<OFFProduct | null>(null);
   const [scanNotFound, setScanNotFound] = useState(false);
   const scanLockRef = useRef(false);
+  const lastBarcodeRef = useRef<string | null>(null);
+  const [cameraKey, setCameraKey] = useState(0);
   const [scanServingG, setScanServingG] = useState('100');
+
+  // ── Camera (photo) state ──────────────────────────────────────────────────
+  const photoCameraRef = useRef<CameraView>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [cameraPhotoKey, setCameraPhotoKey] = useState(0);
 
   // ── Describe state ────────────────────────────────────────────────────────
   const [describeText, setDescribeText] = useState('');
@@ -212,12 +222,64 @@ export default function LogFoodScreen() {
     setScanNotFound(false);
     setScanned(false);
     scanLockRef.current = false;
+    lastBarcodeRef.current = null;
+    setCameraKey((k) => k + 1);
     setMode('scan');
   }
 
   function switchMode(m: Mode) {
     if (m === 'scan') { switchToScan(); return; }
+    if (m === 'camera') {
+      setPhotoUri(null);
+      setPhotoBase64(null);
+      setCameraPhotoKey((k) => k + 1);
+      if (!camPermission?.granted) requestCamPermission();
+    }
     setMode(m);
+  }
+
+  // ── Camera (photo) helpers ───────────────────────────────────────────────
+
+  async function handleCaptureShutter() {
+    if (!photoCameraRef.current) return;
+    try {
+      const photo = await photoCameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.6,
+        imageType: 'jpg',
+      });
+      if (photo?.base64 && photo.uri) {
+        setPhotoBase64(photo.base64);
+        setPhotoUri(photo.uri);
+      }
+    } catch {
+      // camera error
+    }
+  }
+
+  async function handlePickLibrary() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      base64: true,
+      quality: 0.6,
+    });
+    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
+      setPhotoBase64(result.assets[0].base64);
+      setPhotoUri(result.assets[0].uri);
+    }
+  }
+
+  function handleAnalyzePhoto() {
+    if (!photoBase64) return;
+    startFoodTask({ source: 'camera', photoBase64 });
+    router.dismissTo('/(tabs)');
+  }
+
+  function handleRetakePhoto() {
+    setPhotoUri(null);
+    setPhotoBase64(null);
+    setCameraPhotoKey((k) => k + 1);
   }
 
   // ── Search ────────────────────────────────────────────────────────────────
@@ -328,7 +390,10 @@ export default function LogFoodScreen() {
 
   async function handleBarcode({ data }: { data: string }) {
     if (scanLockRef.current) return;
+    // Reject re-fires of the same barcode (expo-camera native buffer re-emit)
+    if (data === lastBarcodeRef.current) return;
     scanLockRef.current = true;
+    lastBarcodeRef.current = data;
     setScanned(true);
     setScanFetching(true);
     setScanNotFound(false);
@@ -362,9 +427,12 @@ export default function LogFoodScreen() {
 
   function handleScanAgain() {
     scanLockRef.current = false;
+    lastBarcodeRef.current = null;
     setScanned(false);
     setScanProduct(null);
     setScanNotFound(false);
+    // Force CameraView remount so native decoder fully resets
+    setCameraKey((k) => k + 1);
   }
 
   function handleAddScanProduct() {
@@ -625,6 +693,7 @@ export default function LogFoodScreen() {
           {camPermission?.granted ? (
             <View style={{ flex: 1 }}>
               <CameraView
+                key={cameraKey}
                 style={StyleSheet.absoluteFillObject}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarcode}
@@ -712,6 +781,66 @@ export default function LogFoodScreen() {
                   </TouchableOpacity>
                 </View>
               )}
+            </View>
+          )}
+        </View>
+      ) : mode === 'camera' ? (
+        /* CAMERA MODE - full body camera (photo) */
+        <View style={{ flex: 1 }}>
+          {photoUri ? (
+            /* ── Preview ── */
+            <View style={{ flex: 1 }}>
+              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
+                <TouchableOpacity onPress={handleRetakePhoto} style={s.cameraLibraryBtn} activeOpacity={0.75}>
+                  <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85}>
+                  <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={s.cameraAnalyzeBtnText}>Analyze with AI</Text>
+                </TouchableOpacity>
+                <View style={{ width: 48 }} />
+              </View>
+            </View>
+          ) : camPermission?.granted ? (
+            /* ── Live camera ── */
+            <View style={{ flex: 1 }}>
+              <CameraView
+                ref={photoCameraRef}
+                key={cameraPhotoKey}
+                style={StyleSheet.absoluteFillObject}
+                facing="back"
+              />
+              {/* Square viewfinder frame */}
+              <View style={s.photoFrame} pointerEvents="none">
+                <View style={s.photoCornerTL} />
+                <View style={s.photoCornerTR} />
+                <View style={s.photoCornerBL} />
+                <View style={s.photoCornerBR} />
+              </View>
+              <View style={s.photoHintWrap} pointerEvents="none">
+                <Text style={s.scanHint}>Point at your food</Text>
+              </View>
+              {/* Shutter + library buttons */}
+              <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
+                <TouchableOpacity onPress={handlePickLibrary} style={s.cameraLibraryBtn} activeOpacity={0.75}>
+                  <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
+                  <View style={s.shutterInner} />
+                </TouchableOpacity>
+                <View style={{ width: 48 }} />
+              </View>
+            </View>
+          ) : (
+            /* ── Permission prompt ── */
+            <View style={s.centered}>
+              <Ionicons name="camera-outline" size={60} color={ORANGE} />
+              <Text style={s.permTitle}>Camera Access Needed</Text>
+              <Text style={s.permDesc}>Allow camera access to take food photos.</Text>
+              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8}>
+                <Text style={s.permBtnText}>Allow Camera</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1153,26 +1282,6 @@ export default function LogFoodScreen() {
             </>
           )}
 
-          {/* ── CAMERA MODE ──────────────────────────────────────────────── */}
-          {mode === 'camera' && (
-            <View style={s.cameraModeWrap}>
-              <View style={s.cameraIconWrap}>
-                <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 40, backgroundColor: 'rgba(255,116,42,0.12)' }]} />
-                <Ionicons name="camera-outline" size={56} color={ORANGE} />
-              </View>
-              <Text style={s.cameraTitle}>Photo Food Log</Text>
-              <Text style={s.cameraDesc}>Take a photo of your meal and AI will identify foods and estimate portions.</Text>
-              <TouchableOpacity
-                style={s.cameraBtn}
-                onPress={() => router.push('/entry/capture-food' as any)}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="camera" size={20} color={colors.textPrimary} style={{ marginRight: 10 }} />
-                <Text style={s.cameraBtnText}>Open Camera</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </ScrollView>
       )}
 
@@ -1693,36 +1802,54 @@ const createStyles = (c: AppColors) => {
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   errorText: { fontSize: 13, color: ORANGE },
 
-  // Camera mode
-  cameraModeWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 32,
+  // Camera (photo) mode
+  photoFrame: {
+    position: 'absolute',
+    top: '15%',
+    left: '10%',
+    right: '10%',
+    aspectRatio: 1,
   },
-  cameraIconWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 40,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: c.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  cameraTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, marginBottom: 10, textAlign: 'center' },
-  cameraDesc: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
-  cameraBtn: {
+  photoCornerTL: { position: 'absolute', top: 0, left: 0, width: 32, height: 32, borderTopWidth: 3, borderLeftWidth: 3, borderColor: '#FFFFFF', borderTopLeftRadius: 8 },
+  photoCornerTR: { position: 'absolute', top: 0, right: 0, width: 32, height: 32, borderTopWidth: 3, borderRightWidth: 3, borderColor: '#FFFFFF', borderTopRightRadius: 8 },
+  photoCornerBL: { position: 'absolute', bottom: 0, left: 0, width: 32, height: 32, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: '#FFFFFF', borderBottomLeftRadius: 8 },
+  photoCornerBR: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderBottomWidth: 3, borderRightWidth: 3, borderColor: '#FFFFFF', borderBottomRightRadius: 8 },
+  photoHintWrap: { position: 'absolute', top: '68%', left: 0, right: 0, alignItems: 'center' },
+  cameraBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 54,
-    paddingHorizontal: 28,
-    borderRadius: 27,
+    justifyContent: 'center',
+    gap: 28,
+  },
+  shutterBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: w(0.15),
+  },
+  shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#FFFFFF' },
+  cameraLibraryBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraAnalyzeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    paddingHorizontal: 32,
+    borderRadius: 28,
     backgroundColor: ORANGE,
     shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 6 },
@@ -1730,7 +1857,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 18,
     elevation: 8,
   },
-  cameraBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  cameraAnalyzeBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Scan mode
   barcodeFrame: {
