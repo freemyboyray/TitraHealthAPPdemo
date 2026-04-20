@@ -29,21 +29,19 @@ export const HK_CATEGORIES = {
   hrv: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
   restingHR: 'HKQuantityTypeIdentifierRestingHeartRate',
   sleep: 'HKCategoryTypeIdentifierSleepAnalysis',
+  respiratoryRate: 'HKQuantityTypeIdentifierRespiratoryRate',
 
   // Body composition
   bodyFat: 'HKQuantityTypeIdentifierBodyFatPercentage',
   leanMass: 'HKQuantityTypeIdentifierLeanBodyMass',
   waist: 'HKQuantityTypeIdentifierWaistCircumference',
   bmi: 'HKQuantityTypeIdentifierBodyMassIndex',
-  height: 'HKQuantityTypeIdentifierHeight',
 
   // Cardiovascular
   vo2max: 'HKQuantityTypeIdentifierVO2Max',
   spo2: 'HKQuantityTypeIdentifierOxygenSaturation',
   bpSystolic: 'HKQuantityTypeIdentifierBloodPressureSystolic',
   bpDiastolic: 'HKQuantityTypeIdentifierBloodPressureDiastolic',
-  walkingHR: 'HKQuantityTypeIdentifierWalkingHeartRateAverage',
-  heartRateRecovery: 'HKQuantityTypeIdentifierHeartRateRecoveryOneMinute',
 
   // Nutrition — core macros
   protein: 'HKQuantityTypeIdentifierDietaryProtein',
@@ -53,17 +51,24 @@ export const HK_CATEGORIES = {
   fiber: 'HKQuantityTypeIdentifierDietaryFiber',
   // Nutrition — extended (GLP-1 relevant)
   water: 'HKQuantityTypeIdentifierDietaryWater',
-  sodium: 'HKQuantityTypeIdentifierDietarySodium',
-  sugar: 'HKQuantityTypeIdentifierDietarySugar',
-  caffeine: 'HKQuantityTypeIdentifierDietaryCaffeine',
+  saturatedFat: 'HKQuantityTypeIdentifierDietaryFatSaturated',
+  cholesterol: 'HKQuantityTypeIdentifierDietaryCholesterol',
 
   // Metabolic
   glucose: 'HKQuantityTypeIdentifierBloodGlucose',
-  bodyTemp: 'HKQuantityTypeIdentifierBodyTemperature',
 
-  // Activity (watch-only secondary)
+  // Activity
   exerciseMinutes: 'HKQuantityTypeIdentifierAppleExerciseTime',
   standHours: 'HKCategoryTypeIdentifierAppleStandHour',
+  basalEnergy: 'HKQuantityTypeIdentifierBasalEnergyBurned',
+  distance: 'HKQuantityTypeIdentifierDistanceWalkingRunning',
+  flightsClimbed: 'HKQuantityTypeIdentifierFlightsClimbed',
+
+  // Workouts (read as HKWorkoutType via queryWorkoutSamples)
+  workouts: 'HKWorkoutTypeIdentifier',
+
+  // Mental health / mindfulness
+  mindfulMinutes: 'HKCategoryTypeIdentifierMindfulSession',
 
   // GI symptoms (Apple's symptom tracker — direct 1:1 match for GLP-1 side effects)
   symptomNausea: 'HKCategoryTypeIdentifierNausea',
@@ -89,12 +94,16 @@ export type HKCategoryKey = keyof typeof HK_CATEGORIES;
 const CATEGORY_KEYS: ReadonlySet<HKCategoryKey> = new Set<HKCategoryKey>([
   'sleep',
   'standHours',
+  'mindfulMinutes',
   'symptomNausea', 'symptomVomiting', 'symptomDiarrhea', 'symptomConstipation',
   'symptomHeartburn', 'symptomBloating', 'symptomAbdominalCramps',
   'symptomHeadache', 'symptomFatigue', 'symptomDizziness',
   'symptomRapidHR', 'symptomHairLoss', 'symptomAppetite', 'symptomMood',
 ]);
 
+// Workouts use queryWorkoutSamples and need 'HKWorkoutTypeIdentifier' in
+// the permission request. We keep the registry entry for live-detection but
+// the identifier string is already valid for requestAuthorization.
 const READ_TYPES = Object.values(HK_CATEGORIES);
 
 // We only write what Titra owns. Symptoms/activity are read-only so we don't
@@ -216,6 +225,10 @@ async function hasAnyRecentSample(HK: unknown, key: HKCategoryKey): Promise<bool
   const type = HK_CATEGORIES[key];
   const opts = dateRangeOptions(startOfDaysAgo(LIVE_LOOKBACK_DAYS), new Date(), undefined, 1);
   try {
+    if (key === 'workouts') {
+      const samples = await hk.queryWorkoutSamples(opts);
+      return Array.isArray(samples) && samples.length > 0;
+    }
     if (CATEGORY_KEYS.has(key)) {
       const samples = await hk.queryCategorySamples(type, opts);
       return Array.isArray(samples) && samples.length > 0;
@@ -491,6 +504,168 @@ export async function readTodayExerciseMinutes(): Promise<number | null> {
   if (!HK) return null;
   try { return Math.round(await sumToday(HK, HK_CATEGORIES.exerciseMinutes, 'min')); }
   catch (e) { err('readTodayExerciseMinutes', e); return null; }
+}
+
+// ─── Extended readers: respiratory rate ─────────────────────────────────────
+
+export async function readLatestRespiratoryRate(): Promise<number | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try {
+    const v = await latestQuantity(HK, HK_CATEGORIES.respiratoryRate, 'count/min');
+    return v != null ? parseFloat(v.toFixed(1)) : null;
+  } catch (e) { err('readLatestRespiratoryRate', e); return null; }
+}
+
+// ─── Extended readers: activity (distance, flights, basal energy) ────────────
+
+export async function readTodayBasalEnergy(): Promise<number | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try { return Math.round(await sumToday(HK, HK_CATEGORIES.basalEnergy, 'kcal')); }
+  catch (e) { err('readTodayBasalEnergy', e); return null; }
+}
+
+export async function readTodayDistance(): Promise<number | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try {
+    const miles = await sumToday(HK, HK_CATEGORIES.distance, 'mi');
+    return miles > 0 ? parseFloat(miles.toFixed(2)) : null;
+  } catch (e) { err('readTodayDistance', e); return null; }
+}
+
+export async function readTodayFlightsClimbed(): Promise<number | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try {
+    const n = await sumToday(HK, HK_CATEGORIES.flightsClimbed, 'count');
+    return n > 0 ? Math.round(n) : null;
+  } catch (e) { err('readTodayFlightsClimbed', e); return null; }
+}
+
+// ─── Extended readers: workouts ─────────────────────────────────────────────
+
+export type WorkoutSample = {
+  workoutActivityType: string;
+  duration: number;       // minutes
+  totalEnergyBurned: number | null; // kcal
+  totalDistance: number | null;     // miles
+  startDate: string;
+  endDate: string;
+  sourceName: string;
+};
+
+export async function readTodayWorkouts(): Promise<WorkoutSample[]> {
+  const HK = getHK();
+  if (!HK) return [];
+  try {
+    const opts = dateRangeOptions(startOfToday(), new Date());
+    const samples = await HK.queryWorkoutSamples(opts);
+    if (!Array.isArray(samples)) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return samples.map((s: any) => ({
+      workoutActivityType: s.workoutActivityType ?? 'unknown',
+      duration: Math.round((new Date(s.endDate).getTime() - new Date(s.startDate).getTime()) / 60000),
+      totalEnergyBurned: s.totalEnergyBurned?.quantity ?? null,
+      totalDistance: s.totalDistance?.quantity ?? null,
+      startDate: s.startDate,
+      endDate: s.endDate,
+      sourceName: s.sourceRevision?.source?.name ?? 'Unknown',
+    }));
+  } catch (e) { err('readTodayWorkouts', e); return []; }
+}
+
+// ─── Extended readers: mindful minutes ──────────────────────────────────────
+
+export async function readTodayMindfulMinutes(): Promise<number | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try {
+    const samples = await HK.queryCategorySamples(
+      HK_CATEGORIES.mindfulMinutes,
+      dateRangeOptions(startOfToday(), new Date()),
+    );
+    if (!Array.isArray(samples) || samples.length === 0) return null;
+    let totalMs = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const s of samples as any[]) {
+      totalMs += new Date(s.endDate).getTime() - new Date(s.startDate).getTime();
+    }
+    return totalMs > 0 ? Math.round(totalMs / 60000) : null;
+  } catch (e) { err('readTodayMindfulMinutes', e); return null; }
+}
+
+// ─── Extended readers: blood glucose time-series (for CGM users) ─────────────
+
+export type GlucoseSample = {
+  value: number;   // mg/dL
+  timestamp: Date;
+  source: string;
+};
+
+export async function readGlucoseTimeSeries(hoursBack: number = 24): Promise<GlucoseSample[]> {
+  const HK = getHK();
+  if (!HK) return [];
+  try {
+    const from = new Date(Date.now() - hoursBack * 3600000);
+    const samples = await HK.queryQuantitySamples(
+      HK_CATEGORIES.glucose,
+      dateRangeOptions(from, new Date(), 'mg/dL'),
+    );
+    if (!Array.isArray(samples) || samples.length === 0) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return samples.map((s: any) => ({
+      value: parseFloat((s.quantity as number).toFixed(1)),
+      timestamp: new Date(s.startDate),
+      source: s.sourceRevision?.source?.name ?? 'Unknown',
+    }));
+  } catch (e) { err('readGlucoseTimeSeries', e); return []; }
+}
+
+export type GlucoseStats = {
+  average: number;
+  min: number;
+  max: number;
+  timeInRange: number; // percentage of readings between 70-140 mg/dL
+  sampleCount: number;
+};
+
+export function computeGlucoseStats(samples: GlucoseSample[]): GlucoseStats | null {
+  if (samples.length === 0) return null;
+  const values = samples.map(s => s.value);
+  const inRange = values.filter(v => v >= 70 && v <= 140).length;
+  return {
+    average: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+    min: Math.round(Math.min(...values)),
+    max: Math.round(Math.max(...values)),
+    timeInRange: Math.round((inRange / values.length) * 100),
+    sampleCount: samples.length,
+  };
+}
+
+// ─── Extended readers: weight with source info (for conflict UX) ─────────────
+
+export type WeightSampleWithSource = {
+  lbs: number;
+  recordedAt: Date;
+  sourceName: string;
+  bundleId: string;
+};
+
+export async function readLatestWeightWithSource(): Promise<WeightSampleWithSource | null> {
+  const HK = getHK();
+  if (!HK) return null;
+  try {
+    const sample = await HK.getMostRecentQuantitySample(HK_CATEGORIES.weight, 'lb');
+    if (!sample) return null;
+    return {
+      lbs: parseFloat((sample.quantity as number).toFixed(1)),
+      recordedAt: new Date(sample.endDate ?? sample.startDate),
+      sourceName: sample.sourceRevision?.source?.name ?? 'Unknown',
+      bundleId: sample.sourceRevision?.source?.bundleIdentifier ?? '',
+    };
+  } catch (e) { err('readLatestWeightWithSource', e); return null; }
 }
 
 // ─── Extended readers: nutrition (extended macros) ───────────────────────────

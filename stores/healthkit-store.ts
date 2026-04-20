@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 import * as HealthKit from '../lib/healthkit';
 import * as HealthConnect from '../lib/health-connect';
-import type { HKCategoryKey } from '../lib/healthkit';
+import type { HKCategoryKey, WorkoutSample, GlucoseSample, GlucoseStats } from '../lib/healthkit';
 
 type NutritionData = { protein: number; calories: number; carbs: number; fat: number; fiber: number };
 
@@ -29,6 +29,16 @@ type HealthKitStore = {
   bloodPressure: BloodPressure | null;
   exerciseMinutes: number | null; // today
   waterToday: number | null;      // fl oz
+
+  // New extended metrics
+  respiratoryRate: number | null; // breaths/min
+  basalEnergy: number | null;     // kcal (resting metabolic burn today)
+  distance: number | null;        // miles today
+  flightsClimbed: number | null;  // flights today
+  workouts: WorkoutSample[];      // structured workout sessions today
+  mindfulMinutes: number | null;  // minutes today
+  glucoseTimeSeries: GlucoseSample[]; // CGM readings (24h)
+  glucoseStats: GlucoseStats | null;  // computed from time-series
 
   // Per-category live status (iOS-only). A category is "live" if it has
   // returned ≥1 sample in the last 30 days — that's the only reliable signal
@@ -68,6 +78,15 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
   bloodPressure: null,
   exerciseMinutes: null,
   waterToday: null,
+
+  respiratoryRate: null,
+  basalEnergy: null,
+  distance: null,
+  flightsClimbed: null,
+  workouts: [],
+  mindfulMinutes: null,
+  glucoseTimeSeries: [],
+  glucoseStats: null,
 
   liveCategories: new Set<HKCategoryKey>(),
 
@@ -126,9 +145,21 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
       bloodPressure: null as BloodPressure | null,
       exerciseMinutes: null as number | null,
       waterToday: null as number | null,
+      respiratoryRate: null as number | null,
+      basalEnergy: null as number | null,
+      distance: null as number | null,
+      flightsClimbed: null as number | null,
+      workouts: [] as WorkoutSample[],
+      mindfulMinutes: null as number | null,
+      glucoseTimeSeries: [] as GlucoseSample[],
+      glucoseStats: null as GlucoseStats | null,
     };
     if (isIOS) {
-      const [bodyFat, leanMass, waist, bmi, vo2max, spo2, bloodPressure, exerciseMinutes, waterToday] = await Promise.all([
+      const [
+        bodyFat, leanMass, waist, bmi, vo2max, spo2, bloodPressure,
+        exerciseMinutes, waterToday, respiratoryRate, basalEnergy,
+        distance, flightsClimbed, workouts, mindfulMinutes, glucoseTimeSeries,
+      ] = await Promise.all([
         HealthKit.readLatestBodyFat(),
         HealthKit.readLatestLeanMass(),
         HealthKit.readLatestWaist(),
@@ -138,8 +169,21 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
         HealthKit.readLatestBloodPressure(),
         HealthKit.readTodayExerciseMinutes(),
         HealthKit.readTodayWater(),
+        HealthKit.readLatestRespiratoryRate(),
+        HealthKit.readTodayBasalEnergy(),
+        HealthKit.readTodayDistance(),
+        HealthKit.readTodayFlightsClimbed(),
+        HealthKit.readTodayWorkouts(),
+        HealthKit.readTodayMindfulMinutes(),
+        HealthKit.readGlucoseTimeSeries(24),
       ]);
-      extended = { bodyFat, leanMass, waist, bmi, vo2max, spo2, bloodPressure, exerciseMinutes, waterToday };
+      const glucoseStats = HealthKit.computeGlucoseStats(glucoseTimeSeries);
+      extended = {
+        bodyFat, leanMass, waist, bmi, vo2max, spo2, bloodPressure,
+        exerciseMinutes, waterToday, respiratoryRate, basalEnergy,
+        distance, flightsClimbed, workouts, mindfulMinutes,
+        glucoseTimeSeries, glucoseStats,
+      };
     }
 
     set({

@@ -321,10 +321,10 @@ export function computeRecovery(wearable: Partial<WearableData>, phase?: ShotPha
   const components: { score: number; weight: number }[] = [];
 
   if (wearable.sleepMinutes != null)
-    components.push({ score: scoreSleep(wearable.sleepMinutes), weight: 40 });
+    components.push({ score: scoreSleep(wearable.sleepMinutes), weight: 35 });
   if (wearable.hrvMs != null) {
     const adjHrv = phase ? wearable.hrvMs + glp1HrvOffset(phase) : wearable.hrvMs;
-    components.push({ score: scoreHRV(adjHrv), weight: 35 });
+    components.push({ score: scoreHRV(adjHrv), weight: 30 });
   }
   if (wearable.restingHR != null) {
     const adjRhr = phase ? wearable.restingHR + glp1RhrOffset(phase) : wearable.restingHR;
@@ -332,6 +332,8 @@ export function computeRecovery(wearable: Partial<WearableData>, phase?: ShotPha
   }
   if (wearable.spo2Pct != null)
     components.push({ score: scoreSPO2(wearable.spo2Pct), weight: 10 });
+  if (wearable.respRateRpm != null)
+    components.push({ score: scoreRespRate(wearable.respRateRpm), weight: 10 });
 
   if (components.length === 0) return null;
 
@@ -656,14 +658,14 @@ export function recoveryBreakdown(
   return [
     {
       label: 'Sleep',
-      actual: wearable.sleepMinutes != null ? Math.round(scoreSleep(wearable.sleepMinutes) * 40) : 0,
-      max: 40,
+      actual: wearable.sleepMinutes != null ? Math.round(scoreSleep(wearable.sleepMinutes) * 35) : 0,
+      max: 35,
       available: wearable.sleepMinutes != null,
     },
     {
       label: 'HRV',
-      actual: adjHrv != null ? Math.round(scoreHRV(adjHrv) * 35) : 0,
-      max: 35,
+      actual: adjHrv != null ? Math.round(scoreHRV(adjHrv) * 30) : 0,
+      max: 30,
       available: wearable.hrvMs != null,
     },
     {
@@ -677,6 +679,12 @@ export function recoveryBreakdown(
       actual: wearable.spo2Pct != null ? Math.round(scoreSPO2(wearable.spo2Pct) * 10) : 0,
       max: 10,
       available: wearable.spo2Pct != null,
+    },
+    {
+      label: 'Resp. Rate',
+      actual: wearable.respRateRpm != null ? Math.round(scoreRespRate(wearable.respRateRpm) * 10) : 0,
+      max: 10,
+      available: wearable.respRateRpm != null,
     },
   ];
 }
@@ -777,6 +785,9 @@ export function recoveryChips(wearable: Partial<WearableData>): ChipData[] {
   if (wearable.spo2Pct != null) {
     chips.push({ label: 'SpO\u2082', value: `${wearable.spo2Pct}%`, pct: scoreSPO2(wearable.spo2Pct) });
   }
+  if (wearable.respRateRpm != null) {
+    chips.push({ label: 'Resp. Rate', value: `${wearable.respRateRpm} bpm`, pct: scoreRespRate(wearable.respRateRpm) });
+  }
   return chips;
 }
 
@@ -825,6 +836,7 @@ export function getRecoveryRowNotes(phase: ShotPhase): string[] {
     hrvNote,
     rhrNote,
     "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
+    "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration — common during GLP-1 dose escalation.",
   ];
 }
 
@@ -847,6 +859,7 @@ export const RECOVERY_ROW_NOTES = [
   "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this.",
   "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks.",
   "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
+  "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration — common during GLP-1 dose escalation.",
 ];
 
 export const GLP1_ROW_NOTES = [

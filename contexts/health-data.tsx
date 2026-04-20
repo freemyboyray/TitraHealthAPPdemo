@@ -165,7 +165,7 @@ export function HealthProvider({
   useEffect(() => {
     if (!liveWearable || Object.keys(liveWearable).length === 0) return;
     dispatch({ type: 'SYNC_WEARABLE', wearable: liveWearable as WearableData });
-  }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct]);
+  }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct, liveWearable?.respRateRpm]);
 
   // Sync HealthKit steps - prefer whichever is higher (HealthKit is live; Supabase is manually logged)
   useEffect(() => {

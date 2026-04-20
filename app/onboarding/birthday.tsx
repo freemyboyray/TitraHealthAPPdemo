@@ -68,11 +68,11 @@ export default function BirthdayScreen() {
         <View style={s.pickersRow}>
           <View style={s.pickerWrap}>
             <Text style={s.colLabel}>Month</Text>
-            <WheelPicker data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} />
+            <WheelPicker data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} circular />
           </View>
           <View style={[s.pickerWrap, s.pickerSm]}>
             <Text style={s.colLabel}>Day</Text>
-            <WheelPicker data={DAYS} selectedIndex={dayIdx} onSelect={setDayIdx} />
+            <WheelPicker data={DAYS} selectedIndex={dayIdx} onSelect={setDayIdx} circular />
           </View>
           <View style={[s.pickerWrap, s.pickerSm]}>
             <Text style={s.colLabel}>Year</Text>

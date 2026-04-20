@@ -49,7 +49,7 @@ export default function TermsScreen() {
       privacyAcceptedAt: now,
       privacyVersion: PRIVACY_VERSION,
     });
-    router.push(draft.glp1Status === 'active' ? '/onboarding/medication' : '/onboarding/sex');
+    router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
   };
 
   return (

@@ -200,6 +200,7 @@ export default function SignInScreen() {
     }
     setLoading(true);
     setError(null);
+    if (!(await checkRateLimit(trimmedEmail, 'reset'))) return;
     const { error: err } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
     setLoading(false);
     if (err) {
@@ -218,6 +219,22 @@ export default function SignInScreen() {
     router.replace('/(tabs)');
   }
 
+  // ── Rate limiting helper ─────────────────────────────────────────────────
+  async function checkRateLimit(identifier: string, type: string): Promise<boolean> {
+    const { data, error: rlErr } = await supabase.rpc('check_rate_limit', {
+      p_identifier: identifier,
+      p_attempt_type: type,
+      p_max_attempts: 5,
+      p_window_minutes: 15,
+    });
+    if (rlErr || data === false) {
+      setError('Too many attempts. Please wait 15 minutes before trying again.');
+      setLoading(false);
+      return false;
+    }
+    return true;
+  }
+
   // ── Email sign-in ───────────────────────────────────────────────────────
   async function handleSignIn() {
     const trimmedEmail = email.trim();
@@ -227,6 +244,8 @@ export default function SignInScreen() {
     }
     setLoading(true);
     setError(null);
+
+    if (!(await checkRateLimit(trimmedEmail, 'login'))) return;
 
     const { data, error: err } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
@@ -264,13 +283,27 @@ export default function SignInScreen() {
       setError('Username must be 3-20 characters (letters, numbers, underscores).');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters.');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter.');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one number.');
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setError('Password must contain at least one special character.');
       return;
     }
 
     setLoading(true);
     setError(null);
+
+    if (!(await checkRateLimit(trimmedEmail, 'signup'))) return;
 
     const { data, error: err } = await supabase.auth.signUp({
       email: trimmedEmail,
@@ -564,7 +597,7 @@ export default function SignInScreen() {
 
             <PillInput
               icon="lock-closed-outline"
-              placeholder={isLogin ? 'Password' : 'Password (6+ characters)'}
+              placeholder={isLogin ? 'Password' : 'Password (12+ chars, A-Z, 0-9, special)'}
               value={password}
               onChangeText={setPassword}
               secureTextEntry

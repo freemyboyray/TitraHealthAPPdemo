@@ -91,7 +91,7 @@ export function FoodProcessingBanner() {
           tint={colors.blurTint}
           style={styles.blur}
         >
-          <View style={[styles.inner, { backgroundColor: colors.glassOverlay }]}>
+          <View style={[styles.inner, { backgroundColor: colors.glassOverlay, borderColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)' }]}>
             <View style={styles.content}>
               {isProcessing && (
                 <>

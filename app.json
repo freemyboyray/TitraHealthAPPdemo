@@ -19,7 +19,7 @@
         "NSMicrophoneUsageDescription": "TitraHealth uses your microphone to log food, activity, and health entries by voice.",
         "NSUserNotificationsUsageDescription": "TitraHealth sends reminders to help you stay on track with logging.",
         "NSPhotoLibraryUsageDescription": "TitraHealth accesses your photo library to select food images for nutritional analysis.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": true
       },
       "entitlements": {
         "com.apple.developer.healthkit": true

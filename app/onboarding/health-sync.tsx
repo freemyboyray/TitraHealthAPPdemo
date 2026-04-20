@@ -20,7 +20,7 @@ import type { AppColors } from '@/constants/theme';
 export default function HealthSyncScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
-  const isStarting = draft.glp1Status !== 'active';
+  const isStarting = draft.treatmentStatus !== 'on';
   const total = isStarting ? 10 : 14;
   const step = isStarting ? 7 : 10;
   const { colors } = useAppTheme();
@@ -28,13 +28,8 @@ export default function HealthSyncScreen() {
   const requestPermissions = useHealthKitStore((s) => s.requestPermissions);
   const setAppleHealthEnabled = usePreferencesStore((s) => s.setAppleHealthEnabled);
 
-  const handleConnect = async () => {
-    const granted = await requestPermissions();
-    if (!granted) return;
-    updateDraft({ appleHealthEnabled: true });
-    setAppleHealthEnabled(true);
+  const navigateNext = () => {
     if (isStarting) {
-      // No medication yet — current weight is their starting weight
       updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
       router.push('/onboarding/goal-weight');
     } else {
@@ -42,14 +37,21 @@ export default function HealthSyncScreen() {
     }
   };
 
+  const handleConnect = async () => {
+    const granted = await requestPermissions();
+    if (granted) {
+      updateDraft({ appleHealthEnabled: true });
+      setAppleHealthEnabled(true);
+    } else {
+      // HealthKit unavailable (Expo Go / simulator) or user denied — continue anyway
+      updateDraft({ appleHealthEnabled: false });
+    }
+    navigateNext();
+  };
+
   const handleSkip = () => {
     updateDraft({ appleHealthEnabled: false });
-    if (isStarting) {
-      updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
-      router.push('/onboarding/goal-weight');
-    } else {
-      router.push('/onboarding/start');
-    }
+    navigateNext();
   };
 
   return (

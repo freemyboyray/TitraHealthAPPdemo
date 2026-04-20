@@ -93,7 +93,29 @@ function hmExMinLabel(v: number): string { return v >= 30 ? 'On Target' : v >= 1
 // Water
 function hmWaterStatus(oz: number): HMStatus { return oz >= 64 ? 'good' : oz >= 32 ? 'normal' : 'low'; }
 function hmWaterLabel(oz: number): string { return oz >= 64 ? 'On Target' : oz >= 32 ? 'Normal' : 'Low'; }
+// Respiratory rate
+function hmRespRateStatus(v: number): HMStatus { return v >= 12 && v <= 20 ? 'good' : v > 20 ? 'elevated' : 'low'; }
+function hmRespRateLabel(v: number): string { return v >= 12 && v <= 20 ? 'Normal' : v > 20 ? 'Elevated' : 'Low'; }
+// Distance
+function hmDistanceStatus(mi: number): HMStatus { return mi >= 5 ? 'good' : mi >= 2 ? 'normal' : 'low'; }
+function hmDistanceLabel(mi: number): string { return mi >= 5 ? 'Active' : mi >= 2 ? 'Normal' : 'Low'; }
+// Flights climbed
+function hmFlightsStatus(n: number): HMStatus { return n >= 10 ? 'good' : n >= 5 ? 'normal' : 'low'; }
+function hmFlightsLabel(n: number): string { return n >= 10 ? 'Active' : n >= 5 ? 'Normal' : 'Low'; }
+// Mindful minutes
+function hmMindfulStatus(m: number): HMStatus { return m >= 15 ? 'good' : m >= 5 ? 'normal' : 'low'; }
+function hmMindfulLabel(m: number): string { return m >= 15 ? 'Great' : m >= 5 ? 'Good Start' : 'Low'; }
+// TDEE (basal + active)
+function hmTdeeStatus(cal: number): HMStatus { return cal >= 1800 ? 'good' : cal >= 1400 ? 'normal' : 'low'; }
+function hmTdeeLabel(cal: number): string { return cal >= 1800 ? 'Normal' : cal >= 1400 ? 'Low' : 'Very Low'; }
+// Glucose time-in-range
+function hmTirStatus(pct: number): HMStatus { return pct >= 70 ? 'good' : pct >= 50 ? 'normal' : 'low'; }
+function hmTirLabel(pct: number): string { return pct >= 70 ? 'On Target' : pct >= 50 ? 'Needs Work' : 'Low'; }
 function fmtSleep(min: number): string { return `${Math.floor(min / 60)}h ${min % 60}m`; }
+// Workout type name cleanup
+function fmtWorkoutType(raw: string): string {
+  return raw.replace('HKWorkoutActivityType', '').replace(/([A-Z])/g, ' $1').trim();
+}
 const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
   good:     { bg: 'rgba(39,174,96,0.15)',   text: '#27AE60' },
   normal:   { bg: 'rgba(91,139,245,0.15)',  text: '#7BA3F7' },
@@ -120,6 +142,12 @@ function hmGaugePos(id: string, rawVal: number | null): number | null {
     case 'bp':        return c(1 - (rawVal - 90) / 70);        // 90-160 sys, lower = top
     case 'exMin':     return c(rawVal / 60);                    // 0-60 min
     case 'water':     return c(rawVal / 100);                   // 0-100 fl oz
+    case 'respRate':  return c(1 - Math.abs(rawVal - 16) / 12); // 16 bpm ideal, penalize deviation
+    case 'distance':  return c(rawVal / 8);                     // 0-8 miles
+    case 'flights':   return c(rawVal / 20);                    // 0-20 flights
+    case 'mindful':   return c(rawVal / 30);                    // 0-30 min
+    case 'tdee':      return c((rawVal - 1000) / 2000);         // 1000-3000 kcal
+    case 'tir':       return c(rawVal / 100);                   // 0-100%
     default:          return 0.5;
   }
 }
@@ -759,6 +787,8 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   if (spo2 != null) vitals.push({ id: 'spo2', label: 'SpO2', value: `${spo2}`, unit: '%', status: hmSpo2Status(spo2), iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: hmSpo2Label(spo2), gaugePosition: hmGaugePos('spo2', spo2) });
   const bp = hkStore.bloodPressure;
   if (bp != null) vitals.push({ id: 'bp', label: 'Blood Pressure', value: `${bp.systolic}/${bp.diastolic}`, unit: 'mmHg', status: hmBpStatus(bp.systolic), iconSet: 'Ionicons', iconName: 'pulse-outline', rangeLabel: hmBpLabel(bp.systolic), gaugePosition: hmGaugePos('bp', bp.systolic) });
+  const respRate = hkStore.respiratoryRate;
+  if (respRate != null) vitals.push({ id: 'respRate', label: 'Resp. Rate', value: `${respRate}`, unit: 'bpm', status: hmRespRateStatus(respRate), iconSet: 'Ionicons', iconName: 'leaf-outline', rangeLabel: hmRespRateLabel(respRate), gaugePosition: hmGaugePos('respRate', respRate) });
   if (vitals.length > 0) groups.push({ category: 'Vitals', metrics: vitals });
 
   // ── Body Composition ──
@@ -785,7 +815,40 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   if (exMin != null && exMin > 0) activity.push({ id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) });
   const vo2 = hkStore.vo2max;
   if (vo2 != null) activity.push({ id: 'vo2max', label: 'VO2 Max', value: `${vo2}`, unit: 'mL/kg/min', status: hmVo2Status(vo2), iconSet: 'Ionicons', iconName: 'speedometer-outline', rangeLabel: hmVo2Label(vo2), gaugePosition: hmGaugePos('vo2max', vo2) });
+  const dist = hkStore.distance;
+  if (dist != null) activity.push({ id: 'distance', label: 'Distance', value: `${dist}`, unit: 'mi', status: hmDistanceStatus(dist), iconSet: 'Ionicons', iconName: 'map-outline', rangeLabel: hmDistanceLabel(dist), gaugePosition: hmGaugePos('distance', dist) });
+  const flights = hkStore.flightsClimbed;
+  if (flights != null) activity.push({ id: 'flights', label: 'Flights', value: `${flights}`, unit: '', status: hmFlightsStatus(flights), iconSet: 'Ionicons', iconName: 'trending-up-outline', rangeLabel: hmFlightsLabel(flights), gaugePosition: hmGaugePos('flights', flights) });
+  // TDEE = basal + active energy
+  const basal = hkStore.basalEnergy;
+  if (basal != null && cal != null) {
+    const tdee = basal + cal;
+    activity.push({ id: 'tdee', label: 'TDEE', value: tdee.toLocaleString(), unit: 'cal', status: hmTdeeStatus(tdee), iconSet: 'Ionicons', iconName: 'flash-outline', rangeLabel: hmTdeeLabel(tdee), gaugePosition: hmGaugePos('tdee', tdee) });
+  }
   if (activity.length > 0) groups.push({ category: 'Activity', metrics: activity });
+
+  // ── Workouts ──
+  const workouts = hkStore.workouts;
+  if (workouts.length > 0) {
+    const workoutMetrics: HealthMetric[] = workouts.slice(0, 5).map((w, i) => ({
+      id: `workout-${i}`, label: fmtWorkoutType(w.workoutActivityType),
+      value: `${w.duration}`, unit: 'min',
+      status: w.duration >= 30 ? 'good' : 'normal',
+      iconSet: 'Ionicons' as const, iconName: 'barbell-outline',
+      rangeLabel: w.sourceName,
+      gaugePosition: null,
+    }));
+    groups.push({ category: 'Workouts', metrics: workoutMetrics });
+  }
+
+  // ── Mindfulness ──
+  const mindful = hkStore.mindfulMinutes;
+  if (mindful != null && mindful > 0) {
+    const mindMetrics: HealthMetric[] = [
+      { id: 'mindful', label: 'Mindful Minutes', value: `${mindful}`, unit: 'min', status: hmMindfulStatus(mindful), iconSet: 'Ionicons', iconName: 'flower-outline', rangeLabel: hmMindfulLabel(mindful), gaugePosition: hmGaugePos('mindful', mindful) },
+    ];
+    groups.push({ category: 'Mindfulness', metrics: mindMetrics });
+  }
 
   // ── Nutrition (from Apple Health, not Titra logs) ──
   const nutrition: HealthMetric[] = [];
@@ -800,6 +863,17 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   const water = hkStore.waterToday;
   if (water != null && water > 0) nutrition.push({ id: 'water', label: 'Water', value: `${water}`, unit: 'fl oz', status: hmWaterStatus(water), iconSet: 'Ionicons', iconName: 'water-outline', rangeLabel: hmWaterLabel(water), gaugePosition: hmGaugePos('water', water) });
   if (nutrition.length > 0) groups.push({ category: 'Nutrition', metrics: nutrition });
+
+  // ── Glucose (CGM time-series stats) ──
+  const gStats = hkStore.glucoseStats;
+  if (gStats != null && gStats.sampleCount >= 3) {
+    const glucoseMetrics: HealthMetric[] = [
+      { id: 'glucoseAvg', label: 'Avg Glucose', value: `${gStats.average}`, unit: 'mg/dL', status: gStats.average < 100 ? 'good' : gStats.average < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: gStats.average < 100 ? 'Normal' : gStats.average < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', gStats.average) },
+      { id: 'tir', label: 'Time in Range', value: `${gStats.timeInRange}`, unit: '%', status: hmTirStatus(gStats.timeInRange), iconSet: 'MaterialIcons', iconName: 'track-changes', rangeLabel: hmTirLabel(gStats.timeInRange), gaugePosition: hmGaugePos('tir', gStats.timeInRange) },
+      { id: 'glucoseRange', label: 'Range', value: `${gStats.min}–${gStats.max}`, unit: 'mg/dL', status: 'normal', iconSet: 'MaterialIcons', iconName: 'swap-vert', rangeLabel: `${gStats.sampleCount} readings`, gaugePosition: null },
+    ];
+    groups.push({ category: 'Glucose (24h)', metrics: glucoseMetrics });
+  }
 
   return groups;
 }

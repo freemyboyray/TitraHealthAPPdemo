@@ -26,11 +26,13 @@ export const unstable_settings = {
 
 function AppWithHealth({ children }: { children: React.ReactNode }) {
   const { profile } = useProfile();
-  const { hrv, restingHR, sleepHours } = useHealthKitStore();
+  const { hrv, restingHR, sleepHours, spo2, respiratoryRate } = useHealthKitStore();
   const liveWearable = {
     ...(hrv != null && { hrvMs: hrv }),
     ...(restingHR != null && { restingHR }),
     ...(sleepHours != null && { sleepMinutes: Math.round(sleepHours * 60) }),
+    ...(spo2 != null && { spo2Pct: spo2 }),
+    ...(respiratoryRate != null && { respRateRpm: respiratoryRate }),
   };
   return (
     <HealthProvider profile={profile ?? MOCK_PROFILE} wearable={liveWearable}>
@@ -100,7 +102,8 @@ function RootLayoutInner() {
     if (!Notifications) return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const url = response.notification.request.content.data?.url as string | undefined;
-      if (url) router.push(url as any);
+      // Only allow internal relative paths to prevent malicious deep-link routing
+      if (url && url.startsWith('/') && !url.startsWith('//')) router.push(url as any);
     });
     return () => sub.remove();
   }, []);

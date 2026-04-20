@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
-import { readLatestWeightSample } from '../../lib/healthkit';
+import { readLatestWeightWithSource, type WeightSampleWithSource } from '../../lib/healthkit';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -204,16 +204,15 @@ export default function LogWeightScreen() {
 
   const [lbs, setLbs]   = useState(185.0);
   const [unit, setUnit] = useState<Unit>('lbs');
-  const [hkSuggestion, setHkSuggestion] = useState<{ lbs: number; recordedAt: Date } | null>(null);
+  const [hkSuggestion, setHkSuggestion] = useState<WeightSampleWithSource | null>(null);
 
-  // Pull the most recent scale reading from Apple Health and, if it's within
-  // the last 24h, offer it as a one-tap auto-fill. HK only — Android falls
-  // through to null.
+  // Pull the most recent scale reading from Apple Health (with source info)
+  // and, if it's within the last 24h, offer it as a one-tap auto-fill.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const sample = await readLatestWeightSample();
+        const sample = await readLatestWeightWithSource();
         if (cancelled || !sample) return;
         const ageMs = Date.now() - sample.recordedAt.getTime();
         if (ageMs > 24 * 60 * 60 * 1000) return;
@@ -270,14 +269,33 @@ export default function LogWeightScreen() {
     }
   }
 
-  async function handleLog() {
-    if (loading) return;
+  async function doLog() {
     const weightLbs = parseFloat(lbs.toFixed(1));
     await addWeightLog(weightLbs);
     hkStore.writeWeight(weightLbs);
-    // Update profile weight so targets recalculate automatically
     await updateProfile({ weightLbs, currentWeightLbs: weightLbs });
     router.back();
+  }
+
+  async function handleLog() {
+    if (loading) return;
+    // If HK has a recent scale reading and the user's entry differs by > 1 lb,
+    // confirm they intend to override the scale measurement.
+    if (hkSuggestion && hkSuggestion.bundleId !== 'com.titrahealth.app') {
+      const diff = Math.abs(lbs - hkSuggestion.lbs);
+      if (diff >= 1.0) {
+        Alert.alert(
+          'Different from scale',
+          `Your ${hkSuggestion.sourceName} recorded ${hkSuggestion.lbs.toFixed(1)} lbs ${formatAge(hkSuggestion.recordedAt)}.\n\nYou're logging ${lbs.toFixed(1)} lbs (${diff.toFixed(1)} lbs ${lbs > hkSuggestion.lbs ? 'higher' : 'lower'}).\n\nUse your entry?`,
+          [
+            { text: 'Use Scale', onPress: () => { setLbs(hkSuggestion.lbs); } },
+            { text: 'Use Mine', style: 'destructive', onPress: doLog },
+          ],
+        );
+        return;
+      }
+    }
+    await doLog();
   }
 
   const now = new Date();
@@ -342,7 +360,7 @@ export default function LogWeightScreen() {
             <Ionicons name="heart" size={16} color="#FF3B30" />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.4 }}>
-                FROM YOUR SCALE
+                {hkSuggestion.sourceName?.toUpperCase() || 'FROM YOUR SCALE'}
               </Text>
               <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginTop: 1 }}>
                 {(unit === 'lbs' ? hkSuggestion.lbs : hkSuggestion.lbs * LB_TO_KG).toFixed(1)} {unit} · {formatAge(hkSuggestion.recordedAt)}

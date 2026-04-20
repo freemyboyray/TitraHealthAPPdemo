@@ -47,19 +47,19 @@ export const darkColors: AppColors = {
 // ─── Light palette ─────────────────────────────────────────────────────────────
 
 export const lightColors: AppColors = {
-  bg: '#FFFFFF',
-  surface: '#F2F2F7',
+  bg: '#F2F1EF',
+  surface: '#FFFFFF',
   cardBg: '#FFFFFF',
   textPrimary: '#000000',
   textSecondary: '#6B6868',
-  textMuted: '#9A9490',
+  textMuted: '#6B6562',
   orange: '#FF742A',
   orangeDim: 'rgba(255,116,42,0.15)',
-  border: 'rgba(0,0,0,0.18)',
-  borderSubtle: 'rgba(0,0,0,0.08)',
-  glassOverlay: 'rgba(0,0,0,0.04)',
+  border: 'rgba(0,0,0,0.14)',
+  borderSubtle: 'rgba(0,0,0,0.10)',
+  glassOverlay: 'rgba(0,0,0,0.06)',
   shadowColor: '#000000',
-  ringTrack: 'rgba(0,0,0,0.12)',
+  ringTrack: 'rgba(0,0,0,0.16)',
   blurTint: 'light',
   statusBar: 'dark',
   isDark: false,
@@ -134,8 +134,13 @@ export function cardElevation(isDark: boolean): {
     };
   }
   return {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.09)',
+    borderColor: 'rgba(0,0,0,0.06)',
   };
 }
 

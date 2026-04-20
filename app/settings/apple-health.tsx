@@ -63,16 +63,17 @@ const GROUPS: Group[] = [
       { key: 'vo2max',           label: 'VO₂ Max',        sub: 'Cardiorespiratory fitness',        icon: 'fitness-outline' },
       { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'water-outline' },
       { key: ['bpSystolic', 'bpDiastolic'], label: 'Blood Pressure', sub: '', icon: 'heart-circle-outline' },
-      { key: 'walkingHR',        label: 'Walking Heart Rate', sub: '',                              icon: 'walk-outline' },
+      { key: 'respiratoryRate',  label: 'Respiratory Rate', sub: 'Recovery scoring signal',         icon: 'leaf-outline' },
     ],
   },
   {
     title: 'NUTRITION',
     rows: [
-      { key: 'water',    label: 'Hydration',   sub: 'Common GLP-1 issue',                    icon: 'water' },
-      { key: 'calories', label: 'Calories',    sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'flame-outline' },
-      { key: 'protein',  label: 'Protein',     sub: 'Critical for preserving lean mass',     icon: 'nutrition-outline' },
-      { key: 'caffeine', label: 'Caffeine',    sub: '',                                       icon: 'cafe-outline' },
+      { key: 'water',        label: 'Hydration',      sub: 'Common GLP-1 issue',                    icon: 'water' },
+      { key: 'calories',     label: 'Calories',       sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'flame-outline' },
+      { key: 'protein',      label: 'Protein',        sub: 'Critical for preserving lean mass',     icon: 'nutrition-outline' },
+      { key: 'saturatedFat', label: 'Saturated Fat',  sub: 'Cardiovascular health tracking',        icon: 'ellipse-outline' },
+      { key: 'cholesterol',  label: 'Cholesterol',    sub: 'Cardiovascular risk factor',            icon: 'analytics-outline' },
     ],
   },
   {
@@ -96,7 +97,21 @@ const GROUPS: Group[] = [
     title: 'METABOLIC',
     rows: [
       { key: 'glucose', label: 'Blood Glucose', sub: 'Dexcom, Libre, Stelo sync automatically', icon: 'analytics-outline' },
-      { key: 'bodyTemp', label: 'Body Temperature', sub: '', icon: 'thermometer-outline' },
+    ],
+  },
+  {
+    title: 'ACTIVITY',
+    rows: [
+      { key: 'basalEnergy',    label: 'Basal Energy',     sub: 'Resting metabolism — combines with active cal for TDEE', icon: 'flash-outline' },
+      { key: 'distance',       label: 'Distance',         sub: 'Walking + running distance',        icon: 'map-outline' },
+      { key: 'flightsClimbed', label: 'Flights Climbed',  sub: 'From your iPhone sensors',          icon: 'trending-up-outline' },
+      { key: 'workouts',       label: 'Workouts',         sub: 'Peloton, Strava, Garmin, Nike Run', icon: 'barbell-outline' },
+    ],
+  },
+  {
+    title: 'MINDFULNESS',
+    rows: [
+      { key: 'mindfulMinutes', label: 'Mindful Minutes', sub: 'Calm, Headspace, and other apps', icon: 'flower-outline' },
     ],
   },
 ];
