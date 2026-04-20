@@ -24,7 +24,7 @@ export default function JourneyScreen() {
     const treatmentStatus: TreatmentStatus = selected === 'active' ? 'on' : 'off';
     const glp1Status = selected === 'starting' ? 'starting' : 'active';
     updateDraft({ glp1Status, treatmentStatus });
-    router.push('/onboarding/clinician' as any);
+    router.push('/onboarding/terms' as any);
   };
 
   return (

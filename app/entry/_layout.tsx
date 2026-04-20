@@ -25,7 +25,6 @@ export default function EntryLayout() {
       <Stack.Screen name="weekly-checkin-result" />
       <Stack.Screen name="weekly-checkin-history" />
       <Stack.Screen name="weekly-summary" />
-      <Stack.Screen name="provider-report" />
       <Stack.Screen name="report-preview" />
       <Stack.Screen name="review-food" />
     </Stack>

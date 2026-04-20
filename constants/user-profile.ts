@@ -102,12 +102,6 @@ export type FullUserProfile = {
   pendingDoseTime?: string | null;
   pendingFirstDoseDate?: string | null;   // YYYY-MM-DD — first dose of new med
   pendingLastDoseOld?: string | null;     // YYYY-MM-DD — last dose of old med
-
-  // Remote Therapeutic Monitoring (RTM) — provider linkage
-  rtmEnabled?: boolean;
-  rtmClinicianId?: string | null;
-  rtmClinicianName?: string | null;       // cached display name (not persisted to profiles)
-  rtmConsentText?: string | null;         // snapshot of consent shown at link time
 };
 
 export type ProfileDraft = Partial<FullUserProfile>;

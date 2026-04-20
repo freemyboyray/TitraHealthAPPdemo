@@ -138,36 +138,6 @@ export type Database = {
           },
         ]
       }
-      clinicians: {
-        Row: {
-          active: boolean
-          code: string
-          created_at: string
-          display_name: string
-          id: string
-          npi: string | null
-          practice_name: string | null
-        }
-        Insert: {
-          active?: boolean
-          code: string
-          created_at?: string
-          display_name: string
-          id?: string
-          npi?: string | null
-          practice_name?: string | null
-        }
-        Update: {
-          active?: boolean
-          code?: string
-          created_at?: string
-          display_name?: string
-          id?: string
-          npi?: string | null
-          practice_name?: string | null
-        }
-        Relationships: []
-      }
       courses: {
         Row: {
           accent_color: string
@@ -752,10 +722,6 @@ export type Database = {
           privacy_version: string | null
           program_start_date: string | null
           route_of_administration: string | null
-          rtm_clinician_id: string | null
-          rtm_consent_text: string | null
-          rtm_enabled: boolean
-          rtm_linked_at: string | null
           sex: string | null
           start_weight_lbs: number | null
           target_weekly_loss_lbs: number | null
@@ -805,10 +771,6 @@ export type Database = {
           privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
-          rtm_clinician_id?: string | null
-          rtm_consent_text?: string | null
-          rtm_enabled?: boolean
-          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
@@ -858,10 +820,6 @@ export type Database = {
           privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
-          rtm_clinician_id?: string | null
-          rtm_consent_text?: string | null
-          rtm_enabled?: boolean
-          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
@@ -871,15 +829,7 @@ export type Database = {
           updated_at?: string
           username?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_rtm_clinician_id_fkey"
-            columns: ["rtm_clinician_id"]
-            isOneToOne: false
-            referencedRelation: "clinicians"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       side_effect_logs: {
         Row: {
@@ -1244,10 +1194,7 @@ export type Database = {
       }
     }
     Functions: {
-      rtm_engagement_days: {
-        Args: { p_end: string; p_start: string; p_user_id: string }
-        Returns: number
-      }
+      [_ in never]: never
     }
     Enums: {
       activity_source: "manual" | "apple_health" | "fitbit"

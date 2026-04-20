@@ -102,27 +102,6 @@ export default function SettingsScreen() {
     : '-';
   const goalsLine = p ? `Goal: ${p.goalWeightLbs} lbs · ${p.targetWeeklyLossLbs} lbs/wk` : '';
 
-  // ── Care Team (clinician linkage) ──────────────────────────────────────────
-  const clinicianLinked = p?.rtmEnabled ?? false;
-  const clinicianId = p?.rtmClinicianId ?? null;
-  const [clinicianName, setClinicianName] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!clinicianLinked || !clinicianId) {
-      setClinicianName(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data: clin } = await supabase
-        .from('clinicians')
-        .select('display_name')
-        .eq('id', clinicianId)
-        .maybeSingle();
-      if (!cancelled && clin) setClinicianName(clin.display_name);
-    })();
-    return () => { cancelled = true; };
-  }, [clinicianLinked, clinicianId]);
 
   async function handleSignOut() {
     Alert.alert('Sign Out', 'Are you sure?', [
@@ -323,28 +302,6 @@ export default function SettingsScreen() {
                   {appleHealthEnabled
                     ? `${liveCategories.size} categories live${lastRefreshed ? ` · Synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
                     : 'Not connected'}
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
-
-        {/* CARE TEAM section */}
-        <Text style={s.sectionLabel}>CARE TEAM</Text>
-
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/rtm-link' as any)}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: clinicianLinked ? 'rgba(255,116,42,0.15)' : 'rgba(255,255,255,0.06)' }]}>
-                <Ionicons name="medkit-outline" size={18} color={clinicianLinked ? ORANGE : colors.textMuted} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Clinician Report</Text>
-                <Text style={s.rowSub}>
-                  {clinicianLinked
-                    ? `${clinicianName ?? 'Linked'} · Generate PDF`
-                    : 'Link your clinician to unlock'}
                 </Text>
               </View>
             </View>

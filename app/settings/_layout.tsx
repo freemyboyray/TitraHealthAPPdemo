@@ -8,7 +8,6 @@ export default function SettingsLayout() {
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="legal" />
       <Stack.Screen name="export-report" />
-      <Stack.Screen name="rtm-link" />
       <Stack.Screen name="apple-health" />
     </Stack>
   );

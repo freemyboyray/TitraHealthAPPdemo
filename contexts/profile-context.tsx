@@ -106,11 +106,6 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     pendingDoseTime:        row.pending_dose_time ?? null,
     pendingFirstDoseDate:   row.pending_first_dose_date ?? null,
     pendingLastDoseOld:     row.pending_last_dose_old ?? null,
-
-    // RTM
-    rtmEnabled:       row.rtm_enabled ?? false,
-    rtmClinicianId:   row.rtm_clinician_id ?? null,
-    rtmConsentText:   row.rtm_consent_text ?? null,
   };
 }
 
@@ -284,10 +279,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         tos_version:              complete.tosVersion || null,
         privacy_accepted_at:      complete.privacyAcceptedAt || null,
         privacy_version:          complete.privacyVersion || null,
-        rtm_enabled:              complete.rtmEnabled ?? false,
-        rtm_clinician_id:         complete.rtmClinicianId ?? null,
-        rtm_linked_at:            complete.rtmEnabled ? new Date().toISOString() : null,
-        rtm_consent_text:         complete.rtmConsentText ?? null,
       });
       if (profileErr) {
         console.warn('completeOnboarding: profiles.upsert failed:', profileErr);
@@ -425,14 +416,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.pendingDoseTime        !== undefined) row.pending_dose_time        = fields.pendingDoseTime;
       if (fields.pendingFirstDoseDate   !== undefined) row.pending_first_dose_date  = fields.pendingFirstDoseDate;
       if (fields.pendingLastDoseOld     !== undefined) row.pending_last_dose_old    = fields.pendingLastDoseOld;
-
-      // RTM fields
-      if (fields.rtmEnabled             !== undefined) {
-        row.rtm_enabled    = fields.rtmEnabled;
-        row.rtm_linked_at  = fields.rtmEnabled ? new Date().toISOString() : null;
-      }
-      if (fields.rtmClinicianId         !== undefined) row.rtm_clinician_id  = fields.rtmClinicianId;
-      if (fields.rtmConsentText         !== undefined) row.rtm_consent_text  = fields.rtmConsentText;
 
       if (Object.keys(row).length > 0) {
         const { error: profileErr } = await supabase
