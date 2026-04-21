@@ -12,6 +12,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { isOnTreatment } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 import { useEffect, useMemo, useState } from 'react';
 import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
@@ -210,6 +211,20 @@ export default function SettingsScreen() {
             {displayEmail ? <Text style={s.profileEmail}>{displayEmail}</Text> : null}
           </View>
           {!editingName && <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />}
+        </Pressable>
+
+        {/* SUBSCRIPTION */}
+        <Pressable style={[s.card, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20 }]} onPress={() => router.push('/settings/subscription' as any)}>
+          <View style={s.rowLeft}>
+            <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+              <Ionicons name="flash" size={18} color={ORANGE} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowLabel}>{useSubscriptionStore.getState().isPremium ? 'Titra Pro' : 'Upgrade to Pro'}</Text>
+              <Text style={s.rowSub}>{useSubscriptionStore.getState().isPremium ? 'Manage your subscription' : '$9.99/month \u00b7 7-day free trial'}</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
 
         {/* MY PLAN section */}

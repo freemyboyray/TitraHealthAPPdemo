@@ -97,7 +97,8 @@
           "photosPermission": "TitraHealth accesses your photo library to select food images for nutritional analysis.",
           "cameraPermission": "TitraHealth uses your camera to photograph food for nutritional analysis."
         }
-      ]
+      ],
+      "react-native-iap"
     ],
     "experiments": {
       "typedRoutes": true,

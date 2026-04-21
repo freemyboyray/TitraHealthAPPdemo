@@ -18,6 +18,10 @@ import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useSubscriptionStore } from '@/stores/subscription-store';
+// react-native-iap requires a dev build; guard so Expo Go doesn't crash.
+let iapModule: typeof import('@/lib/storekit') | undefined;
+try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 
 export const unstable_settings = {
@@ -45,7 +49,15 @@ function AppWithHealth({ children }: { children: React.ReactNode }) {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { setSession, setSessionLoaded, loadProfile } = useUserStore();
   const { resetProfile, reloadProfile } = useProfile();
+  const loadSubscription = useSubscriptionStore((s) => s.loadSubscription);
   const router = useRouter();
+
+  // Initialize IAP connection on mount (no-op in Expo Go — native module unavailable)
+  useEffect(() => {
+    if (!iapModule) return;
+    iapModule.initIAP();
+    return () => iapModule?.teardownIAP();
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -53,6 +65,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (session) {
         loadProfile();
         reloadProfile();
+        loadSubscription();
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
         AsyncStorage.clear().catch(() => {});
@@ -75,6 +88,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             setSession(session);
             loadProfile();
             reloadProfile();
+            loadSubscription();
           }
         }
         setSessionLoaded(true);

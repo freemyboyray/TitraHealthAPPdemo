@@ -1,4 +1,6 @@
 import { verifyAuth, CORS } from '../_shared/auth.ts';
+import { checkUsageLimit } from '../_shared/usage-limit.ts';
+import type { FeatureKey } from '../_shared/usage-limit.ts';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ALLOWED_MODELS = ['gpt-4o-mini'];
@@ -24,6 +26,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
+
+    // Determine feature key for usage tracking based on request content
+    const featureKey: FeatureKey = hasVisionContent(body)
+      ? 'photo_analysis'
+      : 'ai_chat';
+
+    // Check usage limit for non-premium users
+    const limitResponse = await checkUsageLimit(auth.userId, featureKey);
+    if (limitResponse) return limitResponse;
 
     // Enforce model whitelist
     if (!ALLOWED_MODELS.includes(body.model)) {
@@ -79,3 +90,17 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
+
+/** Detect if the request includes an image (vision API call = photo_analysis) */
+function hasVisionContent(body: Record<string, unknown>): boolean {
+  const messages = body.messages as Array<{ content: unknown }> | undefined;
+  if (!messages) return false;
+  return messages.some((msg) => {
+    if (Array.isArray(msg.content)) {
+      return msg.content.some(
+        (part: Record<string, unknown>) => part.type === 'image_url',
+      );
+    }
+    return false;
+  });
+}

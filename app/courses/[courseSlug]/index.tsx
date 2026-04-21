@@ -9,6 +9,8 @@ import type { AppColors } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseProgressRing } from '@/components/courses/course-progress-ring';
 import { LessonRow } from '@/components/courses/lesson-row';
+import { PremiumGate } from '@/components/ui/premium-gate';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const FF = 'Helvetica Neue';
 const ORANGE = '#FF742A';
@@ -36,10 +38,17 @@ export default function CourseDetailScreen() {
   const progress = useCoursesStore((s) => s.progress);
   const fetchLessons = useCoursesStore((s) => s.fetchLessons);
 
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
+
   const course = courses.find((c) => c.slug === courseSlug);
   const lessons = course ? (lessonsByCourse[course.id] ?? []) : [];
   const completedIds = course ? (progress[course.id] ?? []) : [];
   const completedCount = completedIds.length;
+
+  // First course in the list is free; all others require premium
+  const courseIndex = course ? courses.indexOf(course) : -1;
+  const isFreeCourse = courseIndex === 0;
+  const isLocked = !isFreeCourse && !isPremium;
 
   useEffect(() => {
     if (course) fetchLessons(course.id);
@@ -93,24 +102,30 @@ export default function CourseDetailScreen() {
         </View>
 
         {/* Lessons */}
-        <View style={s.lessonsCard}>
-          {lessons.length === 0 ? (
-            <ActivityIndicator size="small" color={ORANGE} style={{ paddingVertical: 20 }} />
-          ) : (
-            lessons.map((lesson, i) => (
-              <LessonRow
-                key={lesson.id}
-                title={lesson.title}
-                subtitle={lesson.subtitle}
-                estimatedMinutes={lesson.estimated_minutes}
-                contentType={lesson.content_type}
-                isCompleted={completedIds.includes(lesson.id)}
-                isLast={i === lessons.length - 1}
-                onPress={() => router.push(`/courses/${courseSlug}/${lesson.slug}` as any)}
-              />
-            ))
-          )}
-        </View>
+        {isLocked ? (
+          <PremiumGate feature="courses_all" variant="hard" teaser={`Unlock "${course.title}" and all guided courses with Titra Pro.`}>
+            <View />
+          </PremiumGate>
+        ) : (
+          <View style={s.lessonsCard}>
+            {lessons.length === 0 ? (
+              <ActivityIndicator size="small" color={ORANGE} style={{ paddingVertical: 20 }} />
+            ) : (
+              lessons.map((lesson, i) => (
+                <LessonRow
+                  key={lesson.id}
+                  title={lesson.title}
+                  subtitle={lesson.subtitle}
+                  estimatedMinutes={lesson.estimated_minutes}
+                  contentType={lesson.content_type}
+                  isCompleted={completedIds.includes(lesson.id)}
+                  isLast={i === lessons.length - 1}
+                  onPress={() => router.push(`/courses/${courseSlug}/${lesson.slug}` as any)}
+                />
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

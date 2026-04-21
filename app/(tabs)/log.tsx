@@ -32,6 +32,8 @@ import { CycleBiometricCard } from '@/components/cycle-biometric-card';
 import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
 import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
 import { PeerComparisonCard } from '@/components/peer-comparison-card';
+import { PremiumGate } from '@/components/ui/premium-gate';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
@@ -3209,7 +3211,15 @@ export default function InsightsScreen() {
                 <HealthDataConnectPrompt />
               ) : (
                 (() => {
-                  const healthGroups = buildHealthMetrics(hkStore);
+                  const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'glucose', 'bp', 'respRate', 'vo2max']);
+                  const rawGroups = buildHealthMetrics(hkStore);
+                  const isPremiumUser = useSubscriptionStore.getState().isPremium;
+                  const healthGroups = isPremiumUser
+                    ? rawGroups
+                    : rawGroups.map(g => ({
+                        ...g,
+                        metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)),
+                      })).filter(g => g.metrics.length > 0);
                   if (healthGroups.length === 0) return (
                     <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue', paddingVertical: 8 }}>
                       No health data available yet. Data will appear here as Apple Health collects it.
@@ -3314,12 +3324,18 @@ export default function InsightsScreen() {
               />
               {onTreatment && (
                 <>
-                  <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
-                  <MetabolicAdaptationCard result={metabolicAdaptationResult} />
-                  <PeerComparisonCard
-                    data={peerComparison}
-                    isOptedIn={!!profile?.peer_comparison_opted_in}
-                  />
+                  <PremiumGate feature="peer_comparison" variant="hard" teaser="See how your progress compares to others on the same medication.">
+                    <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
+                  </PremiumGate>
+                  <PremiumGate feature="metabolic_adaptation" variant="hard" teaser="Track how your metabolism adapts to weight loss over time.">
+                    <MetabolicAdaptationCard result={metabolicAdaptationResult} />
+                  </PremiumGate>
+                  <PremiumGate feature="peer_comparison" variant="hard" teaser="Compare your weight loss, side effects, and adherence with peers.">
+                    <PeerComparisonCard
+                      data={peerComparison}
+                      isOptedIn={!!profile?.peer_comparison_opted_in}
+                    />
+                  </PremiumGate>
                 </>
               )}
               <View style={s.dailyGrid}>

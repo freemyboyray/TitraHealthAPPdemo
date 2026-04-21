@@ -3,6 +3,22 @@ import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
 import type { WeeklySummaryData } from '@/lib/weekly-summary';
 import { supabase } from '@/lib/supabase';
 
+// ─── Usage Limit Error ────────────────────────────────────────────────────────
+
+export class UsageLimitError extends Error {
+  feature: string;
+  limit: number;
+  used: number;
+
+  constructor(feature: string, limit: number, used: number) {
+    super(`Daily ${feature} limit reached (${used}/${limit})`);
+    this.name = 'UsageLimitError';
+    this.feature = feature;
+    this.limit = limit;
+    this.used = used;
+  }
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export type ParsedFood = {
@@ -185,6 +201,21 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
           throw new Error('AUTH_EXPIRED');
         }
 
+        // Don't retry usage limit errors — user needs to upgrade
+        if (errMsg.includes('429') || errJson.includes('USAGE_LIMIT')) {
+          // Try to parse the limit details from the error context
+          try {
+            const parsed = JSON.parse(errJson);
+            if (parsed.error === 'USAGE_LIMIT' || parsed.context?.error === 'USAGE_LIMIT') {
+              const ctx = parsed.context ?? parsed;
+              throw new UsageLimitError(ctx.feature ?? 'ai', ctx.limit ?? 0, ctx.used ?? 0);
+            }
+          } catch (e) {
+            if (e instanceof UsageLimitError) throw e;
+          }
+          throw new UsageLimitError('ai', 0, 0);
+        }
+
         lastError = new Error(`OpenAI proxy error: ${errMsg}`);
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
@@ -197,6 +228,12 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
       if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
         __DEV__ && console.error('[OpenAI] auth error from proxy:', data.error);
         throw new Error('AUTH_EXPIRED');
+      }
+
+      // Check if the response is a usage limit error (edge function returned 429)
+      if (data?.error === 'USAGE_LIMIT') {
+        __DEV__ && console.log('[OpenAI] usage limit hit:', data.feature, data.used, '/', data.limit);
+        throw new UsageLimitError(data.feature ?? 'ai', data.limit ?? 0, data.used ?? 0);
       }
 
       // Check if the proxy wrapped an upstream OpenAI error
@@ -214,8 +251,9 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
       return data as Record<string, unknown>;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      // Don't retry auth errors
+      // Don't retry auth or usage limit errors
       if (lastError.message === 'AUTH_EXPIRED') throw lastError;
+      if (lastError instanceof UsageLimitError) throw lastError;
       __DEV__ && console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
       if (attempt < MAX_RETRIES) {
         await new Promise(r => setTimeout(r, (attempt + 1) * 1500));

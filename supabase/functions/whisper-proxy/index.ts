@@ -1,4 +1,5 @@
 import { verifyAuth, CORS } from '../_shared/auth.ts';
+import { checkUsageLimit } from '../_shared/usage-limit.ts';
 
 const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -13,6 +14,10 @@ Deno.serve(async (req: Request) => {
     // Verify caller is authenticated
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
+
+    // Check usage limit for non-premium users
+    const limitResponse = await checkUsageLimit(auth.userId, 'voice_log');
+    if (limitResponse) return limitResponse;
 
     const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) {

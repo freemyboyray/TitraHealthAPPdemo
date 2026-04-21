@@ -21,6 +21,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
 import { buildHealthReportHtml, type ReportData } from '@/lib/health-report';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const ORANGE = '#FF742A';
 
@@ -48,7 +49,18 @@ export default function ExportReportScreen() {
   const [selectedDays, setSelectedDays] = useState(30);
   const [generating, setGenerating] = useState(false);
 
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
+
   const handleGenerate = async () => {
+    if (!isPremium) {
+      Alert.alert(
+        'Titra Pro Feature',
+        'Provider report generation is available with Titra Pro. Upgrade to export shareable health reports.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
     if (!profile || !Print) {
       Alert.alert(
         'Not Available',

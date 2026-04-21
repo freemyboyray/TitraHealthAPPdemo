@@ -20,8 +20,9 @@ import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { daysSinceInjection } from '@/constants/scoring';
-import { buildSystemPrompt, callOpenAI } from '@/lib/openai';
+import { buildSystemPrompt, callOpenAI, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const ORANGE = '#FF742A';
 
@@ -104,6 +105,27 @@ function AiOrb() {
         <View style={s.orbShine} />
         <View style={s.orbShineSmall} />
       </View>
+    </View>
+  );
+}
+
+/** Shows remaining free messages or "Pro" badge for premium users */
+function UsageBadge() {
+  const { colors } = useAppTheme();
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
+  const limit = useSubscriptionStore((s) => s.getFeatureLimit('ai_chat'));
+
+  if (isPremium) {
+    return (
+      <View style={{ backgroundColor: 'rgba(255,116,42,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
+        <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '600' }}>PRO</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{limit} free/day</Text>
     </View>
   );
 }
@@ -259,11 +281,14 @@ export default function AiChatScreen() {
       }
     } catch (err) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+      const isUsageLimit = err instanceof UsageLimitError;
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: isAuth
           ? 'Your session has expired. Please sign out and sign back in to continue.'
-          : 'Unable to reach AI. Check your connection and try again.',
+          : isUsageLimit
+            ? `You've used all ${err.limit} of today's free AI messages. Upgrade to Titra Pro for unlimited coaching.`
+            : 'Unable to reach AI. Check your connection and try again.',
       }]);
     } finally {
       setLoading(false);
@@ -284,7 +309,7 @@ export default function AiChatScreen() {
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Ask AI</Text>
-          <View style={s.headerSpacer} />
+          <UsageBadge />
         </View>
 
         {messages.length === 0 && !loading ? (
@@ -337,7 +362,10 @@ export default function AiChatScreen() {
                     <View style={s.bubbleAvatar} />
                   </View>
                 )}
-                <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}>
+                <Pressable
+                  style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}
+                  onPress={msg.content.includes('Upgrade to Titra Pro') ? () => router.push('/settings/subscription' as any) : undefined}
+                >
                   {msg.role === 'user' && msg.contextLabel && (
                     <>
                       <View style={s.bubbleContextTag}>
@@ -352,7 +380,10 @@ export default function AiChatScreen() {
                   <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
                     {msg.content}
                   </Text>
-                </View>
+                  {msg.content.includes('Upgrade to Titra Pro') && (
+                    <Text style={{ color: ORANGE, fontSize: 12, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
+                  )}
+                </Pressable>
               </View>
             ))}
             {loading && (
