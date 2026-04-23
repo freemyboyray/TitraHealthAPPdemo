@@ -207,14 +207,16 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
     }
   }
 
-  // Phase-aware: waning phase appetite warning
-  const phase = getInjectionPhase(ctx.injectionLogs, ctx.profile);
-  if (phase === 'Waning Phase') {
-    return {
-      title: 'Appetite May Be Returning',
-      body: `You're in the waning phase of ${drugLabel(ctx.profile)} — log dinner to stay mindful.`,
-      deepLink: '/entry/log-food',
-    };
+  // Phase-aware: waning phase appetite warning (only for medication users)
+  if (ctx.profile?.medication_brand && ctx.injectionLogs.length > 0) {
+    const phase = getInjectionPhase(ctx.injectionLogs, ctx.profile);
+    if (phase === 'Waning Phase') {
+      return {
+        title: 'Appetite May Be Returning',
+        body: `You're in the waning phase of ${drugLabel(ctx.profile)} — log dinner to stay mindful.`,
+        deepLink: '/entry/log-food',
+      };
+    }
   }
 
   return {
@@ -322,33 +324,35 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
 }
 
 export function getDailyPlanMorningContent(ctx: ReminderContext): ReminderContent {
-  const phase = getInjectionPhase(ctx.injectionLogs, ctx.profile);
+  // Phase-specific daily plan messages (only for medication users)
+  if (ctx.profile?.medication_brand && ctx.injectionLogs.length > 0) {
+    const phase = getInjectionPhase(ctx.injectionLogs, ctx.profile);
 
-  // Phase-specific daily plan messages
-  if (phase === 'Waning Phase') {
-    return {
-      title: 'Your Daily Focus',
-      body: `Waning phase — appetite may return. Stay ahead of cravings today.`,
-      deepLink: '/(tabs)',
-    };
-  }
+    if (phase === 'Waning Phase') {
+      return {
+        title: 'Your Daily Focus',
+        body: `Waning phase — appetite may return. Stay ahead of cravings today.`,
+        deepLink: '/(tabs)',
+      };
+    }
 
-  if (phase === 'Due Soon' || phase === 'Overdue') {
-    const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
-    return {
-      title: 'Your Daily Focus',
-      body: `Your ${drugLabel(ctx.profile)} ${doseNoun(oral)} is ${phase === 'Overdue' ? 'overdue' : 'coming up soon'}. Check your plan for today.`,
-      deepLink: '/(tabs)',
-    };
-  }
+    if (phase === 'Due Soon' || phase === 'Overdue') {
+      const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
+      return {
+        title: 'Your Daily Focus',
+        body: `Your ${drugLabel(ctx.profile)} ${doseNoun(oral)} is ${phase === 'Overdue' ? 'overdue' : 'coming up soon'}. Check your plan for today.`,
+        deepLink: '/(tabs)',
+      };
+    }
 
-  if (phase === 'Shot Day') {
-    const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
-    return {
-      title: oral ? 'Dose Day' : 'Injection Day',
-      body: `Today is ${drugLabel(ctx.profile)} day. Open TitraHealth to see your priorities.`,
-      deepLink: '/(tabs)',
-    };
+    if (phase === 'Shot Day') {
+      const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
+      return {
+        title: oral ? 'Dose Day' : 'Injection Day',
+        body: `Today is ${drugLabel(ctx.profile)} day. Open TitraHealth to see your priorities.`,
+        deepLink: '/(tabs)',
+      };
+    }
   }
 
   return {

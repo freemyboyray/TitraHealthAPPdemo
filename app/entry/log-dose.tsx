@@ -114,35 +114,22 @@ function GlassCard({ children, colors }: { children: React.ReactNode; colors: Ap
 export default function LogDoseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { loading, addInjectionLog, injectionLogs, profile } = useLogStore();
-  const { updateProfile } = useProfile();
+  const { loading, addInjectionLog, injectionLogs } = useLogStore();
+  const { profile: fullProfile, updateProfile } = useProfile();
   const { dispatch } = useHealthData();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const MED_TYPE_DEFAULT: Record<string, string> = {
-    semaglutide: 'Ozempic',
-    tirzepatide: 'Mounjaro',
-    liraglutide: 'Saxenda',
-  };
-
-  // Medication & dose from profile (read-only display)
-  const medication = profile?.medication_brand
-    ? (profile.medication_brand as string).charAt(0).toUpperCase() + (profile.medication_brand as string).slice(1)
-    : (profile?.medication_type ? MED_TYPE_DEFAULT[profile.medication_type] : null)
-    ?? 'Not set';
-  const doseMg = profile?.dose_mg;
+  // Medication & dose from ProfileContext (always in sync with latest settings)
+  const medication = fullProfile?.medicationBrand
+    ? fullProfile.medicationBrand.charAt(0).toUpperCase() + fullProfile.medicationBrand.slice(1)
+    : 'Not set';
+  const doseMg = fullProfile?.doseMg ?? null;
   const doseLabel = doseMg != null ? `${doseMg}mg` : 'Not set';
 
-  // Belt-and-suspenders: derive "is oral" from BOTH the medication_type
-  // (via isOralDrug, the same source add-entry-sheet uses) AND the
-  // route_of_administration column. Either one being truthy is enough.
-  // This protects against stale rows where one column is set but not the other —
-  // e.g. an in-flight medication switch via pendingRoute that hasn't fully
-  // synced, or a profile created before route_of_administration existed.
   const isOral =
-    isOralDrug(profile?.medication_type as Glp1Type | undefined) ||
-    profile?.route_of_administration === 'oral';
+    isOralDrug(fullProfile?.glp1Type) ||
+    fullProfile?.routeOfAdministration === 'oral';
 
   // Injection site: derive from last injection log
   const lastInjectionSite = injectionLogs[0]?.site ?? null;
@@ -183,7 +170,7 @@ export default function LogDoseScreen() {
       ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water — absorption may be reduced)')
       : '';
     const combinedNotes = [notes.trim(), emptyStomachNote].filter(Boolean).join(' ');
-    await addInjectionLog(
+    const success = await addInjectionLog(
       doseMg,
       date,
       undefined,
@@ -192,6 +179,10 @@ export default function LogDoseScreen() {
       medication,
       isOral ? undefined : (batchNumber.trim() || undefined),
     );
+    if (!success) {
+      Alert.alert('Save Failed', 'Could not save your dose. Please check your connection and try again.');
+      return;
+    }
     // Immediately mark injection as logged in the health data context so
     // daily focuses update without waiting for a full data refresh.
     dispatch({ type: 'LOG_INJECTION' });

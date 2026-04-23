@@ -126,7 +126,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 10,
     ...cardElevation(c.isDark),
   },
-  inner: { padding: 16 },
+  inner: { padding: 18 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

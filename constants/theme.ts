@@ -17,7 +17,7 @@ export type AppColors = {
   glassOverlay: string;
   shadowColor: string;
   ringTrack: string;
-  blurTint: 'dark' | 'light';
+  blurTint: 'dark' | 'light' | 'systemThinMaterialDark' | 'systemThinMaterialLight' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight' | 'systemUltraThinMaterialDark' | 'systemUltraThinMaterialLight' | 'systemMaterialDark' | 'systemMaterialLight';
   statusBar: 'light' | 'dark';
   /** true = dark mode, false = light mode. Use to flip rgba(255,255,255,X) → rgba(0,0,0,X) in createStyles factories. */
   isDark: boolean;
@@ -36,10 +36,10 @@ export const darkColors: AppColors = {
   orangeDim: 'rgba(255,116,42,0.15)',
   border: 'rgba(255,255,255,0.18)',
   borderSubtle: 'rgba(255,255,255,0.08)',
-  glassOverlay: 'rgba(255,255,255,0.04)',
+  glassOverlay: 'rgba(255,255,255,0.02)',
   shadowColor: '#000000',
-  ringTrack: 'rgba(255,255,255,0.12)',
-  blurTint: 'dark',
+  ringTrack: 'rgba(255,255,255,0.06)',
+  blurTint: 'systemThinMaterialDark',
   statusBar: 'light',
   isDark: true,
 };
@@ -57,10 +57,10 @@ export const lightColors: AppColors = {
   orangeDim: 'rgba(255,116,42,0.15)',
   border: 'rgba(0,0,0,0.14)',
   borderSubtle: 'rgba(0,0,0,0.10)',
-  glassOverlay: 'rgba(0,0,0,0.06)',
+  glassOverlay: 'rgba(0,0,0,0.03)',
   shadowColor: '#000000',
-  ringTrack: 'rgba(0,0,0,0.16)',
-  blurTint: 'light',
+  ringTrack: 'rgba(0,0,0,0.08)',
+  blurTint: 'systemThinMaterialLight',
   statusBar: 'dark',
   isDark: false,
 };

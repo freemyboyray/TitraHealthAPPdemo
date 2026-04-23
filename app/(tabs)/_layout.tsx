@@ -76,7 +76,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
           pointerEvents={pillInteractive ? 'box-none' : 'none'}
         >
           <View style={s.pillInner}>
-            <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} tint={colors.blurTint} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.pillOverlay, { backgroundColor: colors.glassOverlay }]} />
             <View pointerEvents="none" style={[s.pillShine, { backgroundColor: colors.ringTrack }]} />
             <View pointerEvents="none" style={[s.pillBorder, { borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} />
@@ -111,7 +111,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
             transform: [{ scale: miniScale }],
           }]}
         >
-          <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={80} tint={colors.blurTint} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: colors.glassOverlay }]} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: 31, borderWidth: 1, borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: 'transparent', borderBottomColor: 'transparent' }]} />
           <TouchableOpacity

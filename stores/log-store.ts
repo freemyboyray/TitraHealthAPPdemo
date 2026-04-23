@@ -64,7 +64,7 @@ type LogStore = {
     notes?: string,
     medication_name?: string,
     batch_number?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 
   deleteInjectionLog: (id: string) => Promise<void>;
   deleteWeightLog: (id: string) => Promise<void>;
@@ -311,7 +311,26 @@ export const useLogStore = create<LogStore>((set, get) => ({
   addInjectionLog: async (dose_mg, injection_date, injection_time, site, notes, medication_name, batch_number) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+    if (!user) {
+      // Demo mode: create a local-only entry so the UI updates
+      const localEntry: InjectionLog = {
+        id: `demo_${Date.now()}`,
+        user_id: 'demo',
+        dose_mg,
+        injection_date,
+        injection_time: injection_time ?? null,
+        site: site ?? null,
+        notes: notes ?? null,
+        medication_name: medication_name ?? null,
+        batch_number: batch_number ?? null,
+        created_at: new Date().toISOString(),
+      };
+      set((state) => ({
+        loading: false,
+        injectionLogs: [localEntry, ...state.injectionLogs],
+      }));
+      return true;
+    }
     const { error } = await supabase
       .from('injection_logs')
       .insert({
@@ -333,6 +352,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
       await get().fetchInsightsData();
     }
     set({ loading: false, error: error?.message ?? null });
+    return !error;
   },
 
   deleteInjectionLog: async (id: string) => {

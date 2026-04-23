@@ -44,28 +44,34 @@ type Category = {
   slots: SlotMeta[];
 };
 
-const CATEGORIES: Category[] = [
-  {
-    title: 'NUTRITION',
-    slots: [
-      { slot: 'meals_morning', label: 'Breakfast reminder', icon: 'sunny-outline' },
-      { slot: 'meals_evening', label: 'Dinner reminder', icon: 'moon-outline' },
-    ],
-  },
-  {
-    title: 'HEALTH TRACKING',
-    slots: [
-      { slot: 'weight_morning', label: 'Morning weigh-in', icon: 'scale-outline' },
-      { slot: 'side_effects_evening', label: 'Side effects check-in', icon: 'medkit-outline' },
-    ],
-  },
-  {
-    title: 'DAILY PLANNING',
-    slots: [
-      { slot: 'daily_plan_morning', label: 'Daily focus', icon: 'compass-outline' },
-    ],
-  },
-];
+function getCategories(isOnMedication: boolean): Category[] {
+  const healthSlots: SlotMeta[] = [
+    { slot: 'weight_morning', label: 'Morning weigh-in', icon: 'scale-outline' },
+  ];
+  if (isOnMedication) {
+    healthSlots.push({ slot: 'side_effects_evening', label: 'Side effects check-in', icon: 'medkit-outline' });
+  }
+
+  return [
+    {
+      title: 'NUTRITION',
+      slots: [
+        { slot: 'meals_morning', label: 'Breakfast reminder', icon: 'sunny-outline' },
+        { slot: 'meals_evening', label: 'Dinner reminder', icon: 'moon-outline' },
+      ],
+    },
+    {
+      title: 'HEALTH TRACKING',
+      slots: healthSlots,
+    },
+    {
+      title: 'DAILY PLANNING',
+      slots: [
+        { slot: 'daily_plan_morning', label: 'Daily focus', icon: 'compass-outline' },
+      ],
+    },
+  ];
+}
 
 /* ── Time helpers ── */
 function hhmmToDate(hhmm: string): Date {
@@ -156,6 +162,8 @@ export default function RemindersScreen() {
 
   // Medication info
   const p = profile;
+  const isOnMedication = p?.treatmentStatus === 'on' && !!p.medicationBrand;
+  const categories = useMemo(() => getCategories(isOnMedication), [isOnMedication]);
   const brandName = p ? (BRAND_LABEL[p.medicationBrand] ?? p.medicationBrand) : null;
   const freqDays = p?.injectionFrequencyDays;
   const nextDose = p ? computeNextDose(p.lastInjectionDate, freqDays) : null;
@@ -194,7 +202,7 @@ export default function RemindersScreen() {
         {store.masterEnabled && (
           <>
             {/* Reminder categories */}
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <View key={cat.title}>
                 <Text style={s.sectionLabel}>{cat.title}</Text>
                 <View style={s.card}>
@@ -241,7 +249,7 @@ export default function RemindersScreen() {
             ))}
 
             {/* Medication section */}
-            {doseLabel && (
+            {isOnMedication && doseLabel && (
               <View>
                 <Text style={s.sectionLabel}>MEDICATION</Text>
                 <View style={s.card}>

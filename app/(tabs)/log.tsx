@@ -208,12 +208,12 @@ function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWi
         <View style={[s.hmInner, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
           {/* Left: content */}
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
               {icon}
               <Text style={[s.hmLabel, { marginBottom: 0 }]}>{metric.label}</Text>
             </View>
             <Text style={s.hmValue}>{metric.value}{metric.unit ? <Text style={s.hmUnit}> {metric.unit}</Text> : null}</Text>
-            <View style={[s.hmBadge, { backgroundColor: ss.bg, alignSelf: 'flex-start', marginTop: 8 }]}>
+            <View style={[s.hmBadge, { backgroundColor: ss.bg, alignSelf: 'flex-start', marginTop: 10 }]}>
               <Text style={[s.hmBadgeText, { color: ss.text }]}>{metric.rangeLabel}</Text>
             </View>
           </View>
@@ -680,7 +680,7 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
     <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI} delayLongPress={400}>
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
-          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <RingIndicator size={64} strokeWidth={5} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
             <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'Helvetica Neue' }}>
@@ -690,7 +690,7 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
           </View>
           <Text style={s.dailyLabel}>{label}</Text>
           {isEmpty && emptyCtaLabel && onEmptyCta && (
-            <Pressable onPress={onEmptyCta} style={{ marginTop: 8, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
+            <Pressable onPress={onEmptyCta} style={{ marginTop: 10, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>{emptyCtaLabel}</Text>
             </Pressable>
           )}
@@ -742,7 +742,7 @@ function DailyMetricCard({
           <View style={s.dailyIconWrap}>{icon}</View>
           <Text style={s.dailyLabel}>{label}</Text>
           <Text style={s.dailyValue}>{value}</Text>
-          <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, marginTop: 6, overflow: 'hidden' }}>
+          <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, marginTop: 10, overflow: 'hidden' }}>
             <View style={{ width: `${Math.min(pct, 1) * 100}%`, height: 3, borderRadius: 2, backgroundColor: ss.text }} />
           </View>
         </View>
@@ -1571,8 +1571,6 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   paddingVertical: 16,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexDirection: 'row',
-                  gap: 8,
                   shadowColor: ORANGE,
                   shadowOffset: { width: 0, height: 6 },
                   shadowOpacity: 0.35,
@@ -1580,8 +1578,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   elevation: 8,
                 })}
               >
-                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFF" />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: 0.3, fontFamily: 'Helvetica Neue' }}>Ask AI about my medication</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'Helvetica Neue' }}>Ask AI about my medication</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -2018,13 +2015,12 @@ function WeightProjectionCard({
                   });
                 }}
                 style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  alignItems: 'center', justifyContent: 'center',
                   backgroundColor: pressed ? '#E5661F' : ORANGE,
-                  borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20,
+                  borderRadius: 14, paddingVertical: 13, paddingHorizontal: 24,
                 })}
               >
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue', letterSpacing: -0.3 }}>Ask AI about my weight</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
               </Pressable>
             </ScrollView>
           </Animated.View>
@@ -3417,15 +3413,15 @@ const createStyles = (c: AppColors) => {
   metricLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'Helvetica Neue' },
 
   // Daily Metrics grid
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
-  dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  dailyWrap: { width: '47.5%', borderRadius: 20 },
-  dailyInner: { padding: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Helvetica Neue' },
+  dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  dailyWrap: { width: '47%', borderRadius: 20 },
+  dailyInner: { padding: 18 },
   dailyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Helvetica Neue' },
   dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
 
   // Medication chart card
@@ -3469,14 +3465,14 @@ const createStyles = (c: AppColors) => {
   logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
 
   // Health Monitor
-  hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
-  hmWrap: { width: '47.5%', borderRadius: 20 },
+  hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 8 },
+  hmWrap: { width: '47%', borderRadius: 20 },
   hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
-  hmInner: { padding: 16 },
+  hmInner: { padding: 18 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 3, fontFamily: 'Helvetica Neue' },
+  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Helvetica Neue' },
   hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
   hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Helvetica Neue' },
   });

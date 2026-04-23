@@ -84,25 +84,29 @@ export function PremiumGate({
     );
   }
 
-  // Hard gate: locked card placeholder
+  // Hard gate: blurred content with lock overlay
   return (
-    <View style={[styles.lockedCard, { backgroundColor: colors.cardBg, borderColor: colors.borderSubtle }]}>
-      <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>
-        <Ionicons name="lock-closed" size={20} color={ORANGE} />
+    <View style={styles.hardContainer}>
+      <View style={styles.blurWrap}>
+        {children}
+        <BlurView
+          intensity={30}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.hardOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>
+            <Ionicons name="lock-closed" size={20} color={ORANGE} />
+          </View>
+          <TouchableOpacity
+            style={styles.upgradeButton}
+            onPress={handleUpgrade}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <Text style={[styles.lockedTitle, { color: colors.textPrimary }]}>
-        Titra Pro Feature
-      </Text>
-      <Text style={[styles.lockedDesc, { color: colors.textSecondary }]}>
-        {teaser ?? 'Unlock this feature with Titra Pro for deeper health insights.'}
-      </Text>
-      <TouchableOpacity
-        style={styles.upgradeButton}
-        onPress={onUpgrade}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -131,13 +135,16 @@ const styles = StyleSheet.create({
   },
 
   // Hard gate
-  lockedCard: {
+  hardContainer: {
+    overflow: 'hidden',
     borderRadius: 16,
-    borderWidth: 1,
-    padding: 24,
-    alignItems: 'center',
+  },
+  hardOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    minHeight: 140,
+    alignItems: 'center',
+    borderRadius: 16,
+    gap: 12,
   },
   iconCircle: {
     width: 40,
@@ -146,18 +153,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-  },
-  lockedTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  lockedDesc: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
-    maxWidth: 260,
   },
 
   // Shared upgrade button

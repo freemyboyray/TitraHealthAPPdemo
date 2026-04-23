@@ -152,7 +152,7 @@ const createBannerStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.08)',
       borderWidth: 0.5, borderColor: 'rgba(255,116,42,0.30)',
     },
-    inner: { padding: 16 },
+    inner: { padding: 18 },
     heading: {
       fontSize: 13, fontWeight: '700', color: '#FF742A',
       letterSpacing: 0.1, marginBottom: 6, fontFamily: FF,
@@ -283,7 +283,7 @@ const createFocusStyles = (c: AppColors) => {
       backgroundColor: c.surface,
       borderWidth: 0.5, borderColor: c.border,
     },
-    inner: { padding: 16 },
+    inner: { padding: 18 },
     sectionLabel: {
       fontSize: 9, fontWeight: '700', color: '#FF742A',
       letterSpacing: 1.5, textTransform: 'uppercase',

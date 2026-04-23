@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -38,6 +39,8 @@ export default function SubscriptionScreen() {
   const [products, setProducts] = useState<ProductSubscription[]>([]);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [demoCode, setDemoCode] = useState('');
+  const setPremium = useSubscriptionStore((s) => s.setPremium);
 
   useEffect(() => {
     storekit?.getProducts().then((p: any[]) => setProducts(p));
@@ -93,6 +96,16 @@ export default function SubscriptionScreen() {
       Alert.alert('Error', 'Failed to restore purchases. Please try again.');
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const handleRedeemDemo = () => {
+    if (demoCode.trim().toLowerCase() === 'demo123') {
+      setPremium(true);
+      Alert.alert('Demo Activated', 'Premium features are now unlocked for this session.');
+      setDemoCode('');
+    } else {
+      Alert.alert('Invalid Code', 'Please enter a valid demo code.');
     }
   };
 
@@ -191,6 +204,31 @@ export default function SubscriptionScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Demo Code */}
+        {!isPremium && (
+          <View style={s.demoCard}>
+            <Text style={s.demoTitle}>Have a demo code?</Text>
+            <View style={s.demoRow}>
+              <TextInput
+                style={s.demoInput}
+                placeholder="Enter code"
+                placeholderTextColor={colors.textMuted}
+                value={demoCode}
+                onChangeText={setDemoCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[s.demoBtn, !demoCode.trim() && { opacity: 0.5 }]}
+                onPress={handleRedeemDemo}
+                disabled={!demoCode.trim()}
+              >
+                <Text style={s.demoBtnText}>Redeem</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Fine print */}
         {!isPremium && (
           <Text style={s.finePrint}>
@@ -271,6 +309,35 @@ function createStyles(c: AppColors) {
 
     restoreBtn: { alignItems: 'center', paddingVertical: 14, marginBottom: 16 },
     restoreBtnText: { color: c.textMuted, fontSize: 14 },
+
+    demoCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: c.borderSubtle,
+      marginBottom: 20,
+    },
+    demoTitle: { fontSize: 13, fontWeight: '600', color: c.textSecondary, marginBottom: 10 },
+    demoRow: { flexDirection: 'row', gap: 10 },
+    demoInput: {
+      flex: 1,
+      backgroundColor: c.bg,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: c.textPrimary,
+      borderWidth: 1,
+      borderColor: c.borderSubtle,
+    },
+    demoBtn: {
+      backgroundColor: ORANGE,
+      borderRadius: 12,
+      paddingHorizontal: 18,
+      justifyContent: 'center',
+    },
+    demoBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
 
     finePrint: { fontSize: 11, color: c.textMuted, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12 },
   });

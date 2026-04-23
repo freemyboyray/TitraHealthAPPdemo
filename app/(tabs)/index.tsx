@@ -1809,7 +1809,8 @@ export default function HomeScreen() {
           overdueDays={overdueDays}
           lastDoseMg={lastDoseMg}
           addInjectionLog={async (dose_mg, injection_date) => {
-            await logStore.addInjectionLog(dose_mg, injection_date);
+            const success = await logStore.addInjectionLog(dose_mg, injection_date);
+            if (!success) return;
             // If the logged date is today, immediately update daily focuses
             if (injection_date === localDateStr()) {
               healthData.dispatch({ type: 'LOG_INJECTION' });
@@ -1985,7 +1986,7 @@ const createStyles = (c: AppColors) => {
   },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 14, fontFamily: 'Helvetica Neue' },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Helvetica Neue' },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
