@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 // expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
 let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useMemo, useState } from 'react';
@@ -162,6 +163,19 @@ const pi = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: INPUT_TEXT, fontFamily: FONT },
 });
 
+// ─── Auth error sanitizer ────────────────────────────────────────────────────
+/** Map Supabase auth errors to user-friendly messages without exposing internals. */
+function sanitizeAuthError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes('invalid login credentials')) return 'Invalid email or password.';
+  if (lower.includes('email not confirmed')) return 'Please verify your email before signing in.';
+  if (lower.includes('user already registered')) return 'An account with this email already exists.';
+  if (lower.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
+  if (lower.includes('network') || lower.includes('fetch')) return 'Network error. Please check your connection and try again.';
+  if (lower.includes('invalid otp') || lower.includes('token')) return 'Invalid or expired code. Please try again.';
+  return 'Something went wrong. Please try again.';
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
@@ -180,6 +194,7 @@ export default function SignInScreen() {
   const [rememberMe, setRememberMe]       = useState(false);
   const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otpCode, setOtpCode]             = useState('');
@@ -204,7 +219,7 @@ export default function SignInScreen() {
     const { error: err } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
     setLoading(false);
     if (err) {
-      setError(err.message);
+      setError(sanitizeAuthError(err.message));
     } else {
       setResetSent(true);
       setError(null);
@@ -253,7 +268,7 @@ export default function SignInScreen() {
     });
 
     if (err) {
-      setError(err.message);
+      setError(sanitizeAuthError(err.message));
       setLoading(false);
       return;
     }
@@ -312,7 +327,7 @@ export default function SignInScreen() {
     });
 
     if (err) {
-      setError(err.message);
+      setError(sanitizeAuthError(err.message));
       setLoading(false);
       return;
     }
@@ -348,7 +363,7 @@ export default function SignInScreen() {
     });
 
     if (err) {
-      setError(err.message);
+      setError(sanitizeAuthError(err.message));
       setLoading(false);
       return;
     }
@@ -373,7 +388,7 @@ export default function SignInScreen() {
       email: email.trim(),
     });
     if (err) {
-      setError(err.message);
+      setError(sanitizeAuthError(err.message));
     } else {
       setError('A new code has been sent to your email.');
     }
@@ -480,6 +495,65 @@ export default function SignInScreen() {
     }
   }
 
+
+  // ── Apple Sign-In (native iOS) ───────────────────────────────────────
+  async function handleAppleSignIn() {
+    if (!checkSupabaseConfigured()) return;
+    setAppleLoading(true);
+    setError(null);
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setError('Apple sign-in failed: no identity token returned.');
+        return;
+      }
+
+      const { error: signInErr } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (signInErr) {
+        setError(sanitizeAuthError(signInErr.message));
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Apple only sends the user's name on the FIRST sign-in; persist it now
+      if (session?.user && credential.fullName) {
+        const parts = [credential.fullName.givenName, credential.fullName.familyName].filter(Boolean);
+        if (parts.length > 0) {
+          const { data: existing } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', session.user.id)
+            .single();
+          if (!existing?.username) {
+            await supabase
+              .from('profiles')
+              .upsert({ id: session.user.id, username: parts.join(' ') }, { onConflict: 'id' });
+          }
+        }
+      }
+
+      await finishOAuth(session);
+    } catch (e: unknown) {
+      // User cancelled — not an error
+      if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return;
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`Apple sign-in failed: ${msg}`);
+    } finally {
+      setAppleLoading(false);
+    }
+  }
 
   const isLogin = activeTab === 'login';
   const headline = isLogin ? 'Welcome back' : 'Get started';
@@ -672,6 +746,25 @@ export default function SignInScreen() {
                 )}
               </TouchableOpacity>
 
+              {/* Apple (iOS only) */}
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={[s.socialBtn, s.appleSocialBtn]}
+                  onPress={handleAppleSignIn}
+                  activeOpacity={0.85}
+                  disabled={appleLoading}
+                >
+                  {appleLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                      <Text style={[s.socialBtnText, { color: '#FFFFFF' }]}>Apple</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
             </View>
 
             {/* Demo link */}
@@ -819,6 +912,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: CARD_BG,
   },
   socialBtnFull: { flex: 0, width: 200 },
+  appleSocialBtn: { backgroundColor: '#000000', borderColor: '#000000' },
   socialBtnText: { fontSize: 15, fontWeight: '600', color: INPUT_TEXT, fontFamily: FONT },
 
   // Demo link

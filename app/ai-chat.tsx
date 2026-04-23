@@ -233,16 +233,21 @@ export default function AiChatScreen() {
     const base = buildSystemPrompt(healthData, typeArg);
 
     if (pillVisible && contextLabel) {
+      // Sanitize deep link params — truncate and strip control characters to prevent prompt injection
+      const sanitize = (s: string) => s.replace(/[\x00-\x1f]/g, '').slice(0, 100);
+      const safeLabel = sanitize(contextLabel);
+      const safeValue = contextValue ? sanitize(contextValue) : undefined;
+
       // Prepend a strong focal directive BEFORE the base prompt so it leads the model's attention
       const focusBlock = [
         `FOCUS DIRECTIVE (highest priority):`,
-        `The user is asking specifically about: ${contextLabel}${contextValue ? ` - current value: ${contextValue}` : ''}.`,
+        `The user is asking specifically about: ${safeLabel}${safeValue ? ` - current value: ${safeValue}` : ''}.`,
         `Your response MUST:`,
         `1. Directly address this specific metric/insight first - do not open with generic GLP-1 advice`,
         `2. Explain what this specific value means for this user's GLP-1 journey`,
         `3. Give 2–3 concrete, actionable steps tied directly to this metric`,
-        `4. Reference the actual value (${contextValue ?? contextLabel}) in your response`,
-        `Do NOT give a general health overview. Stay tightly focused on ${contextLabel}.`,
+        `4. Reference the actual value (${safeValue ?? safeLabel}) in your response`,
+        `Do NOT give a general health overview. Stay tightly focused on ${safeLabel}.`,
         ``,
       ].join('\n');
       return focusBlock + base;
@@ -287,7 +292,7 @@ export default function AiChatScreen() {
         content: isAuth
           ? 'Your session has expired. Please sign out and sign back in to continue.'
           : isUsageLimit
-            ? `You've used all ${err.limit} of today's free AI messages. Upgrade to Titra Pro for unlimited coaching.`
+            ? `You've reached your ${err.limit} free messages for today.${contextLabel ? ` Upgrade to Titra Pro to keep exploring insights about ${contextLabel}.` : ' Upgrade to Titra Pro for unlimited AI coaching.'}`
             : 'Unable to reach AI. Check your connection and try again.',
       }]);
     } finally {

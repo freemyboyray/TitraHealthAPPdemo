@@ -22,7 +22,8 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.applesignin": ["Default"]
       }
     },
     "android": {
@@ -84,6 +85,7 @@
           "sounds": []
         }
       ],
+      "expo-apple-authentication",
       "expo-secure-store",
       [
         "expo-camera",

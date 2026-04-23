@@ -1,7 +1,12 @@
+const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN');
+if (!allowedOrigin) {
+  throw new Error('ALLOWED_ORIGIN environment variable is required but not set');
+}
+
 const CORS = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '',
+  'Access-Control-Allow-Origin': allowedOrigin,
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-proxy-secret',
+    'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 };
 
@@ -58,12 +63,36 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: CORS });
   }
 
-  // Auth check
-  const secret = req.headers.get('x-proxy-secret');
-  if (secret !== Deno.env.get('PROXY_SECRET')) {
-    return new Response('Unauthorized', {
+  // Auth check — verify Supabase JWT from Authorization header
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
       status: 401,
-      headers: CORS,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[fatsecret-proxy] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: supabaseServiceKey,
+    },
+  });
+  if (!verifyRes.ok) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
 
@@ -119,7 +148,8 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
+    console.error('[fatsecret-proxy] Error:', message);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

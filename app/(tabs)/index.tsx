@@ -496,6 +496,8 @@ function DailyLogSummaryCard({
     if (!editTarget) return;
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       let saveError: { message: string } | null = null;
       if (editTarget.kind === 'food') {
         const { error } = await supabase.from('food_logs').update({
@@ -505,7 +507,7 @@ function DailyLogSummaryCard({
           carbs_g:   Number(editForm.carbs_g)   || 0,
           fat_g:     Number(editForm.fat_g)     || 0,
           meal_type: editForm.meal_type as any,
-        }).eq('id', editTarget.item.id);
+        }).eq('id', editTarget.item.id).eq('user_id', user.id);
         saveError = error;
       } else if (editTarget.kind === 'activity') {
         const { error } = await supabase.from('activity_logs').update({
@@ -513,12 +515,12 @@ function DailyLogSummaryCard({
           duration_min:    Number(editForm.duration_min)    || 0,
           steps:           Number(editForm.steps)           || 0,
           active_calories: Number(editForm.active_calories) || 0,
-        }).eq('id', editTarget.item.id);
+        }).eq('id', editTarget.item.id).eq('user_id', user.id);
         saveError = error;
       } else {
         const { error } = await supabase.from('weight_logs').update({
           weight_lbs: Number(editForm.weight_lbs) || 0,
-        }).eq('id', editTarget.item.id);
+        }).eq('id', editTarget.item.id).eq('user_id', user.id);
         saveError = error;
       }
       if (saveError) {
@@ -537,7 +539,9 @@ function DailyLogSummaryCard({
     Alert.alert('Remove Entry', `Delete "${label}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-          const { error } = await supabase.from(table as any).delete().eq('id', id);
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          const { error } = await supabase.from(table as any).delete().eq('id', id).eq('user_id', user.id);
           if (error) {
             console.warn('inline delete failed:', error);
             Alert.alert('Could not delete', error.message);

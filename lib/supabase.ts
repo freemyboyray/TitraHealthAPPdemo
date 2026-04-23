@@ -2,8 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { SecureSessionStorage } from './secure-storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing required environment variables: EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY must be set',
+  );
+}
 
 // Session tokens are encrypted at rest using a device-bound key stored in
 // iOS Keychain / Android Keystore (see lib/secure-storage.ts).

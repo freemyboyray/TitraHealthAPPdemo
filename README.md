@@ -46,10 +46,6 @@ Create a `.env.local` file in the project root:
 ```
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
-EXPO_PUBLIC_ANTHROPIC_API_KEY=your_anthropic_api_key
-EXPO_PUBLIC_FATSECRET_CLIENT_ID=your_fatsecret_client_id
-EXPO_PUBLIC_FATSECRET_CLIENT_SECRET=your_fatsecret_client_secret
 ```
 
 ### 3. Run Supabase migrations

@@ -36,9 +36,13 @@ export const PRODUCT_IDS = {
     ios: 'com.titrahealth.pro.monthly',
     android: 'com.titrahealth.pro.monthly',
   }) ?? 'com.titrahealth.pro.monthly',
+  ANNUAL: Platform.select({
+    ios: 'com.titrahealth.pro.annual',
+    android: 'com.titrahealth.pro.annual',
+  }) ?? 'com.titrahealth.pro.annual',
 };
 
-const SUBSCRIPTION_SKUS = [PRODUCT_IDS.MONTHLY];
+const SUBSCRIPTION_SKUS = [PRODUCT_IDS.MONTHLY, PRODUCT_IDS.ANNUAL];
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +131,25 @@ export async function purchaseMonthly(): Promise<void> {
       },
       google: {
         skus: [PRODUCT_IDS.MONTHLY],
+        obfuscatedAccountId: user.id,
+      },
+    },
+  });
+}
+
+export async function purchaseAnnual(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Must be signed in to purchase');
+
+  await requestPurchase({
+    type: 'subs',
+    request: {
+      apple: {
+        sku: PRODUCT_IDS.ANNUAL,
+        appAccountToken: user.id,
+      },
+      google: {
+        skus: [PRODUCT_IDS.ANNUAL],
         obfuscatedAccountId: user.id,
       },
     },

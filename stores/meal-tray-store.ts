@@ -264,7 +264,9 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
   },
 
   deleteSavedMeal: async (id) => {
-    const { error } = await supabase.from('user_saved_meals').delete().eq('id', id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('user_saved_meals').delete().eq('id', id).eq('user_id', user.id);
     if (error) {
       console.warn('deleteSavedMeal: delete failed:', error);
       return; // keep local state in sync with DB
@@ -338,7 +340,9 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
   },
 
   deleteCustomFood: async (id) => {
-    const { error } = await supabase.from('user_custom_foods').delete().eq('id', id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('user_custom_foods').delete().eq('id', id).eq('user_id', user.id);
     if (error) {
       console.warn('deleteCustomFood: delete failed:', error);
       return; // keep local state in sync with DB

@@ -1,7 +1,6 @@
-// Routes all FatSecret calls through the Fly.io proxy so credentials stay
-// server-side and the outbound IP is static (required for FatSecret IP whitelist).
-const PROXY_URL = process.env.EXPO_PUBLIC_FATSECRET_PROXY_URL ?? '';
-const PROXY_SECRET = process.env.EXPO_PUBLIC_FATSECRET_PROXY_SECRET ?? '';
+// Routes FatSecret calls through the Supabase edge function which handles
+// authentication and credential management server-side.
+import { supabase } from './supabase';
 
 export type ServingOption = { label: string; grams: number };
 
@@ -19,32 +18,30 @@ export type FoodResult = {
   serving_options?: ServingOption[];
 };
 
-// ─── Edge function proxy ───────────────────────────────────────────────────────
+// ─── Supabase edge function proxy ────────────────────────────────────────────
 
 async function callEdge(params: Record<string, string>): Promise<unknown> {
-  const url = new URL(PROXY_URL);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
   __DEV__ && console.log('[FatSecret] callEdge →', params);
-  const res = await fetch(url.toString(), {
-    headers: {
-      'x-proxy-secret': PROXY_SECRET,
-    },
-    cache: 'no-store',
+
+  const query = new URLSearchParams(params).toString();
+  const { data, error } = await supabase.functions.invoke(`fatsecret?${query}`, {
+    method: 'GET',
   });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    __DEV__ && console.error('[FatSecret] callEdge HTTP error:', res.status, body);
-    throw new Error(`Proxy error: ${res.status}`);
+
+  if (error) {
+    const errMsg = error.message ?? '';
+    __DEV__ && console.error('[FatSecret] callEdge error:', errMsg);
+    throw new Error(`FatSecret proxy error: ${errMsg}`);
   }
-  const json = await res.json();
-  __DEV__ && console.log('[FatSecret] callEdge ← response:', JSON.stringify(json).slice(0, 500));
-  if (json.error) {
-    __DEV__ && console.error('[FatSecret] callEdge API error:', json.error);
-    throw new Error(json.error);
+
+  __DEV__ && console.log('[FatSecret] callEdge ← response:', JSON.stringify(data).slice(0, 500));
+
+  if (data?.error && data.error !== 'not_found') {
+    __DEV__ && console.error('[FatSecret] callEdge API error:', data.error);
+    throw new Error(data.error);
   }
-  return json;
+
+  return data;
 }
 
 // ─── Parse food_description string ────────────────────────────────────────────

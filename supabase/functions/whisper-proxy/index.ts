@@ -46,8 +46,8 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Validate file type (allow empty type for mobile uploads that may not set it)
-    if (file.type && !ALLOWED_AUDIO_TYPES.includes(file.type)) {
+    // Validate file type — reject empty/missing types to prevent bypass
+    if (!file.type || !ALLOWED_AUDIO_TYPES.includes(file.type)) {
       return new Response(JSON.stringify({ error: 'Invalid audio format' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },

@@ -1,7 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN');
+if (!allowedOrigin) {
+  throw new Error('ALLOWED_ORIGIN environment variable is required but not set');
+}
+
 export const CORS = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '',
+  'Access-Control-Allow-Origin': allowedOrigin,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };

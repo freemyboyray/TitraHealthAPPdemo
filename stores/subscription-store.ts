@@ -14,24 +14,21 @@ const PREMIUM_FEATURES = new Set([
   'provider_report',
   'rtm_link',
   'peer_comparison',
-  'extended_healthkit',
-  'weight_projection',
+  'weight_projection_advanced',
   'clinical_alerts',
   'courses_all',
-  'food_noise_trends',
   'ai_insights',
   'weekly_ai_summary',
   'coach_notes',
   'metabolic_adaptation',
-  'background_sync',
 ]);
 
 /** Features that are metered (usage-limited for free users) */
 const METERED_FEATURES = new Set<FeatureKey>(['ai_chat', 'photo_analysis', 'voice_log']);
 
 const FEATURE_LIMITS: Record<FeatureKey, number> = {
-  ai_chat: 5,
-  photo_analysis: 3,
+  ai_chat: 3,
+  photo_analysis: 5,
   voice_log: 3,
 };
 

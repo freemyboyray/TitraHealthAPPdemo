@@ -27,6 +27,30 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
 
+    // Validate messages array structure
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return new Response(JSON.stringify({ error: 'Invalid messages format' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    const ALLOWED_ROLES = ['system', 'user', 'assistant'];
+    const systemCount = body.messages.filter((m: { role: string }) => m.role === 'system').length;
+    if (systemCount > 1) {
+      return new Response(JSON.stringify({ error: 'Multiple system messages not allowed' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    for (const msg of body.messages) {
+      if (!msg.role || !ALLOWED_ROLES.includes(msg.role)) {
+        return new Response(JSON.stringify({ error: 'Invalid message role' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Determine feature key for usage tracking based on request content
     const featureKey: FeatureKey = hasVisionContent(body)
       ? 'photo_analysis'

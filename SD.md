@@ -100,8 +100,6 @@ All secret keys live in `.env` (gitignored). Each developer adds their own:
 ```
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_OPENAI_API_KEY=
-EXPO_PUBLIC_ANTHROPIC_API_KEY=
 ```
 
 ---

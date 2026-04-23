@@ -67,15 +67,15 @@ async function resolveItems(
   parsedItems: { item: string; estimated_g: number }[],
 ): Promise<ResolvedItem[]> {
   // ── Layer 1: Generate search variants via GPT ──────────────────────────
-  console.log('[FoodTask] resolveItems: generating search variants for', parsedItems.length, 'items');
+  if (__DEV__) console.log('[FoodTask] resolveItems: generating search variants for', parsedItems.length, 'items');
   const variantData = await generateSearchVariants(parsedItems.map((p) => p.item));
-  console.log('[FoodTask] resolveItems: variants generated:', JSON.stringify(variantData));
+  if (__DEV__) console.log('[FoodTask] resolveItems: variants generated:', JSON.stringify(variantData));
 
   // ── Layer 2: Fan-out FatSecret searches per variant, deduplicate ───────
   const itemsWithCandidates = await Promise.all(
     parsedItems.map(async (p, idx) => {
       const variants = variantData[idx]?.variants ?? [p.item];
-      console.log('[FoodTask] resolveItems: searching variants for', p.item, '→', variants);
+      if (__DEV__) console.log('[FoodTask] resolveItems: searching variants for', p.item, '→', variants);
 
       // Search all variants in parallel
       const allSearches = await Promise.all(
@@ -99,11 +99,11 @@ async function resolveItems(
         }
       }
 
-      console.log('[FoodTask] resolveItems: found', candidates.length, 'unique candidates for', p.item);
+      if (__DEV__) console.log('[FoodTask] resolveItems: found', candidates.length, 'unique candidates for', p.item);
 
       // Fallback to AI estimation if no database results at all
       if (candidates.length === 0) {
-        console.log('[FoodTask] resolveItems: no FatSecret results, falling back to AI estimation for', p.item);
+        if (__DEV__) console.log('[FoodTask] resolveItems: no FatSecret results, falling back to AI estimation for', p.item);
         const aiResult = await estimateMacrosWithAI(p.item);
         if (aiResult) candidates.push(aiResult as FoodResult);
       }
@@ -118,7 +118,7 @@ async function resolveItems(
   let selectedIndices: number[] = itemsWithCandidates.map(() => 0);
 
   if (needsSelection.length > 0) {
-    console.log('[FoodTask] resolveItems: running GPT selection for', needsSelection.length, 'items');
+    if (__DEV__) console.log('[FoodTask] resolveItems: running GPT selection for', needsSelection.length, 'items');
     const selectInput = itemsWithCandidates.map((ic) => ({
       originalItem: ic.parsed.item,
       candidates: ic.candidates.slice(0, 8).map((c) => ({
@@ -129,7 +129,7 @@ async function resolveItems(
     }));
 
     selectedIndices = await selectBestFoodMatches(selectInput);
-    console.log('[FoodTask] resolveItems: GPT selected indices:', selectedIndices);
+    if (__DEV__) console.log('[FoodTask] resolveItems: GPT selected indices:', selectedIndices);
   }
 
   // ── Build resolved items with top candidates kept for user override ────
@@ -216,20 +216,20 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
         // If we have a photo, run vision first to get parsed items
         let itemsToResolve = parsedItems ?? [];
         if (photoBase64 && itemsToResolve.length === 0) {
-          console.log('[FoodTask] Starting vision analysis, base64 length:', photoBase64.length);
+          if (__DEV__) console.log('[FoodTask] Starting vision analysis, base64 length:', photoBase64.length);
           const raw = await callGPT4oMiniVision(
             VISION_SYSTEM,
             photoBase64,
             'Identify all food items in this image.',
           );
-          console.log('[FoodTask] Vision raw response:', raw);
+          if (__DEV__) console.log('[FoodTask] Vision raw response:', raw);
           const jsonMatch = raw.match(/\[[\s\S]*\]/);
           if (!jsonMatch) {
             console.error('[FoodTask] No JSON array found in vision response');
             throw new Error('No JSON in vision response');
           }
           const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
-          console.log('[FoodTask] Vision parsed items:', JSON.stringify(parsed));
+          if (__DEV__) console.log('[FoodTask] Vision parsed items:', JSON.stringify(parsed));
           if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No food items identified');
           itemsToResolve = parsed;
 
@@ -241,9 +241,9 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
           }));
         }
 
-        console.log('[FoodTask] Resolving', itemsToResolve.length, 'items via FatSecret/USDA...');
+        if (__DEV__) console.log('[FoodTask] Resolving', itemsToResolve.length, 'items via FatSecret/USDA...');
         const resolved = await resolveItems(itemsToResolve);
-        console.log('[FoodTask] Resolved items:', resolved.map((r) => ({
+        if (__DEV__) console.log('[FoodTask] Resolved items:', resolved.map((r) => ({
           item: r.item,
           matchCount: r.results.length,
           topMatch: r.results[0]?.name ?? 'none',

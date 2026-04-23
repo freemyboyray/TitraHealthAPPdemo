@@ -39,6 +39,7 @@ export default function SubscriptionScreen() {
   const [products, setProducts] = useState<ProductSubscription[]>([]);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [demoCode, setDemoCode] = useState('');
   const setPremium = useSubscriptionStore((s) => s.setPremium);
 
@@ -47,8 +48,10 @@ export default function SubscriptionScreen() {
     refreshPremiumStatus();
   }, []);
 
-  const product = products[0];
-  const priceLabel = product && storekit ? storekit.formatSubscriptionPrice(product) : '$9.99/month';
+  const monthlyProduct = products.find((p: any) => p.productId?.includes('monthly'));
+  const annualProduct = products.find((p: any) => p.productId?.includes('annual'));
+  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct) : '$9.99/mo';
+  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct) : '$59.99/yr';
 
   const periodEndDate = currentPeriodEnd
     ? new Date(currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -72,7 +75,11 @@ export default function SubscriptionScreen() {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
-      await storekit?.purchaseMonthly();
+      if (selectedPlan === 'annual') {
+        await storekit?.purchaseAnnual();
+      } else {
+        await storekit?.purchaseMonthly();
+      }
       // Purchase listener in storekit.ts handles the state update
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
@@ -153,6 +160,31 @@ export default function SubscriptionScreen() {
           )}
         </View>
 
+        {/* Plan Selector */}
+        {!isPremium && (
+          <View style={s.planToggle}>
+            <TouchableOpacity
+              style={[s.planOption, selectedPlan === 'annual' && s.planOptionActive]}
+              onPress={() => setSelectedPlan('annual')}
+              activeOpacity={0.8}
+            >
+              {selectedPlan === 'annual' && <View style={s.bestValueBadge}><Text style={s.bestValueText}>BEST VALUE</Text></View>}
+              <Text style={[s.planOptionTitle, selectedPlan === 'annual' && s.planOptionTitleActive]}>Annual</Text>
+              <Text style={[s.planOptionPrice, selectedPlan === 'annual' && s.planOptionPriceActive]}>{annualPriceLabel}</Text>
+              <Text style={[s.planOptionSub, selectedPlan === 'annual' && s.planOptionSubActive]}>$5/mo — save 50%</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.planOption, selectedPlan === 'monthly' && s.planOptionActive]}
+              onPress={() => setSelectedPlan('monthly')}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.planOptionTitle, selectedPlan === 'monthly' && s.planOptionTitleActive]}>Monthly</Text>
+              <Text style={[s.planOptionPrice, selectedPlan === 'monthly' && s.planOptionPriceActive]}>{monthlyPriceLabel}</Text>
+              <Text style={[s.planOptionSub, selectedPlan === 'monthly' && s.planOptionSubActive]}>Billed monthly</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Pro Benefits */}
         {!isPremium && (
           <View style={s.benefitsCard}>
@@ -178,7 +210,7 @@ export default function SubscriptionScreen() {
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={s.purchaseBtnText}>
-                Start 7-Day Free Trial — {priceLabel}
+                Start 7-Day Free Trial — {selectedPlan === 'annual' ? annualPriceLabel : monthlyPriceLabel}
               </Text>
             )}
           </TouchableOpacity>
@@ -232,7 +264,7 @@ export default function SubscriptionScreen() {
         {/* Fine print */}
         {!isPremium && (
           <Text style={s.finePrint}>
-            After your 7-day free trial, you'll be charged {priceLabel}. Cancel anytime in your {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings. Payment will be charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account.
+            After your 7-day free trial, you'll be charged {selectedPlan === 'annual' ? annualPriceLabel : monthlyPriceLabel}. Cancel anytime in your {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings. Payment will be charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account.
           </Text>
         )}
       </ScrollView>
@@ -242,12 +274,13 @@ export default function SubscriptionScreen() {
 
 const BENEFITS = [
   'Unlimited AI coaching & food analysis',
+  'AI insights on every health metric',
+  'Personalized weekly health summary',
   'Cycle Intelligence & appetite forecasting',
-  'Extended HealthKit (HRV, CGM, SpO₂, BP)',
-  'Provider reports & clinician linking',
+  'Provider reports for your doctor',
   'Peer comparison benchmarks',
   'All guided courses',
-  'Weight projection & metabolic adaptation',
+  'Clinical alerts & safety monitoring',
 ];
 
 function createStyles(c: AppColors) {
@@ -271,6 +304,39 @@ function createStyles(c: AppColors) {
     planName: { fontSize: 22, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
     statusText: { fontSize: 14, color: c.textSecondary, marginBottom: 4 },
     periodText: { fontSize: 12, color: c.textMuted },
+
+    planToggle: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 20,
+    },
+    planOption: {
+      flex: 1,
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1.5,
+      borderColor: c.borderSubtle,
+      alignItems: 'center',
+    },
+    planOptionActive: {
+      borderColor: ORANGE,
+      backgroundColor: 'rgba(255,116,42,0.08)',
+    },
+    planOptionTitle: { fontSize: 14, fontWeight: '600', color: c.textSecondary, marginBottom: 4 },
+    planOptionTitleActive: { color: c.textPrimary },
+    planOptionPrice: { fontSize: 20, fontWeight: '800', color: c.textSecondary, marginBottom: 2 },
+    planOptionPriceActive: { color: c.textPrimary },
+    planOptionSub: { fontSize: 11, color: c.textMuted },
+    planOptionSubActive: { color: ORANGE },
+    bestValueBadge: {
+      backgroundColor: ORANGE,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      marginBottom: 6,
+    },
+    bestValueText: { color: '#FFF', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
 
     benefitsCard: {
       backgroundColor: c.cardBg,
