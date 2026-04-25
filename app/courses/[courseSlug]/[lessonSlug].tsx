@@ -10,7 +10,7 @@ import type { AppColors } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { LessonContentRenderer } from '@/components/courses/lesson-content-renderer';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 export default function LessonScreen() {
@@ -187,7 +187,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 26,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: FF,
+      fontFamily: 'Inter_800ExtraBold',
       letterSpacing: -0.5,
       marginBottom: 6,
     },

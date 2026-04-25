@@ -865,7 +865,7 @@ export default function EditTreatmentScreen() {
             style={{
               fontSize: 32, fontWeight: '700', color: '#FFFFFF', textAlign: 'center',
               minWidth: 120, borderBottomWidth: 2, borderBottomColor: ORANGE, paddingBottom: 4,
-              fontFamily: 'Helvetica Neue',
+              fontFamily: 'Inter_400Regular',
             }}
             keyboardType="decimal-pad"
             value={confirmStartWeight}
@@ -873,7 +873,7 @@ export default function EditTreatmentScreen() {
             placeholder="---"
             placeholderTextColor="rgba(255,255,255,0.3)"
           />
-          <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>
             {unitLabel}
           </Text>
         </View>
@@ -922,11 +922,11 @@ export default function EditTreatmentScreen() {
                   )}
                 </View>
                 <View style={{ flex: 1, paddingBottom: isLast ? 0 : 8 }}>
-                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue' }}>
+                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter_400Regular' }}>
                     {dateLabel}
                   </Text>
                   <Text style={{
-                    fontSize: 13, fontWeight: '500', fontFamily: 'Helvetica Neue',
+                    fontSize: 13, fontWeight: '500', fontFamily: 'Inter_400Regular',
                     color: isStopped ? '#FF4444' : '#FFFFFF',
                   }}>
                     {label}
@@ -943,8 +943,8 @@ export default function EditTreatmentScreen() {
                 <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 4, backgroundColor: ORANGE }} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, color: ORANGE, fontFamily: 'Helvetica Neue' }}>Now</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: 'Helvetica Neue' }}>
+                <Text style={{ fontSize: 11, color: ORANGE, fontFamily: 'Inter_400Regular' }}>Now</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
                   {wasOffTreatment ? '→ Starting' : '→ Switching to'} {BRAND_LABEL[brand] ?? brand} {doseMg}mg
                 </Text>
               </View>
@@ -1521,11 +1521,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   offTitle: {
     fontSize: 20, fontWeight: '700' as const, color: c.textPrimary,
-    textAlign: 'center' as const, marginBottom: 8, fontFamily: 'Helvetica Neue',
+    textAlign: 'center' as const, marginBottom: 8, fontFamily: 'Inter_400Regular',
   },
   offSubtitle: {
     fontSize: 14, color: c.textSecondary, textAlign: 'center' as const,
-    lineHeight: 20, marginBottom: 28, fontFamily: 'Helvetica Neue',
+    lineHeight: 20, marginBottom: 28, fontFamily: 'Inter_400Regular',
   },
   startBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const,
@@ -1533,7 +1533,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 16, paddingHorizontal: 24, width: '100%' as any,
   },
   startBtnText: {
-    fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', fontFamily: 'Helvetica Neue',
+    fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', fontFamily: 'Inter_400Regular',
   },
 
   // Wizard progress bar
@@ -1547,11 +1547,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   // Wizard question
   wizardQuestion: {
     fontSize: 22, fontWeight: '700' as const, color: c.textPrimary,
-    marginBottom: 6, lineHeight: 28, fontFamily: 'Helvetica Neue',
+    marginBottom: 6, lineHeight: 28, fontFamily: 'Inter_400Regular',
   },
   wizardHint: {
     fontSize: 14, color: c.textSecondary, marginBottom: 24, lineHeight: 20,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 
   // Summary card
@@ -1571,10 +1571,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   summaryBrand: {
     fontSize: 22, fontWeight: '700' as const, color: c.textPrimary,
-    fontFamily: 'Helvetica Neue', textAlign: 'center' as const,
+    fontFamily: 'Inter_400Regular', textAlign: 'center' as const,
   },
   summaryMolecule: {
-    fontSize: 13, color: c.textMuted, fontFamily: 'Helvetica Neue',
+    fontSize: 13, color: c.textMuted, fontFamily: 'Inter_400Regular',
     marginTop: 2, textAlign: 'center' as const,
   },
   summaryDivider: {
@@ -1585,15 +1585,15 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     flexDirection: 'row' as const, justifyContent: 'space-between' as const,
     alignSelf: 'stretch' as const, paddingVertical: 6,
   },
-  summaryLabel: { fontSize: 14, color: c.textMuted, fontFamily: 'Helvetica Neue' },
-  summaryValue: { fontSize: 14, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  summaryLabel: { fontSize: 14, color: c.textMuted, fontFamily: 'Inter_400Regular' },
+  summaryValue: { fontSize: 14, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Inter_400Regular' },
   pendingBadge: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
     alignSelf: 'stretch' as const, marginTop: 12,
     backgroundColor: 'rgba(255,116,42,0.08)', borderRadius: 10, padding: 10,
     borderWidth: 1, borderColor: 'rgba(255,116,42,0.2)',
   },
-  pendingText: { fontSize: 12, color: ORANGE, fontFamily: 'Helvetica Neue', flex: 1 },
+  pendingText: { fontSize: 12, color: ORANGE, fontFamily: 'Inter_400Regular', flex: 1 },
 
   // Change medication button
   changeMedBtn: {
@@ -1605,11 +1605,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
   },
   changeMedBtnText: {
-    fontSize: 15, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Helvetica Neue',
+    fontSize: 15, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Inter_400Regular',
   },
 });
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 // ─── Confirmation Modal Styles ───────────────────────────────────────────────
 

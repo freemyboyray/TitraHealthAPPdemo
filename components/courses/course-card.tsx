@@ -8,7 +8,7 @@ import type { AppColors } from '@/constants/theme';
 import { CourseProgressRing } from './course-progress-ring';
 import type { CourseRow } from '@/stores/courses-store';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -119,7 +119,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 15,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: FF,
+      fontFamily: 'Inter_700Bold',
       marginBottom: 4,
       lineHeight: 20,
     },

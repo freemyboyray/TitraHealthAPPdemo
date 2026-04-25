@@ -8,7 +8,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 type ArticleDetail = {
@@ -159,7 +159,7 @@ const createStyles = (c: AppColors) => {
     },
     navTitle: {
       fontSize: 17, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.3, fontFamily: FF, flex: 1, textAlign: 'center',
+      letterSpacing: -0.3, fontFamily: 'Inter_700Bold', flex: 1, textAlign: 'center',
     },
 
     content: { paddingHorizontal: 20, paddingBottom: 40 },
@@ -177,7 +177,7 @@ const createStyles = (c: AppColors) => {
 
     title: {
       fontSize: 28, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: FF,
+      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: 'Inter_800ExtraBold',
     },
     subtitle: {
       fontSize: 16, color: w(0.55), lineHeight: 24,
@@ -190,15 +190,15 @@ const createStyles = (c: AppColors) => {
 
     bodyH1: {
       fontSize: 22, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: FF,
+      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: 'Inter_800ExtraBold',
     },
     bodyH2: {
       fontSize: 18, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: FF,
+      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: 'Inter_700Bold',
     },
     bodyH3: {
       fontSize: 15, fontWeight: '700', color: ORANGE,
-      marginBottom: 6, marginTop: 14, fontFamily: FF,
+      marginBottom: 6, marginTop: 14, fontFamily: 'Inter_700Bold',
     },
     bodyText: {
       fontSize: 15, color: w(0.75),

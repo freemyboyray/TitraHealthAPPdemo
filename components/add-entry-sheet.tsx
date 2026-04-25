@@ -1,11 +1,11 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -311,24 +311,45 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     },
   };
 
+  // ─── Fade animation ────────────────────────────────────────────────────────
+  const [rendered, setRendered] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      Animated.timing(fadeAnim, { toValue: 1, useNativeDriver: true, duration: 250 }).start();
+    } else {
+      Animated.timing(fadeAnim, { toValue: 0, useNativeDriver: true, duration: 200 }).start(() => {
+        setRendered(false);
+      });
+    }
+  }, [visible]);
+
+  if (!rendered) {
+    return <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />;
+  }
+
   return (
     <>
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={closeSheet}>
-      <View style={s.container}>
+    {/* Full-screen overlay positioned absolutely — does NOT block tab bar FAB */}
+    <View style={s.container} pointerEvents="box-none">
 
-        {/* Backdrop */}
-        <Pressable style={s.backdrop} onPress={closeSheet} />
+      {/* Backdrop */}
+      <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} />
+      </Animated.View>
 
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* Sheet - dark frosted glass */}
+      <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'flex-end' as const }} pointerEvents="box-none">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* Sheet - frosted glass, fully rounded */}
+        <View style={[s.sheetOuter, { paddingBottom: Math.max(insets.bottom, 8) + 80 }]}>
           <View style={s.sheetShadow}>
             <View style={[s.sheetBody, { backgroundColor: colors.bg }]}>
               <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.glassOverlay }]} />
-              <View pointerEvents="none" style={s.sheetTopBorder} />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
 
               <View style={s.sheetContent}>
-                <View style={s.handle} />
 
                 {activeEntry ? (
                   /* ── Inline form view ── */
@@ -375,33 +396,11 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             </View>
           </View>
 
-          {/* Bottom nav - glass pill + FAB X */}
-          <View style={[s.navWrapper, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
-            <View style={s.navPillShadow}>
-              <View style={s.navPillInner}>
-                <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 36, backgroundColor: colors.glassOverlay }]} />
-                <View pointerEvents="none" style={s.pillBorder} />
-                <View style={s.navIcons}>
-                  <Ionicons name="home-outline" size={24} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
-                  <MaterialIcons name="menu" size={26} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
-                  <Ionicons name="document-outline" size={24} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} style={s.navIcon} />
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity style={s.fabClose} onPress={closeSheet} activeOpacity={0.85}>
-              <View style={s.fabInner}>
-                <BlurView intensity={20} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: 'rgba(255,116,42,0.92)' }]} />
-                <View pointerEvents="none" style={s.fabBorder} />
-                <Ionicons name="close" size={32} color="#FFF" />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+      </Animated.View>
 
-      </View>
-    </Modal>
+    </View>
 
     <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
     </>
@@ -446,14 +445,14 @@ const createFormStyles = (c: AppColors) => {
     fontSize: 17,
     fontWeight: '600',
     color: c.textPrimary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   unit: {
     fontSize: 15,
     fontWeight: '700',
     color: w(0.35),
     minWidth: 32,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   confirmBtn: {
     height: 52,
@@ -467,7 +466,7 @@ const createFormStyles = (c: AppColors) => {
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 
   // AI parse button
@@ -485,7 +484,7 @@ const createFormStyles = (c: AppColors) => {
     fontSize: 15,
     fontWeight: '700',
     color: '#FF742A',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 
   // AI loading
@@ -499,7 +498,7 @@ const createFormStyles = (c: AppColors) => {
     fontSize: 14,
     color: w(0.45),
     fontWeight: '500',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   aiErrorText: {
     fontSize: 13,
@@ -507,7 +506,7 @@ const createFormStyles = (c: AppColors) => {
     fontWeight: '500',
     marginBottom: 12,
     lineHeight: 19,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 
   // Parsed result card
@@ -524,13 +523,13 @@ const createFormStyles = (c: AppColors) => {
     fontWeight: '800',
     color: c.textPrimary,
     marginBottom: 2,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   parsedServing: {
     fontSize: 12,
     color: w(0.40),
     marginBottom: 14,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   parsedRow: {
     flexDirection: 'row',
@@ -542,13 +541,13 @@ const createFormStyles = (c: AppColors) => {
     fontSize: 16,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   parsedStatLabel: {
     fontSize: 10,
     color: w(0.40),
     fontWeight: '500',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   confidenceBadge: {
     alignSelf: 'flex-start',
@@ -560,12 +559,12 @@ const createFormStyles = (c: AppColors) => {
   confidenceText: {
     fontSize: 11,
     fontWeight: '700',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   parsedEditHint: {
     fontSize: 12,
     color: w(0.30),
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     textDecorationLine: 'underline',
   },
 
@@ -581,7 +580,7 @@ const createFormStyles = (c: AppColors) => {
     fontSize: 11,
     color: w(0.30),
     fontWeight: '500',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   });
 };
@@ -591,19 +590,17 @@ const createFormStyles = (c: AppColors) => {
 const createSheetStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-  container: { flex: 1, justifyContent: 'flex-end' },
+  container: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', zIndex: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
 
-  // Sheet
-  sheetShadow: { borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 16 },
-  sheetBody: { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-  sheetTopBorder: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: w(0.10) },
-  sheetContent: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 },
-
-  handle: { width: 44, height: 4, backgroundColor: c.ringTrack, borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
-  title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 14, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'Helvetica Neue' },
-  dash: { borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(80,130,210,0.3)', marginBottom: 22 },
+  // Sheet outer wrapper (holds sheet + fab)
+  sheetOuter: { paddingHorizontal: 10 },
+  sheetShadow: { borderRadius: 28, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: c.isDark ? 0.4 : 0.12, shadowRadius: 20, elevation: 12 },
+  sheetBody: { borderRadius: 28, overflow: 'hidden' },
+  sheetContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 16 },
+  title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
+  subtitle: { fontSize: 14, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'Inter_400Regular' },
+  dash: { marginBottom: 22 },
 
   // Grid
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -617,19 +614,8 @@ const createSheetStyles = (c: AppColors) => {
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 
-  gridLabel: { fontSize: 10, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Helvetica Neue' },
+  gridLabel: { fontSize: 10, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Inter_400Regular' },
   gridLabelSpecial: { color: ORANGE },
 
-  // Bottom nav
-  navWrapper: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingTop: 8, backgroundColor: 'transparent' },
-  navPillShadow: { flex: 1, marginRight: 14, borderRadius: 36, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 10 },
-  navPillInner: { borderRadius: 36, overflow: 'hidden' },
-  pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1, borderTopColor: w(0.13), borderLeftColor: c.borderSubtle, borderRightColor: w(0.03), borderBottomColor: w(0.02) },
-  navIcons: { flexDirection: 'row', paddingVertical: 15, paddingHorizontal: 10 },
-  navIcon: { flex: 1, textAlign: 'center' },
-
-  fabClose: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.7, shadowRadius: 16, elevation: 10, marginBottom: 2 },
-  fabInner: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  fabBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 31, borderWidth: 1.5, borderTopColor: 'rgba(255,220,185,0.40)', borderLeftColor: 'rgba(255,200,160,0.25)', borderRightColor: 'rgba(0,0,0,0.15)', borderBottomColor: 'rgba(0,0,0,0.22)' },
   });
 };

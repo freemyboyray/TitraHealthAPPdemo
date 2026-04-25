@@ -161,7 +161,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
     },
     weekBadge: {
       borderRadius: 10,
@@ -173,7 +173,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 11,
       fontWeight: '700',
       color: w(0.5),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     heroLine: {
       marginBottom: 6,
@@ -181,32 +181,32 @@ const createStyles = (c: AppColors) => {
     heroPct: {
       fontSize: 32,
       fontWeight: '800',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     heroSuffix: {
       fontSize: 18,
       fontWeight: '600',
       color: w(0.5),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     comparisonText: {
       fontSize: 13,
       color: w(0.5),
       lineHeight: 18,
       marginBottom: 16,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     bodyText: {
       fontSize: 13,
       color: w(0.5),
       lineHeight: 19,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     privacyText: {
       fontSize: 12,
       color: w(0.35),
       lineHeight: 17,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     joinButton: {
       backgroundColor: ORANGE,
@@ -219,14 +219,14 @@ const createStyles = (c: AppColors) => {
       color: '#FFFFFF',
       fontSize: 15,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     disclaimer: {
       fontSize: 11,
       color: w(0.3),
       lineHeight: 15,
       textAlign: 'center',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       marginBottom: 4,
     },
     percentileContainer: {
@@ -264,14 +264,14 @@ const createStyles = (c: AppColors) => {
     percentileLabel: {
       fontSize: 9,
       color: w(0.3),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     tapHint: {
       fontSize: 11,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
   });
 };

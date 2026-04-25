@@ -21,7 +21,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const BLUE   = '#5AC8FA';
-const FF     = 'Helvetica Neue';
+const FF     = 'Inter_400Regular';
 
 // ─── Domain metadata ──────────────────────────────────────────────────────────
 

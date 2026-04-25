@@ -111,13 +111,13 @@ function GaugeArc({ appetiteLevel, stateColor, isDark }: GaugeProps) {
 
       {/* Needle dot */}
       <Circle cx={needlePt.x} cy={needlePt.y} r={8} fill={stateColor} />
-      <Circle cx={needlePt.x} cy={needlePt.y} r={4} fill="#FFFFFF" />
+      <Circle cx={needlePt.x} cy={needlePt.y} r={4} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} />
 
       {/* Labels */}
-      <SvgText x={ARC_CX - ARC_R - 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Helvetica Neue" textAnchor="middle">
+      <SvgText x={ARC_CX - ARC_R - 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Inter_400Regular" textAnchor="middle">
         Suppressed
       </SvgText>
-      <SvgText x={ARC_CX + ARC_R + 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Helvetica Neue" textAnchor="middle">
+      <SvgText x={ARC_CX + ARC_R + 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Inter_400Regular" textAnchor="middle">
         Normal
       </SvgText>
     </Svg>
@@ -307,7 +307,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
     },
     badge: {
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -319,7 +319,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 11,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       letterSpacing: 0.5,
     },
     gaugeWrap: {
@@ -335,12 +335,12 @@ const createStyles = (c: AppColors) => {
     gaugeValue: {
       fontSize: 28,
       fontWeight: '800',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     gaugeLabel: {
       fontSize: 10,
       color: w(0.35),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       textAlign: 'center',
       lineHeight: 13,
     },
@@ -362,20 +362,20 @@ const createStyles = (c: AppColors) => {
     riskText: {
       fontSize: 12,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     advisoryHeadline: {
       fontSize: 15,
       fontWeight: '600',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       textAlign: 'center',
       marginBottom: 4,
     },
     advisoryTip: {
       fontSize: 13,
       color: c.textSecondary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       textAlign: 'center',
       lineHeight: 18,
     },
@@ -390,7 +390,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 12,
       fontWeight: '600',
       color: '#FF742A',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     cycleDetail: {
       marginTop: 8,
@@ -404,7 +404,7 @@ const createStyles = (c: AppColors) => {
     cycleLabelText: {
       fontSize: 9,
       color: w(0.3),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     cycleDayRow: {
       flexDirection: 'row',
@@ -415,7 +415,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 10,
       fontWeight: '700',
       color: w(0.4),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       width: 22,
     },
     cycleDayBar: {
@@ -427,13 +427,13 @@ const createStyles = (c: AppColors) => {
     cycleDayBarText: {
       fontSize: 10,
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       fontWeight: '500',
     },
     disclaimer: {
       fontSize: 10,
       color: w(0.25),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       textAlign: 'center',
       marginTop: 14,
       lineHeight: 14,
@@ -441,7 +441,7 @@ const createStyles = (c: AppColors) => {
     emptyBody: {
       fontSize: 13,
       color: w(0.6),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       lineHeight: 19,
       marginBottom: 8,
     },

@@ -39,8 +39,8 @@ export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 14;
-  const stepNum = isStarting ? 9 : 13;
+  const total = isStarting ? 10 : 13;
+  const stepNum = isStarting ? 9 : 12;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [speedIdx, setSpeedIdx] = useState(2);
@@ -119,8 +119,8 @@ export default function GoalSpeedScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Inter_400Regular' },
   chip: {
     alignSelf: 'flex-start',
     backgroundColor: c.glassOverlay,
@@ -129,13 +129,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 20,
     marginBottom: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  chipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
   display: { alignItems: 'center', marginBottom: 12 },
-  displayLabel: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
-  displayValue: { fontSize: 52, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
+  displayLabel: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
+  displayValue: { fontSize: 52, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Inter_800ExtraBold' },
   contextNote: {
     fontSize: 14,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
@@ -165,12 +165,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   snapLabel: {
     fontSize: 13,
     fontWeight: '600',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textSecondary,
   },
   snapLabelSelected: {
     color: '#FFFFFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   markerRow: {
     flexDirection: 'row',
@@ -180,7 +180,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   markerText: {
     fontSize: 12,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textMuted,
   },
   spacer: { flex: 1 },

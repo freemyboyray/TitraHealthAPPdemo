@@ -10,7 +10,7 @@ import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 export type WeeklyCheckinCardProps = {
   /** ISO date string of the last time the unified weekly check-in was completed */

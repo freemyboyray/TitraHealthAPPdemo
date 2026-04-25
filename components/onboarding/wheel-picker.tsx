@@ -98,6 +98,7 @@ export function WheelPicker({
         showsVerticalScrollIndicator={false}
         snapToInterval={itemHeight}
         decelerationRate="fast"
+        nestedScrollEnabled
         contentContainerStyle={{ paddingVertical: padding }}
         initialScrollIndex={initialIndex}
         getItemLayout={(_, index) => ({

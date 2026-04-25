@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 type Props = {
   label: string;

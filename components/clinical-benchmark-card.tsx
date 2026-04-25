@@ -266,12 +266,12 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                     <React.Fragment key={`y-${tick}`}>
                       <Line
                         x1={ML} y1={y} x2={ML + plotW} y2={y}
-                        stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4"
+                        stroke={colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} strokeWidth={1} strokeDasharray="4,4"
                       />
                       <SvgText
                         x={ML - 6} y={y + 4}
-                        fontSize={10} fill="rgba(255,255,255,0.35)"
-                        textAnchor="end" fontFamily="Helvetica Neue"
+                        fontSize={10} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
+                        textAnchor="end" fontFamily="Inter_400Regular"
                       >
                         {tick}%
                       </SvgText>
@@ -286,12 +286,12 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                     <React.Fragment key={`x-${week}`}>
                       <Line
                         x1={x} y1={MT} x2={x} y2={MT + plotH}
-                        stroke="rgba(255,255,255,0.05)" strokeWidth={1}
+                        stroke={colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} strokeWidth={1}
                       />
                       <SvgText
                         x={x} y={MT + plotH + 16}
-                        fontSize={9} fill="rgba(255,255,255,0.35)"
-                        textAnchor="middle" fontFamily="Helvetica Neue"
+                        fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
+                        textAnchor="middle" fontFamily="Inter_400Regular"
                       >
                         Wk {week}
                       </SvgText>
@@ -397,13 +397,13 @@ const createStyles = (c: AppColors) => {
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.3,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
     },
     weekLabel: {
       fontSize: 13,
       fontWeight: '600',
       color: `${dim}0.4)`,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statsRow: {
       flexDirection: 'row',
@@ -420,7 +420,7 @@ const createStyles = (c: AppColors) => {
       fontWeight: '800',
       color: ORANGE,
       letterSpacing: -1,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statLabel: {
       fontSize: 11,
@@ -429,7 +429,7 @@ const createStyles = (c: AppColors) => {
       letterSpacing: 1.5,
       marginTop: 4,
       textTransform: 'uppercase',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statDivider: {
       width: 1,
@@ -441,7 +441,7 @@ const createStyles = (c: AppColors) => {
       color: `${dim}0.35)`,
       textAlign: 'center',
       marginBottom: 8,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statusRow: {
       flexDirection: 'row',
@@ -457,7 +457,7 @@ const createStyles = (c: AppColors) => {
     statusText: {
       fontSize: 13,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     legendRow: {
       flexDirection: 'row',
@@ -483,21 +483,21 @@ const createStyles = (c: AppColors) => {
     legendLabel: {
       fontSize: 11,
       color: `${dim}0.4)`,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     emptyText: {
       fontSize: 13,
       color: `${dim}0.4)`,
       lineHeight: 19,
       marginTop: 8,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     hint: {
       fontSize: 11,
       color: `${dim}0.25)`,
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
   });
 };

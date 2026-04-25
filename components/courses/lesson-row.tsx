@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 type Props = {

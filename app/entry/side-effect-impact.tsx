@@ -15,7 +15,7 @@ const ORANGE  = '#FF742A';
 const GREEN   = '#34C759';
 const RED     = '#FF3B30';
 const BLUE    = '#5AC8FA';
-const FF      = 'Helvetica Neue';
+const FF     = 'Inter_400Regular';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -539,7 +539,7 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: {
-      fontSize: 18, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.3,
+      fontSize: 18, fontWeight: '800', color: c.textPrimary, fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.3,
     },
 
     content: { paddingHorizontal: 20, paddingTop: 4, gap: 14 },
@@ -557,7 +557,7 @@ const createStyles = (c: AppColors) => {
       shadowOpacity: 0.4, shadowRadius: 12,
     },
     bannerTitle: {
-      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: FF,
+      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'Inter_800ExtraBold',
       letterSpacing: -0.3, marginBottom: 6,
     },
     bannerSub: {
@@ -608,7 +608,7 @@ const createStyles = (c: AppColors) => {
     },
     aiCardTitle: {
       fontSize: 16, fontWeight: '800', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
+      fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
     },
     aiCardSub: {
       fontSize: 12, fontFamily: FF, lineHeight: 17, marginBottom: 16,

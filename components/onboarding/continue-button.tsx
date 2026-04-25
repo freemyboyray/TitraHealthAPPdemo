@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 type Props = {
   onPress: () => void;

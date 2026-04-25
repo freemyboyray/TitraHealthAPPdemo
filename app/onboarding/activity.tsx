@@ -22,8 +22,8 @@ export default function ActivityScreen() {
   const router = useRouter();
   const { draft, updateDraft, completeOnboarding } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 14;
-  const step = isStarting ? 10 : 14;
+  const total = isStarting ? 10 : 13;
+  const step = isStarting ? 10 : 13;
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
@@ -73,7 +73,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
   content: { paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Inter_400Regular' },
   options: {},
 });

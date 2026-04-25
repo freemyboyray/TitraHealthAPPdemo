@@ -21,7 +21,7 @@ export default function HealthSyncScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.treatmentStatus !== 'on';
-  const total = isStarting ? 10 : 14;
+  const total = isStarting ? 10 : 13;
   const step = isStarting ? 7 : 10;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -29,12 +29,10 @@ export default function HealthSyncScreen() {
   const setAppleHealthEnabled = usePreferencesStore((s) => s.setAppleHealthEnabled);
 
   const navigateNext = () => {
-    if (isStarting) {
+    if (!draft.startWeightLbs) {
       updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
-      router.push('/onboarding/goal-weight');
-    } else {
-      router.push('/onboarding/start');
     }
+    router.push('/onboarding/goal-weight');
   };
 
   const handleConnect = async () => {
@@ -88,8 +86,8 @@ export default function HealthSyncScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Inter_400Regular' },
   illustration: {
     flex: 1,
     alignItems: 'center',
@@ -111,12 +109,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   healthLabel: {
     fontSize: 20,
     fontWeight: '700',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_700Bold',
     color: c.textPrimary,
   },
   healthDesc: {
     fontSize: 15,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
@@ -129,7 +127,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   skipText: {
     fontSize: 15,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textSecondary,
     fontWeight: '500',
   },

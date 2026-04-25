@@ -16,7 +16,7 @@ import { useLogStore, type WeeklyCheckinRow } from '@/stores/log-store';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 // ─── Domain config (mirrors weekly-checkin.tsx) ────────────────────────────────
 

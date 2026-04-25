@@ -17,7 +17,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 function formatDateDisplay(d: string): string {
   try {

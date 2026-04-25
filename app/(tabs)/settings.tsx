@@ -221,7 +221,7 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{useSubscriptionStore.getState().isPremium ? 'Titra Pro' : 'Upgrade to Pro'}</Text>
-              <Text style={s.rowSub}>{useSubscriptionStore.getState().isPremium ? 'Manage your subscription' : '$9.99/month \u00b7 7-day free trial'}</Text>
+              <Text style={s.rowSub}>{useSubscriptionStore.getState().isPremium ? 'Manage your subscription' : '$4.99/month \u00b7 7-day free trial'}</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

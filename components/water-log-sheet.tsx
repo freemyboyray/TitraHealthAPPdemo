@@ -28,7 +28,7 @@ import { useHealthData } from '@/contexts/health-data';
 const AnimatedRect = createAnimatedComponent(Rect);
 
 const ORANGE = '#FF742A';
-const FF     = 'Helvetica Neue';
+const FF     = 'Inter_400Regular';
 
 const CUP_PATH = 'M 10 10 L 190 10 L 170 230 Q 170 240 160 240 L 40 240 Q 30 240 30 230 Z';
 

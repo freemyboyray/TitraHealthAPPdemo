@@ -55,7 +55,7 @@ const INJECTION_SITES = [
   'Left Thigh', 'Right Thigh',
   'Left Upper Arm', 'Right Upper Arm',
 ];
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 const MED_BRAND: Record<string, string> = {
   semaglutide: 'Ozempic',
@@ -1841,20 +1841,20 @@ const createStyles = (c: AppColors) => {
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   dateTitleRow: { alignItems: 'flex-end' },
-  dateTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.2, fontFamily: 'Helvetica Neue', textAlign: 'right' },
-  weekday: { fontSize: 12, fontWeight: '500', color: c.textMuted, marginTop: 2, fontFamily: 'Helvetica Neue', textAlign: 'right' },
-  greetingLabel: { fontSize: 13, fontWeight: '500', color: c.textMuted, fontFamily: 'Helvetica Neue', marginBottom: 2 },
-  greetingName: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  dateTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.2, fontFamily: 'Inter_700Bold', textAlign: 'right' },
+  weekday: { fontSize: 12, fontWeight: '500', color: c.textMuted, marginTop: 2, fontFamily: 'Inter_400Regular', textAlign: 'right' },
+  greetingLabel: { fontSize: 13, fontWeight: '500', color: c.textMuted, fontFamily: 'Inter_400Regular', marginBottom: 2 },
+  greetingName: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  medPillText: { fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'Helvetica Neue' },
-  phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
-  futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Helvetica Neue' },
-  connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Helvetica Neue' },
+  medPillText: { fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'Inter_400Regular' },
+  phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Inter_400Regular' },
+  futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Inter_400Regular' },
+  connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Inter_400Regular' },
 
   // Card containers
   cardWrap: { borderRadius: 28, ...(c.isDark
@@ -1864,9 +1864,9 @@ const createStyles = (c: AppColors) => {
 
   // Insights card (kept for DailyLogSummaryCard insightsTitle usage)
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  insightsTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
-  shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Helvetica Neue' },
-  insightsParagraph: { fontSize: 15, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'Helvetica Neue' },
+  insightsTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
+  shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Inter_400Regular' },
+  insightsParagraph: { fontSize: 15, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'Inter_400Regular' },
 
   // Treatment Hero card
   heroCard: {
@@ -1897,13 +1897,13 @@ const createStyles = (c: AppColors) => {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   heroMedLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: c.textSecondary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   heroStats: {
     flexDirection: 'row',
@@ -1923,7 +1923,7 @@ const createStyles = (c: AppColors) => {
     fontSize: 26,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     letterSpacing: -0.5,
   },
   heroStatLbl: {
@@ -1931,7 +1931,7 @@ const createStyles = (c: AppColors) => {
     color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 14,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   heroCycleRow: {
     gap: 8,
@@ -1944,7 +1944,7 @@ const createStyles = (c: AppColors) => {
   heroCycleLbl: {
     fontSize: 11,
     color: c.textSecondary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   heroCycleBar: {
     height: 4,
@@ -1974,29 +1974,29 @@ const createStyles = (c: AppColors) => {
     fontSize: 13,
     fontWeight: '700',
     color: '#FF742A',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   transitionBody: {
     fontSize: 13,
     fontWeight: '600',
     color: c.textPrimary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   transitionHint: {
     fontSize: 11,
     color: c.textSecondary,
     marginTop: 4,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Helvetica Neue' },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Inter_800ExtraBold' },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
   },
   pendingBadgeText: {
-    fontSize: 11, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
+    fontSize: 11, fontWeight: '700', color: '#FF742A', fontFamily: 'Inter_400Regular',
   },
 
   // Focus coaching cards
@@ -2006,22 +2006,22 @@ const createStyles = (c: AppColors) => {
   focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, padding: 22 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
+  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Inter_400Regular' },
   focusRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
   focusIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
   focusIconDone: { backgroundColor: 'rgba(255,116,42,0.06)' },
   focusBody: { flex: 1 },
   focusLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  focusLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue', flex: 1 },
+  focusLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_400Regular', flex: 1 },
   focusLabelDone: { color: w(0.38), textDecorationLine: 'line-through' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'Helvetica Neue' },
+  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'Inter_400Regular' },
   focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden', marginBottom: 6 },
   focusBarFill: { height: 4, borderRadius: 2, backgroundColor: ORANGE },
   focusBarDone: { backgroundColor: '#4CAF50' },
-  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.45), letterSpacing: 0.3, fontFamily: 'Helvetica Neue' },
+  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.45), letterSpacing: 0.3, fontFamily: 'Inter_400Regular' },
   injectionPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,116,42,0.12)', marginTop: 4 },
   injectionPillDone: { backgroundColor: 'rgba(76,175,80,0.12)' },
-  injectionPillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
+  injectionPillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' },
   focusDivider: { height: 0.5, backgroundColor: w(0.12), marginLeft: 50 },
 
   // Escalation Phase Banner
@@ -2035,22 +2035,22 @@ const createStyles = (c: AppColors) => {
     alignItems: 'flex-start',
   },
   phaseDisplayName: {
-    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'Helvetica Neue',
+    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'Inter_400Regular',
   },
   phaseWeek: {
     fontSize: 11, fontWeight: '600', color: w(0.4),
     backgroundColor: c.borderSubtle, borderRadius: 8,
-    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'Helvetica Neue',
+    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'Inter_400Regular',
   },
   plasticityBadge: {
     backgroundColor: 'rgba(255,116,42,0.2)', borderRadius: 8,
     paddingHorizontal: 6, paddingVertical: 2,
   },
   plasticityText: {
-    fontSize: 9, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'Helvetica Neue',
+    fontSize: 9, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'Inter_400Regular',
   },
   phaseFocus: {
-    fontSize: 12, color: w(0.55), lineHeight: 17, fontFamily: 'Helvetica Neue',
+    fontSize: 12, color: w(0.55), lineHeight: 17, fontFamily: 'Inter_400Regular',
   },
 
   });
@@ -2068,13 +2068,13 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   },
   inner:      { padding: 16 },
   monthRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  monthLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  monthLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
   weekRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: c.textMuted, fontFamily: 'Helvetica Neue' },
+  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: c.textMuted, fontFamily: 'Inter_400Regular' },
   cell:       { width: 36, height: 42, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 3 },
   dayCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   daySelected: { backgroundColor: '#FF742A' },
-  dayNum:     { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  dayNum:     { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
   dayNumSel:  { fontWeight: '800' },
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#5AC8FA', marginTop: 2 },
@@ -2083,5 +2083,5 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   legend:      { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
   legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:   { width: 6, height: 6, borderRadius: 3 },
-  legendLabel: { fontSize: 11, color: c.textMuted, fontFamily: 'Helvetica Neue' },
+  legendLabel: { fontSize: 11, color: c.textMuted, fontFamily: 'Inter_400Regular' },
 });

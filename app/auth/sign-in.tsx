@@ -43,7 +43,7 @@ const TAB_ACTIVE = '#1C1C1E';
 const TAB_INACT  = '#8E8E93';
 const SOCIAL_BDR = '#E5E5EA';
 const ORANGE     = '#FF742A';
-const FONT       = 'Helvetica Neue';
+const FONT       = 'System';
 
 // ─── AuthTabSwitcher ─────────────────────────────────────────────────────────
 function AuthTabSwitcher({

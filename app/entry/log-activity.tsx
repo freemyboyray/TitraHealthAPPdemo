@@ -173,7 +173,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           fontWeight: '900',
           color: colors.textPrimary,
           lineHeight: 56,
-          fontFamily: 'Helvetica Neue',
+          fontFamily: 'Inter_400Regular',
           letterSpacing: -2,
         }}>
           {value}
@@ -184,7 +184,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
             fontWeight: '700',
             color: ORANGE,
             marginBottom: 8,
-            fontFamily: 'Helvetica Neue',
+            fontFamily: 'Inter_400Regular',
           }}>
             {unit}
           </Text>
@@ -195,7 +195,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           color: colors.textMuted,
           letterSpacing: 1.2,
           textTransform: 'uppercase',
-          fontFamily: 'Helvetica Neue',
+          fontFamily: 'Inter_400Regular',
           marginBottom: 10,
           marginLeft: 4,
         }}>
@@ -252,7 +252,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
             color: colors.textMuted,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fontFamily: 'Helvetica Neue',
+            fontFamily: 'Inter_400Regular',
           }}>
             {l}
           </Text>
@@ -540,7 +540,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
     ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
   },
-  title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
   cardsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -555,7 +555,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
     marginLeft: 4,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   card: {
     borderRadius: 28,
@@ -575,14 +575,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontWeight: '700',
     color: c.textSecondary,
     letterSpacing: 0.8,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '500',
     color: c.textPrimary,
     maxWidth: 180,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   divider: {
     height: 1,
@@ -595,7 +595,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     color: c.textPrimary,
     textAlign: 'right',
     minWidth: 80,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   ctaWrap: {
     position: 'absolute',
@@ -623,7 +623,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontWeight: '700',
     color: '#000000',
     letterSpacing: 0.5,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 });
 
@@ -643,21 +643,21 @@ const createSummaryCardStyles = (c: AppColors) => StyleSheet.create({
     fontWeight: '500',
     color: c.textSecondary,
     letterSpacing: 0.3,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   value: {
     fontSize: 30,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -1,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   unit: {
     fontSize: 13,
     fontWeight: '500',
     color: c.textSecondary,
     marginBottom: 4,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 });
 
@@ -696,7 +696,7 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_700Bold',
   },
   doneBtn: {
     paddingHorizontal: 16,
@@ -708,7 +708,7 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: ORANGE,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   pillRow: {
     flexDirection: 'row',
@@ -733,7 +733,7 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: c.textSecondary,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   pillTextSelected: {
     color: ORANGE,

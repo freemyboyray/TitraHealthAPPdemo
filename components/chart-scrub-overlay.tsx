@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
+import { useAppTheme } from '@/contexts/theme-context';
 import Animated, {
   useAnimatedStyle,
   useAnimatedReaction,
@@ -39,6 +40,7 @@ export function ChartScrubOverlay({
   color,
   formatTooltip,
 }: ChartScrubOverlayProps) {
+  const { colors } = useAppTheme();
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
   const updateTooltip = useCallback(
@@ -124,7 +126,7 @@ export function ChartScrubOverlay({
         style={[
           styles.dot,
           {
-            backgroundColor: '#FFFFFF',
+            backgroundColor: colors.isDark ? '#FFFFFF' : colors.cardBg,
             borderColor: color,
             width: DOT_R * 2,
             height: DOT_R * 2,
@@ -137,11 +139,45 @@ export function ChartScrubOverlay({
       {/* Tooltip */}
       <Animated.View style={[styles.tooltip, { width: TOOLTIP_W }, tooltipStyle]}>
         {tooltip && (
-          <View style={styles.tooltipInner}>
-            <Text style={styles.tooltipTitle} numberOfLines={1}>
+          <View
+            style={[
+              styles.tooltipInner,
+              {
+                backgroundColor: colors.isDark
+                  ? 'rgba(30,30,30,0.92)'
+                  : '#FFFFFF',
+                borderColor: colors.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.12)',
+                ...(colors.isDark
+                  ? {}
+                  : {
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 8,
+                      elevation: 4,
+                    }),
+              },
+            ]}
+          >
+            <Text
+              style={[styles.tooltipTitle, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
               {tooltip.title}
             </Text>
-            <Text style={styles.tooltipSubtitle} numberOfLines={1}>
+            <Text
+              style={[
+                styles.tooltipSubtitle,
+                {
+                  color: colors.isDark
+                    ? 'rgba(255,255,255,0.6)'
+                    : colors.textSecondary,
+                },
+              ]}
+              numberOfLines={1}
+            >
               {tooltip.subtitle}
             </Text>
             {tooltip.badge && (
@@ -185,23 +221,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   tooltipInner: {
-    backgroundColor: 'rgba(30,30,30,0.92)',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.12)',
   },
   tooltipTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   tooltipSubtitle: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     marginTop: 1,
   },
   tooltipBadge: {
@@ -214,6 +246,6 @@ const styles = StyleSheet.create({
   tooltipBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 });

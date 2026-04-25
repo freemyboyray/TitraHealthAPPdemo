@@ -32,7 +32,7 @@ type ArticleRow = {
 };
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -462,7 +462,7 @@ const createPhaseCardStyles = (c: AppColors) => {
     },
     pillText: { fontSize: 9, fontWeight: '800', color: ORANGE, letterSpacing: 1.2, fontFamily: FF },
     weekLabel: { fontSize: 12, fontWeight: '600', color: w(0.35), fontFamily: FF },
-    phaseTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: FF },
+    phaseTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
     phaseSub: { fontSize: 13, color: w(0.5), lineHeight: 19, marginBottom: 14, fontFamily: FF },
     divider: { height: 1, backgroundColor: w(0.07), marginBottom: 14 },
     tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
@@ -970,7 +970,7 @@ const createScreenStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
-    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: FF },
+    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
     headerSub: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
     disclaimer: { fontSize: 11, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
   });
@@ -987,7 +987,7 @@ const createCardStyles = (c: AppColors) => {
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
     iconWrap: { marginRight: 12 },
-    cardTitle: { fontSize: 16, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: FF },
+    cardTitle: { fontSize: 16, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: 'Inter_800ExtraBold' },
     divider: { height: 1, backgroundColor: c.borderSubtle, marginHorizontal: 18 },
     itemHeader: {
       flexDirection: 'row',

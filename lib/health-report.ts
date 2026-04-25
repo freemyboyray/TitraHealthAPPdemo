@@ -82,7 +82,7 @@ export function buildHealthReportHtml(data: ReportData): string {
 <head>
 <meta charset="utf-8" />
 <style>
-  body { font-family: -apple-system, Helvetica Neue, sans-serif; color: #1a1a1a; padding: 40px; max-width: 680px; margin: auto; }
+  body { font-family: -apple-system, System, sans-serif; color: #1a1a1a; padding: 40px; max-width: 680px; margin: auto; }
   h1   { font-size: 28px; font-weight: 800; color: #FF742A; margin-bottom: 2px; }
   .sub { font-size: 14px; color: #666; margin-bottom: 8px; }
   .disclaimer { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #856404; margin-bottom: 24px; line-height: 1.5; }

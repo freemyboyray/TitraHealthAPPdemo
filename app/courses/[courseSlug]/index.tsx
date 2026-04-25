@@ -12,7 +12,7 @@ import { LessonRow } from '@/components/courses/lesson-row';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -167,7 +167,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 24,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: FF,
+      fontFamily: 'Inter_800ExtraBold',
       textAlign: 'center',
       letterSpacing: -0.5,
       marginBottom: 6,

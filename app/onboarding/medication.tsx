@@ -108,9 +108,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   safe:         { flex: 1, backgroundColor: c.bg },
   container:    { flex: 1, paddingHorizontal: 24 },
   content:      { paddingBottom: 16 },
-  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle:     { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  subtitle:     { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Inter_400Regular' },
   group:        { marginBottom: 24 },
-  groupHeading: { fontSize: 13, fontWeight: '700', color: '#FF742A', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica Neue' },
-  groupSub:     { fontSize: 12, color: c.textMuted, marginBottom: 10, fontFamily: 'Helvetica Neue' },
+  groupHeading: { fontSize: 13, fontWeight: '700', color: '#FF742A', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Inter_400Regular' },
+  groupSub:     { fontSize: 12, color: c.textMuted, marginBottom: 10, fontFamily: 'Inter_400Regular' },
 });

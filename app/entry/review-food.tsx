@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     textAlign: 'center',
   },
   backBtn: {
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   header: {
     flexDirection: 'row',
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#FFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     letterSpacing: -0.3,
   },
   sectionLabel: {
@@ -482,12 +482,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   itemBrand: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.45)',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     marginTop: 2,
   },
   matchRow: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   matchPillText: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     fontWeight: '500',
   },
   amountRow: {
@@ -526,13 +526,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   unitLabel: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   unitPill: {
     paddingHorizontal: 10,
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   unitPillText: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     fontWeight: '500',
   },
   macroRow: {
@@ -563,13 +563,13 @@ const styles = StyleSheet.create({
   macroPillLabel: {
     fontSize: 9,
     fontWeight: '700',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     letterSpacing: 0.5,
   },
   macroPillValue: {
     fontSize: 13,
     fontWeight: '800',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     marginTop: 1,
   },
   footer: {
@@ -595,13 +595,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#FFF',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   totalLabel: {
     fontSize: 10,
     color: 'rgba(255,255,255,0.45)',
     fontWeight: '600',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     marginTop: 2,
   },
   confirmBtn: {
@@ -621,6 +621,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
     letterSpacing: 0.3,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
 });

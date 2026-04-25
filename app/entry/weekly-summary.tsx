@@ -32,7 +32,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#27AE60';
 const RED    = '#E53E3E';
-const FF     = 'Helvetica Neue';
+const FF     = 'Inter_400Regular';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ function buildPdfHtml(
 <head>
 <meta charset="utf-8" />
 <style>
-  body { font-family: -apple-system, Helvetica Neue, sans-serif; color: #1a1a1a; padding: 40px; max-width: 680px; margin: auto; }
+  body { font-family: -apple-system, System, sans-serif; color: #1a1a1a; padding: 40px; max-width: 680px; margin: auto; }
   h1   { font-size: 28px; font-weight: 800; color: #FF742A; margin-bottom: 2px; }
   .sub { font-size: 14px; color: #666; margin-bottom: 32px; }
   h2   { font-size: 16px; font-weight: 700; margin: 24px 0 8px; border-bottom: 2px solid #FF742A; padding-bottom: 4px; }
@@ -634,7 +634,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: FF,
+    fontFamily: 'Inter_800ExtraBold',
     letterSpacing: -0.5,
   },
   headerSub: {

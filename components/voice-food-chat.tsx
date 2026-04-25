@@ -255,7 +255,7 @@ const st = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.3,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   messagesContainer: {
     paddingHorizontal: 16,
@@ -279,7 +279,7 @@ const st = StyleSheet.create({
   bubbleText: {
     fontSize: 15,
     lineHeight: 21,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   inputArea: {
     paddingHorizontal: 16,
@@ -302,7 +302,7 @@ const st = StyleSheet.create({
   voiceHint: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   switchBtn: {
     flexDirection: 'row',
@@ -313,7 +313,7 @@ const st = StyleSheet.create({
   switchText: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   textInputRow: {
     flexDirection: 'row',
@@ -334,7 +334,7 @@ const st = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
   },
   sendBtn: {
     width: 36,

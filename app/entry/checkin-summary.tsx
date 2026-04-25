@@ -16,7 +16,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const BLUE   = '#5AC8FA';
-const FF     = 'Helvetica Neue';
+const FF     = 'Inter_400Regular';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -574,7 +574,7 @@ const createStyles = (c: AppColors) => {
     aiCardLabel: { fontSize: 10, fontWeight: '800', color: ORANGE, fontFamily: FF, letterSpacing: 1.5 },
     aiCardTitle: {
       fontSize: 16, fontWeight: '800', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
+      fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
     },
     aiCardSub: { fontSize: 12, fontFamily: FF, lineHeight: 17, marginBottom: 16 },
 

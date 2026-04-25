@@ -30,7 +30,7 @@ import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useUiStore } from '@/stores/ui-store';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -289,7 +289,7 @@ const createFocusStyles = (c: AppColors) => {
       letterSpacing: 1.5, textTransform: 'uppercase',
       marginBottom: 10, fontFamily: FF,
     },
-    focusLabel: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: FF },
+    focusLabel: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
     detail: { fontSize: 13, color: w(0.45), marginBottom: 8, fontFamily: FF },
     ptsAvail: { color: '#FF742A', fontWeight: '700' },
     note: { fontSize: 12, color: w(0.40), lineHeight: 18, fontFamily: FF },
@@ -626,7 +626,7 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     navCenter: { flex: 1, alignItems: 'center' },
-    navTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: FF },
+    navTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: 'Inter_700Bold' },
     navDate: { fontSize: 12, fontWeight: '500', color: w(0.40), marginTop: 1, fontFamily: FF },
 
     content: { paddingHorizontal: 20, paddingBottom: 40 },

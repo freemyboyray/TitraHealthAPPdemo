@@ -27,8 +27,8 @@ export default function GoalWeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 14;
-  const stepNum = isStarting ? 8 : 12;
+  const total = isStarting ? 10 : 13;
+  const stepNum = isStarting ? 8 : 11;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const unit = draft.unitSystem ?? 'imperial';
@@ -135,11 +135,11 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     container: { flex: 1, paddingHorizontal: 24 },
-    title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-    subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+    title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+    subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Inter_400Regular' },
     display: { alignItems: 'center', marginBottom: 16 },
-    displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
-    displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Helvetica Neue' },
+    displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
+    displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Inter_800ExtraBold' },
     toggle: {
       flexDirection: 'row',
       backgroundColor: c.glassOverlay,
@@ -150,8 +150,8 @@ const createStyles = (c: AppColors) => {
     },
     toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
     toggleBtnActive: { backgroundColor: '#FF742A' },
-    toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Helvetica Neue' },
-    toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+    toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Inter_400Regular' },
+    toggleTextActive: { color: '#FFFFFF', fontFamily: 'Inter_400Regular' },
     rulerContainer: {
       height: 72,
       position: 'relative',
@@ -184,7 +184,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 11,
       color: c.textSecondary,
       marginTop: 4,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
   });
 };

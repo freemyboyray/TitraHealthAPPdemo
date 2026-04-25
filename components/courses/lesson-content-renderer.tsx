@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
 
 type Props = {
@@ -314,7 +314,7 @@ const mdStyles = (c: AppColors) => {
       fontSize: 18,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: FF,
+      fontFamily: 'Inter_800ExtraBold',
       marginTop: 20,
       marginBottom: 8,
       letterSpacing: -0.3,
@@ -323,7 +323,7 @@ const mdStyles = (c: AppColors) => {
       fontSize: 15,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: FF,
+      fontFamily: 'Inter_700Bold',
       marginTop: 16,
       marginBottom: 6,
     },
@@ -408,7 +408,7 @@ const checkStyles = (c: AppColors) => {
       fontSize: 12,
       fontWeight: '700',
       color: ORANGE,
-      fontFamily: FF,
+      fontFamily: 'Inter_700Bold',
       letterSpacing: 1,
       marginBottom: 12,
     },

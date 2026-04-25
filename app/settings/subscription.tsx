@@ -50,8 +50,8 @@ export default function SubscriptionScreen() {
 
   const monthlyProduct = products.find((p: any) => p.productId?.includes('monthly'));
   const annualProduct = products.find((p: any) => p.productId?.includes('annual'));
-  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct) : '$9.99/mo';
-  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct) : '$59.99/yr';
+  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct) : '$4.99/mo';
+  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct) : '$49.99/yr';
 
   const periodEndDate = currentPeriodEnd
     ? new Date(currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -171,7 +171,7 @@ export default function SubscriptionScreen() {
               {selectedPlan === 'annual' && <View style={s.bestValueBadge}><Text style={s.bestValueText}>BEST VALUE</Text></View>}
               <Text style={[s.planOptionTitle, selectedPlan === 'annual' && s.planOptionTitleActive]}>Annual</Text>
               <Text style={[s.planOptionPrice, selectedPlan === 'annual' && s.planOptionPriceActive]}>{annualPriceLabel}</Text>
-              <Text style={[s.planOptionSub, selectedPlan === 'annual' && s.planOptionSubActive]}>$5/mo — save 50%</Text>
+              <Text style={[s.planOptionSub, selectedPlan === 'annual' && s.planOptionSubActive]}>$4.17/mo — save 16%</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.planOption, selectedPlan === 'monthly' && s.planOptionActive]}

@@ -293,13 +293,13 @@ const createStyles = (c: AppColors) => {
       fontSize: 11,
       fontWeight: '600',
       color: w(0.4),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     title: {
       fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
     },
     subheader: {
       fontSize: 12,
@@ -307,7 +307,7 @@ const createStyles = (c: AppColors) => {
       color: '#FF742A',
       letterSpacing: 0.2,
       marginBottom: 18,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     metrics: {
       gap: 0,
@@ -326,7 +326,7 @@ const createStyles = (c: AppColors) => {
       color: w(0.45),
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       marginBottom: 4,
     },
     metricValues: {
@@ -336,7 +336,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 20,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     metricUnit: {
       fontSize: 13,
@@ -345,7 +345,7 @@ const createStyles = (c: AppColors) => {
     metricBaseline: {
       fontSize: 12,
       color: w(0.45),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     badge: {
       borderRadius: 10,
@@ -356,7 +356,7 @@ const createStyles = (c: AppColors) => {
     badgeText: {
       fontSize: 11,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     divider: {
       height: StyleSheet.hairlineWidth,
@@ -372,7 +372,7 @@ const createStyles = (c: AppColors) => {
       color: w(0.55),
       textAlign: 'center',
       lineHeight: 20,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     enableBtn: {
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -384,7 +384,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 13,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     bootstrapState: {
       paddingVertical: 8,
@@ -394,7 +394,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 13,
       fontWeight: '600',
       color: c.textSecondary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     progressTrack: {
       height: 4,
@@ -411,14 +411,14 @@ const createStyles = (c: AppColors) => {
       fontSize: 12,
       color: w(0.4),
       lineHeight: 17,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     tapHint: {
       fontSize: 11,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 14,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     expandDivider: {
       height: StyleSheet.hairlineWidth,
@@ -435,7 +435,7 @@ const createStyles = (c: AppColors) => {
       color: w(0.4),
       letterSpacing: 0.8,
       textTransform: 'uppercase',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     expandRow: {
       flexDirection: 'row',
@@ -449,7 +449,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 13,
       color: w(0.65),
       lineHeight: 19,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       flex: 1,
     },
     badgeGuideRow: {
@@ -475,7 +475,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 13,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
   });
 };

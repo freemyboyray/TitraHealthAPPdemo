@@ -159,10 +159,10 @@ export function AppetiteForecastWave({
                 <Line
                   x1={markerPt.x} y1={CHART_PAD_T}
                   x2={markerPt.x} y2={CHART_PAD_T + PLOT_H}
-                  stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3,3"
+                  stroke={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'} strokeWidth={1} strokeDasharray="3,3"
                 />
                 <Circle cx={markerPt.x} cy={markerPt.y} r={6} fill="#FF742A" />
-                <Circle cx={markerPt.x} cy={markerPt.y} r={3} fill="#FFFFFF" />
+                <Circle cx={markerPt.x} cy={markerPt.y} r={3} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} />
               </>
             )}
 
@@ -174,7 +174,7 @@ export function AppetiteForecastWave({
                 y={CHART_H - 2}
                 fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
                 fontSize={9}
-                fontFamily="Helvetica Neue"
+                fontFamily="Inter_400Regular"
                 textAnchor="middle"
               >
                 {b.label}
@@ -286,10 +286,10 @@ export function AppetiteForecastWave({
           <Path d={linePath} fill="none" stroke="#FF742A" strokeWidth={2.5} strokeLinecap="round" />
 
           {/* Y-axis hints */}
-          <SvgText x={4} y={CHART_PAD_T + 10} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Helvetica Neue">
+          <SvgText x={4} y={CHART_PAD_T + 10} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Inter_400Regular">
             More suppressed
           </SvgText>
-          <SvgText x={4} y={CHART_PAD_T + PLOT_H - 4} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Helvetica Neue">
+          <SvgText x={4} y={CHART_PAD_T + PLOT_H - 4} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Inter_400Regular">
             Less suppressed
           </SvgText>
 
@@ -299,10 +299,10 @@ export function AppetiteForecastWave({
               <Line
                 x1={markerPt.x} y1={CHART_PAD_T}
                 x2={markerPt.x} y2={CHART_PAD_T + PLOT_H}
-                stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3,3"
+                stroke={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'} strokeWidth={1} strokeDasharray="3,3"
               />
               <Circle cx={markerPt.x} cy={markerPt.y} r={6} fill="#FF742A" />
-              <Circle cx={markerPt.x} cy={markerPt.y} r={3} fill="#FFFFFF" />
+              <Circle cx={markerPt.x} cy={markerPt.y} r={3} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} />
             </>
           )}
 
@@ -314,7 +314,7 @@ export function AppetiteForecastWave({
               fill="#FF742A"
               fontSize={9}
               fontWeight="700"
-              fontFamily="Helvetica Neue"
+              fontFamily="Inter_400Regular"
             >
               💉
             </SvgText>
@@ -331,7 +331,7 @@ export function AppetiteForecastWave({
                 : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
               fontSize={9}
               fontWeight={d.isToday ? '700' : '400'}
-              fontFamily="Helvetica Neue"
+              fontFamily="Inter_400Regular"
               textAnchor="middle"
             >
               {d.isToday ? 'TODAY' : `D${d.cycleDay}`}
@@ -408,13 +408,13 @@ const createStyles = (c: AppColors) => {
       fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
       marginBottom: 2,
     },
     subtitle: {
       fontSize: 12,
       color: w(0.4),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     chartWrap: {
       height: CHART_H,
@@ -441,7 +441,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 12,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     projectedBadge: {
       fontSize: 9,
@@ -453,31 +453,31 @@ const createStyles = (c: AppColors) => {
       borderRadius: 4,
       overflow: 'hidden',
       letterSpacing: 0.5,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     advisoryHeadline: {
       fontSize: 15,
       fontWeight: '600',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     advisoryDetail: {
       fontSize: 12,
       color: w(0.5),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       fontStyle: 'italic',
     },
     advisoryTip: {
       fontSize: 13,
       color: c.textSecondary,
       lineHeight: 18,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       marginTop: 2,
     },
     disclaimer: {
       fontSize: 10,
       color: w(0.25),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       textAlign: 'center',
       marginTop: 12,
       lineHeight: 14,
@@ -485,7 +485,7 @@ const createStyles = (c: AppColors) => {
     emptyBody: {
       fontSize: 13,
       color: w(0.6),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
       lineHeight: 19,
       marginBottom: 8,
     },

@@ -15,7 +15,7 @@ import {
 import { GlassBorder } from '@/components/ui/glass-border';
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 type MissedShotModalProps = {
   visible: boolean;
@@ -207,7 +207,7 @@ const s = StyleSheet.create({
     textTransform: 'uppercase',
     textAlign: 'center',
     marginBottom: 10,
-    fontFamily: FF,
+    fontFamily: 'Inter_800ExtraBold',
   },
   body: {
     fontSize: 16,

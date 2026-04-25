@@ -19,7 +19,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { scheduleCheckinReminder } from '@/lib/notifications';
 
 const ORANGE = '#FF742A';
-const FF = 'Helvetica Neue';
+const FF = 'Inter_400Regular';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

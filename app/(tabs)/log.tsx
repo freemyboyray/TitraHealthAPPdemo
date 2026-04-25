@@ -545,9 +545,9 @@ const createSegmentedStyles = (c: AppColors) => {
   return StyleSheet.create({
     wrap: {
       borderRadius: 36, overflow: 'hidden', marginBottom: 24,
-      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3, shadowRadius: 16, elevation: 6,
-      backgroundColor: c.borderSubtle,
+      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: c.isDark ? 0.3 : 0.08, shadowRadius: c.isDark ? 16 : 6, elevation: c.isDark ? 6 : 2,
+      backgroundColor: c.isDark ? c.borderSubtle : c.cardBg,
       borderWidth: 0.5, borderColor: c.border,
     },
     overlay: { borderRadius: 36, backgroundColor: c.glassOverlay },
@@ -555,8 +555,8 @@ const createSegmentedStyles = (c: AppColors) => {
     tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
     tabActive: {},
     tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
-    tabLabel: { fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: 'Helvetica Neue' },
-    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Helvetica Neue' },
+    tabLabel: { fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: 'Inter_400Regular' },
+    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Inter_400Regular' },
   });
 };
 
@@ -625,7 +625,7 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const { openAiChat } = useUiStore();
   const handleAskAI = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -647,7 +647,7 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
               onPress={onEmptyCta}
               style={{ marginTop: 8, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}
             >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
                 {emptyCtaLabel}
               </Text>
             </Pressable>
@@ -666,7 +666,7 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const { openAiChat } = useUiStore();
   const isEmpty = value === '-';
 
@@ -683,7 +683,7 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
           <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <RingIndicator size={64} strokeWidth={5} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
             <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'Helvetica Neue' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'Inter_400Regular' }}>
                 {isEmpty ? '–' : value}
               </Text>
             </View>
@@ -691,7 +691,7 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
           <Text style={s.dailyLabel}>{label}</Text>
           {isEmpty && emptyCtaLabel && onEmptyCta && (
             <Pressable onPress={onEmptyCta} style={{ marginTop: 10, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>{emptyCtaLabel}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>{emptyCtaLabel}</Text>
             </Pressable>
           )}
         </View>
@@ -727,7 +727,7 @@ function DailyMetricCard({
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const ss = statusStyle[status];
   const { openAiChat } = useUiStore();
   const handleAskAI = () => {
@@ -757,14 +757,14 @@ function HealthDataConnectPrompt() {
   const { colors } = useAppTheme();
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Helvetica Neue' }}>
+      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Inter_400Regular' }}>
         Connect Apple Health in Settings to see your vitals, body composition, activity, and more — all in one place.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
         style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,116,42,0.12)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
           Go to Settings
         </Text>
       </Pressable>
@@ -1225,7 +1225,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               <SvgText
                 x={ML - 5} y={y + 3.5}
                 fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                textAnchor="end" fontFamily="Helvetica Neue"
+                textAnchor="end" fontFamily="Inter_400Regular"
               >
                 {tick}%
               </SvgText>
@@ -1255,11 +1255,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               stroke={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'} strokeWidth={1.5} strokeDasharray="4,3"
             />
             <Circle cx={nowX} cy={nowY} r={8} fill="rgba(255,116,42,0.2)" />
-            <Circle cx={nowX} cy={nowY} r={5.5} fill="#FFFFFF" stroke={ORANGE} strokeWidth={2.5} />
+            <Circle cx={nowX} cy={nowY} r={5.5} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} stroke={ORANGE} strokeWidth={2.5} />
             <SvgText
               x={nowX} y={Math.max(14, nowY - 12)}
               fontSize={10} fontWeight="800" fill={ORANGE}
-              textAnchor="middle" fontFamily="Helvetica Neue"
+              textAnchor="middle" fontFamily="Inter_400Regular"
             >
               NOW
             </SvgText>
@@ -1377,7 +1377,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Drug Concentration</Text>
+                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Drug Concentration</Text>
                   <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
                 </View>
                 <Pressable onPress={dismissSheet} hitSlop={12}>
@@ -1432,11 +1432,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     marginBottom: 20,
                   }}>
                     <View>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{ptLabel}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{ptLabel}</Text>
                       <Text style={[s.chartMuted, { marginTop: 2 }]}>{selPct}% remaining</Text>
                     </View>
                     <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: `${selTier.color}22` }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: selTier.color, fontFamily: 'Helvetica Neue' }}>{selTier.label}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: selTier.color, fontFamily: 'Inter_400Regular' }}>{selTier.label}</Text>
                     </View>
                   </View>
                 );
@@ -1446,8 +1446,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               <View style={{ marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierInfo.color }} />
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: tierInfo.color, fontFamily: 'Helvetica Neue' }}>{tierInfo.label}</Text>
-                  <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Helvetica Neue' }}>· {currentLevel}% active</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: tierInfo.color, fontFamily: 'Inter_400Regular' }}>{tierInfo.label}</Text>
+                  <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Inter_400Regular' }}>· {currentLevel}% active</Text>
                 </View>
                 {/* Gradient phase bar */}
                 <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
@@ -1470,7 +1470,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 {/* Compact tier legend */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
                   {PK_TIER_GUIDE.slice().reverse().map((tier) => (
-                    <Text key={tier.label} style={{ fontSize: 9, color: `${tier.color}99`, fontWeight: '600', fontFamily: 'Helvetica Neue' }}>{tier.label}</Text>
+                    <Text key={tier.label} style={{ fontSize: 9, color: `${tier.color}99`, fontWeight: '600', fontFamily: 'Inter_400Regular' }}>{tier.label}</Text>
                   ))}
                 </View>
               </View>
@@ -1490,8 +1490,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="arrow-up-circle" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Peak</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Peak</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
                   </View>
                   {/* Half-life card */}
                   <View style={{
@@ -1502,8 +1502,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="time-outline" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Half-life</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Half-life</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
                   </View>
                   {/* Trough card */}
                   <View style={{
@@ -1514,8 +1514,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="arrow-down-circle" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue', textAlign: 'center' }}>Trough</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Helvetica Neue', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Trough</Text>
+                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
                   </View>
                 </View>
               </View>
@@ -1535,8 +1535,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                       <Ionicons name={item.icon} size={16} color={item.color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{item.label}</Text>
-                      <Text style={{ fontSize: 11, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Helvetica Neue', marginTop: 1 }}>{item.when}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{item.label}</Text>
+                      <Text style={{ fontSize: 11, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Inter_400Regular', marginTop: 1 }}>{item.when}</Text>
                     </View>
                   </View>
                 ))}
@@ -1578,7 +1578,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   elevation: 8,
                 })}
               >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'Helvetica Neue' }}>Ask AI about my medication</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'Inter_400Regular' }}>Ask AI about my medication</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -1593,7 +1593,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const { openAiChat } = useUiStore();
   const handleAskAI = () => {
     openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Why does this matter?', 'How does this affect my treatment?', 'What should I know about site rotation?']) });
@@ -1707,10 +1707,10 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
       {!inline && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
             <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
           </View>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' }}>
             {displayWeight != null ? `${displayWeight} lbs` : '-'}
           </Text>
         </View>
@@ -1760,7 +1760,7 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                       <SvgText
                         x={WML - 6} y={y + 4}
                         fontSize={10} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                        textAnchor="end" fontFamily="Helvetica Neue"
+                        textAnchor="end" fontFamily="Inter_400Regular"
                       >
                         {Math.round(tick)}
                       </SvgText>
@@ -1778,7 +1778,7 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                     <SvgText
                       x={WML + x} y={WMT + plotH + 18}
                       fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                      textAnchor="middle" fontFamily="Helvetica Neue"
+                      textAnchor="middle" fontFamily="Inter_400Regular"
                     >
                       {label}
                     </SvgText>
@@ -1911,9 +1911,9 @@ function WeightProjectionCard({
           <View style={{ padding: 18 }}>
             {/* Header row */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Helvetica Neue' }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' }}>
                   {currentWeight != null ? `${currentWeight} lbs` : '-'}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -1959,7 +1959,7 @@ function WeightProjectionCard({
             >
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 16 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>Weight Journey</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
                 <Pressable onPress={closeSheet} hitSlop={12}>
                   <Ionicons name="close-circle" size={28} color={w(0.4)} />
                 </Pressable>
@@ -1979,22 +1979,22 @@ function WeightProjectionCard({
                   <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 16 }} />
                   <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
                     <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>WEEKLY RATE</Text>
-                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>WEEKLY RATE</Text>
+                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
                         {projection.weeklyLossRateLbs > 0 ? `-${projection.weeklyLossRateLbs}` : '0'}
                         <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
                       </Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>GOAL DATE</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
-                      <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
+                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>GOAL DATE</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{goalDateLabel}</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
                     </View>
                   </View>
                   {projection.plateauRisk !== 'none' && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
                       <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Helvetica Neue' }}>{plateauLabel}</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Inter_400Regular' }}>{plateauLabel}</Text>
                       </View>
                     </View>
                   )}
@@ -2020,7 +2020,7 @@ function WeightProjectionCard({
                   borderRadius: 14, paddingVertical: 13, paddingHorizontal: 24,
                 })}
               >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Helvetica Neue', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Inter_400Regular', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
               </Pressable>
             </ScrollView>
           </Animated.View>
@@ -2052,12 +2052,12 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
     <View style={[s.cardWrap, { marginBottom: 16 }]}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={{ padding: 18 }}>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue', marginBottom: 14 }}>Goal Progress</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold', marginBottom: 14 }}>Goal Progress</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: projection?.plateauRisk && projection.plateauRisk !== 'none' ? 12 : 0 }}>
             <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>GOAL WEIGHT</Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>GOAL WEIGHT</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
                 {goalWeight != null ? `${goalWeight}` : '-'}
                 {goalWeight != null && <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs</Text>}
               </Text>
@@ -2066,19 +2066,19 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
                   <View style={[s.progBar, { marginTop: 8 }]}>
                     <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
                   </View>
-                  <Text style={{ fontSize: 11, color: w(0.4), fontFamily: 'Helvetica Neue', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
+                  <Text style={{ fontSize: 11, color: w(0.4), fontFamily: 'Inter_400Regular', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
                 </>
               )}
             </View>
             <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Helvetica Neue', marginBottom: 4 }}>PROJECTED DATE</Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>PROJECTED DATE</Text>
               {goalDateLabel ? (
                 <>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{goalDateLabel}</Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{goalDateLabel}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
                 </>
               ) : (
-                <Text style={{ fontSize: 12, color: w(0.35), fontFamily: 'Helvetica Neue', marginTop: 4 }}>Log 2+ weights to unlock</Text>
+                <Text style={{ fontSize: 12, color: w(0.35), fontFamily: 'Inter_400Regular', marginTop: 4 }}>Log 2+ weights to unlock</Text>
               )}
             </View>
           </View>
@@ -2086,7 +2086,7 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
           {projection?.plateauRisk != null && projection.plateauRisk !== 'none' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
               <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Helvetica Neue' }}>⚠ {plateauLabel}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Inter_400Regular' }}>⚠ {plateauLabel}</Text>
               </View>
             </View>
           )}
@@ -2105,7 +2105,7 @@ function ProgressStatCard({
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8 }), [colors]);
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const { openAiChat } = useUiStore();
   const handleAskAI = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -2215,13 +2215,13 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
         <View style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <Text style={s.sectionTitle}>Side Effects</Text>
-            <Text style={{ fontSize: 11, color: w(0.35), fontFamily: 'Helvetica Neue' }}>Last 30 days</Text>
+            <Text style={{ fontSize: 11, color: w(0.35), fontFamily: 'Inter_400Regular' }}>Last 30 days</Text>
           </View>
 
           {top.length === 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
               <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
-              <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'Helvetica Neue' }}>No side effects logged recently</Text>
+              <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'Inter_400Regular' }}>No side effects logged recently</Text>
             </View>
           ) : (
             top.map((item, i) => {
@@ -2235,16 +2235,16 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
                       <EffectIcon type={item.type} size={22} color={color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Helvetica Neue' }}>{name}</Text>
-                      <Text style={{ fontSize: 12, color: w(0.4), fontFamily: 'Helvetica Neue', marginTop: 2 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{name}</Text>
+                      <Text style={{ fontSize: 12, color: w(0.4), fontFamily: 'Inter_400Regular', marginTop: 2 }}>
                         {item.count} {item.count === 1 ? 'time' : 'times'} logged
                       </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 3 }}>
                       <View style={{ backgroundColor: color + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color, fontFamily: 'Helvetica Neue' }}>{severityLabel(item.avgSev)}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color, fontFamily: 'Inter_400Regular' }}>{severityLabel(item.avgSev)}</Text>
                       </View>
-                      <Text style={{ fontSize: 11, color: w(0.3), fontFamily: 'Helvetica Neue' }}>avg {item.avgSev}/10</Text>
+                      <Text style={{ fontSize: 11, color: w(0.3), fontFamily: 'Inter_400Regular' }}>avg {item.avgSev}/10</Text>
                     </View>
                   </View>
                 </View>
@@ -2288,7 +2288,7 @@ function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?:
             <View style={s.logDivider} />
             {entries.length === 0 ? (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 13, fontFamily: 'Helvetica Neue' }}>No entries yet</Text>
+                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 13, fontFamily: 'Inter_400Regular' }}>No entries yet</Text>
               </View>
             ) : entries.map((entry, i) => (
               <View key={entry.id}>
@@ -2523,7 +2523,7 @@ function LifestyleTrendCard({
             }}
           >
             <Text style={{
-              fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
+              fontSize: 11, fontWeight: '600', fontFamily: 'Inter_400Regular',
               color: metricId === m.id ? '#FFF' : tc(0.45),
             }}>
               {m.label}
@@ -2547,7 +2547,7 @@ function LifestyleTrendCard({
             }}
           >
             <Text style={{
-              fontSize: 11, fontWeight: '600', fontFamily: 'Helvetica Neue',
+              fontSize: 11, fontWeight: '600', fontFamily: 'Inter_400Regular',
               color: periodDays === p.days ? colors.textPrimary : tc(0.35),
             }}>
               {p.label}
@@ -2568,7 +2568,7 @@ function LifestyleTrendCard({
     if (!hasData) {
       return (
         <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 12, color: tc(0.35), fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 12, color: tc(0.35), fontFamily: 'Inter_400Regular' }}>
             Start logging to see data
           </Text>
         </View>
@@ -2599,7 +2599,7 @@ function LifestyleTrendCard({
                 stroke={tc(0.07)} strokeWidth={1} strokeDasharray="3,4" />
               <SvgText x={LT_TML - 6} y={y + 3.5}
                 fontSize={9} fill={tc(0.35)}
-                textAnchor="end" fontFamily="Helvetica Neue">
+                textAnchor="end" fontFamily="Inter_400Regular">
                 {label}
               </SvgText>
             </React.Fragment>
@@ -2613,7 +2613,7 @@ function LifestyleTrendCard({
               stroke={tc(0.04)} strokeWidth={1} />
             <SvgText x={lbl.x} y={chartH - 5}
               fontSize={9} fill={tc(0.35)}
-              textAnchor="middle" fontFamily="Helvetica Neue">
+              textAnchor="middle" fontFamily="Inter_400Regular">
               {lbl.label}
             </SvgText>
           </React.Fragment>
@@ -2634,7 +2634,7 @@ function LifestyleTrendCard({
               stroke={metric.color} strokeWidth={1} strokeDasharray="5,4" strokeOpacity="0.5" />
             <SvgText x={w - LT_TMR - 3} y={data.goalY - 3}
               fontSize={8} fill={metric.color} fillOpacity={0.6}
-              textAnchor="end" fontFamily="Helvetica Neue">
+              textAnchor="end" fontFamily="Inter_400Regular">
               Goal
             </SvgText>
           </>
@@ -2691,12 +2691,12 @@ function LifestyleTrendCard({
         {renderMetricPills(setMetricId)}
         {/* Footer stats */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ fontSize: 11, color: tc(0.5), fontFamily: 'Helvetica Neue' }}>
+          <Text style={{ fontSize: 11, color: tc(0.5), fontFamily: 'Inter_400Regular' }}>
             Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
           </Text>
           {hasData && (
             <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${hitRateColor}22` }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: hitRateColor, fontFamily: 'Helvetica Neue' }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: hitRateColor, fontFamily: 'Inter_400Regular' }}>
                 {hitRatePct}% on target
               </Text>
             </View>
@@ -2732,7 +2732,7 @@ function LifestyleTrendCard({
 
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
                 {metric.label} Trend
               </Text>
               <Pressable onPress={dismiss} hitSlop={12}>
@@ -2775,12 +2775,12 @@ function LifestyleTrendCard({
               {/* Selected point tooltip */}
               {selValue !== null && selDate !== null && (
                 <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>{selDate}</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Helvetica Neue', marginTop: 2 }}>
+                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>{selDate}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Inter_400Regular', marginTop: 2 }}>
                     {fmtVal(selValue)} {metric.unit}
                   </Text>
                   <Text style={{
-                    fontSize: 12, fontWeight: '600', fontFamily: 'Helvetica Neue', marginTop: 2,
+                    fontSize: 12, fontWeight: '600', fontFamily: 'Inter_400Regular', marginTop: 2,
                     color: selValue >= target ? '#27AE60' : '#E74C3C',
                   }}>
                     {selValue >= target
@@ -2795,10 +2795,10 @@ function LifestyleTrendCard({
                 <View style={{ marginTop: 16 }}>
                   {/* Hit rate */}
                   <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                    <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Helvetica Neue', lineHeight: 60 }}>
+                    <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Inter_400Regular', lineHeight: 60 }}>
                       {hitRatePct}%
                     </Text>
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Helvetica Neue' }}>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>
                       of days on target
                     </Text>
                   </View>
@@ -2811,15 +2811,15 @@ function LifestyleTrendCard({
                       { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
                     ].map((chip, i) => (
                       <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Helvetica Neue' }}>{chip.value}</Text>
-                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Helvetica Neue', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Inter_400Regular' }}>{chip.value}</Text>
+                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
                       </View>
                     ))}
                   </View>
 
                   {/* Contextual text */}
                   <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Helvetica Neue', lineHeight: 20 }}>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter_400Regular', lineHeight: 20 }}>
                       {hitRatePct >= 70
                         ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
                         : hitRatePct >= 40
@@ -3136,7 +3136,7 @@ export default function InsightsScreen() {
           <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} tabs={onTreatment ? TABS : TABS.filter(t => t.key !== 'medication')} />
           {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
             <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
-            <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Helvetica Neue' }}>
+            <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular' }}>
               Hold any card to ask AI
             </Text>
           </View> */}
@@ -3217,13 +3217,13 @@ export default function InsightsScreen() {
                         metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)),
                       })).filter(g => g.metrics.length > 0);
                   if (healthGroups.length === 0) return (
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Helvetica Neue', paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter_400Regular', paddingVertical: 8 }}>
                       No health data available yet. Data will appear here as Apple Health collects it.
                     </Text>
                   );
                   return healthGroups.map((group) => (
                     <View key={group.category} style={{ marginBottom: 16 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'Helvetica Neue', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>{group.category}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'Inter_400Regular', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>{group.category}</Text>
                       <View style={s.hmGrid}>
                         {(() => {
                           const isOdd = group.metrics.length % 2 !== 0;
@@ -3389,7 +3389,7 @@ const createStyles = (c: AppColors) => {
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Helvetica Neue' },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' },
 
 
   // Card base
@@ -3400,8 +3400,8 @@ const createStyles = (c: AppColors) => {
   aiAccent: { position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, backgroundColor: ORANGE, borderTopLeftRadius: 24, borderBottomLeftRadius: 24 },
   aiContent: { paddingVertical: 18, paddingLeft: 20, paddingRight: 18 },
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Helvetica Neue' },
-  aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
+  aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Inter_400Regular' },
+  aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Inter_400Regular' },
 
   // Metrics row
   metricsRow: { flexDirection: 'row', gap: 20, marginBottom: 24, paddingHorizontal: 4 },
@@ -3409,40 +3409,40 @@ const createStyles = (c: AppColors) => {
   metricInner: { padding: 18, alignItems: 'center' },
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   ringCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  metricLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'Helvetica Neue' },
+  metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
+  metricLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'Inter_400Regular' },
 
   // Daily Metrics grid
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Helvetica Neue' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Inter_800ExtraBold' },
   dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   dailyWrap: { width: '47%', borderRadius: 20 },
   dailyInner: { padding: 18 },
   dailyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Helvetica Neue' },
-  dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
+  changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter_400Regular' },
+  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Inter_400Regular' },
+  dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
 
   // Medication chart card
-  chartMuted: { fontSize: 12, color: w(0.45), fontWeight: '500', fontFamily: 'Helvetica Neue' },
-  chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  dayLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'Helvetica Neue' },
+  chartMuted: { fontSize: 12, color: w(0.45), fontWeight: '500', fontFamily: 'Inter_400Regular' },
+  chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
+  dayLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
 
   // Education sections (expanded modal)
-  eduTitle: { fontSize: 15, fontWeight: '700' as const, color: c.textPrimary, fontFamily: 'Helvetica Neue', marginBottom: 10 },
-  eduBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Helvetica Neue' },
-  eduSubtitle: { fontSize: 12, fontStyle: 'italic' as const, color: w(0.4), marginBottom: 8, fontFamily: 'Helvetica Neue' },
+  eduTitle: { fontSize: 15, fontWeight: '700' as const, color: c.textPrimary, fontFamily: 'Inter_700Bold', marginBottom: 10 },
+  eduBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Inter_400Regular' },
+  eduSubtitle: { fontSize: 12, fontStyle: 'italic' as const, color: w(0.4), marginBottom: 8, fontFamily: 'Inter_400Regular' },
   eduDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginBottom: 20 },
 
   // Progress chart
   progPeriodRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
   progPeriodBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   progPeriodBtnActive: { backgroundColor: ORANGE },
-  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: w(0.35), fontFamily: 'Helvetica Neue' },
-  progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: w(0.35), fontFamily: 'Inter_400Regular' },
+  progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'Inter_400Regular' },
   progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: c.bg },
-  progGoalLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), fontFamily: 'Helvetica Neue' },
+  progGoalLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), fontFamily: 'Inter_400Regular' },
 
   // Progress stat card
   progStatSub: { marginTop: 6 },
@@ -3451,18 +3451,18 @@ const createStyles = (c: AppColors) => {
 
   // Recent Logs card
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  logHeaderText: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Helvetica Neue' },
+  logHeaderText: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
   logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)' },
-  logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Helvetica Neue' },
+  logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' },
   logEntryList: { paddingHorizontal: 18, paddingBottom: 14 },
   logDivider: { height: 1, backgroundColor: w(0.06) },
   logEntryRow: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
   logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logEntryTitle: { fontSize: 13, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'Helvetica Neue' },
-  logEntryTime: { fontSize: 11, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Helvetica Neue' },
-  logEntryDetails: { fontSize: 12, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'Helvetica Neue' },
+  logEntryTitle: { fontSize: 13, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'Inter_400Regular' },
+  logEntryTime: { fontSize: 11, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Inter_400Regular' },
+  logEntryDetails: { fontSize: 12, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'Inter_400Regular' },
   logImpactTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Helvetica Neue' },
+  logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter_400Regular' },
 
   // Health Monitor
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 8 },
@@ -3471,9 +3471,9 @@ const createStyles = (c: AppColors) => {
   hmInner: { padding: 18 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
-  hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Helvetica Neue' },
-  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Helvetica Neue' },
-  hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Helvetica Neue' },
-  hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Helvetica Neue' },
+  hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Inter_400Regular' },
+  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Inter_400Regular' },
+  hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
+  hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Inter_400Regular' },
   });
 };

@@ -47,34 +47,48 @@ export const darkColors: AppColors = {
 // ─── Light palette ─────────────────────────────────────────────────────────────
 
 export const lightColors: AppColors = {
-  bg: '#F2F1EF',
-  surface: '#FFFFFF',
-  cardBg: '#FFFFFF',
-  textPrimary: '#000000',
-  textSecondary: '#6B6868',
-  textMuted: '#6B6562',
-  orange: '#FF742A',
-  orangeDim: 'rgba(255,116,42,0.15)',
-  border: 'rgba(0,0,0,0.14)',
-  borderSubtle: 'rgba(0,0,0,0.10)',
-  glassOverlay: 'rgba(0,0,0,0.03)',
-  shadowColor: '#000000',
-  ringTrack: 'rgba(0,0,0,0.08)',
+  bg: '#FFFFFF',
+  surface: '#EEEDEB',
+  cardBg: '#EEEDEB',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B6965',
+  textMuted: '#9A9690',
+  orange: '#E8652A',
+  orangeDim: 'rgba(232,101,42,0.10)',
+  border: 'rgba(0,0,0,0.06)',
+  borderSubtle: 'rgba(0,0,0,0.03)',
+  glassOverlay: 'rgba(0,0,0,0.02)',
+  shadowColor: 'rgba(30,40,80,1)',
+  ringTrack: 'rgba(0,0,0,0.04)',
   blurTint: 'systemThinMaterialLight',
   statusBar: 'dark',
   isDark: false,
 };
 
-// ─── Status colors (semantic - unchanged in both modes) ───────────────────────
+// ─── Status colors (semantic) ─────────────────────────────────────────────────
+// Dark mode uses lighter tones; light mode uses deeper tones for WCAG AA on white.
 
 export const STATUS_GOOD = '#27AE60';
 export const STATUS_LOW  = '#F39C12';
 export const STATUS_BAD  = '#E74C3C';
 
+export const STATUS_GOOD_LIGHT = '#1D9A54';
+export const STATUS_LOW_LIGHT  = '#D4860A';
+export const STATUS_BAD_LIGHT  = '#D63031';
+
+/** Pick the right semantic color based on mode */
+export function statusColor(isDark: boolean) {
+  return {
+    good: isDark ? STATUS_GOOD : STATUS_GOOD_LIGHT,
+    low:  isDark ? STATUS_LOW  : STATUS_LOW_LIGHT,
+    bad:  isDark ? STATUS_BAD  : STATUS_BAD_LIGHT,
+  };
+}
+
 // ─── Back-compat named exports ────────────────────────────────────────────────
 
 export const ORANGE       = '#FF742A';
-export const FONT_FAMILY  = 'Helvetica Neue';
+export const FONT_FAMILY  = 'Inter_400Regular';
 
 // ─── Back-compat flat exports (dark values) ───────────────────────────────────
 
@@ -134,33 +148,31 @@ export function cardElevation(isDark: boolean): {
     };
   }
   return {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: 'rgba(30,40,80,1)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   };
 }
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'system-ui',
+    sans: 'Inter_400Regular',
     serif: 'ui-serif',
     rounded: 'ui-rounded',
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'normal',
+    sans: 'Inter_400Regular',
     serif: 'serif',
-    rounded: 'normal',
+    rounded: 'Inter_400Regular',
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    sans: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
+    rounded: "'Inter', system-ui, sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });

@@ -193,7 +193,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_700Bold',
     },
     plateauBadge: {
       borderRadius: 10,
@@ -203,7 +203,7 @@ const createStyles = (c: AppColors) => {
     plateauBadgeText: {
       fontSize: 11,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statRow: {
       flexDirection: 'row',
@@ -214,12 +214,12 @@ const createStyles = (c: AppColors) => {
     statLabel: {
       fontSize: 13,
       color: w(0.5),
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     statValue: {
       fontSize: 13,
       fontWeight: '700',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     chartSection: {
       marginBottom: 14,
@@ -231,7 +231,7 @@ const createStyles = (c: AppColors) => {
       color: w(0.4),
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     barChartRow: {
       flexDirection: 'row',
@@ -254,7 +254,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 9,
       color: w(0.3),
       textAlign: 'center',
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     alertBox: {
       borderRadius: 12,
@@ -265,20 +265,20 @@ const createStyles = (c: AppColors) => {
     alertText: {
       fontSize: 13,
       lineHeight: 18,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     emptyText: {
       fontSize: 13,
       color: w(0.45),
       lineHeight: 19,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
     tapHint: {
       fontSize: 11,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Helvetica Neue',
+      fontFamily: 'Inter_400Regular',
     },
   });
 };

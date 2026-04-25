@@ -25,7 +25,7 @@ export default function BirthdayScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 14;
+  const total = isStarting ? 10 : 13;
   const step = isStarting ? 5 : 8;
   const [monthIdx, setMonthIdx] = useState(0);
   const [dayIdx, setDayIdx] = useState(0);
@@ -89,8 +89,8 @@ export default function BirthdayScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
+  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Inter_400Regular' },
   pickersRow: {
     flex: 1,
     flexDirection: 'row',
@@ -102,7 +102,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   colLabel: {
     fontSize: 12,
     fontWeight: '600',
-    fontFamily: 'Helvetica Neue',
+    fontFamily: 'Inter_400Regular',
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 8,

@@ -1,6 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -11,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AppColors } from '@/constants/theme';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
+import { GlassSurface } from '@/components/glass-surface';
 import { FoodProcessingBanner } from '@/components/food-processing-banner';
 import { useAppTheme } from '@/contexts/theme-context';
 
@@ -76,10 +76,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
           pointerEvents={pillInteractive ? 'box-none' : 'none'}
         >
           <View style={s.pillInner}>
-            <BlurView intensity={80} tint={colors.blurTint} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, s.pillOverlay, { backgroundColor: colors.glassOverlay }]} />
-            <View pointerEvents="none" style={[s.pillShine, { backgroundColor: colors.ringTrack }]} />
-            <View pointerEvents="none" style={[s.pillBorder, { borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} />
+            <GlassSurface fallbackColors={colors} />
             <View style={s.pillContent}>
               {state.routes.map((route, index) => {
                 const isFocused = index === activeIndex;
@@ -111,9 +108,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
             transform: [{ scale: miniScale }],
           }]}
         >
-          <BlurView intensity={80} tint={colors.blurTint} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 31, backgroundColor: colors.glassOverlay }]} />
-          <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: 31, borderWidth: 1, borderTopColor: colors.border, borderLeftColor: colors.borderSubtle, borderRightColor: 'transparent', borderBottomColor: 'transparent' }]} />
+          <GlassSurface fallbackColors={colors} />
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); expand(); }}
@@ -220,6 +215,7 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'flex-end',
     paddingHorizontal: 16, paddingTop: 8,
+    zIndex: 10,
   },
 
   // Left slot: full pill + mini circle overlaid
@@ -258,6 +254,6 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
   },
 
   // FAB - solid orange
-  fab: { width: 62, height: 62, borderRadius: 31, shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10, marginBottom: 2 },
+  fab: { width: 62, height: 62, borderRadius: 31, marginBottom: 2 },
   fabInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
 });

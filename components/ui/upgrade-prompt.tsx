@@ -38,7 +38,7 @@ export function UpgradePrompt({
   onClose,
   onUpgrade,
   title = 'Unlock Titra Pro',
-  description = 'Get unlimited AI coaching and advanced health intelligence for just $9.99/month.',
+  description = 'Get unlimited AI coaching and advanced health intelligence for just $4.99/month.',
   feature,
 }: Props) {
   const { colors, isDark } = useAppTheme();
@@ -107,7 +107,7 @@ export function UpgradePrompt({
         </TouchableOpacity>
 
         <Text style={[styles.priceNote, { color: colors.textMuted }]}>
-          Then $9.99/month. Cancel anytime.
+          Then $4.99/month. Cancel anytime.
         </Text>
       </Animated.View>
     </Modal>
