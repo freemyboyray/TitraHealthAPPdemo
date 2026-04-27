@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { transcribeAudio } from '../lib/whisper';
+import { UsageLimitError } from '../lib/openai';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Recording = any;
@@ -55,7 +56,13 @@ export function useVoiceInput() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return text;
     } catch (e) {
-      setError('Transcription failed');
+      if (e instanceof UsageLimitError) {
+        setError(
+          `You've reached your ${e.limit} voice transcriptions for today. Upgrade to Titra Pro for unlimited voice logging.`,
+        );
+      } else {
+        setError('Transcription failed');
+      }
       console.warn('stopAndTranscribe error:', e);
       return '';
     } finally {

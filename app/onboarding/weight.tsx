@@ -10,52 +10,37 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FEET = Array.from({ length: 4 }, (_, i) => `${i + 4} ft`);
-const INCHES = Array.from({ length: 12 }, (_, i) => `${i} in`);
 const LBS_WHOLE = Array.from({ length: 321 }, (_, i) => `${i + 80} lbs`);
 const LBS_HALF = ['.0', '.5'];
-const CM = Array.from({ length: 101 }, (_, i) => `${i + 120} cm`);
 const KG = Array.from({ length: 161 }, (_, i) => `${i + 40} kg`);
 
-export default function BodyScreen() {
+export default function WeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const step = isStarting ? 6 : 9;
-  const [unit, setUnit] = useState<UnitSystem>('imperial');
-  const [ftIdx, setFtIdx] = useState(2);
-  const [inIdx, setInIdx] = useState(0);
+  const total = isStarting ? 10 : 16;
+  const step = isStarting ? 6 : 11;
+  const [unit, setUnit] = useState<UnitSystem>(draft.unitSystem ?? 'imperial');
   const [lbsIdx, setLbsIdx] = useState(100);
   const [halfIdx, setHalfIdx] = useState(0);
-  const [cmIdx, setCmIdx] = useState(45);
   const [kgIdx, setKgIdx] = useState(42);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleContinue = () => {
     if (unit === 'imperial') {
-      const ft = ftIdx + 4;
-      const inches = inIdx;
       const lbs = lbsIdx + 80 + (halfIdx === 1 ? 0.5 : 0);
       updateDraft({
         unitSystem: 'imperial',
-        heightFt: ft,
-        heightIn: inches,
-        heightCm: Math.round(((ft * 12) + inches) * 2.54),
         weightLbs: lbs,
         weightKg: Math.round(lbs * 0.453592 * 10) / 10,
         currentWeightLbs: lbs,
         currentWeightKg: Math.round(lbs * 0.453592 * 10) / 10,
       });
     } else {
-      const cm = cmIdx + 120;
       const kg = kgIdx + 40;
       updateDraft({
         unitSystem: 'metric',
-        heightCm: cm,
-        heightFt: Math.floor(cm / 30.48),
-        heightIn: Math.round((cm / 2.54) % 12),
         weightKg: kg,
         weightLbs: Math.round(kg * 2.20462 * 10) / 10,
         currentWeightLbs: Math.round(kg * 2.20462 * 10) / 10,
@@ -71,12 +56,11 @@ export default function BodyScreen() {
         <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={s.title}>Your Height & Current Weight</Text>
+          <Text style={s.title}>What's your current weight?</Text>
           <Text style={s.subtitle}>
             What you weigh right now — helps us personalize your nutrition and activity goals.
           </Text>
 
-          {/* Unit toggle */}
           <View style={s.toggle}>
             <TouchableOpacity
               style={[s.toggleBtn, unit === 'imperial' && s.toggleBtnActive]}
@@ -94,42 +78,21 @@ export default function BodyScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={s.pickersSection}>
-            <Text style={s.sectionLabel}>Height</Text>
-            <View style={s.pickersRow}>
-              {unit === 'imperial' ? (
-                <>
-                  <View style={s.pickerWrap}>
-                    <WheelPicker data={FEET} selectedIndex={ftIdx} onSelect={setFtIdx} />
-                  </View>
-                  <View style={s.pickerWrap}>
-                    <WheelPicker data={INCHES} selectedIndex={inIdx} onSelect={setInIdx} />
-                  </View>
-                </>
-              ) : (
+          <View style={s.pickersRow}>
+            {unit === 'imperial' ? (
+              <>
                 <View style={s.pickerWrap}>
-                  <WheelPicker data={CM} selectedIndex={cmIdx} onSelect={setCmIdx} />
+                  <WheelPicker data={LBS_WHOLE} selectedIndex={lbsIdx} onSelect={setLbsIdx} />
                 </View>
-              )}
-            </View>
-
-            <Text style={[s.sectionLabel, { marginTop: 16 }]}>Weight</Text>
-            <View style={s.pickersRow}>
-              {unit === 'imperial' ? (
-                <>
-                  <View style={s.pickerWrap}>
-                    <WheelPicker data={LBS_WHOLE} selectedIndex={lbsIdx} onSelect={setLbsIdx} />
-                  </View>
-                  <View style={[s.pickerWrap, { flex: 0.5 }]}>
-                    <WheelPicker data={LBS_HALF} selectedIndex={halfIdx} onSelect={setHalfIdx} />
-                  </View>
-                </>
-              ) : (
-                <View style={s.pickerWrap}>
-                  <WheelPicker data={KG} selectedIndex={kgIdx} onSelect={setKgIdx} />
+                <View style={[s.pickerWrap, { flex: 0.5 }]}>
+                  <WheelPicker data={LBS_HALF} selectedIndex={halfIdx} onSelect={setHalfIdx} />
                 </View>
-              )}
-            </View>
+              </>
+            ) : (
+              <View style={s.pickerWrap}>
+                <WheelPicker data={KG} selectedIndex={kgIdx} onSelect={setKgIdx} />
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -152,38 +115,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 24,
     alignSelf: 'flex-start',
   },
-  toggleBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#FF742A',
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
-    color: c.textSecondary,
-  },
-  toggleTextActive: {
-    color: '#FFFFFF',
-    fontFamily: 'Inter_400Regular',
-  },
+  toggleBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
+  toggleBtnActive: { backgroundColor: '#FF742A' },
+  toggleText: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_400Regular', color: c.textSecondary },
+  toggleTextActive: { color: '#FFFFFF', fontFamily: 'Inter_400Regular' },
   scrollContent: { paddingBottom: 16 },
-  pickersSection: {},
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
-    color: c.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  pickersRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  pickersRow: { flexDirection: 'row', gap: 8 },
   pickerWrap: { flex: 1 },
 });

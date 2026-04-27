@@ -2,14 +2,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
-import { toDateString } from '@/constants/user-profile';
 import { DRUG_IS_ORAL, DRUG_DEFAULT_FREQ_DAYS } from '@/constants/drug-pk';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -32,13 +31,8 @@ export default function ScheduleScreen() {
   const isDaily   = glp1Type ? DRUG_DEFAULT_FREQ_DAYS[glp1Type] === 1 : false;
   const lockedFreq = isDaily ? 1 : null;
 
-  const glp1Status = draft.glp1Status ?? 'active';
-  const isActive   = glp1Status === 'active';
-
   const [freq, setFreq] = useState<number | 'custom' | null>(lockedFreq);
   const [customFreq, setCustomFreq] = useState('');
-  const [lastInjDate, setLastInjDate] = useState(new Date());
-  const [doseStartDate, setDoseStartDate] = useState(new Date());
   // dose_time: default to 8:00 AM for daily drugs
   const [doseTime, setDoseTime] = useState(() => {
     const d = new Date(); d.setHours(8, 0, 0, 0); return d;
@@ -60,11 +54,9 @@ export default function ScheduleScreen() {
       : '';
     updateDraft({
       injectionFrequencyDays: freqDays as number,
-      lastInjectionDate: toDateString(lastInjDate),
-      doseStartDate: toDateString(isActive ? doseStartDate : lastInjDate),
       doseTime: formattedDoseTime,
     });
-    router.push('/onboarding/sex');
+    router.push('/onboarding/last-shot');
   };
 
   const doseNoun  = isOral ? 'pill' : isDaily ? 'injection' : 'shot';
@@ -72,7 +64,7 @@ export default function ScheduleScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={6} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={5} total={16} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
           {!isDaily ? (
@@ -123,26 +115,7 @@ export default function ScheduleScreen() {
                   </Text>
                 </View>
               )}
-            </>
-          )}
 
-          <Text style={s.sectionLabel}>
-            {isOral ? `When did you last take your ${doseNoun}?`
-                    : `When was your last ${doseNoun}?`}
-          </Text>
-          <View style={s.datePickerWrap}>
-            <DateTimePicker
-              value={lastInjDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'compact' : 'default'}
-              maximumDate={new Date()}
-              onChange={(_, date) => { if (date) setLastInjDate(date); }}
-              style={s.datePicker}
-            />
-          </View>
-
-          {isDaily && (
-            <>
               <Text style={s.sectionLabel}>What time do you take your {doseNoun}?</Text>
               <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
                 We'll send you a daily reminder at this time.
@@ -153,25 +126,6 @@ export default function ScheduleScreen() {
                   mode="time"
                   display="spinner"
                   onChange={(_, date) => { if (date) setDoseTime(date); }}
-                  style={s.datePicker}
-                />
-              </View>
-            </>
-          )}
-
-          {isActive && (
-            <>
-              <Text style={s.sectionLabel}>When did you start your current dose?</Text>
-              <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
-                The date you first took this specific dose amount.
-              </Text>
-              <View style={s.datePickerWrap}>
-                <DateTimePicker
-                  value={doseStartDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                  maximumDate={new Date()}
-                  onChange={(_, date) => { if (date) setDoseStartDate(date); }}
                   style={s.datePicker}
                 />
               </View>

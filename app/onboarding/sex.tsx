@@ -21,8 +21,8 @@ export default function SexScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const step = isStarting ? 4 : 7;
+  const total = isStarting ? 10 : 16;
+  const step = isStarting ? 3 : 8;
   const [selected, setSelected] = useState<Sex | null>(null);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);

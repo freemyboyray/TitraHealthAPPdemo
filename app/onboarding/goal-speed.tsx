@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
 import {
@@ -39,8 +40,8 @@ export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const stepNum = isStarting ? 9 : 12;
+  const total = isStarting ? 10 : 16;
+  const stepNum = isStarting ? 9 : 15;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [speedIdx, setSpeedIdx] = useState(2);
@@ -91,7 +92,10 @@ export default function GoalSpeedScreen() {
             return (
               <TouchableOpacity
                 key={v}
-                onPress={() => setSpeedIdx(i)}
+                onPress={() => {
+                  if (i !== speedIdx) Haptics.selectionAsync();
+                  setSpeedIdx(i);
+                }}
                 activeOpacity={0.7}
                 style={[s.snapItem, isSelected && s.snapItemSelected]}>
                 <Text style={[s.snapLabel, isSelected && s.snapLabelSelected]}>

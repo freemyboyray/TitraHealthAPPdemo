@@ -25,8 +25,8 @@ export default function BirthdayScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const step = isStarting ? 5 : 8;
+  const total = isStarting ? 10 : 16;
+  const step = isStarting ? 4 : 9;
   const [monthIdx, setMonthIdx] = useState(0);
   const [dayIdx, setDayIdx] = useState(0);
   const [yearIdx, setYearIdx] = useState(20);
@@ -54,7 +54,7 @@ export default function BirthdayScreen() {
     }
 
     updateDraft({ birthday: `${year}-${month}-${day}` });
-    router.push('/onboarding/body');
+    router.push('/onboarding/height');
   };
 
   return (

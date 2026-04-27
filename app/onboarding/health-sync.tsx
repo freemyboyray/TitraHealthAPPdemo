@@ -21,8 +21,8 @@ export default function HealthSyncScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.treatmentStatus !== 'on';
-  const total = isStarting ? 10 : 13;
-  const step = isStarting ? 7 : 10;
+  const total = isStarting ? 10 : 16;
+  const step = isStarting ? 7 : 12;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const requestPermissions = useHealthKitStore((s) => s.requestPermissions);

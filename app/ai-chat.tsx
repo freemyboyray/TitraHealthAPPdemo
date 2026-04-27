@@ -22,7 +22,7 @@ import type { AppColors } from '@/constants/theme';
 import { daysSinceInjection } from '@/constants/scoring';
 import { buildSystemPrompt, callOpenAI, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
-import { useSubscriptionStore } from '@/stores/subscription-store';
+import { UsageBadge } from '@/components/ui/usage-badge';
 
 const ORANGE = '#FF742A';
 
@@ -105,27 +105,6 @@ function AiOrb() {
         <View style={s.orbShine} />
         <View style={s.orbShineSmall} />
       </View>
-    </View>
-  );
-}
-
-/** Shows remaining free messages or "Pro" badge for premium users */
-function UsageBadge() {
-  const { colors } = useAppTheme();
-  const isPremium = useSubscriptionStore((s) => s.isPremium);
-  const limit = useSubscriptionStore((s) => s.getFeatureLimit('ai_chat'));
-
-  if (isPremium) {
-    return (
-      <View style={{ backgroundColor: 'rgba(255,116,42,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
-        <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '600' }}>PRO</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{limit} free/day</Text>
     </View>
   );
 }
@@ -314,7 +293,7 @@ export default function AiChatScreen() {
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Ask AI</Text>
-          <UsageBadge />
+          <UsageBadge feature="ai_chat" />
         </View>
 
         {messages.length === 0 && !loading ? (

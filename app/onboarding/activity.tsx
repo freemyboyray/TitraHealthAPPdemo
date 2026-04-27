@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -22,8 +23,8 @@ export default function ActivityScreen() {
   const router = useRouter();
   const { draft, updateDraft, completeOnboarding } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const step = isStarting ? 10 : 13;
+  const total = isStarting ? 10 : 16;
+  const step = isStarting ? 10 : 16;
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
@@ -53,7 +54,10 @@ export default function ActivityScreen() {
                 icon={<MaterialIcons name={o.iconName as any} size={20} color={iconColor} />}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
-                onPress={() => setSelected(o.value)}
+                onPress={() => {
+                  if (selected !== o.value) Haptics.selectionAsync();
+                  setSelected(o.value);
+                }}
               />
             ))}
           </View>

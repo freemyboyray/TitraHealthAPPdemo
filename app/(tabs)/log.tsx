@@ -794,9 +794,9 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   if (vitals.length > 0) groups.push({ category: 'Vitals', metrics: vitals });
 
   // ── Body Composition ──
+  // Note: Weight is omitted here — Titra tracks it directly (logStore syncs from
+  // HK on home tab focus). Showing it again would duplicate the Progress tab card.
   const body: HealthMetric[] = [];
-  const wt = hkStore.latestWeight;
-  if (wt != null) body.push({ id: 'weight', label: 'Weight', value: String(wt), unit: 'lbs', status: hmWeightStatus(), iconSet: 'Ionicons', iconName: 'scale-outline', rangeLabel: hmWeightLabel(), gaugePosition: hmGaugePos('weight', wt) });
   const bf = hkStore.bodyFat;
   if (bf != null) body.push({ id: 'bodyFat', label: 'Body Fat', value: `${bf}`, unit: '%', status: hmBodyFatStatus(bf), iconSet: 'Ionicons', iconName: 'body-outline', rangeLabel: hmBodyFatLabel(bf), gaugePosition: hmGaugePos('bodyFat', bf) });
   const lm = hkStore.leanMass;
@@ -808,11 +808,10 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   if (body.length > 0) groups.push({ category: 'Body Composition', metrics: body });
 
   // ── Activity ──
+  // Note: Steps + Active Calories live in the Daily Metrics row above (with HK
+  // fallback). We keep TDEE/exMin/VO2/etc. here since those are HK-only.
   const activity: HealthMetric[] = [];
-  const steps = hkStore.steps;
-  if (steps != null && steps > 0) activity.push({ id: 'steps', label: 'Steps', value: steps.toLocaleString(), unit: '', status: hmStepsStatus(steps), iconSet: 'Ionicons', iconName: 'footsteps-outline', rangeLabel: hmStepsLabel(steps), gaugePosition: hmGaugePos('steps', steps) });
-  const cal = hkStore.activeCalories;
-  if (cal != null && cal > 0) activity.push({ id: 'activeCal', label: 'Active Calories', value: cal.toLocaleString(), unit: 'cal', status: hmCalStatus(cal), iconSet: 'Ionicons', iconName: 'flame-outline', rangeLabel: hmCalLabel(cal), gaugePosition: hmGaugePos('activeCal', cal) });
+  const cal = hkStore.activeCalories; // used for TDEE calc below
   const exMin = hkStore.exerciseMinutes;
   if (exMin != null && exMin > 0) activity.push({ id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) });
   const vo2 = hkStore.vo2max;
@@ -852,19 +851,9 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
     groups.push({ category: 'Mindfulness', metrics: mindMetrics });
   }
 
-  // ── Nutrition (from Apple Health, not Titra logs) ──
-  const nutrition: HealthMetric[] = [];
-  const nut = hkStore.todayNutrition;
-  if (nut != null && (nut.protein > 0 || nut.calories > 0)) {
-    if (nut.calories > 0) nutrition.push({ id: 'hkCalories', label: 'Calories (HK)', value: nut.calories.toLocaleString(), unit: 'cal', status: 'normal', iconSet: 'MaterialIcons', iconName: 'local-fire-department', rangeLabel: 'Today', gaugePosition: null });
-    if (nut.protein > 0) nutrition.push({ id: 'hkProtein', label: 'Protein (HK)', value: `${nut.protein}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'egg-alt', rangeLabel: 'Today', gaugePosition: null });
-    if (nut.carbs > 0) nutrition.push({ id: 'hkCarbs', label: 'Carbs (HK)', value: `${nut.carbs}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'grain', rangeLabel: 'Today', gaugePosition: null });
-    if (nut.fat > 0) nutrition.push({ id: 'hkFat', label: 'Fat (HK)', value: `${nut.fat}`, unit: 'g', status: 'normal', iconSet: 'MaterialIcons', iconName: 'opacity', rangeLabel: 'Today', gaugePosition: null });
-    if (nut.fiber > 0) nutrition.push({ id: 'hkFiber', label: 'Fiber (HK)', value: `${nut.fiber}`, unit: 'g', status: 'normal', iconSet: 'Ionicons', iconName: 'leaf-outline', rangeLabel: 'Today', gaugePosition: null });
-  }
-  const water = hkStore.waterToday;
-  if (water != null && water > 0) nutrition.push({ id: 'water', label: 'Water', value: `${water}`, unit: 'fl oz', status: hmWaterStatus(water), iconSet: 'Ionicons', iconName: 'water-outline', rangeLabel: hmWaterLabel(water), gaugePosition: hmGaugePos('water', water) });
-  if (nutrition.length > 0) groups.push({ category: 'Nutrition', metrics: nutrition });
+  // Nutrition + Water are intentionally NOT shown here — those metrics flow
+  // into the protein/fiber/carbs/hydration daily metric cards above (with HK
+  // fallback when no in-app log exists), so we don't duplicate them.
 
   // ── Glucose (CGM time-series stats) ──
   const gStats = hkStore.glucoseStats;
@@ -2878,11 +2867,22 @@ export default function InsightsScreen() {
   const todayActivityLogs = activityLogs.filter(a => a.date === todayStr);
 
   // ── Lifestyle metrics ──────────────────────────────────────────────────────
-  const todayProteinG = Math.round(todayFoodLogs.reduce((s, f) => s + f.protein_g, 0));
-  const todayFiberG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fiber_g, 0));
-  const todayCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
-  const todayActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
-  const todaySteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
+  // For nutrition + activity metrics, prefer in-app logs but fall back to
+  // Apple Health when nothing is logged today (e.g. user logs food in
+  // MyFitnessPal, walks via iPhone). Keeps a single number per metric.
+  const loggedProteinG = Math.round(todayFoodLogs.reduce((s, f) => s + f.protein_g, 0));
+  const loggedFiberG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fiber_g, 0));
+  const loggedCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
+  const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
+  const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
+  const todayProteinG = loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0);
+  const todayFiberG = loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0);
+  const todayCarbsG = loggedCarbsG > 0 ? loggedCarbsG : Math.round(hkStore.todayNutrition?.carbs ?? 0);
+  const todayActiveCalories = loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0);
+  const todaySteps = loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0);
+  // Hydration: actuals.waterMl is from in-app logs; HK waterToday is in fl oz.
+  const hkWaterMl = hkStore.waterToday != null ? Math.round(hkStore.waterToday * 29.5735) : 0;
+  const resolvedWaterMl = actuals.waterMl > 0 ? actuals.waterMl : hkWaterMl;
 
   // ── Historical aggregations ────────────────────────────────────────────────
   const foodByDate = useMemo(() => {
@@ -2911,9 +2911,9 @@ export default function InsightsScreen() {
 
   const proteinPct = targets.proteinG > 0 ? Math.round((todayProteinG / targets.proteinG) * 100) : 0;
   const fiberPct = targets.fiberG > 0 ? Math.round((todayFiberG / targets.fiberG) * 100) : 0;
-  const waterOz = Math.round(actuals.waterMl / 29.57);
+  const waterOz = Math.round(resolvedWaterMl / 29.57);
   const waterTargetOz = Math.round(targets.waterMl / 29.57);
-  const waterPct = targets.waterMl > 0 ? Math.round((actuals.waterMl / targets.waterMl) * 100) : 0;
+  const waterPct = targets.waterMl > 0 ? Math.round((resolvedWaterMl / targets.waterMl) * 100) : 0;
   const carbsPct = targets.carbsG > 0 ? Math.round((todayCarbsG / targets.carbsG) * 100) : 0;
 
   // ── Lifestyle logs ─────────────────────────────────────────────────────────
@@ -3306,12 +3306,18 @@ export default function InsightsScreen() {
           {activeTab === 'progress' && (
             <>
               {/* <ProgAIInsightsCard /> */}
-              <WeightProjectionCard
-                projection={projection ?? null}
-                datasets={weightDatasets}
-                currentWeight={currentWeight}
-                programWeek={programWeek}
-              />
+              <PremiumGate
+                feature="weight_projection_advanced"
+                variant="hard"
+                teaser="See your projected weight curve and goal timeline."
+              >
+                <WeightProjectionCard
+                  projection={projection ?? null}
+                  datasets={weightDatasets}
+                  currentWeight={currentWeight}
+                  programWeek={programWeek}
+                />
+              </PremiumGate>
               <WeightGoalCard
                 projection={projection ?? null}
                 currentWeight={currentWeight}

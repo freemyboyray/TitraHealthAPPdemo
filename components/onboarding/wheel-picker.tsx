@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import React, { useCallback, useMemo, useRef } from 'react';
 import { FlatList, Text, View, StyleSheet, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -28,6 +29,7 @@ export function WheelPicker({
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const listRef = useRef<FlatList>(null);
+  const lastHapticIndexRef = useRef<number>(selectedIndex);
   const containerHeight = itemHeight * visibleCount;
   const padding = itemHeight * Math.floor(visibleCount / 2);
 
@@ -44,6 +46,20 @@ export function WheelPicker({
   // Start in the middle of the looped data so user can scroll both directions
   const middleOffset = circular ? Math.floor(LOOP_MULTIPLIER / 2) * len : 0;
   const initialIndex = middleOffset + selectedIndex;
+
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offset = e.nativeEvent.contentOffset.y;
+      const totalLen = circular ? loopedData.length : data.length;
+      const rawIndex = Math.max(0, Math.min(totalLen - 1, Math.round(offset / itemHeight)));
+      const realIndex = circular ? rawIndex % len : rawIndex;
+      if (realIndex !== lastHapticIndexRef.current) {
+        lastHapticIndexRef.current = realIndex;
+        Haptics.selectionAsync();
+      }
+    },
+    [data.length, len, loopedData.length, itemHeight, circular],
+  );
 
   const handleMomentumEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -106,6 +122,8 @@ export function WheelPicker({
           offset: itemHeight * index,
           index,
         })}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handleMomentumEnd}
         renderItem={({ item, index }) => (
           <View style={[s.item, { height: itemHeight }]}>

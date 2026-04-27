@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -27,19 +28,21 @@ export default function GoalWeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 13;
-  const stepNum = isStarting ? 8 : 11;
+  const total = isStarting ? 10 : 16;
+  const stepNum = isStarting ? 8 : 14;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const unit = draft.unitSystem ?? 'imperial';
 
-  const currentLbs = draft.weightLbs ?? 180;
-  const minLbs = Math.max(80, Math.round(currentLbs - 80));
-  const maxLbs = Math.round(currentLbs - 5);
+  const currentLbs = Math.round(draft.weightLbs ?? 180);
+  const minLbs = 80;
+  const maxLbs = Math.max(minLbs, currentLbs);
   const count = maxLbs - minLbs + 1;
 
-  const [selectedLbs, setSelectedLbs] = useState(Math.round(currentLbs - 20));
+  const initialLbs = Math.max(minLbs, Math.min(maxLbs, currentLbs - 20));
+  const [selectedLbs, setSelectedLbs] = useState(initialLbs);
   const listRef = useRef<FlatList>(null);
+  const lastHapticIdxRef = useRef<number>(initialLbs - minLbs);
 
   const displayValue =
     unit === 'imperial'
@@ -50,6 +53,10 @@ export default function GoalWeightScreen() {
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offset = e.nativeEvent.contentOffset.x;
       const idx = Math.max(0, Math.min(count - 1, Math.round(offset / UNIT_W)));
+      if (idx !== lastHapticIdxRef.current) {
+        lastHapticIdxRef.current = idx;
+        Haptics.selectionAsync();
+      }
       setSelectedLbs(minLbs + idx);
     },
     [count, minLbs],
@@ -104,6 +111,8 @@ export default function GoalWeightScreen() {
             contentContainerStyle={{ paddingHorizontal: SCREEN_WIDTH / 2 - UNIT_W / 2 }}
             initialScrollIndex={selectedLbs - minLbs}
             getItemLayout={(_, index) => ({ length: UNIT_W, offset: UNIT_W * index, index })}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onMomentumScrollEnd={handleScroll}
             renderItem={({ item }) => {
               const isMajor = item % 10 === 0;

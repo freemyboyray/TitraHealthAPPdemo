@@ -15,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { callOpenAI } from '../../lib/openai';
+import { callOpenAI, UsageLimitError } from '../../lib/openai';
+import { UsageBadge } from '../../components/ui/usage-badge';
 import { buildContextSnapshot } from '../../lib/context-snapshot';
 import { supabase } from '../../lib/supabase';
 import { computeScore } from '../../stores/insights-store';
@@ -185,12 +186,15 @@ export default function AskAIScreen() {
       }
     } catch (err) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+      const isUsageLimit = err instanceof UsageLimitError;
       setMessages((prev) => [...prev, {
         id: `local-err-${Date.now()}`,
         role: 'assistant',
         content: isAuth
           ? "Your session has expired. Please sign out and sign back in to continue."
-          : "I'm having trouble connecting right now. Please try again in a moment.",
+          : isUsageLimit
+            ? `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`
+            : "I'm having trouble connecting right now. Please try again in a moment.",
         created_at: new Date().toISOString(),
       }]);
     } finally {
@@ -219,7 +223,17 @@ export default function AskAIScreen() {
       })
       .catch((err: unknown) => {
         const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
-        setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: 'assistant', content: isAuth ? "Your session has expired. Please sign out and sign back in to continue." : "I'm having trouble connecting. Please try again.", created_at: new Date().toISOString() }]);
+        const isUsageLimit = err instanceof UsageLimitError;
+        setMessages((prev) => [...prev, {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: isAuth
+            ? "Your session has expired. Please sign out and sign back in to continue."
+            : isUsageLimit
+              ? `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`
+              : "I'm having trouble connecting. Please try again.",
+          created_at: new Date().toISOString(),
+        }]);
       })
       .finally(() => setTyping(false));
   }
@@ -266,13 +280,16 @@ export default function AskAIScreen() {
           <Text style={s.headerSubtitle}>GLP-1 Companion</Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => setShowDisclaimer(true)}
-          style={s.infoBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="information-circle-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <UsageBadge feature="ai_chat" />
+          <TouchableOpacity
+            onPress={() => setShowDisclaimer(true)}
+            style={s.infoBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="information-circle-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Messages */}

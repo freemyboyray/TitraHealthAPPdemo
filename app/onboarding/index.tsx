@@ -30,7 +30,7 @@ export default function JourneyScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={1} total={14} />
+        <OnboardingHeader step={1} total={16} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Where are you in your GLP-1 journey?</Text>
           <Text style={s.subtitle}>This helps us tailor your experience from day one.</Text>

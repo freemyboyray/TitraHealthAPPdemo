@@ -44,7 +44,20 @@ export default function SubscriptionScreen() {
   const setPremium = useSubscriptionStore((s) => s.setPremium);
 
   useEffect(() => {
-    storekit?.getProducts().then((p: any[]) => setProducts(p));
+    if (!storekit) {
+      Alert.alert('IAP DIAG', 'storekit module did not load (Expo Go or missing native module).');
+      return;
+    }
+    storekit
+      .getProducts()
+      .then((p: any[]) => {
+        setProducts(p);
+        const ids = p.map((x: any) => x.productId ?? x.id ?? '?').join(', ') || 'NONE';
+        console.log('[IAP DIAG] fetchProducts returned', p.length, 'products:', ids);
+      })
+      .catch((err: any) => {
+        Alert.alert('IAP DIAG — getProducts failed', `code=${err?.code}\nmsg=${err?.message}\n${JSON.stringify(err)}`);
+      });
     refreshPremiumStatus();
   }, []);
 
@@ -75,15 +88,29 @@ export default function SubscriptionScreen() {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
+      if (!storekit) {
+        Alert.alert('IAP DIAG', 'storekit module is not loaded.');
+        return;
+      }
+      if (products.length === 0) {
+        Alert.alert(
+          'IAP DIAG — no products loaded',
+          `App Store returned 0 products.\n\nExpected IDs:\n• ${storekit.PRODUCT_IDS.MONTHLY}\n• ${storekit.PRODUCT_IDS.ANNUAL}\n\nLikely causes:\n1. Paid Apps Agreement not Active\n2. Products in "Missing Metadata" (need Ready to Submit)\n3. Product IDs don't match exactly\n4. First-IAP gotcha — must be attached to a build submitted for review`,
+        );
+        return;
+      }
       if (selectedPlan === 'annual') {
-        await storekit?.purchaseAnnual();
+        await storekit.purchaseAnnual();
       } else {
-        await storekit?.purchaseMonthly();
+        await storekit.purchaseMonthly();
       }
       // Purchase listener in storekit.ts handles the state update
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Purchase Error', err?.message ?? 'Something went wrong. Please try again.');
+        Alert.alert(
+          'IAP DIAG — Purchase Error',
+          `code=${err?.code ?? 'none'}\nmsg=${err?.message ?? 'none'}\n\n${JSON.stringify(err, null, 2)}`,
+        );
       }
     } finally {
       setPurchasing(false);

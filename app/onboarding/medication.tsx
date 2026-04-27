@@ -75,7 +75,7 @@ export default function MedicationScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={4} total={14} onBack={() => router.back()} />
+        <OnboardingHeader step={3} total={16} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>Which GLP-1 medication are you taking?</Text>
           <Text style={s.subtitle}>Select the one that matches your prescription.</Text>
