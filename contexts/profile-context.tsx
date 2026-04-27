@@ -54,6 +54,7 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     glp1Status:             row.glp1_status ?? 'active',
     treatmentStatus:        row.treatment_status ?? 'on',
     medicationBrand:        row.medication_brand ?? 'other',
+    medicationCustomName:   row.medication_custom_name ?? null,
     unitSystem:             row.unit_system ?? 'imperial',
     glp1Type:               row.medication_type ?? 'semaglutide',
     routeOfAdministration:  row.route_of_administration ?? 'injection',
@@ -268,6 +269,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         craving_days:             complete.cravingDays,
         initial_side_effects:     complete.sideEffects,
         medication_brand:         complete.medicationBrand,
+        medication_custom_name:   complete.medicationCustomName ?? null,
         route_of_administration:  complete.routeOfAdministration,
         glp1_status:              complete.glp1Status,
         treatment_status:         complete.treatmentStatus ?? 'on',
@@ -333,9 +335,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // 4. Seed injection_logs if user is on-treatment and has a last injection date.
       const isOnTx = complete.treatmentStatus === 'on' && complete.lastInjectionDate;
       if (isOnTx) {
-        const brandDisplay = complete.medicationBrand
-          ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
-          : null;
+        const brandDisplay = complete.medicationBrand === 'other' && complete.medicationCustomName
+          ? complete.medicationCustomName
+          : complete.medicationBrand
+            ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
+            : null;
         const { error: iErr } = await supabase.from('injection_logs').insert({
           user_id: user.id,
           dose_mg: complete.doseMg,
@@ -348,9 +352,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       // 5. Schedule dose reminders from the treatment plan.
       if (complete.treatmentStatus === 'on') {
-        const brandDisplay = complete.medicationBrand
-          ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
-          : 'GLP-1';
+        const brandDisplay = complete.medicationBrand === 'other' && complete.medicationCustomName
+          ? complete.medicationCustomName
+          : complete.medicationBrand
+            ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
+            : 'GLP-1';
         await scheduleDoseReminder(
           complete.injectionFrequencyDays ?? 7,
           complete.doseTime || '09:00',
@@ -376,6 +382,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.doseMg                  !== undefined) row.dose_mg                  = fields.doseMg;
       if (fields.glp1Type                !== undefined) row.medication_type           = fields.glp1Type;
       if (fields.medicationBrand         !== undefined) row.medication_brand          = fields.medicationBrand;
+      if (fields.medicationCustomName    !== undefined) row.medication_custom_name    = fields.medicationCustomName ?? null;
       if (fields.routeOfAdministration   !== undefined) row.route_of_administration   = fields.routeOfAdministration;
       if (fields.glp1Status              !== undefined) row.glp1_status               = fields.glp1Status;
       if (fields.treatmentStatus        !== undefined) (row as any).treatment_status  = fields.treatmentStatus;

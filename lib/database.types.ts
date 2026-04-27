@@ -707,6 +707,7 @@ export type Database = {
           injection_time: string | null
           last_injection_date: string | null
           medication_brand: string | null
+          medication_custom_name: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           peer_comparison_opted_in: boolean
           peer_comparison_opted_in_at: string | null
@@ -754,6 +755,7 @@ export type Database = {
           injection_time?: string | null
           last_injection_date?: string | null
           medication_brand?: string | null
+          medication_custom_name?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
@@ -803,6 +805,7 @@ export type Database = {
           injection_time?: string | null
           last_injection_date?: string | null
           medication_brand?: string | null
+          medication_custom_name?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null

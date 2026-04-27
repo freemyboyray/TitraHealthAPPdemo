@@ -59,6 +59,7 @@ export type FullUserProfile = {
   glp1Status: Glp1Status;
   treatmentStatus: TreatmentStatus;
   medicationBrand: MedicationBrand;
+  medicationCustomName?: string | null;  // user-entered name when medicationBrand === 'other'
   glp1Type: Glp1Type;
   routeOfAdministration: RouteOfAdministration;
   doseMg: number;

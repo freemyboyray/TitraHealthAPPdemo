@@ -14,7 +14,7 @@ import type { AppColors } from '@/constants/theme';
 export default function LastShotScreen() {
   const router = useRouter();
   const { updateDraft, draft } = useProfile();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const glp1Type = draft.glp1Type;
@@ -50,6 +50,9 @@ export default function LastShotScreen() {
               maximumDate={new Date()}
               onChange={(_, date) => { if (date) setLastInjDate(date); }}
               style={s.datePicker}
+              themeVariant={isDark ? 'dark' : 'light'}
+              accentColor="#FF742A"
+              textColor={colors.textPrimary}
             />
           </View>
         </ScrollView>

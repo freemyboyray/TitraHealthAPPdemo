@@ -13,7 +13,7 @@ import type { AppColors } from '@/constants/theme';
 export default function DoseStartScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [doseStartDate, setDoseStartDate] = useState(new Date());
@@ -41,6 +41,9 @@ export default function DoseStartScreen() {
               maximumDate={new Date()}
               onChange={(_, date) => { if (date) setDoseStartDate(date); }}
               style={s.datePicker}
+              themeVariant={isDark ? 'dark' : 'light'}
+              accentColor="#FF742A"
+              textColor={colors.textPrimary}
             />
           </View>
         </ScrollView>
