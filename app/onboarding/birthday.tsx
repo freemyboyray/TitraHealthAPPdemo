@@ -96,6 +96,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+    marginTop: 16,
   },
   pickerWrap: { flex: 2 },
   pickerSm: { flex: 1 },

@@ -115,7 +115,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
             top: 0,
             width: 1.5,
             height: tickH,
-            backgroundColor: rulerColors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
+            backgroundColor: rulerColors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.55)',
             borderRadius: 1,
           }}
         />
@@ -132,7 +132,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
               textAlign: 'center',
               fontSize: 12,
               fontWeight: '500',
-              color: rulerColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)',
+              color: rulerColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.65)',
             }}
           >
             {Math.round(t)}

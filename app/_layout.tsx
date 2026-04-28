@@ -151,6 +151,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="daily-streak" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />

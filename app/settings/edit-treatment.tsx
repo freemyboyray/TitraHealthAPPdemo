@@ -1139,9 +1139,6 @@ export default function EditTreatmentScreen() {
             ) : (
               /* ── No pending, pure off-treatment ── */
               <View style={s.offCard}>
-                <View style={s.offIconWrap}>
-                  <Ionicons name="leaf-outline" size={36} color={ORANGE} />
-                </View>
                 <Text style={s.offTitle}>You're tracking lifestyle only</Text>
                 <Text style={s.offSubtitle}>
                   Weight, food, and activity tracking are still active.{'\n'}

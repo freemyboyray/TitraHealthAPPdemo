@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, StyleSheet, Text, View, Image } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, Text, View, Image } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -100,10 +100,8 @@ export default function Index() {
         <Text style={s.wordmark}>Titra Health</Text>
         <Text style={s.tagline}>Personalized GLP-1 Management</Text>
       </Animated.View>
-      <Animated.View style={{ opacity: spinnerOpacity }}>
-        <View style={s.loadingBar}>
-          <Animated.View style={s.loadingBarFill} />
-        </View>
+      <Animated.View style={{ opacity: spinnerOpacity, marginTop: 40 }}>
+        <ActivityIndicator size="small" color="#FF742A" />
       </Animated.View>
     </View>
   );
@@ -146,19 +144,5 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     color: c.textSecondary,
     marginTop: 6,
     letterSpacing: 0.3,
-  },
-  loadingBar: {
-    marginTop: 40,
-    width: 48,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: c.border,
-    overflow: 'hidden',
-  },
-  loadingBarFill: {
-    width: '60%',
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: '#FF742A',
   },
 });

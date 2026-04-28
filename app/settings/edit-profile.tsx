@@ -465,9 +465,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: ORANGE, zIndex: 2, marginLeft: -1,
   },
   tick: { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 4 },
-  tickLine: { width: 1.5, height: 18, backgroundColor: 'rgba(255,255,255,0.3)' },
-  tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.55)' },
-  tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
+  tickLine: { width: 1.5, height: 18, backgroundColor: c.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.55)' },
+  tickMid: { height: 26, backgroundColor: c.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.7)' },
+  tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
   tickLabel: { fontSize: 13, color: c.textSecondary, marginTop: 4 },
   chip: {
     alignSelf: 'flex-start', backgroundColor: c.glassOverlay,

@@ -98,6 +98,10 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     privacyAcceptedAt: row.privacy_accepted_at ?? undefined,
     privacyVersion: row.privacy_version ?? undefined,
 
+    // Medication detail
+    medicationNotes: row.medication_notes ?? null,
+    medicationPhotoUrl: row.medication_photo_url ?? null,
+
     // Pending medication transition
     pendingMedicationBrand: row.pending_medication_brand ?? null,
     pendingGlp1Type:        row.pending_glp1_type ?? null,
@@ -413,6 +417,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.heightFt !== undefined || fields.heightIn !== undefined || fields.heightCm !== undefined) {
         row.height_inches = updated.heightFt * 12 + updated.heightIn;
       }
+
+      // Medication detail fields
+      if (fields.medicationNotes    !== undefined) row.medication_notes     = fields.medicationNotes ?? null;
+      if (fields.medicationPhotoUrl !== undefined) row.medication_photo_url = fields.medicationPhotoUrl ?? null;
 
       // Pending medication transition fields
       if (fields.pendingMedicationBrand !== undefined) row.pending_medication_brand = fields.pendingMedicationBrand;

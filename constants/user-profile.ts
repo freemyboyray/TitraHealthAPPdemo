@@ -94,6 +94,10 @@ export type FullUserProfile = {
   privacyAcceptedAt?: string;       // ISO 8601 timestamp
   privacyVersion?: string;          // e.g. '1.0'
 
+  // Medication detail page
+  medicationNotes?: string | null;
+  medicationPhotoUrl?: string | null;
+
   // Pending medication transition (null when no transition scheduled)
   pendingMedicationBrand?: MedicationBrand | null;
   pendingGlp1Type?: string | null;

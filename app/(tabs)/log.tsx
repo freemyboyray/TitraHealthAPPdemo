@@ -305,27 +305,28 @@ function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '
 
 // smoothPath and niceYTicks imported from @/lib/chart-utils
 
-function xAxisLabels(data: WeightPoint[], period: string, plotW: number): { x: number; label: string }[] {
-  if (data.length < 1) return [];
-  const maxLabels = 5;
-  const step = Math.max(1, Math.floor((data.length - 1) / (maxLabels - 1)));
-  const indices: number[] = [];
-  for (let i = 0; i < data.length; i += step) indices.push(i);
-  if (indices[indices.length - 1] !== data.length - 1) indices.push(data.length - 1);
+function xAxisLabels(_data: WeightPoint[], period: string, plotW: number, tStart?: number, tEnd?: number): { x: number; label: string }[] {
+  const now = Date.now();
+  const periodDays = { '7D': 7, '14D': 14, '30D': 30, '90D': 90, 'MAX': -1 }[period] ?? 30;
+  const rangeStart = tStart ?? (period === 'MAX' && _data.length > 0 ? new Date(_data[0].date).getTime() : now - (periodDays > 0 ? periodDays : 90) * 86400000);
+  const rangeEnd = tEnd ?? now;
+  const rangeMs = Math.max(rangeEnd - rangeStart, 1);
 
-  return indices.map(i => {
-    const d = new Date(data[i].date);
+  const maxLabels = 5;
+  const labels: { x: number; label: string }[] = [];
+  for (let i = 0; i < maxLabels; i++) {
+    const frac = i / (maxLabels - 1);
+    const t = rangeStart + frac * rangeMs;
+    const d = new Date(t);
     let label: string;
     if (period === 'MAX') {
       label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    } else if (period === '7D' || period === '14D') {
-      label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     } else {
       label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-    const x = (plotW / (data.length - 1)) * i;
-    return { x, label };
-  });
+    labels.push({ x: frac * plotW, label });
+  }
+  return labels;
 }
 
 // ─── Lifestyle Trend helpers ──────────────────────────────────────────────────
@@ -3090,7 +3091,12 @@ export default function InsightsScreen() {
                       ?? health.profile.startWeightLbs) || null;
   const goalWeight  = (profile?.goal_weight_lbs
                       ?? health.profile.goalWeightLbs) || null;
-  const currentWeight = weightLogs[0]?.weight_lbs ?? startWeight;
+  // Use profile.current_weight_lbs (synced on every weigh-in) as primary source.
+  // weightLogs[0] can be the onboarding seed weight whose synthetic timestamp
+  // sorts after real logs, making it unreliable as "latest."
+  const currentWeight = (profile?.current_weight_lbs ?? health.profile.currentWeightLbs)
+    || weightLogs[0]?.weight_lbs
+    || startWeight;
   const bmi        = currentWeight && heightIn ? computeBMI(currentWeight, heightIn) : null;
   const startBmi   = startWeight && heightIn   ? computeBMI(startWeight, heightIn)   : null;
   const rawBmiDelta = bmi && startBmi ? Math.round((startBmi - bmi) * 10) / 10 : null;
@@ -3099,10 +3105,10 @@ export default function InsightsScreen() {
     ? goalProgress(startWeight, currentWeight, goalWeight)
     : null;
 
-  const weightLost = startWeight != null && currentWeight != null && startWeight > currentWeight
+  const weightLost = startWeight != null && currentWeight != null
     ? Math.round((startWeight - currentWeight) * 10) / 10
     : null;
-  const weightLostPct = weightLost != null && startWeight
+  const weightLostPct = weightLost != null && weightLost > 0 && startWeight
     ? Math.round((weightLost / startWeight) * 1000) / 10
     : null;
 
@@ -3399,7 +3405,7 @@ export default function InsightsScreen() {
                 <ProgressStatCard
                   icon={<MaterialIcons name="trending-down" size={20} color={ORANGE} />}
                   label="Lost So Far"
-                  value={weightLost != null ? `${weightLost} lbs` : '-'}
+                  value={weightLost != null ? `${weightLost} lbs` : '0 lbs'}
                 >
                   {weightLostPct != null && weightLostPct > 0 && (
                     <View style={[s.changeBadge, { backgroundColor: statusStyle.positive.bg }]}>

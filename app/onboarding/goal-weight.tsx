@@ -185,9 +185,9 @@ const createStyles = (c: AppColors) => {
     tickLine: {
       width: 1.5,
       height: 18,
-      backgroundColor: w(0.3),
+      backgroundColor: c.isDark ? w(0.3) : w(0.55),
     },
-    tickMid: { height: 26, backgroundColor: w(0.55) },
+    tickMid: { height: 26, backgroundColor: c.isDark ? w(0.55) : w(0.7) },
     tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
     tickLabel: {
       fontSize: 13,

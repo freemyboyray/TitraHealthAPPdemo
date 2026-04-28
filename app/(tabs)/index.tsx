@@ -122,6 +122,7 @@ function MedicationBanner({
   startDate: string;
 }) {
   const { colors } = useAppTheme();
+  const router = useRouter();
   const mb = useMemo(() => createMbStyles(colors), [colors]);
   const displayName = medicationName ?? MED_BRAND[glp1Type] ?? glp1Type;
   const dayCount = Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000) + 1);
@@ -133,6 +134,10 @@ function MedicationBanner({
       <View style={mb.chip}>
         <Text style={mb.chipText}>Week {programWeek}  ·  Day {dayCount}</Text>
       </View>
+      <Pressable style={mb.viewChip} onPress={() => router.push('/medication-detail' as any)}>
+        <Text style={mb.viewChipText}>View</Text>
+        <Ionicons name="chevron-forward" size={13} color={ORANGE} />
+      </Pressable>
     </View>
   );
 }
@@ -149,6 +154,17 @@ const createMbStyles = (c: AppColors) => {
     chipText: {
       fontSize: 14, fontWeight: '600',
       color: w(0.7),
+      fontFamily: FF,
+    },
+    viewChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 2,
+      backgroundColor: 'rgba(255,116,42,0.10)',
+      borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 5,
+    },
+    viewChipText: {
+      fontSize: 14, fontWeight: '600',
+      color: ORANGE,
       fontFamily: FF,
     },
   });
@@ -1472,6 +1488,13 @@ export default function HomeScreen() {
                   <Text style={s.heroMedLabel}>
                     {medName}{medDose ? ` · ${medDose}` : ''}
                   </Text>
+                  <Pressable
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+                    onPress={() => router.push('/medication-detail' as any)}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>View</Text>
+                    <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+                  </Pressable>
                 </View>
 
                 {/* Stats row */}
@@ -1572,10 +1595,23 @@ export default function HomeScreen() {
             </View>
           </Pressable>
           ) : (
-          /* ── Wellness Card (non-medication users) ── */
+          /* ── Paused / No Medication Card ── */
           <View style={[s.cardWrap, { marginBottom: 20 }]}>
             <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               <View style={s.heroCard}>
+                {/* Top row with Add Medication link */}
+                <View style={s.heroTopRow}>
+                  <Text style={s.heroMedLabel}>No active medication</Text>
+                  <Pressable
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+                    onPress={() => router.push('/settings/edit-treatment')}
+                  >
+                    <Ionicons name="add-circle" size={15} color={ORANGE} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF, marginLeft: 2 }}>Add Medication</Text>
+                  </Pressable>
+                </View>
+
+                {/* Weight stats */}
                 <View style={s.heroStats}>
                   <View style={s.heroStat}>
                     <Text style={s.heroStatVal}>
