@@ -35,7 +35,7 @@ export default function ActivityScreen() {
     if (!selected || saving) return;
     setSaving(true);
     updateDraft({ activityLevel: selected });
-    router.replace('/onboarding/building-plan');
+    router.push('/onboarding/progress-photo');
   };
 
   return (

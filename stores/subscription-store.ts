@@ -21,6 +21,7 @@ const PREMIUM_FEATURES = new Set([
   'weekly_ai_summary',
   'coach_notes',
   'metabolic_adaptation',
+  'progress_photo_compare',
 ]);
 
 /** Features that are metered (usage-limited for free users) */
