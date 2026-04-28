@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -81,13 +82,12 @@ export function MissedShotModal({
     }
   }
 
-  if (!visible) return null;
-
   const minDate = new Date(expectedShotDate + 'T00:00:00');
   const maxDate = new Date();
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFillObject, { zIndex: 9998, opacity }]}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
+    <Animated.View style={[StyleSheet.absoluteFillObject, { opacity }]}>
       {/* Backdrop */}
       <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
@@ -181,6 +181,7 @@ export function MissedShotModal({
         </View>
       </View>
     </Animated.View>
+    </Modal>
   );
 }
 

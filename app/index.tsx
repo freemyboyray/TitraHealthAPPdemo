@@ -54,7 +54,7 @@ export default function Index() {
       return;
     }
     if (isLoading) return;
-    if (!profile) {
+    if (!profile || !profile.onboardingCompletedAt) {
       router.replace('/onboarding');
       return;
     }

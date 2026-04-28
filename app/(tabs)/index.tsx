@@ -1354,6 +1354,9 @@ export default function HomeScreen() {
     if (!effectiveLastInjectionDate) return;
     if (rawDaysUntil >= 0) return;
     if (todayInjLogged) return;
+    // Only show after the user has actively logged at least one injection
+    // (onboarding seeds exactly 1, so require >1 to avoid nagging new users)
+    if (logStore.injectionLogs.length <= 1) return;
     missedShotShownRef.current = true;
     setMissedShotVisible(true);
   }, [logStoreHydrated, rawDaysUntil, todayInjLogged, effectiveLastInjectionDate]);

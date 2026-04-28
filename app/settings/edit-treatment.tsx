@@ -17,7 +17,7 @@ import {
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { DRUG_IS_ORAL, DRUG_WASHOUT_DAYS, DRUG_WASHOUT_LABEL } from '@/constants/drug-pk';
-import { getDailyTargets } from '@/constants/scoring';
+import { getDailyTargets, type DailyTargets } from '@/constants/scoring';
 import { scheduleDoseReminder } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useLogStore } from '@/stores/log-store';
@@ -31,6 +31,37 @@ const BRAND_LABEL: Record<string, string> = {
   compounded_semaglutide: 'Compounded (Sema)', compounded_tirzepatide: 'Compounded (Tirz)',
   compounded_liraglutide: 'Compounded (Lira)', other: 'Other',
 };
+
+type TargetDiff = { label: string; old: string; new: string };
+
+function buildTargetDiffs(current: DailyTargets, next: DailyTargets): TargetDiff[] {
+  const diffs: TargetDiff[] = [];
+  if (current.caloriesTarget !== next.caloriesTarget) {
+    diffs.push({ label: 'Calories', old: `${current.caloriesTarget} cal`, new: `${next.caloriesTarget} cal` });
+  }
+  if (current.proteinG !== next.proteinG) {
+    diffs.push({ label: 'Protein', old: `${current.proteinG}g`, new: `${next.proteinG}g` });
+  }
+  if (current.waterMl !== next.waterMl) {
+    diffs.push({ label: 'Water', old: `${(current.waterMl / 1000).toFixed(1)}L`, new: `${(next.waterMl / 1000).toFixed(1)}L` });
+  }
+  if (current.fiberG !== next.fiberG) {
+    diffs.push({ label: 'Fiber', old: `${current.fiberG}g`, new: `${next.fiberG}g` });
+  }
+  if (current.steps !== next.steps) {
+    diffs.push({ label: 'Steps', old: current.steps.toLocaleString(), new: next.steps.toLocaleString() });
+  }
+  if (current.carbsG !== next.carbsG) {
+    diffs.push({ label: 'Carbs', old: `${current.carbsG}g`, new: `${next.carbsG}g` });
+  }
+  if (current.fatG !== next.fatG) {
+    diffs.push({ label: 'Fat', old: `${current.fatG}g`, new: `${next.fatG}g` });
+  }
+  if (current.activeCaloriesTarget !== next.activeCaloriesTarget) {
+    diffs.push({ label: 'Active Cal', old: `${current.activeCaloriesTarget} cal`, new: `${next.activeCaloriesTarget} cal` });
+  }
+  return diffs;
+}
 
 type BrandOption = { value: MedicationBrand; label: string; note?: string };
 type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] };
@@ -149,10 +180,15 @@ export default function EditTreatmentScreen() {
   });
   const [saving, setSaving] = useState(false);
 
+  // ── Post-save "targets updated" modal state ──
+  const [postSaveVisible, setPostSaveVisible] = useState(false);
+  const [postSaveDiffs, setPostSaveDiffs] = useState<TargetDiff[]>([]);
+  const [postSaveMedLabel, setPostSaveMedLabel] = useState('');
+
   // ── Confirmation modal state ──
-  type ConfirmStep = 'start_weight' | 'last_dose' | 'first_dose' | 'dose_time' | 'injection_site' | 'summary';
+  type ConfirmStep = 'start_weight' | 'last_dose' | 'first_dose' | 'dose_time' | 'injection_site';
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [confirmStep, setConfirmStep] = useState<ConfirmStep>('summary');
+  const [confirmStep, setConfirmStep] = useState<ConfirmStep>('start_weight');
   // These track answers collected during the confirmation flow
   const [confirmLastDoseDate, setConfirmLastDoseDate] = useState<Date>(lastInjDate);
   const [confirmFirstDoseDate, setConfirmFirstDoseDate] = useState<Date>(new Date());
@@ -251,7 +287,6 @@ export default function EditTreatmentScreen() {
       steps.push('start_weight', 'first_dose');
       if (newIsDaily) steps.push('dose_time');
       if (!newIsOral) steps.push('injection_site');
-      steps.push('summary');
       return steps;
     }
 
@@ -274,15 +309,13 @@ export default function EditTreatmentScreen() {
       steps.push('injection_site');
     }
 
-    // Summary with target diffs always comes last
-    steps.push('summary');
-
     return steps;
   }
 
   async function doSave() {
     if (!brand) return;
     setSaving(true);
+    const oldTargets = profile ? getDailyTargets(profile) : null;
     try {
     const changeType = getChangeType();
     const newIsDaily = freqDays === 1;
@@ -458,8 +491,28 @@ export default function EditTreatmentScreen() {
     // Refresh log store so home screen reflects the changes immediately
     useLogStore.getState().fetchInsightsData();
 
+    // Compute target diffs and show post-save summary if targets changed
+    const newTargets = getDailyTargets({
+      ...profile!,
+      medicationBrand: brand,
+      glp1Type: BRAND_TO_GLP1_TYPE[brand],
+      routeOfAdministration: BRAND_TO_ROUTE[brand],
+      doseMg: doseMg as number,
+      injectionFrequencyDays: freqDays as number,
+      treatmentStatus: 'on' as const,
+    });
+    const diffs = oldTargets ? buildTargetDiffs(oldTargets, newTargets) : [];
+
     setConfirmVisible(false);
-    router.back();
+    setSaving(false);
+
+    if (diffs.length > 0) {
+      setPostSaveDiffs(diffs);
+      setPostSaveMedLabel(`${BRAND_LABEL[brand] ?? brand} ${doseMg}mg`);
+      setPostSaveVisible(true);
+    } else {
+      router.back();
+    }
     } catch (err) {
       // updateProfile now throws on DB write failures (e.g. enum constraint
       // violations from a Glp1Type that the medication_type enum doesn't yet
@@ -603,137 +656,6 @@ export default function EditTreatmentScreen() {
   }
 
   // ── Confirmation modal content builders ──
-
-  function renderSummaryStep() {
-    if (!brand) return null;
-    const changeType = getChangeType();
-    const newGlp1Type = BRAND_TO_GLP1_TYPE[brand];
-    const brandName = BRAND_LABEL[brand] ?? brand;
-
-    const currentTargets = getDailyTargets(profile!);
-    const proposed = {
-      ...profile!,
-      medicationBrand: brand,
-      glp1Type: newGlp1Type,
-      routeOfAdministration: BRAND_TO_ROUTE[brand],
-      doseMg: doseMg as number,
-      injectionFrequencyDays: freqDays as number,
-      treatmentStatus: 'on' as const,
-    };
-    const newTargets = getDailyTargets(proposed);
-
-    // Build list of target diffs that actually changed
-    type TargetDiff = { label: string; old: string; new: string };
-    const targetDiffs: TargetDiff[] = [];
-    if (currentTargets.caloriesTarget !== newTargets.caloriesTarget) {
-      targetDiffs.push({ label: 'Calories', old: `${currentTargets.caloriesTarget} cal`, new: `${newTargets.caloriesTarget} cal` });
-    }
-    if (currentTargets.proteinG !== newTargets.proteinG) {
-      targetDiffs.push({ label: 'Protein', old: `${currentTargets.proteinG}g`, new: `${newTargets.proteinG}g` });
-    }
-    if (currentTargets.waterMl !== newTargets.waterMl) {
-      const oldL = (currentTargets.waterMl / 1000).toFixed(1);
-      const newL = (newTargets.waterMl / 1000).toFixed(1);
-      targetDiffs.push({ label: 'Water', old: `${oldL}L`, new: `${newL}L` });
-    }
-    if (currentTargets.fiberG !== newTargets.fiberG) {
-      targetDiffs.push({ label: 'Fiber', old: `${currentTargets.fiberG}g`, new: `${newTargets.fiberG}g` });
-    }
-    if (currentTargets.steps !== newTargets.steps) {
-      targetDiffs.push({ label: 'Steps', old: currentTargets.steps.toLocaleString(), new: newTargets.steps.toLocaleString() });
-    }
-    if (currentTargets.carbsG !== newTargets.carbsG) {
-      targetDiffs.push({ label: 'Carbs', old: `${currentTargets.carbsG}g`, new: `${newTargets.carbsG}g` });
-    }
-    if (currentTargets.fatG !== newTargets.fatG) {
-      targetDiffs.push({ label: 'Fat', old: `${currentTargets.fatG}g`, new: `${newTargets.fatG}g` });
-    }
-    if (currentTargets.activeCaloriesTarget !== newTargets.activeCaloriesTarget) {
-      targetDiffs.push({ label: 'Active Cal', old: `${currentTargets.activeCaloriesTarget} cal`, new: `${newTargets.activeCaloriesTarget} cal` });
-    }
-
-    // Washout warning for drug type changes (not for off→on since there's no old drug)
-    const showWashout = !wasOffTreatment && changeType === 'drug_type' && oldGlp1Type !== newGlp1Type;
-    const washoutLabel = showWashout ? DRUG_WASHOUT_LABEL[oldGlp1Type ?? 'semaglutide'] : null;
-    const oldDrugName = BRAND_LABEL[oldBrand ?? 'other'] ?? oldGlp1Type;
-
-    // Frequency change descriptions
-    const freqChanging = freqDays !== oldFreqDays;
-    const freqDesc = freqChanging
-      ? `${oldFreqDays === 1 ? 'daily' : `every ${oldFreqDays} days`} → ${freqDays === 1 ? 'daily' : `every ${freqDays} days`}`
-      : null;
-
-    // Next shot date projection
-    const nextShotDate = (() => {
-      const lastInj = profile!.lastInjectionDate;
-      if (!lastInj || !freqDays) return null;
-      const d = new Date(lastInj + 'T00:00:00');
-      d.setDate(d.getDate() + (freqDays as number));
-      return d;
-    })();
-    const nextShotLabel = nextShotDate
-      ? nextShotDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : null;
-
-    return (
-      <>
-        {renderHistoryTimeline()}
-
-        <Text style={ms.modalTitle}>CONFIRM CHANGES</Text>
-
-        <View style={ms.changeRow}>
-          <Text style={ms.changeLabel}>Medication</Text>
-          <Text style={ms.changeValue}>{brandName} {doseMg}mg</Text>
-        </View>
-
-        {freqDesc && (
-          <View style={ms.changeRow}>
-            <Text style={ms.changeLabel}>Schedule</Text>
-            <Text style={ms.changeValue}>{freqDesc}</Text>
-          </View>
-        )}
-
-        {nextShotLabel && (
-          <View style={ms.changeRow}>
-            <Text style={ms.changeLabel}>Next {isOral ? 'dose' : 'shot'}</Text>
-            <Text style={ms.changeValue}>{nextShotLabel}</Text>
-          </View>
-        )}
-
-        <View style={ms.targetBox}>
-          <Text style={ms.targetTitle}>
-            {targetDiffs.length > 0 ? 'Daily targets will adjust' : 'Daily targets unchanged'}
-          </Text>
-          {targetDiffs.length > 0 ? (
-            targetDiffs.map((d) => (
-              <View key={d.label} style={ms.targetDiffRow}>
-                <Text style={ms.targetDiffLabel}>{d.label}</Text>
-                <Text style={ms.targetLine}>{d.old}</Text>
-                <Text style={[ms.targetLine, { color: ORANGE, marginHorizontal: 6 }]}>→</Text>
-                <Text style={[ms.targetLine, { color: '#FFFFFF' }]}>{d.new}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[ms.targetLine, { marginTop: 4 }]}>
-              Your protein, water, fiber, and step targets stay the same with this change.
-            </Text>
-          )}
-        </View>
-
-        {showWashout && (
-          <View style={ms.washoutBox}>
-            <Ionicons name="information-circle" size={18} color="#F5A623" style={{ marginRight: 8, marginTop: 1 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={ms.washoutTitle}>Transition period</Text>
-              <Text style={ms.washoutBody}>
-                {oldDrugName} has a washout period of {washoutLabel}. Your provider may have specific guidance on when to start the new medication.
-              </Text>
-            </View>
-          </View>
-        )}
-      </>
-    );
-  }
 
   function renderLastDoseStep() {
     const changeType = getChangeType();
@@ -959,7 +881,6 @@ export default function EditTreatmentScreen() {
   function renderConfirmStep() {
     switch (confirmStep) {
       case 'start_weight':   return renderStartWeightStep();
-      case 'summary':        return renderSummaryStep();
       case 'last_dose':      return renderLastDoseStep();
       case 'first_dose':     return renderFirstDoseStep();
       case 'dose_time':      return renderDoseTimeStep();
@@ -1447,6 +1368,55 @@ export default function EditTreatmentScreen() {
                         ? 'Confirm'
                         : 'Next'}
                   </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Post-save "Targets Updated" modal ── */}
+      <Modal
+        visible={postSaveVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setPostSaveVisible(false); router.back(); }}
+      >
+        <View style={ms.backdrop}>
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+
+          <View style={ms.centered}>
+            <View style={ms.card}>
+              <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
+
+              <ScrollView style={ms.cardScroll} contentContainerStyle={ms.cardContent} bounces={false}>
+                <Ionicons name="checkmark-circle" size={44} color={ORANGE} style={{ alignSelf: 'center', marginBottom: 12 }} />
+                <Text style={ms.modalTitle}>TARGETS UPDATED</Text>
+                <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 20, lineHeight: 21 }}>
+                  Your daily targets have been adjusted for {postSaveMedLabel}.
+                </Text>
+
+                <View style={ms.targetBox}>
+                  {postSaveDiffs.map((d) => (
+                    <View key={d.label} style={ms.targetDiffRow}>
+                      <Text style={ms.targetDiffLabel}>{d.label}</Text>
+                      <Text style={ms.targetLine}>{d.old}</Text>
+                      <Text style={[ms.targetLine, { color: ORANGE, marginHorizontal: 6 }]}>{'\u2192'}</Text>
+                      <Text style={[ms.targetLine, { color: '#FFFFFF' }]}>{d.new}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={{ paddingHorizontal: 28, paddingBottom: 28, paddingTop: 8 }}>
+                <TouchableOpacity
+                  style={ms.btnConfirm}
+                  onPress={() => { setPostSaveVisible(false); router.back(); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={ms.btnConfirmText}>Got it</Text>
                 </TouchableOpacity>
               </View>
             </View>

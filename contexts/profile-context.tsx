@@ -481,13 +481,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const applyPendingTransition = async () => {
     if (!profile?.pendingFirstDoseDate || !profile?.pendingMedicationBrand) return;
 
-    // Set lastInjectionDate = firstDoseDate - freq so that
-    // lastInjDate + freq = firstDoseDate → "Due today" on transition day
-    const freq = profile.pendingFrequencyDays ?? 7;
-    const firstDose = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
-    const fakeLastDate = new Date(firstDose);
-    fakeLastDate.setDate(fakeLastDate.getDate() - freq);
-    const fakeLastDateStr = `${fakeLastDate.getFullYear()}-${String(fakeLastDate.getMonth() + 1).padStart(2, '0')}-${String(fakeLastDate.getDate()).padStart(2, '0')}`;
+    // Set lastInjectionDate = firstDoseDate so the next expected shot
+    // is firstDoseDate + freq. Previously this was set to firstDoseDate - freq
+    // which caused a false "missed shot" alert when the transition was applied
+    // after the first dose date had already passed.
+    const firstDoseDateStr = profile.pendingFirstDoseDate;
 
     await updateProfile({
       // Apply new medication
@@ -498,7 +496,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       doseMg: profile.pendingDoseMg!,
       injectionFrequencyDays: profile.pendingFrequencyDays!,
       doseTime: profile.pendingDoseTime ?? '',
-      lastInjectionDate: fakeLastDateStr,
+      lastInjectionDate: firstDoseDateStr,
       doseStartDate: profile.pendingFirstDoseDate,
       // Clear pending fields
       pendingMedicationBrand: null,
