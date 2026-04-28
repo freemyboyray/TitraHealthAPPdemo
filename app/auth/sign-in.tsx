@@ -596,8 +596,9 @@ export default function SignInScreen() {
           <View style={s.headerContent}>
             <View style={s.brandRow}>
               <Image
-                source={require('@/assets/images/icon.png')}
+                source={require('@/assets/images/titra-logo.png')}
                 style={s.logoMark}
+                resizeMode="cover"
               />
               <Text style={s.brandName}>Titra Health</Text>
             </View>
@@ -758,7 +759,7 @@ export default function SignInScreen() {
                   <ActivityIndicator size="small" color={INPUT_TEXT} />
                 ) : (
                   <>
-                    <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} />
+                    <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
                     <Text style={s.socialBtnText}>Google</Text>
                   </>
                 )}

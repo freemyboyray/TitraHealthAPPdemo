@@ -70,5 +70,15 @@ export function useVoiceInput() {
     }
   }
 
-  return { isRecording, isProcessing, startRecording, stopAndTranscribe, error };
+  /** Tap-to-toggle: starts recording on first call, stops & transcribes on second. */
+  async function toggleRecording(): Promise<string | null> {
+    if (isRecording) {
+      return await stopAndTranscribe() || null;
+    } else {
+      await startRecording();
+      return null; // recording started, no text yet
+    }
+  }
+
+  return { isRecording, isProcessing, startRecording, stopAndTranscribe, toggleRecording, error };
 }

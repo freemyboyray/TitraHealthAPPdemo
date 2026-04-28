@@ -39,7 +39,7 @@ const STEP_SIZES = [4, 8, 12, 16] as const;
 // ─── Beverage Types ──────────────────────────────────────────────────────────
 // Hydration factors based on Beverage Hydration Index (Maughan et al. 2015, AJCN)
 
-type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | 'juice';
+type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | 'juice' | 'soup';
 
 type Beverage = {
   key: BeverageKey;
@@ -58,6 +58,7 @@ const BEVERAGES: Beverage[] = [
   { key: 'sparkling',    label: 'Sparkling',    icon: 'sparkles-outline',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
   { key: 'electrolytes', label: 'Electrolytes', icon: 'flash-outline',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
   { key: 'juice',        label: 'Juice',        icon: 'nutrition-outline',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
+  { key: 'soup',         label: 'Soup',         icon: 'flame-outline',       color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
 ];
 
 const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
@@ -79,6 +80,7 @@ const QUICK_PRESETS: QuickPreset[] = [
   { oz: 12, icon: 'sparkles-outline',  beverageKey: 'sparkling'    },
   { oz: 20, icon: 'flash-outline',     beverageKey: 'electrolytes' },
   { oz: 16, icon: 'nutrition-outline', beverageKey: 'juice'        },
+  { oz: 12, icon: 'flame-outline',     beverageKey: 'soup'         },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
@@ -124,9 +124,11 @@ export default function ScheduleScreen() {
                 <DateTimePicker
                   value={doseTime}
                   mode="time"
-                  display="spinner"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(_, date) => { if (date) setDoseTime(date); }}
                   style={s.datePicker}
+                  textColor={colors.textPrimary}
+                  themeVariant={colors.isDark ? 'dark' : 'light'}
                 />
               </View>
             </>
@@ -152,8 +154,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 4, marginBottom: 10, backgroundColor: c.bg,
   },
   sectionLabel: { fontSize: 18, fontWeight: '600', fontFamily: 'System', color: c.textPrimary, marginTop: 24, marginBottom: 12 },
-  datePickerWrap: { marginBottom: 8 },
-  datePicker:   { alignSelf: 'flex-start' },
+  datePickerWrap: { marginBottom: 8, alignItems: 'center' },
+  datePicker:   { width: '100%', height: 180 },
   tipCard:      {
     backgroundColor: 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.30)',
     borderRadius: 16, padding: 16, marginBottom: 8,

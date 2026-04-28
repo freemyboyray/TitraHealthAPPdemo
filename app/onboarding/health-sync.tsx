@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Alert,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,6 +17,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { requestPermissionsDetailed } from '@/lib/healthkit';
 import type { AppColors } from '@/constants/theme';
 
 export default function HealthSyncScreen() {
@@ -25,8 +28,9 @@ export default function HealthSyncScreen() {
   const step = isStarting ? 7 : 12;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const requestPermissions = useHealthKitStore((s) => s.requestPermissions);
-  const setAppleHealthEnabled = usePreferencesStore((s) => s.setAppleHealthEnabled);
+  const { requestPermissions: storeRequestPermissions } = useHealthKitStore();
+  const { setAppleHealthEnabled } = usePreferencesStore();
+  const [connecting, setConnecting] = useState(false);
 
   const navigateNext = () => {
     if (!draft.startWeightLbs) {
@@ -39,15 +43,64 @@ export default function HealthSyncScreen() {
   };
 
   const handleConnect = async () => {
-    const granted = await requestPermissions();
-    if (granted) {
-      updateDraft({ appleHealthEnabled: true });
-      setAppleHealthEnabled(true);
-    } else {
-      // HealthKit unavailable (Expo Go / simulator) or user denied — continue anyway
+    if (connecting) return;
+
+    if (Platform.OS !== 'ios') {
       updateDraft({ appleHealthEnabled: false });
+      navigateNext();
+      return;
     }
-    navigateNext();
+
+    setConnecting(true);
+    try {
+      const result = await requestPermissionsDetailed();
+
+      if (result.status === 'granted') {
+        updateDraft({ appleHealthEnabled: true });
+        setAppleHealthEnabled(true);
+        // Also update store so refreshLive fires
+        storeRequestPermissions();
+        navigateNext();
+      } else if (result.status === 'denied') {
+        Alert.alert(
+          'Apple Health Access Denied',
+          'You previously declined Apple Health access. To enable it, open Settings > TitraHealth > Health and turn on the categories you\'d like to share.',
+          [
+            { text: 'Open Settings', onPress: () => result.openSettings() },
+            { text: 'Skip for Now', onPress: () => {
+              updateDraft({ appleHealthEnabled: false });
+              navigateNext();
+            }},
+          ],
+        );
+      } else {
+        // unavailable
+        Alert.alert(
+          'Apple Health Unavailable',
+          result.reason,
+          [
+            { text: 'Skip for Now', onPress: () => {
+              updateDraft({ appleHealthEnabled: false });
+              navigateNext();
+            }},
+          ],
+        );
+      }
+    } catch (e) {
+      console.error('[HealthSync] handleConnect error:', e);
+      Alert.alert(
+        'Connection Failed',
+        'Something went wrong connecting to Apple Health. You can try again later in Settings.',
+        [
+          { text: 'Skip for Now', onPress: () => {
+            updateDraft({ appleHealthEnabled: false });
+            navigateNext();
+          }},
+        ],
+      );
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const handleSkip = () => {
@@ -76,8 +129,12 @@ export default function HealthSyncScreen() {
         </View>
 
         <View style={s.actions}>
-          <ContinueButton onPress={handleConnect} label="Connect Apple Health" />
-          <TouchableOpacity onPress={handleSkip} style={s.skipBtn}>
+          <ContinueButton
+            onPress={handleConnect}
+            disabled={connecting}
+            label={connecting ? 'Connecting…' : 'Connect Apple Health'}
+          />
+          <TouchableOpacity onPress={handleSkip} disabled={connecting} style={s.skipBtn}>
             <Text style={s.skipText}>Skip for now</Text>
           </TouchableOpacity>
         </View>

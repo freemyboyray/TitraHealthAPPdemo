@@ -39,13 +39,14 @@ const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     pill: {
-      height: 56,
+      minHeight: 56,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: w(0.12),
       backgroundColor: c.bg,
       justifyContent: 'center',
       paddingHorizontal: 18,
+      paddingVertical: 12,
       marginBottom: 10,
     },
     pillSelected: {

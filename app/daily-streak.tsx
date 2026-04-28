@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
-import { useLogStore, computeStreak } from '@/stores/log-store';
+import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { AnimatedFire } from '@/components/animated-fire';
 import type { AppColors } from '@/constants/theme';
@@ -119,13 +119,10 @@ export default function DailyStreakScreen() {
   const { colors } = useAppTheme();
   const { profile } = useProfile();
   const logStore = useLogStore();
-  const { setLastDailyStreakDate } = usePreferencesStore();
+  const { setLastDailyStreakDate, updateStreakOnOpen } = usePreferencesStore();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const streak = useMemo(() => computeStreak(logStore), [
-    logStore.weightLogs, logStore.injectionLogs, logStore.foodLogs,
-    logStore.activityLogs, logStore.sideEffectLogs, logStore.foodNoiseLogs,
-  ]);
+  const streak = useMemo(() => updateStreakOnOpen(), []);
 
   const weightLost = useMemo(() => {
     const startWeight = profile?.startWeightLbs ?? 0;
@@ -153,8 +150,8 @@ export default function DailyStreakScreen() {
   // ── Animations ──
   const [showConfetti, setShowConfetti] = useState(false);
   const [displayStreak, setDisplayStreak] = useState(0);
-  const fireScale = useSharedValue(0.5);
-  const fireOpacity = useSharedValue(0);
+  const fireScale = useSharedValue(1);
+  const fireOpacity = useSharedValue(1);
   const milestoneOpacity = useSharedValue(0);
   const milestoneScale = useSharedValue(0.8);
   const buttonOpacity = useSharedValue(0);
@@ -169,10 +166,6 @@ export default function DailyStreakScreen() {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setLastDailyStreakDate(today);
-
-    // Fire entrance
-    fireOpacity.value = withTiming(1, { duration: 400 });
-    fireScale.value = withSpring(1, { damping: 12, stiffness: 100 });
 
     // Count up the streak number
     const countDuration = Math.min(streak * 80, 1500);

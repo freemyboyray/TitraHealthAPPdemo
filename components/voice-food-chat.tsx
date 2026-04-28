@@ -50,9 +50,8 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
   const sentInitial = useRef(false);
 
   // Voice input
-  const { isRecording, isProcessing, startRecording, stopAndTranscribe } = useVoiceInput();
+  const { isRecording, isProcessing, toggleRecording } = useVoiceInput();
   const scale = useSharedValue(1);
-  const activeRef = useRef(false);
 
   useEffect(() => {
     if (isRecording) {
@@ -95,19 +94,12 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
     }
   }, [messages, loading, onComplete]);
 
-  // Voice handlers
-  const handlePressIn = useCallback(async () => {
+  // Voice handler — tap to start, tap to stop
+  const handleMicTap = useCallback(async () => {
     if (isProcessing || loading) return;
-    activeRef.current = true;
-    await startRecording();
-  }, [isProcessing, loading, startRecording]);
-
-  const handlePressOut = useCallback(async () => {
-    if (!activeRef.current) return;
-    activeRef.current = false;
-    const text = await stopAndTranscribe();
+    const text = await toggleRecording();
     if (text) sendMessage(text);
-  }, [stopAndTranscribe, sendMessage]);
+  }, [isProcessing, loading, toggleRecording, sendMessage]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -181,8 +173,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
           <View style={st.voiceArea}>
             <Animated.View style={pulseStyle}>
               <Pressable
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
+                onPress={handleMicTap}
                 disabled={isProcessing || loading}
                 style={({ pressed }) => [
                   st.micButton,
@@ -204,7 +195,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
               </Pressable>
             </Animated.View>
             <Text style={[st.voiceHint, { color: w(0.5) }]}>
-              {isProcessing ? 'Processing...' : isRecording ? 'Listening... release when done' : 'Hold to speak'}
+              {isProcessing ? 'Processing...' : isRecording ? 'Listening... tap to stop' : 'Tap to speak'}
             </Text>
             <Pressable onPress={() => setVoiceMode(false)} style={st.switchBtn}>
               <Ionicons name="keypad-outline" size={18} color={w(0.4)} />

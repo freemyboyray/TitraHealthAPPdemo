@@ -178,25 +178,68 @@ function excludeTitraSources<T extends { sourceRevision?: any }>(samples: T[]): 
 
 // ─── Authorization ───────────────────────────────────────────────────────────
 
+export type PermissionResult =
+  | { status: 'granted' }
+  | { status: 'unavailable'; reason: string }
+  | { status: 'denied'; openSettings: () => Promise<void> };
+
 export async function requestPermissions(): Promise<boolean> {
+  const result = await requestPermissionsDetailed();
+  return result.status === 'granted';
+}
+
+export async function requestPermissionsDetailed(): Promise<PermissionResult> {
   const HK = getHK();
   if (!HK) {
-    warn('requestPermissions → false (HealthKit module unavailable)');
-    return false;
+    warn('requestPermissions → unavailable (HealthKit module not loaded)');
+    return { status: 'unavailable', reason: 'HealthKit is not available in this build. Use a dev client or TestFlight build.' };
   }
   try {
     const available = await HK.isHealthDataAvailable();
     if (!available) {
-      warn('requestPermissions → false (HealthKit not available on this device)');
-      return false;
+      warn('requestPermissions → unavailable (device)');
+      return { status: 'unavailable', reason: 'This device does not support Apple Health.' };
     }
-    log('requesting authorization for', READ_TYPES.length, 'read types and', WRITE_TYPES.length, 'write types');
-    await HK.requestAuthorization({ toShare: WRITE_TYPES, toRead: READ_TYPES });
-    log('requestAuthorization resolved — iOS does not reveal read grants; live status is inferred from sample presence');
-    return true;
+
+    // Check if iOS will actually show the permission dialog
+    const reqStatus = await HK.getRequestStatusForAuthorization({
+      toShare: WRITE_TYPES,
+      toRead: READ_TYPES,
+    });
+    log('getRequestStatusForAuthorization →', reqStatus);
+
+    if (reqStatus === 1 /* shouldRequest */) {
+      // First time — iOS will show the permission sheet
+      log('requesting authorization for', READ_TYPES.length, 'read types and', WRITE_TYPES.length, 'write types');
+      await HK.requestAuthorization({ toShare: WRITE_TYPES, toRead: READ_TYPES });
+      log('requestAuthorization resolved');
+    }
+
+    // Check if the user granted write access to at least one key type.
+    // iOS never reveals read grants — we infer from sample presence later.
+    const writeStatus = HK.authorizationStatusFor(WRITE_TYPES[0]); // BodyMass
+    log('authorizationStatusFor(BodyMass) →', writeStatus);
+
+    if (writeStatus === 2 /* sharingAuthorized */) {
+      return { status: 'granted' };
+    }
+
+    if (reqStatus === 2 /* unnecessary */ && writeStatus !== 2) {
+      // User was previously prompted and denied write access.
+      // iOS won't re-prompt — they need to enable it in Settings.
+      warn('requestPermissions → denied (previously declined, must enable in Settings)');
+      return {
+        status: 'denied',
+        openSettings: openHealthSettings,
+      };
+    }
+
+    // The user dismissed the sheet or denied — still count as granted for
+    // read-only mode (iOS hides read denial from us, data just won't appear).
+    return { status: 'granted' };
   } catch (e) {
     err('requestPermissions failed', e);
-    return false;
+    return { status: 'unavailable', reason: 'An unexpected error occurred connecting to Apple Health.' };
   }
 }
 

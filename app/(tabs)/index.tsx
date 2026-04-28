@@ -2,7 +2,7 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
@@ -33,7 +33,7 @@ import { ClinicalAlertCard, getDismissedFlags } from '@/components/clinical-aler
 import { buildClinicalFlags } from '@/lib/clinical-alerts';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
-import { useLogStore, computeStreak } from '@/stores/log-store';
+import { useLogStore } from '@/stores/log-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -48,6 +48,7 @@ import { syncNotifications } from '@/stores/reminders-store';
 // import { AppetiteForecastWave } from '@/components/appetite-forecast-wave';
 // import { AppetiteForecastGauge } from '@/components/appetite-forecast-gauge';
 import { MissedShotModal } from '@/components/missed-shot-modal';
+import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
 
 const ORANGE = '#FF742A';
@@ -944,12 +945,15 @@ export default function HomeScreen() {
   const [missedShotVisible, setMissedShotVisible] = useState(false);
   const missedShotShownRef = useRef(false);
 
-  const streak = useMemo(() => computeStreak(logStore), [
-    logStore.weightLogs, logStore.injectionLogs, logStore.foodLogs,
-    logStore.activityLogs, logStore.sideEffectLogs, logStore.foodNoiseLogs,
-  ]);
+  const streak = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
 
   const biometricStore = useBiometricStore();
+
+  // ── Progress photos ──
+  const progressPhotos = useProgressPhotoStore((st) => st.photos);
+  const fetchProgressPhotos = useProgressPhotoStore((st) => st.fetchPhotos);
+  const getSignedUrl = useProgressPhotoStore((st) => st.getSignedUrl);
+  const [progressPhotoUrl, setProgressPhotoUrl] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     // Re-verify actuals (including injectionLogged) from Supabase on every tab focus
@@ -959,6 +963,7 @@ export default function HomeScreen() {
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
     getDismissedFlags().then(setDismissedFlags);
+    fetchProgressPhotos();
 
     // Fetch dates that have logged data (last 90 days) for calendar dot indicators
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -1004,6 +1009,15 @@ export default function HomeScreen() {
       }).filter(f => !dismissedFlags.includes(f.type))
     : [];
 
+
+  // Resolve signed URL for the most recent progress photo (for the card thumbnail)
+  useEffect(() => {
+    const latest = progressPhotos[0];
+    if (!latest) { setProgressPhotoUrl(null); return; }
+    let cancelled = false;
+    getSignedUrl(latest.photoUrl).then((url) => { if (!cancelled) setProgressPhotoUrl(url); });
+    return () => { cancelled = true; };
+  }, [progressPhotos]);
 
   // Fetch historical snapshot when user navigates to a past date
   useEffect(() => {
@@ -1255,8 +1269,9 @@ export default function HomeScreen() {
 
   // ── Treatment Progress computations ─────────────────────────────────────────
   const referenceTime = isPast ? selectedDate.getTime() : Date.now();
-  const daysOnTreatment = profile.startDate
-    ? Math.floor((referenceTime - new Date(profile.startDate + 'T00:00:00').getTime()) / 86400000)
+  const treatmentStartDate = profile.startDate || profile.doseStartDate;
+  const daysOnTreatment = treatmentStartDate
+    ? Math.max(0, Math.floor((referenceTime - new Date(treatmentStartDate + 'T00:00:00').getTime()) / 86400000))
     : null;
   const treatmentDisplayVal = daysOnTreatment != null
     ? daysOnTreatment >= 14 ? `${Math.floor(daysOnTreatment / 7)}` : `${daysOnTreatment}`
@@ -1264,30 +1279,32 @@ export default function HomeScreen() {
   const treatmentDisplayLbl = daysOnTreatment != null && daysOnTreatment >= 14
     ? 'weeks on\ntreatment'
     : 'days on\ntreatment';
+
+  // Latest weight: use profile.currentWeightLbs (synced on every weigh-in)
+  // as primary source — it's always the most recent actual weight logged.
+  // Weight logs array can have a seed entry with a synthetic timestamp that
+  // sorts after real logs, making weightLogsArr[0] unreliable.
   const weightLogsArr = logStore.weightLogs ?? [];
   const selectedDateEndStr = localDateStr(selectedDate);
   const latestWeight = isPast
     ? (weightLogsArr.find(w => localDateStr(new Date(w.logged_at)) <= selectedDateEndStr)?.weight_lbs ?? null)
-    : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null);
-  const firstWeight = weightLogsArr.length > 0
-    ? weightLogsArr[weightLogsArr.length - 1].weight_lbs
+    : (profile.currentWeightLbs > 0 ? profile.currentWeightLbs : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null));
+
+  // Start weight: always use the profile's start weight (set during onboarding),
+  // not the earliest weight log entry.
+  const startWeight = profile.startWeightLbs > 0 ? profile.startWeightLbs : null;
+  const weightDelta = (startWeight != null && latestWeight != null)
+    ? latestWeight - startWeight
     : null;
-  const weightDelta = (firstWeight != null && latestWeight != null)
-    ? latestWeight - firstWeight
-    : null;
+
   // Stat 3: % to goal (or lbs to go if no goal set)
-  const goalWeight = (profile as any).goalWeightLbs > 0 ? (profile as any).goalWeightLbs : null;
-  const startWeightForGoal = (profile as any).startWeightLbs > 0
-    ? (profile as any).startWeightLbs
-    : firstWeight;
-  const pctToGoal = (startWeightForGoal != null && goalWeight != null && latestWeight != null && startWeightForGoal !== goalWeight)
-    ? Math.max(0, Math.min(100, Math.round(((startWeightForGoal - latestWeight) / (startWeightForGoal - goalWeight)) * 100)))
+  const goalWeight = profile.goalWeightLbs > 0 ? profile.goalWeightLbs : null;
+  const pctToGoal = (startWeight != null && goalWeight != null && latestWeight != null && startWeight !== goalWeight)
+    ? Math.max(0, Math.min(100, Math.round(((startWeight - latestWeight) / (startWeight - goalWeight)) * 100)))
     : null;
   const lbsToGo = (latestWeight != null && goalWeight != null)
     ? Math.max(0, latestWeight - goalWeight)
-    : (latestWeight != null && startWeightForGoal != null)
-      ? Math.max(0, startWeightForGoal - latestWeight)
-      : null;
+    : null;
   const stat3Val = pctToGoal != null ? `${pctToGoal}%` : lbsToGo != null ? lbsToGo.toFixed(1) : '—';
   const stat3Lbl = pctToGoal != null ? 'to\ngoal' : goalWeight != null ? 'lbs\nto go' : 'lbs\nlost';
 
@@ -1584,6 +1601,44 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          )}
+
+          {/* ── Progress Photos Card ── */}
+          {isToday && progressPhotos.length > 0 && (
+            <Pressable
+              style={[s.cardWrap, { marginBottom: 20 }]}
+              onPress={() => router.push('/progress-photos' as any)}
+            >
+              <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 }}>
+                  {/* Thumbnail */}
+                  {progressPhotoUrl ? (
+                    <Image
+                      source={{ uri: progressPhotoUrl }}
+                      style={{ width: 56, height: 72, borderRadius: 10 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={{ width: 56, height: 72, borderRadius: 10, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="camera-outline" size={22} color={colors.textMuted} />
+                    </View>
+                  )}
+                  {/* Text */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginBottom: 3 }}>
+                      Progress Photos
+                    </Text>
+                    <Text style={{ fontSize: 14, color: colors.textSecondary, fontFamily: FF }}>
+                      {progressPhotos.length === 1
+                        ? '1 photo — take another to compare'
+                        : `${progressPhotos.length} photos`}
+                    </Text>
+                  </View>
+                  {/* Chevron */}
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                </View>
+              </View>
+            </Pressable>
           )}
 
           {/* ── Daily Focuses ── */}

@@ -5,6 +5,7 @@ import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-na
 
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
@@ -19,6 +20,7 @@ const STEPS = [
 export default function BuildingPlanScreen() {
   const router = useRouter();
   const { completeOnboarding } = useProfile();
+  const { initStreak } = usePreferencesStore();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -63,6 +65,7 @@ export default function BuildingPlanScreen() {
           // Last step — actually save
           try {
             await completeOnboarding();
+            initStreak();
           } catch (e) {
             console.warn('completeOnboarding failed:', e);
           }
@@ -74,7 +77,7 @@ export default function BuildingPlanScreen() {
 
       // Brief pause to show completion
       await new Promise((r) => setTimeout(r, 600));
-      if (!cancelled) router.replace('/(tabs)');
+      if (!cancelled) router.replace('/daily-streak');
     }
 
     run();

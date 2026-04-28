@@ -2,6 +2,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+/** Format a Date as YYYY-MM-DD in local timezone. */
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function yesterdayKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 type PreferencesStore = {
   isLightMode: boolean;
   toggleLightMode: () => void;
@@ -12,6 +24,22 @@ type PreferencesStore = {
   setLastWeeklySummaryDate: (date: string) => void;
   lastDailyStreakDate: string | null;
   setLastDailyStreakDate: (date: string) => void;
+  /** Consecutive days the user has opened the app. */
+  streakCount: number;
+  /** Last date (YYYY-MM-DD) the streak was recorded. */
+  lastStreakDate: string | null;
+  /** Call on each app open — continues, resets, or no-ops the streak. */
+  updateStreakOnOpen: () => number;
+  /** Set streak to 1 for today (called after onboarding). */
+  initStreak: () => void;
+  /** Achievement IDs whose congrats screen has already been shown. */
+  shownAchievementIds: string[];
+  /** Whether the initial baseline of already-earned achievements has been seeded. */
+  achievementsSeeded: boolean;
+  /** Mark an achievement as shown so the congrats screen doesn't re-trigger. */
+  markAchievementShown: (id: string) => void;
+  /** Seed all currently-earned achievements as already shown (one-time on first run). */
+  seedAchievements: (ids: string[]) => void;
   reset: () => void;
 };
 
@@ -27,7 +55,30 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setLastWeeklySummaryDate: (date) => set({ lastWeeklySummaryDate: date }),
       lastDailyStreakDate: null,
       setLastDailyStreakDate: (date) => set({ lastDailyStreakDate: date }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null }),
+      streakCount: 0,
+      lastStreakDate: null,
+      updateStreakOnOpen: () => {
+        const today = todayKey();
+        const state = usePreferencesStore.getState();
+        if (state.lastStreakDate === today) return state.streakCount;
+        const yesterday = yesterdayKey();
+        const newCount = state.lastStreakDate === yesterday ? state.streakCount + 1 : 1;
+        set({ streakCount: newCount, lastStreakDate: today });
+        return newCount;
+      },
+      initStreak: () => set({ streakCount: 1, lastStreakDate: todayKey() }),
+      shownAchievementIds: [],
+      achievementsSeeded: false,
+      markAchievementShown: (id) => set((s) => ({
+        shownAchievementIds: s.shownAchievementIds.includes(id)
+          ? s.shownAchievementIds
+          : [...s.shownAchievementIds, id],
+      })),
+      seedAchievements: (ids) => set((s) => {
+        const merged = new Set([...s.shownAchievementIds, ...ids]);
+        return { shownAchievementIds: [...merged], achievementsSeeded: true };
+      }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

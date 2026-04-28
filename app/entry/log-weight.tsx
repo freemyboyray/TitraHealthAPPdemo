@@ -200,10 +200,13 @@ export default function LogWeightScreen() {
   const { loading, addWeightLog } = useLogStore();
   const hkStore = useHealthKitStore();
   const { colors } = useAppTheme();
-  const { updateProfile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [lbs, setLbs]   = useState(185.0);
+  const [lbs, setLbs]   = useState(() => {
+    // Use last logged weight, fall back to onboarding weight, then 185
+    return profile?.currentWeightLbs ?? profile?.weightLbs ?? 185.0;
+  });
   const [unit, setUnit] = useState<Unit>('lbs');
   const [hkSuggestion, setHkSuggestion] = useState<WeightSampleWithSource | null>(null);
 

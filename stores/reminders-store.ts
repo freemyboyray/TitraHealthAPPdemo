@@ -31,9 +31,11 @@ export const ALL_SLOTS: ReminderSlot[] = [
 
 type RemindersStore = {
   masterEnabled: boolean;
+  doseReminderEnabled: boolean;
   slots: Record<ReminderSlot, SlotConfig>;
 
   setMasterEnabled(v: boolean): void;
+  setDoseReminderEnabled(v: boolean): void;
   setSlotEnabled(slot: ReminderSlot, v: boolean): void;
   setSlotTime(slot: ReminderSlot, time: string): void;
 };
@@ -137,11 +139,16 @@ export const useRemindersStore = create<RemindersStore>()(
   persist(
     (set, get) => ({
       masterEnabled: false,
+      doseReminderEnabled: true,
       slots: { ...DEFAULT_SLOTS },
 
       setMasterEnabled(v) {
         set({ masterEnabled: v });
         syncNotifications({ ...get(), masterEnabled: v });
+      },
+
+      setDoseReminderEnabled(v) {
+        set({ doseReminderEnabled: v });
       },
 
       setSlotEnabled(slot, v) {

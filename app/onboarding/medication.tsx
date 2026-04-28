@@ -16,33 +16,33 @@ type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] }
 const BRAND_GROUPS: BrandGroup[] = [
   {
     heading: 'Weekly Injection',
-    subheading: 'Administered once a week by subcutaneous injection',
+    subheading: 'Once a week',
     brands: [
-      { value: 'zepbound',               label: 'Zepbound®',                   note: 'Tirzepatide' },
-      { value: 'mounjaro',               label: 'Mounjaro®',                   note: 'Tirzepatide' },
-      { value: 'wegovy',                 label: 'Wegovy®',                     note: 'Semaglutide' },
-      { value: 'ozempic',                label: 'Ozempic®',                    note: 'Semaglutide (off-label wt loss)' },
-      { value: 'trulicity',              label: 'Trulicity®',                  note: 'Dulaglutide' },
-      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide',      note: 'Weekly' },
-      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide',      note: 'Weekly' },
+      { value: 'zepbound',               label: 'Zepbound',                note: 'Tirzepatide' },
+      { value: 'mounjaro',               label: 'Mounjaro',                note: 'Tirzepatide' },
+      { value: 'wegovy',                 label: 'Wegovy',                  note: 'Semaglutide' },
+      { value: 'ozempic',                label: 'Ozempic',                 note: 'Semaglutide' },
+      { value: 'trulicity',              label: 'Trulicity',               note: 'Dulaglutide' },
+      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide' },
+      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide' },
     ],
   },
   {
     heading: 'Daily Injection',
-    subheading: 'Administered once a day by subcutaneous injection',
+    subheading: 'Once a day',
     brands: [
-      { value: 'saxenda',                label: 'Saxenda®',                    note: 'Liraglutide 3 mg' },
-      { value: 'victoza',                label: 'Victoza®',                    note: 'Liraglutide (off-label wt loss)' },
-      { value: 'compounded_liraglutide', label: 'Compounded Liraglutide',      note: 'Daily' },
+      { value: 'saxenda',                label: 'Saxenda',                 note: 'Liraglutide' },
+      { value: 'victoza',                label: 'Victoza',                 note: 'Liraglutide' },
+      { value: 'compounded_liraglutide', label: 'Compounded Liraglutide' },
     ],
   },
   {
-    heading: 'Daily Oral Pill',
-    subheading: 'Taken by mouth once a day - no injections',
+    heading: 'Oral Pill',
+    subheading: 'Taken by mouth — no injections',
     brands: [
-      { value: 'oral_wegovy',  label: 'Oral Wegovy®',   note: 'Semaglutide 25 mg · FDA approved Dec 2025' },
-      { value: 'rybelsus',     label: 'Rybelsus®',      note: 'Semaglutide 3/7/14 mg · T2D approved' },
-      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly · NDA filed - FDA decision Q2 2026' },
+      { value: 'oral_wegovy',  label: 'Oral Wegovy',    note: 'Semaglutide' },
+      { value: 'rybelsus',     label: 'Rybelsus',       note: 'Semaglutide' },
+      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly' },
     ],
   },
   {
@@ -89,7 +89,8 @@ export default function MedicationScreen() {
               {group.brands.map((b) => (
                 <OptionPill
                   key={b.value}
-                  label={b.note ? `${b.label}  ·  ${b.note}` : b.label}
+                  label={b.label}
+                  subtitle={b.note}
                   selected={selected === b.value}
                   onPress={() => setSelected(b.value)}
                 />

@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
-import { requestNotificationPermission, scheduleTestNotification } from '@/lib/notifications';
+import { requestNotificationPermission, scheduleTestNotification, scheduleDoseReminder, cancelReminder } from '@/lib/notifications';
 import { type ReminderSlot, useRemindersStore } from '@/stores/reminders-store';
 
 const ORANGE = '#FF742A';
@@ -111,13 +111,62 @@ type PickerTarget = ReminderSlot | null;
 export default function RemindersScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
 
   const store = useRemindersStore();
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [pickerDate, setPickerDate] = useState<Date>(new Date(2000, 0, 1, 8, 0));
   const pickerDateRef = useRef<Date>(new Date(2000, 0, 1, 8, 0));
   const [testSent, setTestSent] = useState(false);
+
+  // Dose reminder state
+  const doseReminderEnabled = store.doseReminderEnabled;
+  const doseTimeStr = profile?.doseTime || '08:00';
+
+  async function handleDoseToggle(v: boolean) {
+    store.setDoseReminderEnabled(v);
+    if (v && profile) {
+      const brandDisplay = profile.medicationBrand
+        ? (profile.medicationBrand.charAt(0).toUpperCase() + profile.medicationBrand.slice(1))
+        : 'GLP-1';
+      await scheduleDoseReminder(
+        profile.injectionFrequencyDays ?? 7,
+        doseTimeStr,
+        brandDisplay,
+        profile.lastInjectionDate || null,
+      ).catch(() => {});
+    } else {
+      await cancelReminder('dose_reminder_daily').catch(() => {});
+      await cancelReminder('dose_reminder_weekly').catch(() => {});
+      await cancelReminder('dose_reminder_weekly_eve').catch(() => {});
+    }
+  }
+
+  function openDoseTimePicker() {
+    const d = hhmmToDate(doseTimeStr);
+    pickerDateRef.current = d;
+    setPickerDate(d);
+    setPickerTarget('dose_time' as any);
+  }
+
+  async function confirmDoseTime() {
+    const newTime = dateToHHMM(pickerDateRef.current);
+    closePicker();
+    if (profile) {
+      await updateProfile({ doseTime: newTime });
+      if (doseReminderEnabled) {
+        const brandDisplay = profile.medicationBrand
+          ? (profile.medicationBrand.charAt(0).toUpperCase() + profile.medicationBrand.slice(1))
+          : 'GLP-1';
+        await scheduleDoseReminder(
+          profile.injectionFrequencyDays ?? 7,
+          newTime,
+          brandDisplay,
+          profile.lastInjectionDate || null,
+        ).catch(() => {});
+      }
+    }
+  }
 
   async function handleMasterToggle(value: boolean) {
     if (value) {
@@ -146,6 +195,10 @@ export default function RemindersScreen() {
 
   function confirmPicker() {
     if (!pickerTarget) return;
+    if (pickerTarget === ('dose_time' as any)) {
+      confirmDoseTime();
+      return;
+    }
     store.setSlotTime(pickerTarget, dateToHHMM(pickerDateRef.current));
     closePicker();
   }
@@ -253,29 +306,43 @@ export default function RemindersScreen() {
               <View>
                 <Text style={s.sectionLabel}>MEDICATION</Text>
                 <View style={s.card}>
-                  <View style={s.medRow}>
+                  <View style={s.slotRow}>
                     <View style={s.slotLeft}>
                       <View style={[s.slotIconWrap, { backgroundColor: 'rgba(10,132,255,0.12)' }]}>
                         <Ionicons name="flask-outline" size={16} color="#0A84FF" />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.slotLabel}>{doseLabel}</Text>
+                        <Text style={[s.slotLabel, !doseReminderEnabled && s.slotLabelDisabled]}>
+                          Dose reminder
+                        </Text>
+                        <Text style={s.medSub}>{doseLabel}</Text>
                         {nextDose && (
-                          <Text style={s.medSub}>
+                          <Text style={[s.medSub, { marginTop: 1 }]}>
                             Next dose: {nextDose}
                           </Text>
                         )}
                       </View>
                     </View>
-                    <View style={s.autoBadge}>
-                      <Text style={s.autoText}>Auto</Text>
+                    <View style={s.slotRight}>
+                      {doseReminderEnabled && (
+                        <TouchableOpacity
+                          style={s.timeChip}
+                          onPress={openDoseTimePicker}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="time-outline" size={13} color={ORANGE} style={{ marginRight: 4 }} />
+                          <Text style={s.timeText}>{formatTime(doseTimeStr)}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <Switch
+                        value={doseReminderEnabled}
+                        onValueChange={handleDoseToggle}
+                        trackColor={{ false: '#333', true: ORANGE }}
+                        thumbColor="#FFFFFF"
+                        ios_backgroundColor="#333"
+                        style={s.slotSwitch}
+                      />
                     </View>
-                  </View>
-                  <View style={s.medHintRow}>
-                    <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-                    <Text style={s.medHint}>
-                      Dose reminders are scheduled automatically from your treatment plan
-                    </Text>
                   </View>
                 </View>
               </View>

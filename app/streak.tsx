@@ -11,42 +11,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
-import { useLogStore, computeStreak } from '@/stores/log-store';
+import { useLogStore } from '@/stores/log-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { AnimatedFire } from '@/components/animated-fire';
+import { ACHIEVEMENTS, type Achievement } from '@/constants/achievements';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
 const ORANGE = '#FF742A';
-
-type Achievement = {
-  id: string;
-  name: string;
-  label: string;
-  icon: string;
-  category: 'streak' | 'weight' | 'treatment';
-  threshold: number;
-};
-
-const ACHIEVEMENTS: Achievement[] = [
-  // Streak
-  { id: 's7',   name: 'First Week',   label: '7 days',   icon: '🔥', category: 'streak',    threshold: 7 },
-  { id: 's14',  name: 'Two Weeks',    label: '14 days',  icon: '🔥', category: 'streak',    threshold: 14 },
-  { id: 's30',  name: 'Monthly',      label: '30 days',  icon: '🔥', category: 'streak',    threshold: 30 },
-  { id: 's60',  name: 'Dedicated',    label: '60 days',  icon: '💪', category: 'streak',    threshold: 60 },
-  { id: 's100', name: 'Century',      label: '100 days', icon: '⭐', category: 'streak',    threshold: 100 },
-  { id: 's365', name: 'Full Year',    label: '365 days', icon: '👑', category: 'streak',    threshold: 365 },
-  // Weight
-  { id: 'w5',   name: 'First 5',      label: '5 lbs',    icon: '🏅', category: 'weight',    threshold: 5 },
-  { id: 'w10',  name: 'Double Digits', label: '10 lbs',  icon: '🏅', category: 'weight',    threshold: 10 },
-  { id: 'w25',  name: 'Quarter Century', label: '25 lbs', icon: '🏆', category: 'weight',   threshold: 25 },
-  { id: 'w50',  name: 'Half Century', label: '50 lbs',   icon: '🏆', category: 'weight',    threshold: 50 },
-  // Treatment
-  { id: 't7',   name: 'Getting Started', label: '1 week', icon: '💊', category: 'treatment', threshold: 7 },
-  { id: 't30',  name: 'One Month In', label: '30 days',  icon: '💊', category: 'treatment', threshold: 30 },
-  { id: 't90',  name: 'Committed',    label: '3 months', icon: '🛡️', category: 'treatment', threshold: 90 },
-  { id: 't180', name: 'Half Year',    label: '6 months', icon: '🛡️', category: 'treatment', threshold: 180 },
-  { id: 't365', name: 'Veteran',      label: '1 year',   icon: '🎖️', category: 'treatment', threshold: 365 },
-];
 
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -73,11 +45,8 @@ export default function StreakScreen() {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  // ── Streak ──
-  const streak = useMemo(() => computeStreak(logStore), [
-    logStore.weightLogs, logStore.injectionLogs, logStore.foodLogs,
-    logStore.activityLogs, logStore.sideEffectLogs, logStore.foodNoiseLogs,
-  ]);
+  // ── Streak (app-open based, stored in preferences) ──
+  const streak = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
 
   const freq = profile?.injectionFrequencyDays ?? 7;
   const lastInjDate = profile?.lastInjectionDate ?? null;

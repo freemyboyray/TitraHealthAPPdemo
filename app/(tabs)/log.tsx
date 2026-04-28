@@ -291,24 +291,22 @@ type WeightPoint = { weight: number; date: string };
 
 function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '90D' | 'MAX'): WeightPoint[] {
   if (period === 'MAX') {
-    const sorted = [...logs]
+    return [...logs]
       .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
       .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
-    return sorted.length >= 2 ? sorted : [];
   }
   const days = { '7D': 7, '14D': 14, '30D': 30, '90D': 90 }[period];
   const since = new Date(Date.now() - days * 86400000).toISOString();
-  const filtered = logs
+  return logs
     .filter(l => l.logged_at >= since)
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
     .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
-  return filtered.length >= 2 ? filtered : [];
 }
 
 // smoothPath and niceYTicks imported from @/lib/chart-utils
 
 function xAxisLabels(data: WeightPoint[], period: string, plotW: number): { x: number; label: string }[] {
-  if (data.length < 2) return [];
+  if (data.length < 1) return [];
   const maxLabels = 5;
   const step = Math.max(1, Math.floor((data.length - 1) / (maxLabels - 1)));
   const indices: number[] = [];
@@ -909,7 +907,7 @@ const PK_TIER_GUIDE = [
   { label: 'Trough',  range: '0 – 29%',   color: '#9A9490', desc: 'Levels are near trough before your next dose. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
 ];
 
-const CHART_HEIGHT = 110;
+const CHART_HEIGHT = 120;
 const EXP_CHART_HEIGHT = 220;
 const ML = 40; // left margin for Y-axis labels
 const MR = 8;  // right margin
@@ -1154,8 +1152,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   }, [chartData, injFreqDays, injTimestamp]);
 
   const openModal = useCallback(() => {
-    if (!isDailyDrug && chartData) setExpandedModal(true);
-  }, [isDailyDrug, chartData]);
+    if (chartData) setExpandedModal(true);
+  }, [chartData]);
 
   const compactScrub = useChartScrub({
     points,
@@ -1305,12 +1303,10 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 <Text style={[s.chartMuted, { fontSize: 13 }]}>
                   {isDailyDrug ? 'Intraday profile' : daysSinceLabel}
                 </Text>
-                {!isDailyDrug && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                    <Ionicons name="expand-outline" size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                    <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
-                  </View>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="expand-outline" size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                  <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+                </View>
               </View>
             </View>
 
@@ -1650,21 +1646,25 @@ const WMR = 12; // margin right
 const WMT = 10; // margin top
 const WMB = 28; // margin bottom (X-axis labels)
 
-function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false }: {
+function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false, activePeriod: activePeriodProp, onPeriodChange }: {
   datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
   chartHeight?: number;
   inline?: boolean;
+  activePeriod?: '7D' | '14D' | '30D' | '90D' | 'MAX';
+  onPeriodChange?: (p: '7D' | '14D' | '30D' | '90D' | 'MAX') => void;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const [activePeriod, setActivePeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
+  const [localPeriod, setLocalPeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
+  const activePeriod = activePeriodProp ?? localPeriod;
+  const setActivePeriod = onPeriodChange ?? setLocalPeriod;
   const [svgWidth, setSvgWidth] = useState(0);
 
   const onLayout = (e: LayoutChangeEvent) => setSvgWidth(e.nativeEvent.layout.width);
 
   const data = datasets[activePeriod];
-  const hasData = data && data.length >= 2;
+  const hasData = data && data.length >= 1;
 
   const svgH = chartHeight + WMT + WMB;
   const plotW = Math.max(0, svgWidth - WML - WMR);
@@ -1679,7 +1679,9 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   const maxW = rawMax + padding;
   const yRange = maxW - minW || 1;
 
-  const toX = (i: number) => WML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
+  const toX = (i: number) => data?.length === 1
+    ? WML + plotW / 2
+    : WML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
   const toY = (w: number) => WMT + plotH - ((w - minW) / yRange) * plotH;
 
   const points = hasData ? data.map((d, i) => ({ x: toX(i), y: toY(d.weight) })) : [];
@@ -1735,22 +1737,6 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
           </Text>
         </View>
       )}
-
-      <View style={s.progPeriodRow}>
-        {PERIODS.map((p) => {
-          const isActive = activePeriod === p;
-          return (
-            <Pressable
-              key={p}
-              style={[s.progPeriodBtn, isActive && s.progPeriodBtnActive]}
-              onPress={(e) => { e.stopPropagation(); LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setActivePeriod(p); }}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-            >
-              <Text style={[s.progPeriodLabel, isActive && s.progPeriodLabelActive]}>{p}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
 
       <GestureDetector gesture={weightScrub.gesture}>
         <View style={{ height: svgH, position: 'relative' }} onLayout={onLayout}>
@@ -1883,6 +1869,7 @@ function WeightProjectionCard({
   const s = useMemo(() => createStyles(colors), [colors]);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const [expanded, setExpanded] = useState(false);
+  const [activePeriod, setActivePeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { openAiChat } = useUiStore();
@@ -1913,24 +1900,24 @@ function WeightProjectionCard({
 
   return (
     <>
-      <Pressable
-        style={[s.cardWrap, { marginBottom: 16 }]}
-        onPress={() => setExpanded(true)}
-        onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          openAiChat({
-            type: 'metric',
-            contextLabel: 'Weight Journey',
-            contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
-            chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
-          });
-        }}
-        delayLongPress={400}
-      >
+      <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            {/* Header row */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            {/* Header row — tappable to expand */}
+            <Pressable
+              onPress={() => setExpanded(true)}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                openAiChat({
+                  type: 'metric',
+                  contextLabel: 'Weight Journey',
+                  contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
+                  chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
+                });
+              }}
+              delayLongPress={400}
+              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}
+            >
               <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
                 <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'System' }}>
@@ -1941,6 +1928,20 @@ function WeightProjectionCard({
                   <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
                 </View>
               </View>
+            </Pressable>
+
+            {/* Period selector */}
+            <View style={s.progPeriodRow}>
+              {(['7D', '14D', '30D', '90D', 'MAX'] as const).map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
+                  onPress={() => setActivePeriod(p)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Always-visible chart */}
@@ -1949,10 +1950,12 @@ function WeightProjectionCard({
               currentWeight={currentWeight}
               chartHeight={130}
               inline
+              activePeriod={activePeriod}
+              onPeriodChange={setActivePeriod}
             />
           </View>
         </View>
-      </Pressable>
+      </View>
 
       <Modal visible={expanded} transparent animationType="none" onRequestClose={closeSheet}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
@@ -1985,12 +1988,28 @@ function WeightProjectionCard({
                 </Pressable>
               </View>
 
+              {/* Period selector */}
+              <View style={s.progPeriodRow}>
+                {(['7D', '14D', '30D', '90D', 'MAX'] as const).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
+                    onPress={() => setActivePeriod(p)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               {/* Embedded chart at 220px */}
               <WeightChartCard
                 datasets={datasets}
                 currentWeight={currentWeight}
                 chartHeight={220}
                 inline
+                activePeriod={activePeriod}
+                onPeriodChange={setActivePeriod}
               />
 
               {/* Stats + plateau below chart */}
@@ -3352,19 +3371,12 @@ export default function InsightsScreen() {
           {activeTab === 'progress' && (
             <>
               {/* <ProgAIInsightsCard /> */}
-              <PremiumGate
-                feature="weight_projection_advanced"
-                variant="hard"
-                title="Weight Journey"
-                teaser="See your projected weight curve and goal timeline."
-              >
-                <WeightProjectionCard
-                  projection={projection ?? null}
-                  datasets={weightDatasets}
-                  currentWeight={currentWeight}
-                  programWeek={programWeek}
-                />
-              </PremiumGate>
+              <WeightProjectionCard
+                projection={projection ?? null}
+                datasets={weightDatasets}
+                currentWeight={currentWeight}
+                programWeek={programWeek}
+              />
               <WeightGoalCard
                 projection={projection ?? null}
                 currentWeight={currentWeight}

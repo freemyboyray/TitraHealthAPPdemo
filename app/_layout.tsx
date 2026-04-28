@@ -25,6 +25,8 @@ let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
+import { AchievementCongrats } from '@/components/achievement-congrats';
+import { useAchievementDetector } from '@/hooks/useAchievementDetector';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -108,6 +110,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Must live inside ProfileProvider because useAchievementDetector calls useProfile
+function AchievementLayer() {
+  const { pendingAchievement, dismissAchievement } = useAchievementDetector();
+  return <AchievementCongrats achievement={pendingAchievement} onDismiss={dismissAchievement} />;
+}
+
 function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const { colors } = useAppTheme();
@@ -148,6 +156,7 @@ function RootLayoutInner() {
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />
               <HealthSyncToast />
+              <AchievementLayer />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>
