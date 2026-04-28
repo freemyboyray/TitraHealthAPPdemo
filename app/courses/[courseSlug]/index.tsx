@@ -16,12 +16,7 @@ import { useSubscriptionStore } from '@/stores/subscription-store';
 const FF = 'System';
 const ORANGE = '#FF742A';
 
-const COURSE_HERO_IMAGES: Record<string, any> = {
-  'injection-mastery': require('@/assets/images/injection-mastery.png'),
-  'side-effect-survival': require('@/assets/images/side-effect-survival.png'),
-  'protein-muscle-defense': require('@/assets/images/protein-muscle-defense.png'),
-  'mind-and-body': require('@/assets/images/mind-body.png'),
-};
+const COURSE_HERO_IMAGES: Record<string, any> = {};
 
 const CATEGORY_COLORS: Record<string, string> = {
   medical: ORANGE,
