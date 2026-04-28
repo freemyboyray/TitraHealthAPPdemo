@@ -14,12 +14,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { cardElevation } from '@/constants/theme';
 import { useLogStore } from '@/stores/log-store';
 import { useProfile } from '@/contexts/profile-context';
 import { scheduleCheckinReminder } from '@/lib/notifications';
 
-const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,23 +180,25 @@ function toScore100(sum: number, higherIsBetter: boolean): number {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function GlassBorder({ r = 20 }: { r?: number }) {
+function GlassBorder({ r = 20, isDark = true }: { r?: number; isDark?: boolean }) {
+  const base = isDark ? 255 : 0;
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         borderRadius: r, borderWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.13)',
-        borderLeftColor: 'rgba(255,255,255,0.08)',
-        borderRightColor: 'rgba(255,255,255,0.03)',
-        borderBottomColor: 'rgba(255,255,255,0.02)',
+        borderTopColor: `rgba(${base},${base},${base},0.13)`,
+        borderLeftColor: `rgba(${base},${base},${base},0.08)`,
+        borderRightColor: `rgba(${base},${base},${base},0.03)`,
+        borderBottomColor: `rgba(${base},${base},${base},0.02)`,
       }}
     />
   );
 }
 
-function DotScale({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function DotScale({ value, onChange, colors }: { value: number; onChange: (v: number) => void; colors: AppColors }) {
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, justifyContent: 'space-between' }}>
       {[0, 1, 2, 3, 4].map((v) => (
@@ -209,18 +211,18 @@ function DotScale({ value, onChange }: { value: number; onChange: (v: number) =>
           <View
             style={{
               width: 44, height: 44, borderRadius: 22,
-              backgroundColor: value === v ? ORANGE : 'rgba(255,255,255,0.08)',
+              backgroundColor: value === v ? colors.orange : w(0.08),
               borderWidth: 1.5,
-              borderColor: value === v ? ORANGE : 'rgba(255,255,255,0.15)',
+              borderColor: value === v ? colors.orange : w(0.15),
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: value === v ? '#FFF' : 'rgba(255,255,255,0.35)' }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: value === v ? '#FFF' : w(0.35) }}>
               {v}
             </Text>
           </View>
           <Text
-            style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', width: 44 }}
+            style={{ fontSize: 11, color: w(0.3), textAlign: 'center', width: 44 }}
             numberOfLines={1}
             adjustsFontSizeToFit
           >
@@ -345,8 +347,10 @@ export default function WeeklyCheckinScreen() {
     }
   }
 
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
       {/* Header */}
       <View style={{
@@ -354,15 +358,15 @@ export default function WeeklyCheckinScreen() {
         paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 14,
       }}>
         <TouchableOpacity style={s.headerBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' }]} />
-          <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: w(0.05) }]} />
+          <GlassBorder r={20} isDark={colors.isDark} />
+          <Ionicons name="chevron-back" size={22} color={w(0.6)} />
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF }}>Weekly Check-In</Text>
-          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>7 areas · ~3 min</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>Weekly Check-In</Text>
+          <Text style={{ fontSize: 14, color: w(0.4), marginTop: 1 }}>7 areas · ~3 min</Text>
         </View>
 
         <View style={{ width: 40 }} />
@@ -378,9 +382,9 @@ export default function WeeklyCheckinScreen() {
           const status = domain.getStatus(sum);
           return (
             <View key={domain.key} style={[s.card, { marginBottom: 16 }]}>
-              <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-              <GlassBorder r={20} />
+              <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
+              <GlassBorder r={20} isDark={colors.isDark} />
 
               <View style={{ padding: 18 }}>
                 {/* Domain header */}
@@ -391,12 +395,12 @@ export default function WeeklyCheckinScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{
                       width: 34, height: 34, borderRadius: 17,
-                      backgroundColor: 'rgba(255,116,42,0.15)',
+                      backgroundColor: colors.orangeDim,
                       alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Ionicons name={domain.icon} size={18} color={ORANGE} />
+                      <Ionicons name={domain.icon} size={18} color={colors.orange} />
                     </View>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFF', fontFamily: FF }}>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>
                       {domain.label}
                     </Text>
                   </View>
@@ -406,7 +410,7 @@ export default function WeeklyCheckinScreen() {
                     backgroundColor: `${status.color}22`,
                     borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4,
                   }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: status.color, fontFamily: FF }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: status.color, fontFamily: FF }}>
                       {status.label}
                     </Text>
                   </View>
@@ -419,14 +423,15 @@ export default function WeeklyCheckinScreen() {
                     style={{ marginBottom: qIdx < domain.questions.length - 1 ? 18 : 4 }}
                   >
                     <Text style={{
-                      fontSize: 13, fontWeight: '600',
-                      color: 'rgba(255,255,255,0.85)', fontFamily: FF, lineHeight: 18, marginBottom: 4,
+                      fontSize: 15, fontWeight: '600',
+                      color: w(0.85), fontFamily: FF, lineHeight: 18, marginBottom: 4,
                     }}>
                       {q}
                     </Text>
                     <DotScale
                       value={answers[domainIdx][qIdx]}
                       onChange={(v) => setAnswer(domainIdx, qIdx, v)}
+                      colors={colors}
                     />
                   </View>
                 ))}
@@ -436,7 +441,7 @@ export default function WeeklyCheckinScreen() {
         })}
 
         <Text style={{
-          fontSize: 12, color: 'rgba(255,255,255,0.28)',
+          fontSize: 14, color: w(0.28),
           textAlign: 'center', marginTop: 4, lineHeight: 17,
         }}>
           Answer for this past week. Your responses automatically adjust this week's targets.
@@ -447,15 +452,15 @@ export default function WeeklyCheckinScreen() {
       <View style={{
         paddingHorizontal: 20, paddingTop: 12,
         paddingBottom: insets.bottom + 16,
-        backgroundColor: '#000',
+        backgroundColor: colors.bg,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: w(0.06),
       }}>
         <TouchableOpacity
           style={{
-            backgroundColor: ORANGE, borderRadius: 28, paddingVertical: 17,
+            backgroundColor: colors.orange, borderRadius: 28, paddingVertical: 17,
             alignItems: 'center', justifyContent: 'center',
-            shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
+            shadowColor: colors.orange, shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
           }}
           onPress={handleSave}
@@ -464,7 +469,7 @@ export default function WeeklyCheckinScreen() {
         >
           {loading
             ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF', letterSpacing: 0.4, fontFamily: FF }}>
+            : <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', letterSpacing: 0.4, fontFamily: FF }}>
                 Complete Check-In
               </Text>
           }
@@ -477,16 +482,16 @@ export default function WeeklyCheckinScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createStyles = (_c: AppColors) => StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   headerBtn: {
     width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 12, elevation: 4,
   },
   card: {
     borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
+    backgroundColor: c.surface,
+    ...cardElevation(c.isDark),
   },
 });

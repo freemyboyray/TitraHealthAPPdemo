@@ -19,7 +19,12 @@ type UiStore = {
   closeAiChat: () => void;
   insightsDefaultTab: InsightsTab | null;
   setInsightsDefaultTab: (tab: InsightsTab | null) => void;
+  healthSyncToast: string | null;
+  showHealthSyncToast: (msg: string) => void;
+  hideHealthSyncToast: () => void;
 };
+
+let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useUiStore = create<UiStore>((set) => ({
   sheetOpen: false,
@@ -30,4 +35,14 @@ export const useUiStore = create<UiStore>((set) => ({
   closeAiChat: () => set({ aiChatOpen: false, aiChatParams: {} }),
   insightsDefaultTab: null,
   setInsightsDefaultTab: (tab) => set({ insightsDefaultTab: tab }),
+  healthSyncToast: null,
+  showHealthSyncToast: (msg) => {
+    if (_toastTimer) clearTimeout(_toastTimer);
+    set({ healthSyncToast: msg });
+    _toastTimer = setTimeout(() => set({ healthSyncToast: null }), 2500);
+  },
+  hideHealthSyncToast: () => {
+    if (_toastTimer) clearTimeout(_toastTimer);
+    set({ healthSyncToast: null });
+  },
 }));

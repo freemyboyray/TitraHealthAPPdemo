@@ -55,10 +55,10 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
   const miniScale   = minimized.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] });
 
   const ICON_DEFS = [
-    { focused: <Ionicons name="home" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="home-outline" size={24} color={colors.textMuted} /> },
-    { focused: <MaterialIcons name="menu" size={26} color={colors.textPrimary} />, unfocused: <MaterialIcons name="menu" size={26} color={colors.textMuted} /> },
-    { focused: <Ionicons name="document" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="document-outline" size={24} color={colors.textMuted} /> },
-    { focused: <Ionicons name="settings" size={24} color={colors.textPrimary} />, unfocused: <Ionicons name="settings-outline" size={24} color={colors.textMuted} /> },
+    { focused: <Ionicons name="home" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="home-outline" size={24} color={colors.textMuted} /> },
+    { focused: <MaterialIcons name="menu" size={26} color="#FFFFFF" />, unfocused: <MaterialIcons name="menu" size={26} color={colors.textMuted} /> },
+    { focused: <Ionicons name="document" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="document-outline" size={24} color={colors.textMuted} /> },
+    { focused: <Ionicons name="settings" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="settings-outline" size={24} color={colors.textMuted} /> },
   ];
 
   return (

@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
+import { useUiStore } from '../../stores/ui-store';
 import { readLatestWeightWithSource, type WeightSampleWithSource } from '../../lib/healthkit';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
@@ -129,7 +130,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
               top: 34,
               width: 32,
               textAlign: 'center',
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: '500',
               color: rulerColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)',
             }}
@@ -184,7 +185,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
             paddingVertical: 4,
           }}
         >
-          <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFF' }}>
             {value.toFixed(1)} {unit}
           </Text>
         </View>
@@ -272,7 +273,8 @@ export default function LogWeightScreen() {
   async function doLog() {
     const weightLbs = parseFloat(lbs.toFixed(1));
     await addWeightLog(weightLbs);
-    hkStore.writeWeight(weightLbs);
+    const synced = await hkStore.writeWeight(weightLbs);
+    if (synced) useUiStore.getState().showHealthSyncToast('Weight saved to Apple Health');
     await updateProfile({ weightLbs, currentWeightLbs: weightLbs });
     router.back();
   }
@@ -359,10 +361,10 @@ export default function LogWeightScreen() {
           >
             <Ionicons name="heart" size={16} color="#FF3B30" />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.4 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.4 }}>
                 {hkSuggestion.sourceName?.toUpperCase() || 'FROM YOUR SCALE'}
               </Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginTop: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginTop: 1 }}>
                 {(unit === 'lbs' ? hkSuggestion.lbs : hkSuggestion.lbs * LB_TO_KG).toFixed(1)} {unit} · {formatAge(hkSuggestion.recordedAt)}
               </Text>
             </View>
@@ -372,7 +374,7 @@ export default function LogWeightScreen() {
               paddingHorizontal: 10,
               paddingVertical: 5,
             }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 0.3 }}>USE</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFF', letterSpacing: 0.3 }}>USE</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -451,7 +453,7 @@ const createStyles = (c: AppColors) => {
       ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
     },
     shadow: SHADOW,
-    title: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+    title: { fontSize: 20, fontWeight: '700', color: c.textPrimary },
     dateCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -465,12 +467,12 @@ const createStyles = (c: AppColors) => {
       backgroundColor: c.surface,
     },
     dateText: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: w(0.6),
     },
     currentLabel: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '500',
       color: w(0.45),
       marginBottom: 8,
@@ -497,7 +499,7 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 20,
     },
     toggleLabel: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
     },
     logBtn: {
@@ -513,7 +515,7 @@ const createStyles = (c: AppColors) => {
       elevation: 8,
     },
     logBtnText: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: '#000000',
       letterSpacing: 0.5,

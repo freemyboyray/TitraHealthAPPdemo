@@ -130,7 +130,8 @@ export default function ReviewFoodScreen() {
 
       // Log the meal
       await logMeal('snack');
-      hkStore.writeNutrition(totals);
+      const synced = await hkStore.writeNutrition(totals);
+      if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
       refreshActuals();
 
       // Cleanup and navigate
@@ -423,9 +424,9 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 17,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     textAlign: 'center',
   },
   backBtn: {
@@ -436,10 +437,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   backBtnText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   header: {
     flexDirection: 'row',
@@ -449,14 +450,14 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFF',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     letterSpacing: -0.3,
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     color: ORANGE,
     letterSpacing: 3,
@@ -479,15 +480,15 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   itemName: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFF',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   itemBrand: {
-    fontSize: 11,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.45)',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     marginTop: 2,
   },
   matchRow: {
@@ -505,9 +506,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   matchPillText: {
-    fontSize: 11,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     fontWeight: '500',
   },
   amountRow: {
@@ -523,16 +524,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.08)',
     color: '#FFF',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   unitLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   unitPill: {
     paddingHorizontal: 10,
@@ -543,9 +544,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   unitPillText: {
-    fontSize: 11,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     fontWeight: '500',
   },
   macroRow: {
@@ -561,15 +562,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   macroPillLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     letterSpacing: 0.5,
   },
   macroPillValue: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     marginTop: 1,
   },
   footer: {
@@ -592,16 +593,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFF',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   totalLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.45)',
     fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     marginTop: 2,
   },
   confirmBtn: {
@@ -617,10 +618,10 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   confirmBtnText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFF',
     letterSpacing: 0.3,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 });

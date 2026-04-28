@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import * as HealthKit from '../lib/healthkit';
 import * as HealthConnect from '../lib/health-connect';
 import type { HKCategoryKey, WorkoutSample, GlucoseSample, GlucoseStats } from '../lib/healthkit';
+import { usePreferencesStore } from './preferences-store';
 
 type NutritionData = { protein: number; calories: number; carbs: number; fat: number; fiber: number };
 
@@ -52,8 +53,9 @@ type HealthKitStore = {
   fetchAll(): Promise<void>;
   refreshLive(): Promise<void>;
   isLive(key: HKCategoryKey): boolean;
-  writeWeight(lbs: number): Promise<void>;
-  writeNutrition(macros: NutritionData): Promise<void>;
+  writeWeight(lbs: number): Promise<boolean>;
+  writeNutrition(macros: NutritionData): Promise<boolean>;
+  writeWater(ml: number): Promise<boolean>;
 };
 
 const lib = Platform.OS === 'ios' ? HealthKit : HealthConnect;
@@ -194,11 +196,33 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
   },
 
   async writeWeight(lbs) {
-    await lib.writeWeight(lbs);
+    if (!usePreferencesStore.getState().appleHealthEnabled) return false;
+    try {
+      await lib.writeWeight(lbs);
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   async writeNutrition(macros) {
-    await lib.writeNutrition(macros);
+    if (!usePreferencesStore.getState().appleHealthEnabled) return false;
+    try {
+      await lib.writeNutrition(macros);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async writeWater(ml) {
+    if (!usePreferencesStore.getState().appleHealthEnabled) return false;
+    try {
+      await lib.writeWater(ml);
+      return true;
+    } catch {
+      return false;
+    }
   },
 }));
 

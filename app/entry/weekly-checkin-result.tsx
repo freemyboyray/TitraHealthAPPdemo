@@ -21,7 +21,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const BLUE   = '#5AC8FA';
-const FF     = 'Inter_400Regular';
+const FF     = 'System';
 
 // ─── Domain metadata ──────────────────────────────────────────────────────────
 
@@ -46,49 +46,66 @@ const DOMAIN_META: Record<DomainKey, { label: string; icon: React.ComponentProps
 
 // ─── Explanation copy (GLP-1 specific, score-bucketed) ────────────────────────
 
-function getExplanation(key: DomainKey, score: number): string {
+/** Map each domain's label (from the checkin screen) to a contextual explanation.
+ *  Using the label string instead of score ensures the explanation always matches
+ *  the badge shown on screen — no threshold drift between the two systems. */
+function getExplanation(key: DomainKey, label: string): string {
   switch (key) {
     case 'gi_burden':
-      if (score >= 80) return 'Minimal GI symptoms. Your body is tolerating the medication well. Continue with your normal targets.';
-      if (score >= 55) return 'Mild GI symptoms are very common on GLP-1, especially after dose increases. Smaller meals, more water, and bland foods help significantly.';
-      if (score >= 30) return 'Moderate GI burden. Targets have been adjusted to ease your system. Focus on hydration and light, frequent meals.';
-      return 'Significant GI symptoms are affecting your daily routine. Targets have been reduced. Contact your prescriber if symptoms persist beyond a week.';
+      switch (label) {
+        case 'Minimal': return 'Minimal GI symptoms. Your body is tolerating the medication well. Continue with your normal targets.';
+        case 'Mild':    return 'Mild GI symptoms are very common on GLP-1, especially after dose increases. Smaller meals, more water, and bland foods help significantly.';
+        case 'Moderate': return 'Moderate GI burden. Targets have been adjusted to ease your system. Focus on hydration and light, frequent meals.';
+        default:        return 'Significant GI symptoms are affecting your daily routine. Targets have been reduced. Contact your prescriber if symptoms persist beyond a week.';
+      }
 
     case 'energy_mood':
-      if (score >= 75) return 'Energy and mood are strong this week. Consistent sleep and protein intake help maintain this through treatment.';
-      if (score >= 50) return 'Energy is in a typical range for GLP-1 therapy. Sleep quality and protein are the biggest levers to improve this.';
-      if (score >= 25) return 'Low energy is common during dose-escalation. Prioritize sleep and protein. Both directly affect GLP-1 outcomes.';
-      return 'Very low energy or mood for multiple weeks warrants a conversation with your care team.';
+      switch (label) {
+        case 'Excellent': return 'Energy and mood are strong this week. Consistent sleep and protein intake help maintain this through treatment.';
+        case 'Good':      return 'Energy is in a typical range for GLP-1 therapy. Sleep quality and protein are the biggest levers to improve this.';
+        case 'Fair':      return 'Low energy is common during dose-escalation. Prioritize sleep and protein. Both directly affect GLP-1 outcomes.';
+        default:          return 'Very low energy or mood for multiple weeks warrants a conversation with your care team.';
+      }
 
     case 'appetite':
-      if (score >= 75) return 'Excellent appetite control. Stay consistent with protein targets to protect lean mass.';
-      if (score >= 50) return 'Appetite is moderately controlled. Normal for early treatment weeks.';
-      if (score >= 25) return "Smaller, more frequent meals help GLP-1's gastric emptying mechanism work better.";
-      return "Very low appetite may reflect early treatment. Note your injection timing and discuss with your prescriber if it persists.";
+      switch (label) {
+        case 'Excellent': return 'Excellent appetite control. Stay consistent with protein targets to protect lean mass.';
+        case 'Good':      return 'Appetite is moderately controlled. Normal for early treatment weeks.';
+        case 'Fair':      return "Smaller, more frequent meals help GLP-1's gastric emptying mechanism work better.";
+        default:          return "Very low appetite may reflect early treatment. Note your injection timing and discuss with your prescriber if it persists.";
+      }
 
     case 'food_noise':
-      if (score >= 80) return 'Food noise is minimal. GLP-1 is effectively quieting cravings. This is your prime window to build lasting habits.';
-      if (score >= 55) return 'Mild food thoughts are present. Common in early weeks as the medication builds up.';
-      if (score >= 30) return 'Moderate food noise may mean the medication is still titrating. Protein and fiber both help reduce cravings.';
-      return "High food noise can indicate the medication hasn't fully taken effect. Discuss with your prescriber if this persists.";
+      switch (label) {
+        case 'Quiet':    return 'Food noise is minimal. GLP-1 is effectively quieting cravings. This is your prime window to build lasting habits.';
+        case 'Mild':     return 'Mild food thoughts are present. Common in early weeks as the medication builds up.';
+        case 'Moderate': return 'Moderate food noise may mean the medication is still titrating. Protein and fiber both help reduce cravings.';
+        default:         return "High food noise can indicate the medication hasn't fully taken effect. Discuss with your prescriber if this persists.";
+      }
 
     case 'sleep_quality':
-      if (score >= 80) return 'Excellent sleep this week. Quality rest amplifies GLP-1\'s metabolic effects and supports lean mass preservation.';
-      if (score >= 55) return 'Decent sleep with some disruption. Even small improvements like a consistent bedtime and cool room can meaningfully improve outcomes.';
-      if (score >= 30) return 'Disrupted sleep reduces satiety hormone effectiveness. Activity targets have been eased to account for lower energy.';
-      return "Poor sleep significantly affects weight loss and recovery. If side effects are disturbing your sleep, discuss timing adjustments with your prescriber.";
+      switch (label) {
+        case 'Excellent': return 'Excellent sleep this week. Quality rest amplifies GLP-1\'s metabolic effects and supports lean mass preservation.';
+        case 'Good':      return 'Decent sleep with some disruption. Even small improvements like a consistent bedtime and cool room can meaningfully improve outcomes.';
+        case 'Fair':      return 'Disrupted sleep reduces satiety hormone effectiveness. Activity targets have been eased to account for lower energy.';
+        default:          return "Poor sleep significantly affects weight loss and recovery. If side effects are disturbing your sleep, discuss timing adjustments with your prescriber.";
+      }
 
     case 'activity_quality':
-      if (score >= 80) return 'Strong activity week. Resistance training and consistent steps are the best way to preserve lean mass on GLP-1. Keep it up.';
-      if (score >= 50) return 'Moderate activity is a solid foundation. Adding even one resistance session per week makes a meaningful difference for lean mass.';
-      if (score >= 25) return 'Low activity this week. Targets have been adjusted down to stay achievable. Light walks are still beneficial.';
-      return 'Very low activity reported. Rest is appropriate if symptomatic, but try to include short walks when possible.';
+      switch (label) {
+        case 'Excellent': return 'Strong activity week. Resistance training and consistent steps are the best way to preserve lean mass on GLP-1. Keep it up.';
+        case 'Good':      return 'Moderate activity is a solid foundation. Adding even one resistance session per week makes a meaningful difference for lean mass.';
+        case 'Fair':      return 'Low activity this week. Targets have been adjusted down to stay achievable. Light walks are still beneficial.';
+        default:          return 'Very low activity reported. Rest is appropriate if symptomatic, but try to include short walks when possible.';
+      }
 
     case 'mental_health':
-      if (score >= 80) return 'Good mental health this week. Stable mood supports consistent habits, the foundation of long-term GLP-1 success.';
-      if (score >= 55) return 'Mild mood fluctuations are common during treatment. Protein, exercise, and social connection are evidence-based supports.';
-      if (score >= 30) return 'Moderate mood concerns noted. Targets have been gently adjusted. Speaking with a mental health provider is recommended if this continues.';
-      return 'Significant mood or anxiety this week. Please consider discussing these results with your healthcare provider. Your targets have been adjusted to reduce pressure.';
+      switch (label) {
+        case 'Stable':   return 'Good mental health this week. Stable mood supports consistent habits, the foundation of long-term GLP-1 success.';
+        case 'Mild':     return 'Mild mood fluctuations are common during treatment. Protein, exercise, and social connection are evidence-based supports.';
+        case 'Moderate': return 'Moderate mood concerns noted. Targets have been gently adjusted. Speaking with a mental health provider is recommended if this continues.';
+        default:         return 'Significant mood or anxiety this week. Please consider discussing these results with your healthcare provider. Your targets have been adjusted to reduce pressure.';
+      }
   }
 }
 
@@ -103,32 +120,34 @@ function mlToOz(ml: number) { return Math.round(ml / 29.5735); }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function GlassBorder({ r = 20 }: { r?: number }) {
+function GlassBorder({ r = 20, isDark = true }: { r?: number; isDark?: boolean }) {
+  const base = isDark ? 255 : 0;
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         borderRadius: r, borderWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.13)',
-        borderLeftColor: 'rgba(255,255,255,0.08)',
-        borderRightColor: 'rgba(255,255,255,0.03)',
-        borderBottomColor: 'rgba(255,255,255,0.02)',
+        borderTopColor: `rgba(${base},${base},${base},0.13)`,
+        borderLeftColor: `rgba(${base},${base},${base},0.08)`,
+        borderRightColor: `rgba(${base},${base},${base},0.03)`,
+        borderBottomColor: `rgba(${base},${base},${base},0.02)`,
       }}
     />
   );
 }
 
-function GlassCard({ children, style }: { children: React.ReactNode; style?: object }) {
+function GlassCard({ children, style, themeColors }: { children: React.ReactNode; style?: object; themeColors: AppColors }) {
   return (
     <View style={[{
       borderRadius: 20, overflow: 'hidden',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+      backgroundColor: themeColors.surface,
+      shadowColor: themeColors.shadowColor, shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
     }, style]}>
-      <BlurView intensity={78} tint="dark" style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)' }]} />
-      <GlassBorder r={20} />
+      <BlurView intensity={78} tint={themeColors.blurTint} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: themeColors.glassOverlay }]} />
+      <GlassBorder r={20} isDark={themeColors.isDark} />
       {children}
     </View>
   );
@@ -140,7 +159,7 @@ export default function WeeklyCheckinResultScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const w = (a: number) => `rgba(255,255,255,${a})`;
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
   const params = useLocalSearchParams<{ scores: string; labels: string }>();
 
@@ -265,7 +284,7 @@ export default function WeeklyCheckinResultScreen() {
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
       {/* Header */}
       <View style={{
@@ -294,7 +313,7 @@ export default function WeeklyCheckinResultScreen() {
           }]}>
             <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Ionicons name="alert-circle" size={22} color="#F6CB45" />
-              <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#FFF', fontFamily: FF, lineHeight: 18 }}>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
                 Your mental health responses suggest it may be helpful to speak with your healthcare provider this week.
               </Text>
             </View>
@@ -302,7 +321,7 @@ export default function WeeklyCheckinResultScreen() {
         )}
 
         {/* ── THIS WEEK — domain status + explanations (FIRST) ─────────────── */}
-        <GlassCard style={{ marginBottom: 14 }}>
+        <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
           <View style={{ padding: 20 }}>
             <Text style={s.sectionTitle}>THIS WEEK</Text>
 
@@ -313,7 +332,7 @@ export default function WeeklyCheckinResultScreen() {
 
               const meta        = DOMAIN_META[key];
               const color       = scoreColor(score);
-              const explanation = getExplanation(key, score);
+              const explanation = getExplanation(key, label ?? '');
               const isLast      = i === DOMAIN_ORDER.length - 1;
 
               return (
@@ -322,7 +341,7 @@ export default function WeeklyCheckinResultScreen() {
                   style={{
                     paddingVertical: 14,
                     borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                    borderBottomColor: 'rgba(255,255,255,0.07)',
+                    borderBottomColor: w(0.07),
                   }}
                 >
                   {/* Label row */}
@@ -333,12 +352,12 @@ export default function WeeklyCheckinResultScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <View style={{
                         width: 28, height: 28, borderRadius: 14,
-                        backgroundColor: 'rgba(255,116,42,0.12)',
+                        backgroundColor: colors.orangeDim,
                         alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <Ionicons name={meta.icon} size={15} color={ORANGE} />
+                        <Ionicons name={meta.icon} size={15} color={colors.orange} />
                       </View>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF', fontFamily: FF }}>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                         {meta.label}
                       </Text>
                     </View>
@@ -346,14 +365,14 @@ export default function WeeklyCheckinResultScreen() {
                       backgroundColor: `${color}22`,
                       borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3,
                     }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color, fontFamily: FF }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color, fontFamily: FF }}>
                         {label}
                       </Text>
                     </View>
                   </View>
 
                   {/* Explanation */}
-                  <Text style={{ fontSize: 13, color: w(0.5), fontFamily: FF, lineHeight: 18 }}>
+                  <Text style={{ fontSize: 15, color: w(0.5), fontFamily: FF, lineHeight: 18 }}>
                     {explanation}
                   </Text>
                 </View>
@@ -364,7 +383,7 @@ export default function WeeklyCheckinResultScreen() {
 
         {/* ── ADJUSTMENTS ────────────────────────────────────────────────────── */}
         {metricRows.length > 0 ? (
-          <GlassCard style={{ marginBottom: 14 }}>
+          <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
             <View style={{ padding: 20 }}>
               <Text style={s.sectionTitle}>THIS WEEK'S ADJUSTMENTS</Text>
 
@@ -377,7 +396,7 @@ export default function WeeklyCheckinResultScreen() {
                     style={{
                       paddingVertical: 14,
                       borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                      borderBottomColor: 'rgba(255,255,255,0.07)',
+                      borderBottomColor: w(0.07),
                     }}
                   >
                     <View style={{
@@ -386,7 +405,7 @@ export default function WeeklyCheckinResultScreen() {
                     }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         {row.icon}
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF', fontFamily: FF }}>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                           {row.label}
                         </Text>
                       </View>
@@ -400,7 +419,7 @@ export default function WeeklyCheckinResultScreen() {
                           size={11}
                           color={arrowColor}
                         />
-                        <Text style={{ fontSize: 12, fontWeight: '800', color: arrowColor, fontFamily: FF }}>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: arrowColor, fontFamily: FF }}>
                           {row.delta}
                         </Text>
                       </View>
@@ -411,11 +430,11 @@ export default function WeeklyCheckinResultScreen() {
                         {row.before}
                       </Text>
                       <Ionicons name="arrow-forward" size={14} color={w(0.25)} />
-                      <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: FF }}>
+                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>
                         {row.after}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 12, color: w(0.4), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>
+                    <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>
                       {row.reason}
                     </Text>
                   </View>
@@ -424,13 +443,13 @@ export default function WeeklyCheckinResultScreen() {
             </View>
           </GlassCard>
         ) : (
-          <GlassCard style={{ marginBottom: 14 }}>
+          <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
             <View style={{ padding: 20, alignItems: 'center' }}>
               <Ionicons name="checkmark-circle" size={28} color={GREEN} style={{ marginBottom: 8 }} />
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF', fontFamily: FF }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                 No adjustments needed
               </Text>
-              <Text style={{ fontSize: 13, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+              <Text style={{ fontSize: 15, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
                 Your scores are in a healthy range. Continue with your regular targets.
               </Text>
             </View>
@@ -438,24 +457,24 @@ export default function WeeklyCheckinResultScreen() {
         )}
 
         {/* ── AI COACH ────────────────────────────────────────────────────────── */}
-        <GlassCard style={{ borderWidth: 1, borderColor: 'rgba(255,116,42,0.15)' }}>
+        <GlassCard style={{ borderWidth: 1, borderColor: 'rgba(255,116,42,0.15)' }} themeColors={colors}>
           <View style={{ padding: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <View style={{
                 width: 28, height: 28, borderRadius: 14,
-                backgroundColor: 'rgba(255,116,42,0.12)',
+                backgroundColor: colors.orangeDim,
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <MaterialIcons name="auto-awesome" size={16} color={ORANGE} />
+                <MaterialIcons name="auto-awesome" size={16} color={colors.orange} />
               </View>
-              <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, fontFamily: FF, letterSpacing: 1.5 }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.orange, fontFamily: FF, letterSpacing: 1.5 }}>
                 AI COACH
               </Text>
             </View>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: -0.2, marginTop: 6, marginBottom: 4 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.2, marginTop: 6, marginBottom: 4 }}>
               Questions about your results?
             </Text>
-            <Text style={{ fontSize: 12, color: w(0.4), fontFamily: FF, lineHeight: 17, marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF, lineHeight: 17, marginBottom: 16 }}>
               Ask why your targets changed, what to focus on, or anything about this week.
             </Text>
 
@@ -501,9 +520,9 @@ export default function WeeklyCheckinResultScreen() {
       <View style={{
         paddingHorizontal: 20, paddingTop: 12,
         paddingBottom: insets.bottom + 16,
-        backgroundColor: '#000',
+        backgroundColor: colors.bg,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: w(0.06),
       }}>
         <TouchableOpacity style={s.doneBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.8}>
           <Text style={s.doneBtnText}>Done</Text>
@@ -516,48 +535,51 @@ export default function WeeklyCheckinResultScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createStyles = (_c: AppColors) => StyleSheet.create({
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,116,42,0.15)',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
-  },
-  pillText: { fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: FF },
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    pill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.orangeDim,
+      borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    },
+    pillText: { fontSize: 15, fontWeight: '700', color: c.orange, fontFamily: FF },
 
-  card: {
-    borderRadius: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
-  },
+    card: {
+      borderRadius: 20,
+      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
+    },
 
-  sectionTitle: {
-    fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.35)',
-    fontFamily: FF, letterSpacing: 1.5, marginBottom: 2,
-  },
+    sectionTitle: {
+      fontSize: 12, fontWeight: '800', color: w(0.35),
+      fontFamily: FF, letterSpacing: 1.5, marginBottom: 2,
+    },
 
-  chip: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 11,
-    borderRadius: 14, borderWidth: 1,
-    borderColor: 'rgba(255,116,42,0.25)',
-    backgroundColor: 'rgba(255,116,42,0.07)',
-  },
-  chipText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#FFF', fontFamily: FF },
+    chip: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 14, paddingVertical: 11,
+      borderRadius: 14, borderWidth: 1,
+      borderColor: 'rgba(255,116,42,0.25)',
+      backgroundColor: 'rgba(255,116,42,0.07)',
+    },
+    chipText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
 
-  askBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, height: 48, borderRadius: 24, backgroundColor: ORANGE,
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-  },
-  askBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF', fontFamily: FF },
+    askBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, height: 48, borderRadius: 24, backgroundColor: c.orange,
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+    },
+    askBtnText: { fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF },
 
-  doneBtn: {
-    backgroundColor: ORANGE, borderRadius: 28, paddingVertical: 17,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
-  },
-  doneBtnText: { fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
-});
+    doneBtn: {
+      backgroundColor: c.orange, borderRadius: 28, paddingVertical: 17,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
+    },
+    doneBtnText: { fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
+  });
+};

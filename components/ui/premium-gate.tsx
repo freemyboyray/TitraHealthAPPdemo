@@ -18,6 +18,8 @@ type Props = {
   children: ReactNode;
   /** Optional teaser text for soft gates (shown above blurred content) */
   teaser?: string;
+  /** Optional title shown above the blurred card when gated */
+  title?: string;
   /** Optional callback when the upgrade button is pressed */
   onUpgrade?: () => void;
 };
@@ -41,6 +43,7 @@ export function PremiumGate({
   variant = 'hard',
   children,
   teaser,
+  title,
   onUpgrade,
 }: Props) {
   const { colors, isDark } = useAppTheme();
@@ -57,6 +60,9 @@ export function PremiumGate({
   if (variant === 'soft') {
     return (
       <View style={styles.softContainer}>
+        {title && (
+          <Text style={[styles.gateTitle, { color: colors.textPrimary }]}>{title}</Text>
+        )}
         <View style={styles.blurWrap}>
           {children}
           <BlurView
@@ -87,6 +93,9 @@ export function PremiumGate({
   // Hard gate: blurred content with lock overlay
   return (
     <View style={styles.hardContainer}>
+      {title && (
+        <Text style={[styles.gateTitle, { color: colors.textPrimary }]}>{title}</Text>
+      )}
       <View style={styles.blurWrap}>
         {children}
         <BlurView
@@ -114,11 +123,12 @@ export function PremiumGate({
 const styles = StyleSheet.create({
   // Soft gate
   softContainer: {
-    overflow: 'hidden',
     borderRadius: 16,
   },
   blurWrap: {
     position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 16,
   },
   softOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -128,15 +138,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   teaserText: {
-    fontSize: 13,
+    fontSize: 15,
     textAlign: 'center',
     marginBottom: 12,
     fontStyle: 'italic',
   },
 
+  // Gate title (shown above blurred content)
+  gateTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    fontFamily: 'System',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+
   // Hard gate
   hardContainer: {
-    overflow: 'hidden',
     borderRadius: 16,
   },
   hardOverlay: {
@@ -167,7 +186,7 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
   },
 });

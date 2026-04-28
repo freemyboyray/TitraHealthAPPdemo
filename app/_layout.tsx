@@ -6,18 +6,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-  useFonts,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-  Inter_900Black,
-} from '@expo-google-fonts/inter';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MOCK_PROFILE } from '@/constants/mock-profile';
@@ -33,6 +24,7 @@ import { useSubscriptionStore } from '@/stores/subscription-store';
 let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
+import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -148,11 +140,14 @@ function RootLayoutInner() {
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                 <Stack.Screen name="ai-chat" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
+                <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="daily-streak" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />
+              <HealthSyncToast />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>
@@ -162,23 +157,6 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-    Inter_900Black,
-  });
-
-  if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-        <ActivityIndicator color="#FF742A" />
-      </View>
-    );
-  }
-
   return (
     <AppThemeProvider>
       <RootLayoutInner />

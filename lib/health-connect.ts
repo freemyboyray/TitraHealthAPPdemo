@@ -197,3 +197,18 @@ export async function writeNutrition(macros: {
     // silent
   }
 }
+
+export async function writeWater(ml: number): Promise<void> {
+  const HC = getHC();
+  if (!HC) return;
+  try {
+    await HC.insertRecords([{
+      recordType: 'Hydration',
+      startTime: isoNow(),
+      endTime: isoNow(),
+      volume: { unit: 'milliliters', value: ml },
+    }]);
+  } catch {
+    // silent
+  }
+}

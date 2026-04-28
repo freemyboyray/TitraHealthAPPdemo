@@ -777,3 +777,14 @@ export async function writeNutrition(macros: {
     err('writeNutrition', e);
   }
 }
+
+export async function writeWater(ml: number): Promise<void> {
+  const HK = getHK();
+  if (!HK) return;
+  try {
+    const now = new Date();
+    await HK.saveQuantitySample(HK_CATEGORIES.water, 'mL', ml, now, now);
+  } catch (e) {
+    err('writeWater', e);
+  }
+}

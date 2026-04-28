@@ -126,23 +126,36 @@ type LogStore = {
 // ─── Streak helper (computed from already-fetched logs) ──────────────────────
 
 /** Returns the number of consecutive days (ending today) that have at least one log entry. */
+/** Format a Date as YYYY-MM-DD in the user's local timezone. */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Parse an ISO timestamp string to a local YYYY-MM-DD key. */
+function isoToLocalDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return localDateKey(new Date(iso));
+}
+
 export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLogs' | 'foodLogs' | 'activityLogs' | 'sideEffectLogs' | 'foodNoiseLogs'>): number {
-  // Collect all log dates as YYYY-MM-DD strings
+  // Collect all log dates as local YYYY-MM-DD strings
   const dates = new Set<string>();
-  const toDate = (iso: string | null | undefined) => iso ? iso.slice(0, 10) : null;
 
-  store.weightLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
-  store.injectionLogs.forEach(l => { const d = toDate(l.injection_date); if (d) dates.add(d); });
-  store.foodLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
-  store.activityLogs.forEach(l => { const d = toDate(l.date); if (d) dates.add(d); });
-  store.sideEffectLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
-  store.foodNoiseLogs.forEach(l => { const d = toDate(l.logged_at); if (d) dates.add(d); });
+  store.weightLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
+  store.injectionLogs.forEach(l => { const d = isoToLocalDate(l.injection_date); if (d) dates.add(d); });
+  store.foodLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
+  store.activityLogs.forEach(l => { const d = isoToLocalDate(l.date); if (d) dates.add(d); });
+  store.sideEffectLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
+  store.foodNoiseLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
 
-  // Walk backwards from today
+  // Walk backwards from today using local dates
   let streak = 0;
   const d = new Date();
   for (let i = 0; i < 365; i++) {
-    const key = d.toISOString().slice(0, 10);
+    const key = localDateKey(d);
     if (dates.has(key)) {
       streak++;
     } else {

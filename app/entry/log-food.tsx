@@ -126,7 +126,7 @@ function GlassBorder({ r = 16 }: { r?: number }) {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 }}>{children}</Text>
+    <Text style={{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 }}>{children}</Text>
   );
 }
 
@@ -585,7 +585,8 @@ export default function LogFoodScreen() {
       fiber: parseFloat(trayItems.reduce((s, it) => s + it.fiber_g, 0).toFixed(1)),
     };
     await logMeal('snack');
-    hkStore.writeNutrition(totals);
+    const synced = await hkStore.writeNutrition(totals);
+    if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
     refreshActuals();
     setInsightsDefaultTab('lifestyle');
     router.replace('/(tabs)/log' as any);
@@ -773,7 +774,7 @@ export default function LogFoodScreen() {
                 <View style={{ padding: 20, alignItems: 'center' }}>
                   <Ionicons name="alert-circle-outline" size={36} color={ORANGE} style={{ marginBottom: 8 }} />
                   <Text style={s.scanProductName}>Product Not Found</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 15, marginBottom: 16, textAlign: 'center' }}>
                     This barcode wasn't in the database. Try searching manually.
                   </Text>
                   <TouchableOpacity style={s.scanPrimBtn} onPress={handleScanAgain} activeOpacity={0.8}>
@@ -969,7 +970,7 @@ export default function LogFoodScreen() {
                 <View style={s.centered}>
                   <Ionicons name="restaurant-outline" size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'} />
                   <Text style={[s.emptyText, { marginTop: 12 }]}>Search for a food or restaurant above</Text>
-                  <Text style={[s.emptyText, { fontSize: 12, marginTop: 4 }]}>Your recent items and saved meals will appear here</Text>
+                  <Text style={[s.emptyText, { fontSize: 14, marginTop: 4 }]}>Your recent items and saved meals will appear here</Text>
                   <TouchableOpacity style={[s.createFoodBtn, { marginTop: 16 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
                     <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
                     <Text style={s.createFoodText}>Create Custom Food</Text>
@@ -1065,7 +1066,7 @@ export default function LogFoodScreen() {
                     <GlassBorder r={20} />
                     <View style={{ padding: 18 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }}>DESCRIBE YOUR MEAL</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }}>DESCRIBE YOUR MEAL</Text>
                         <TouchableOpacity
                           onPress={() => setShowVoiceChat(true)}
                           style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
@@ -1110,7 +1111,7 @@ export default function LogFoodScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={[{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
+                  <Text style={[{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
                   {describeItems.map((item, idx) => {
                     const q = parseFloat(item.qty) || 0;
                     const g2 = q * item.unitGrams;
@@ -1153,8 +1154,8 @@ export default function LogFoodScreen() {
                             <View style={{ flex: 1, marginRight: 14 }}>
                               <View style={{ height: 2, backgroundColor: colors.textPrimary, marginBottom: 4 }} />
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 }}>
-                                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
-                                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary }}>{Math.round(f.calories * g2 / 100)}</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>{Math.round(f.calories * g2 / 100)}</Text>
                               </View>
                               <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
                               {([
@@ -1165,8 +1166,8 @@ export default function LogFoodScreen() {
                               ] as const).map(([label, per100]) => (
                                 <View key={label}>
                                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 }}>
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>{(per100 * g2 / 100).toFixed(1)}g</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>{(per100 * g2 / 100).toFixed(1)}g</Text>
                                   </View>
                                   <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
                                 </View>
@@ -1209,14 +1210,14 @@ export default function LogFoodScreen() {
                                     borderWidth: 1, borderColor: colors.borderSubtle,
                                   }}
                                 >
-                                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginRight: 4 }}>{item.unitLabel}</Text>
+                                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginRight: 4 }}>{item.unitLabel}</Text>
                                   <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
                                 </TouchableOpacity>
                               )}
                             </View>
                           </View>
                         ) : (
-                          <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>No match found</Text>
+                          <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4, fontStyle: 'italic' }}>No match found</Text>
                         )}
 
                         {/* Unit picker dropdown */}
@@ -1247,7 +1248,7 @@ export default function LogFoodScreen() {
                                   backgroundColor: item.unitLabel === opt.label ? (colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.1)') : 'transparent',
                                 }}
                               >
-                                <Text style={{ fontSize: 14, fontWeight: item.unitLabel === opt.label ? '700' : '500', color: item.unitLabel === opt.label ? ORANGE : colors.textPrimary }}>
+                                <Text style={{ fontSize: 16, fontWeight: item.unitLabel === opt.label ? '700' : '500', color: item.unitLabel === opt.label ? ORANGE : colors.textPrimary }}>
                                   {opt.label}
                                 </Text>
                               </TouchableOpacity>
@@ -1317,8 +1318,8 @@ export default function LogFoodScreen() {
                     <View style={{ marginLeft: 4, marginRight: 4, marginBottom: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}>
                       <View style={{ height: 1.5, backgroundColor: colors.textPrimary, marginBottom: 4 }} />
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>{item.calories}</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>Calories</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>{item.calories}</Text>
                       </View>
                       <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
                       {([
@@ -1329,17 +1330,17 @@ export default function LogFoodScreen() {
                       ] as const).map(([label, val]) => (
                         <View key={label}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
-                            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>{val.toFixed(1)}g</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>{val.toFixed(1)}g</Text>
                           </View>
                           <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 2 }} />
                         </View>
                       ))}
                       <View style={{ height: 1.5, backgroundColor: colors.textPrimary, marginTop: 2 }} />
                       {item.serving_description ? (
-                        <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_description}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_description}</Text>
                       ) : (
-                        <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_g}g</Text>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>Serving: {item.serving_g}g</Text>
                       )}
                     </View>
                   )}
@@ -1507,13 +1508,13 @@ export default function LogFoodScreen() {
                     )}
 
                     {/* Serving size */}
-                    <Text style={[{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
+                    <Text style={[{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
 
                     {/* Serving option pills - spinner while fetching detail */}
                     {detailLoading !== null ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                         <ActivityIndicator size="small" color={ORANGE} />
-                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Loading serving sizes…</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Loading serving sizes…</Text>
                       </View>
                     ) : pendingFood.serving_options && pendingFood.serving_options.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 14 }}>
@@ -1648,7 +1649,7 @@ const createStyles = (c: AppColors) => {
   },
   headerTitle: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: 2,
@@ -1694,7 +1695,7 @@ const createStyles = (c: AppColors) => {
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     fontWeight: '500',
   },
@@ -1710,10 +1711,10 @@ const createStyles = (c: AppColors) => {
   },
   resultLeft: { flex: 1, marginRight: 10 },
   resultRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  resultName: { fontSize: 14, fontWeight: '600', color: c.textPrimary, marginBottom: 2 },
-  resultSub: { fontSize: 11, color: c.textSecondary },
-  resultCal: { fontSize: 13, fontWeight: '700', color: c.textPrimary },
-  resultPer: { fontSize: 10, color: c.textSecondary },
+  resultName: { fontSize: 16, fontWeight: '600', color: c.textPrimary, marginBottom: 2 },
+  resultSub: { fontSize: 13, color: c.textSecondary },
+  resultCal: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+  resultPer: { fontSize: 12, color: c.textSecondary },
 
   // Custom badge
   customBadge: {
@@ -1722,7 +1723,7 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  customBadgeText: { fontSize: 9, fontWeight: '800', color: ORANGE, letterSpacing: 0.5 },
+  customBadgeText: { fontSize: 11, fontWeight: '800', color: ORANGE, letterSpacing: 0.5 },
 
   // Create food
   createFoodBtn: {
@@ -1732,8 +1733,8 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 12,
     marginTop: 4,
   },
-  createFoodText: { fontSize: 13, color: ORANGE, fontWeight: '600' },
-  emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center' },
+  createFoodText: { fontSize: 15, color: ORANGE, fontWeight: '600' },
+  emptyText: { fontSize: 16, color: c.textSecondary, textAlign: 'center' },
 
   // Describe mode
   describeCard: {
@@ -1748,7 +1749,7 @@ const createStyles = (c: AppColors) => {
     elevation: 6,
   },
   describeInput: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     minHeight: 90,
     lineHeight: 22,
@@ -1766,7 +1767,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 12,
     elevation: 6,
   },
-  describeAddBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  describeAddBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
   describeItemCard: {
     borderRadius: 18,
     overflow: 'hidden',
@@ -1779,7 +1780,7 @@ const createStyles = (c: AppColors) => {
     elevation: 5,
   },
   describeItemHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  describeItemName: { flex: 1, fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  describeItemName: { flex: 1, fontSize: 16, fontWeight: '600', color: c.textPrimary },
   checkbox: {
     width: 22,
     height: 22,
@@ -1798,9 +1799,9 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  describeRetryText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
+  describeRetryText: { fontSize: 16, fontWeight: '600', color: c.textSecondary },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  errorText: { fontSize: 13, color: ORANGE },
+  errorText: { fontSize: 15, color: ORANGE },
 
   // Camera (photo) mode
   photoFrame: {
@@ -1857,7 +1858,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 18,
     elevation: 8,
   },
-  cameraAnalyzeBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  cameraAnalyzeBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Scan mode
   barcodeFrame: {
@@ -1872,9 +1873,9 @@ const createStyles = (c: AppColors) => {
   barcodeCornerBL: { position: 'absolute', bottom: 0, left: 0, width: 24, height: 24, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: '#FFFFFF', borderBottomLeftRadius: 6 },
   barcodeCornerBR: { position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderBottomWidth: 3, borderRightWidth: 3, borderColor: '#FFFFFF', borderBottomRightRadius: 6 },
   scanHintWrap: { position: 'absolute', top: '55%', left: 0, right: 0, alignItems: 'center' },
-  scanHint: { color: w(0.7), fontSize: 13, fontWeight: '600', letterSpacing: 0.5 },
+  scanHint: { color: w(0.7), fontSize: 15, fontWeight: '600', letterSpacing: 0.5 },
   scanLoadingOverlay: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-  scanLoadingText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginTop: 12 },
+  scanLoadingText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginTop: 12 },
   scanPanel: {
     position: 'absolute',
     bottom: 0,
@@ -1882,14 +1883,14 @@ const createStyles = (c: AppColors) => {
     right: 0,
     overflow: 'hidden',
   },
-  scanProductName: { fontSize: 16, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
-  scanProductBrand: { fontSize: 12, color: c.textSecondary, marginBottom: 10 },
+  scanProductName: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
+  scanProductBrand: { fontSize: 14, color: c.textSecondary, marginBottom: 10 },
   scanServingRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
   scanBtns: { flexDirection: 'row', gap: 10 },
   scanSecBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center' },
-  scanSecBtnText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  scanSecBtnText: { fontSize: 16, fontWeight: '600', color: c.textPrimary },
   scanPrimBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  scanPrimBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  scanPrimBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
   // Tray footer
   trayFooter: {
@@ -1907,11 +1908,11 @@ const createStyles = (c: AppColors) => {
     elevation: 16,
   },
   trayItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 8 },
-  trayItemName: { flex: 1, fontSize: 13, color: c.textPrimary, fontWeight: '500' },
-  trayItemCal: { fontSize: 12, color: c.textSecondary, fontWeight: '600' },
+  trayItemName: { flex: 1, fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+  trayItemCal: { fontSize: 14, color: c.textSecondary, fontWeight: '600' },
   trayTotals: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  trayTotalText: { fontSize: 12, fontWeight: '700', color: ORANGE },
-  trayTotalSep: { fontSize: 12, color: c.textSecondary },
+  trayTotalText: { fontSize: 14, fontWeight: '700', color: ORANGE },
+  trayTotalSep: { fontSize: 14, color: c.textSecondary },
   trayActions: { flexDirection: 'row', gap: 10 },
   traySaveBtn: {
     flex: 1,
@@ -1921,7 +1922,7 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  traySaveBtnText: { fontSize: 13, fontWeight: '700', color: c.textSecondary },
+  traySaveBtnText: { fontSize: 15, fontWeight: '700', color: c.textSecondary },
   trayLogBtn: {
     flex: 2,
     height: 48,
@@ -1935,18 +1936,18 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 10,
     elevation: 6,
   },
-  trayLogBtnText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  trayLogBtnText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
   saveInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   saveInput: {
     flex: 1, height: 40, borderRadius: 10,
     backgroundColor: c.borderSubtle,
-    paddingHorizontal: 12, fontSize: 14, color: c.textPrimary,
+    paddingHorizontal: 12, fontSize: 16, color: c.textPrimary,
   },
   saveInputBtn: {
     paddingHorizontal: 14, height: 40, borderRadius: 10,
     backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
   },
-  saveInputBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  saveInputBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   // Add-to-meal overlay
   overlayContainer: { flex: 1, justifyContent: 'flex-end' },
@@ -1963,10 +1964,10 @@ const createStyles = (c: AppColors) => {
   },
   overlayHandle: { width: 44, height: 4, backgroundColor: c.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   overlayTitleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
-  overlayFoodName: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 14, lineHeight: 22 },
+  overlayFoodName: { fontSize: 19, fontWeight: '700', color: c.textPrimary, marginBottom: 14, lineHeight: 22 },
   infoIconBtn: { paddingTop: 2 },
   macroInlineText: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     fontStyle: 'italic',
     lineHeight: 19,
@@ -1982,16 +1983,16 @@ const createStyles = (c: AppColors) => {
     borderWidth: 1,
     borderColor: c.borderSubtle,
   },
-  nutritionTitle: { fontSize: 18, fontWeight: '900', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 2 },
-  nutritionServing: { fontSize: 12, color: c.textSecondary, marginBottom: 8 },
+  nutritionTitle: { fontSize: 20, fontWeight: '900', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 2 },
+  nutritionServing: { fontSize: 14, color: c.textSecondary, marginBottom: 8 },
   nutritionDividerThick: { height: 8, backgroundColor: c.border, marginVertical: 8, borderRadius: 2 },
   nutritionDivider: { height: 1, backgroundColor: c.borderSubtle, marginVertical: 5 },
   nutritionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  nutritionLabelBold: { fontSize: 15, fontWeight: '800', color: c.textPrimary },
-  nutritionValueBold: { fontSize: 15, fontWeight: '800', color: c.textPrimary },
-  nutritionLabelText: { fontSize: 13, fontWeight: '500', color: c.textPrimary },
-  nutritionValueText: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
-  nutritionFootnote: { fontSize: 10, color: c.textMuted, marginTop: 8, fontStyle: 'italic' },
+  nutritionLabelBold: { fontSize: 17, fontWeight: '800', color: c.textPrimary },
+  nutritionValueBold: { fontSize: 17, fontWeight: '800', color: c.textPrimary },
+  nutritionLabelText: { fontSize: 15, fontWeight: '500', color: c.textPrimary },
+  nutritionValueText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  nutritionFootnote: { fontSize: 12, color: c.textMuted, marginTop: 8, fontStyle: 'italic' },
 
   // Serving size pills
   servingPill: {
@@ -2001,18 +2002,18 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.borderSubtle,
   },
   servingPillActive: { backgroundColor: ORANGE },
-  servingPillText: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+  servingPillText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
   servingPillTextActive: { color: '#FFFFFF' },
 
   // Shared: serving row
   servingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  servingLabel: { fontSize: 13, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
+  servingLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
   servingInputWrap: {
     width: 80, height: 40, borderRadius: 12,
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 8,
   },
-  servingInput: { width: 80, textAlign: 'center', fontSize: 16, fontWeight: '700', color: c.textPrimary },
-  servingUnit: { fontSize: 13, color: c.textSecondary },
+  servingInput: { width: 80, textAlign: 'center', fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  servingUnit: { fontSize: 15, color: c.textSecondary },
 
   // Shared: macros
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
@@ -2021,7 +2022,7 @@ const createStyles = (c: AppColors) => {
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: c.textPrimary,
   },
@@ -2038,7 +2039,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 12,
     elevation: 6,
   },
-  overlayAddBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  overlayAddBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Custom food inputs
   cfInput: {
@@ -2046,14 +2047,14 @@ const createStyles = (c: AppColors) => {
     borderRadius: 12,
     backgroundColor: c.borderSubtle,
     paddingHorizontal: 14,
-    fontSize: 14,
+    fontSize: 16,
     color: c.textPrimary,
     marginBottom: 10,
   },
 
   // Camera permissions
-  permTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginTop: 14, marginBottom: 8, textAlign: 'center' },
-  permDesc: { fontSize: 13, color: c.textSecondary, textAlign: 'center', marginBottom: 20 },
+  permTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginTop: 14, marginBottom: 8, textAlign: 'center' },
+  permDesc: { fontSize: 15, color: c.textSecondary, textAlign: 'center', marginBottom: 20 },
   permBtn: {
     height: 48,
     paddingHorizontal: 24,
@@ -2062,6 +2063,6 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  permBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  permBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   });
 };

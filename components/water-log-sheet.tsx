@@ -24,11 +24,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
+import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useUiStore } from '@/stores/ui-store';
 
 const AnimatedRect = createAnimatedComponent(Rect);
 
 const ORANGE = '#FF742A';
-const FF     = 'Inter_400Regular';
+const FF     = 'System';
 
 const CUP_PATH = 'M 10 10 L 190 10 L 170 230 Q 170 240 160 240 L 40 240 Q 30 240 30 230 Z';
 
@@ -155,10 +157,15 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
     setLastAdd(null);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     const deltaOz = effectiveHydrationOz - initialHydrationOz.current;
     if (deltaOz !== 0) {
-      dispatch({ type: 'LOG_WATER', ml: Math.round(deltaOz * 29.5735) });
+      const ml = Math.round(deltaOz * 29.5735);
+      dispatch({ type: 'LOG_WATER', ml });
+      if (ml > 0) {
+        const synced = await useHealthKitStore.getState().writeWater(ml);
+        if (synced) useUiStore.getState().showHealthSyncToast('Water saved to Apple Health');
+      }
     }
     closeSheet();
   };
@@ -445,13 +452,13 @@ const createStyles = (c: AppColors) => {
     backgroundColor: w(0.03),
   },
   beveragePillLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: w(0.40),
     fontFamily: FF,
   },
   beverageFactorBadge: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     color: w(0.30),
     fontFamily: FF,
@@ -476,7 +483,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 12,
   },
   cupLabel: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: w(0.55),
     fontFamily: FF,
@@ -517,7 +524,7 @@ const createStyles = (c: AppColors) => {
     textShadowRadius: 4,
   },
   cupOzUnit: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: w(0.50),
     fontFamily: FF,
@@ -532,7 +539,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 14,
   },
   feedbackText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FF,
     textAlign: 'center',
@@ -572,13 +579,13 @@ const createStyles = (c: AppColors) => {
     minWidth: 80,
   },
   stepLabelMain: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     fontFamily: FF,
     letterSpacing: -0.3,
   },
   stepLabelHint: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '500',
     fontFamily: FF,
     marginTop: 1,
@@ -587,7 +594,7 @@ const createStyles = (c: AppColors) => {
 
   // Quick Add
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: w(0.30),
     letterSpacing: 1.0,
@@ -613,18 +620,18 @@ const createStyles = (c: AppColors) => {
     gap: 3,
   },
   chipLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     fontFamily: FF,
   },
   chipSublabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
     color: w(0.35),
     fontFamily: FF,
   },
   chipEffective: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     fontFamily: FF,
     opacity: 0.7,
@@ -644,7 +651,7 @@ const createStyles = (c: AppColors) => {
     elevation: 6,
   },
   updateBtnText: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.2,

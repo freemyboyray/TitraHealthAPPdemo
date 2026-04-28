@@ -11,6 +11,7 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { categoryColor, healthCategoryColor } from '@/constants/theme';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
 import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
@@ -555,27 +556,35 @@ const createSegmentedStyles = (c: AppColors) => {
     tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
     tabActive: {},
     tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
-    tabLabel: { fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: 'Inter_400Regular' },
-    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'Inter_400Regular' },
+    tabLabel: { fontSize: 15, fontWeight: '600', color: w(0.35), fontFamily: 'System' },
+    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'System' },
   });
 };
 
 // ─── Ring indicator ───────────────────────────────────────────────────────────
 
-function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE }: { size?: number; strokeWidth?: number; color?: string }) {
+function RingIndicator({ size = 88, strokeWidth = 7, color = ORANGE, pct = 1 }: { size?: number; strokeWidth?: number; color?: string; pct?: number }) {
   const { colors } = useAppTheme();
+  const r = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+  const clampedPct = Math.min(Math.max(pct, 0), 1);
+  const dashOffset = circumference * (1 - clampedPct);
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{
-        position: 'absolute', width: size, height: size,
-        borderRadius: size / 2, borderWidth: strokeWidth, borderColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-      }} />
-      <View style={{
-        position: 'absolute',
-        width: size - strokeWidth * 2 + 4, height: size - strokeWidth * 2 + 4,
-        borderRadius: (size - strokeWidth * 2 + 4) / 2,
-        borderWidth: strokeWidth, borderColor: color,
-      }} />
+      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2} cy={size / 2} r={r}
+          stroke={colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
+          strokeWidth={strokeWidth} fill="none"
+        />
+        <Circle
+          cx={size / 2} cy={size / 2} r={r}
+          stroke={color} strokeWidth={strokeWidth} fill="none"
+          strokeDasharray={`${circumference}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+        />
+      </Svg>
     </View>
   );
 }
@@ -589,7 +598,7 @@ function AIInsightsCardShell({ text, loading, onLongPress }: { text: string | nu
     <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onLongPress?.(); }} disabled={loading || !onLongPress}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.aiContent}>
-          <Text style={[s.aiLabel, { color: colors.textPrimary, fontSize: 17, fontWeight: '700', letterSpacing: -0.3, textTransform: 'none', marginBottom: 10 }]}>Analysis</Text>
+          <Text style={[s.aiLabel, { color: colors.textPrimary, fontSize: 19, fontWeight: '700', letterSpacing: -0.3, textTransform: 'none', marginBottom: 10 }]}>Analysis</Text>
           {loading ? (
             <View style={{ gap: 7 }}>
               <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.borderSubtle, width: '88%' }} />
@@ -647,7 +656,7 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
               onPress={onEmptyCta}
               style={{ marginTop: 8, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}
             >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'System' }}>
                 {emptyCtaLabel}
               </Text>
             </Pressable>
@@ -660,15 +669,19 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
 
 // ─── Activity daily card (fits in dailyGrid, ring replaces icon) ─────────────
 
-function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
+function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, unit = '', emptyCtaLabel, onEmptyCta }: {
   value: string; label: string; ringColor: string;
+  current?: number; target?: number; unit?: string;
   emptyCtaLabel?: string; onEmptyCta?: () => void;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
   const { openAiChat } = useUiStore();
   const isEmpty = value === '-';
+  const pct = target > 0 ? current / target : (isEmpty ? 0 : 1);
+  const remaining = target > 0 ? Math.max(0, target - current) : 0;
 
   const handleAskAI = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -681,17 +694,22 @@ function ActivityDailyCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta 
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-            <RingIndicator size={64} strokeWidth={5} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
+            <RingIndicator size={64} strokeWidth={5} pct={pct} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
             <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') : ringColor, letterSpacing: -0.3, fontFamily: 'System' }}>
                 {isEmpty ? '–' : value}
               </Text>
             </View>
           </View>
           <Text style={s.dailyLabel}>{label}</Text>
+          {!isEmpty && target > 0 && (
+            <Text style={{ fontSize: 12, color: w(0.4), fontFamily: 'System', marginTop: 3 }}>
+              {remaining > 0 ? `${remaining.toLocaleString()}${unit} to go` : 'Goal reached'}
+            </Text>
+          )}
           {isEmpty && emptyCtaLabel && onEmptyCta && (
             <Pressable onPress={onEmptyCta} style={{ marginTop: 10, backgroundColor: 'rgba(255,116,42,0.10)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>{emptyCtaLabel}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'System' }}>{emptyCtaLabel}</Text>
             </Pressable>
           )}
         </View>
@@ -757,14 +775,14 @@ function HealthDataConnectPrompt() {
   const { colors } = useAppTheme();
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'Inter_400Regular' }}>
+      <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'System' }}>
         Connect Apple Health in Settings to see your vitals, body composition, activity, and more — all in one place.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
         style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,116,42,0.12)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 }}
       >
-        <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: 'System' }}>
           Go to Settings
         </Text>
       </Pressable>
@@ -1213,8 +1231,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               />
               <SvgText
                 x={ML - 5} y={y + 3.5}
-                fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                textAnchor="end" fontFamily="Inter_400Regular"
+                fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
+                textAnchor="end" fontFamily="System"
               >
                 {tick}%
               </SvgText>
@@ -1244,11 +1262,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               stroke={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'} strokeWidth={1.5} strokeDasharray="4,3"
             />
             <Circle cx={nowX} cy={nowY} r={8} fill="rgba(255,116,42,0.2)" />
-            <Circle cx={nowX} cy={nowY} r={5.5} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} stroke={ORANGE} strokeWidth={2.5} />
+            <Circle cx={nowX} cy={nowY} r={5.5} fill={colors.isDark ? '#FFFFFF' : '#FFFFFF'} stroke={ORANGE} strokeWidth={2.5} />
             <SvgText
-              x={nowX} y={Math.max(14, nowY - 12)}
-              fontSize={10} fontWeight="800" fill={ORANGE}
-              textAnchor="middle" fontFamily="Inter_400Regular"
+              x={nowX} y={nowY > 40 ? nowY - 18 : nowY + 28}
+              fontSize={11} fontWeight="800" fill={ORANGE}
+              textAnchor="middle" fontFamily="System"
             >
               NOW
             </SvgText>
@@ -1260,37 +1278,39 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
   return (
     <>
+      <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
+        <View>
+          <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Drug Concentration</Text>
+          <Text style={[s.chartMuted, { marginTop: 2, fontSize: 13 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} />
+      </View>
       <Pressable
-        style={[s.cardWrap, { marginBottom: 16 }]}
+        style={s.cardWrap}
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
       >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            {/* Header row */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <View>
-                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Drug Concentration</Text>
-                <Text style={[s.chartMuted, { marginTop: 2, fontSize: 11 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {!isDailyDrug && (
-                  <Ionicons name="expand-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                )}
-              </View>
-            </View>
 
             {/* Level display */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
               <View>
                 <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
                 {concentrationDisplay && (
-                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{levelLabel} · remaining in body</Text>
+                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{levelLabel} · of peak level</Text>
                 )}
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.chartMuted, { fontSize: 11 }]}>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <Text style={[s.chartMuted, { fontSize: 13 }]}>
                   {isDailyDrug ? 'Intraday profile' : daysSinceLabel}
                 </Text>
+                {!isDailyDrug && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Ionicons name="expand-outline" size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                    <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -1344,11 +1364,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             }}
           >
             <BlurView
-              intensity={60}
+              intensity={colors.isDark ? 60 : 90}
               tint={colors.blurTint}
               style={StyleSheet.absoluteFill}
             />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassOverlay }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? colors.glassOverlay : 'rgba(255,255,255,0.82)' }]} />
 
             {/* Drag handle — pan gesture target */}
             <View
@@ -1366,7 +1386,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Drug Concentration</Text>
+                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Drug Concentration</Text>
                   <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
                 </View>
                 <Pressable onPress={dismissSheet} hitSlop={12}>
@@ -1421,11 +1441,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     marginBottom: 20,
                   }}>
                     <View>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{ptLabel}</Text>
-                      <Text style={[s.chartMuted, { marginTop: 2 }]}>{selPct}% remaining</Text>
+                      <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{ptLabel}</Text>
+                      <Text style={[s.chartMuted, { marginTop: 2 }]}>{selPct}% of peak</Text>
                     </View>
                     <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: `${selTier.color}22` }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: selTier.color, fontFamily: 'Inter_400Regular' }}>{selTier.label}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: selTier.color, fontFamily: 'System' }}>{selTier.label}</Text>
                     </View>
                   </View>
                 );
@@ -1435,14 +1455,17 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               <View style={{ marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierInfo.color }} />
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: tierInfo.color, fontFamily: 'Inter_400Regular' }}>{tierInfo.label}</Text>
-                  <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Inter_400Regular' }}>· {currentLevel}% active</Text>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: tierInfo.color, fontFamily: 'System' }}>{tierInfo.label}</Text>
+                  <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'System' }}>· {currentLevel}% active</Text>
                 </View>
                 {/* Gradient phase bar */}
                 <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                  {PK_TIER_GUIDE.slice().reverse().map((tier) => (
-                    <View key={tier.label} style={{ flex: 1, backgroundColor: `${tier.color}44` }} />
-                  ))}
+                  {PK_TIER_GUIDE.slice().reverse().map((tier) => {
+                    const isActive = tier.label === tierInfo.label;
+                    return (
+                      <View key={tier.label} style={{ flex: 1, backgroundColor: isActive ? tier.color : `${tier.color}30` }} />
+                    );
+                  })}
                 </View>
                 {/* Phase position indicator */}
                 <View style={{ position: 'relative', height: 0 }}>
@@ -1450,17 +1473,24 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     position: 'absolute',
                     left: `${Math.min(98, Math.max(2, currentLevel))}%`,
                     top: -14,
-                    width: 2,
+                    width: 3,
                     height: 6,
                     backgroundColor: '#FFFFFF',
-                    borderRadius: 1,
+                    borderRadius: 1.5,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 2,
                   }} />
                 </View>
                 {/* Compact tier legend */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                  {PK_TIER_GUIDE.slice().reverse().map((tier) => (
-                    <Text key={tier.label} style={{ fontSize: 9, color: `${tier.color}99`, fontWeight: '600', fontFamily: 'Inter_400Regular' }}>{tier.label}</Text>
-                  ))}
+                  {PK_TIER_GUIDE.slice().reverse().map((tier) => {
+                    const isActive = tier.label === tierInfo.label;
+                    return (
+                      <Text key={tier.label} style={{ fontSize: 11, color: isActive ? tier.color : `${tier.color}55`, fontWeight: isActive ? '800' : '600', fontFamily: 'System' }}>{tier.label}</Text>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -1479,8 +1509,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="arrow-up-circle" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Peak</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Peak</Text>
+                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
                   </View>
                   {/* Half-life card */}
                   <View style={{
@@ -1491,8 +1521,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="time-outline" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Half-life</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Half-life</Text>
+                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
                   </View>
                   {/* Trough card */}
                   <View style={{
@@ -1503,8 +1533,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     alignItems: 'center',
                   }}>
                     <Ionicons name="arrow-down-circle" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>Trough</Text>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Trough</Text>
+                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
                   </View>
                 </View>
               </View>
@@ -1524,8 +1554,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                       <Ionicons name={item.icon} size={16} color={item.color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{item.label}</Text>
-                      <Text style={{ fontSize: 11, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'Inter_400Regular', marginTop: 1 }}>{item.when}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>{item.label}</Text>
+                      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'System', marginTop: 1 }}>{item.when}</Text>
                     </View>
                   </View>
                 ))}
@@ -1567,12 +1597,13 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   elevation: 8,
                 })}
               >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'Inter_400Regular' }}>Ask AI about my medication</Text>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'System' }}>Ask AI about my medication</Text>
               </Pressable>
             </View>
           </Animated.View>
         </View>
       </Modal>
+      </View>
     </>
   );
 }
@@ -1696,10 +1727,10 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
       {!inline && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <View>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
             <Text style={s.chartMuted}>{PERIOD_SUBTITLES[activePeriod]}</Text>
           </View>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'System' }}>
             {displayWeight != null ? `${displayWeight} lbs` : '-'}
           </Text>
         </View>
@@ -1748,8 +1779,8 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                       />
                       <SvgText
                         x={WML - 6} y={y + 4}
-                        fontSize={10} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                        textAnchor="end" fontFamily="Inter_400Regular"
+                        fontSize={12} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
+                        textAnchor="end" fontFamily="System"
                       >
                         {Math.round(tick)}
                       </SvgText>
@@ -1766,8 +1797,8 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
                     />
                     <SvgText
                       x={WML + x} y={WMT + plotH + 18}
-                      fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                      textAnchor="middle" fontFamily="Inter_400Regular"
+                      fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
+                      textAnchor="middle" fontFamily="System"
                     >
                       {label}
                     </SvgText>
@@ -1900,14 +1931,14 @@ function WeightProjectionCard({
           <View style={{ padding: 18 }}>
             {/* Header row */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'System' }}>
                   {currentWeight != null ? `${currentWeight} lbs` : '-'}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Ionicons name="expand-outline" size={11} color={w(0.3)} />
-                  <Text style={[s.chartMuted, { fontSize: 10 }]}>Tap for full view</Text>
+                  <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
                 </View>
               </View>
             </View>
@@ -1926,12 +1957,12 @@ function WeightProjectionCard({
       <Modal visible={expanded} transparent animationType="none" onRequestClose={closeSheet}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           <Pressable
-            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)' }]}
             onPress={closeSheet}
           />
           <Animated.View style={{ height: screenHeight * 0.82, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', transform: [{ translateY: sheetY }] }}>
-            <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.glassOverlay }]} />
+            <BlurView intensity={colors.isDark ? 60 : 90} tint={colors.blurTint} style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? colors.glassOverlay : 'rgba(255,255,255,0.85)' }]} />
 
             {/* Drag handle — swipe down to dismiss */}
             <View
@@ -1948,7 +1979,7 @@ function WeightProjectionCard({
             >
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 16 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>Weight Journey</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
                 <Pressable onPress={closeSheet} hitSlop={12}>
                   <Ionicons name="close-circle" size={28} color={w(0.4)} />
                 </Pressable>
@@ -1968,22 +1999,22 @@ function WeightProjectionCard({
                   <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 16 }} />
                   <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
                     <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>WEEKLY RATE</Text>
-                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
+                      <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>WEEKLY RATE</Text>
+                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
                         {projection.weeklyLossRateLbs > 0 ? `-${projection.weeklyLossRateLbs}` : '0'}
-                        <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
                       </Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>GOAL DATE</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{goalDateLabel}</Text>
-                      <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
+                      <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>GOAL DATE</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{goalDateLabel}</Text>
+                      <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
                     </View>
                   </View>
                   {projection.plateauRisk !== 'none' && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
                       <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Inter_400Regular' }}>{plateauLabel}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: plateauColor, fontFamily: 'System' }}>{plateauLabel}</Text>
                       </View>
                     </View>
                   )}
@@ -2009,7 +2040,7 @@ function WeightProjectionCard({
                   borderRadius: 14, paddingVertical: 13, paddingHorizontal: 24,
                 })}
               >
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Inter_400Regular', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', fontFamily: 'System', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
               </Pressable>
             </ScrollView>
           </Animated.View>
@@ -2038,36 +2069,36 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
     : null;
 
   return (
-    <View style={[s.cardWrap, { marginBottom: 16 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={{ padding: 18 }}>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold', marginBottom: 14 }}>Goal Progress</Text>
-
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: projection?.plateauRisk && projection.plateauRisk !== 'none' ? 12 : 0 }}>
+    <View style={{ marginBottom: 16 }}>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System', marginBottom: 10, marginTop: 12 }}>Goal Progress</Text>
+      <View style={s.cardWrap}>
+        <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+          <View style={{ padding: 18 }}>
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: projection?.plateauRisk && projection.plateauRisk !== 'none' ? 12 : 0 }}>
             <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>GOAL WEIGHT</Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
+              <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>GOAL WEIGHT</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
                 {goalWeight != null ? `${goalWeight}` : '-'}
-                {goalWeight != null && <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textMuted }}> lbs</Text>}
+                {goalWeight != null && <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textMuted }}> lbs</Text>}
               </Text>
               {toGoalPct != null && (
                 <>
                   <View style={[s.progBar, { marginTop: 8 }]}>
                     <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
                   </View>
-                  <Text style={{ fontSize: 11, color: w(0.4), fontFamily: 'Inter_400Regular', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
+                  <Text style={{ fontSize: 13, color: w(0.4), fontFamily: 'System', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
                 </>
               )}
             </View>
             <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>PROJECTED DATE</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>PROJECTED DATE</Text>
               {goalDateLabel ? (
                 <>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{goalDateLabel}</Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{goalDateLabel}</Text>
+                  <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
                 </>
               ) : (
-                <Text style={{ fontSize: 12, color: w(0.35), fontFamily: 'Inter_400Regular', marginTop: 4 }}>Log 2+ weights to unlock</Text>
+                <Text style={{ fontSize: 14, color: w(0.35), fontFamily: 'System', marginTop: 4 }}>Log 2+ weights to unlock</Text>
               )}
             </View>
           </View>
@@ -2075,10 +2106,11 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
           {projection?.plateauRisk != null && projection.plateauRisk !== 'none' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
               <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: plateauColor, fontFamily: 'Inter_400Regular' }}>⚠ {plateauLabel}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: plateauColor, fontFamily: 'System' }}>⚠ {plateauLabel}</Text>
               </View>
             </View>
           )}
+          </View>
         </View>
       </View>
     </View>
@@ -2196,21 +2228,22 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
   const aiContext = top.map(e => `${EFFECT_LABELS[e.type] ?? e.type} x${e.count} (avg severity ${e.avgSev})`).join(', ');
 
   return (
-    <Pressable
-      style={[s.cardWrap, { marginBottom: 16 }]}
-      onLongPress={() => { if (top.length > 0) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Side Effects', contextValue: aiContext, chips: JSON.stringify(['Are these normal for my phase?', 'How can I reduce nausea?', 'Should I contact my doctor?', 'Do these affect my score?']) }); } }}
-    >
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={{ padding: 18 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={s.sectionTitle}>Side Effects</Text>
-            <Text style={{ fontSize: 11, color: w(0.35), fontFamily: 'Inter_400Regular' }}>Last 30 days</Text>
-          </View>
+    <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
+        <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Side Effects</Text>
+        <Text style={{ fontSize: 13, color: w(0.35), fontFamily: 'System' }}>Last 30 days</Text>
+      </View>
+      <Pressable
+        style={s.cardWrap}
+        onLongPress={() => { if (top.length > 0) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Side Effects', contextValue: aiContext, chips: JSON.stringify(['Are these normal for my phase?', 'How can I reduce nausea?', 'Should I contact my doctor?', 'Do these affect my score?']) }); } }}
+      >
+        <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+          <View style={{ padding: 18 }}>
 
           {top.length === 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
               <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
-              <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'Inter_400Regular' }}>No side effects logged recently</Text>
+              <Text style={{ fontSize: 16, color: w(0.45), fontFamily: 'System' }}>No side effects logged recently</Text>
             </View>
           ) : (
             top.map((item, i) => {
@@ -2224,25 +2257,26 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
                       <EffectIcon type={item.type} size={22} color={color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Inter_400Regular' }}>{name}</Text>
-                      <Text style={{ fontSize: 12, color: w(0.4), fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>{name}</Text>
+                      <Text style={{ fontSize: 14, color: w(0.4), fontFamily: 'System', marginTop: 2 }}>
                         {item.count} {item.count === 1 ? 'time' : 'times'} logged
                       </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 3 }}>
                       <View style={{ backgroundColor: color + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color, fontFamily: 'Inter_400Regular' }}>{severityLabel(item.avgSev)}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color, fontFamily: 'System' }}>{severityLabel(item.avgSev)}</Text>
                       </View>
-                      <Text style={{ fontSize: 11, color: w(0.3), fontFamily: 'Inter_400Regular' }}>avg {item.avgSev}/10</Text>
+                      <Text style={{ fontSize: 13, color: w(0.3), fontFamily: 'System' }}>avg {item.avgSev}/10</Text>
                     </View>
                   </View>
                 </View>
               );
             })
           )}
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -2277,7 +2311,7 @@ function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?:
             <View style={s.logDivider} />
             {entries.length === 0 ? (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 13, fontFamily: 'Inter_400Regular' }}>No entries yet</Text>
+                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>No entries yet</Text>
               </View>
             ) : entries.map((entry, i) => (
               <View key={entry.id}>
@@ -2512,7 +2546,7 @@ function LifestyleTrendCard({
             }}
           >
             <Text style={{
-              fontSize: 11, fontWeight: '600', fontFamily: 'Inter_400Regular',
+              fontSize: 13, fontWeight: '600', fontFamily: 'System',
               color: metricId === m.id ? '#FFF' : tc(0.45),
             }}>
               {m.label}
@@ -2536,7 +2570,7 @@ function LifestyleTrendCard({
             }}
           >
             <Text style={{
-              fontSize: 11, fontWeight: '600', fontFamily: 'Inter_400Regular',
+              fontSize: 13, fontWeight: '600', fontFamily: 'System',
               color: periodDays === p.days ? colors.textPrimary : tc(0.35),
             }}>
               {p.label}
@@ -2557,7 +2591,7 @@ function LifestyleTrendCard({
     if (!hasData) {
       return (
         <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 12, color: tc(0.35), fontFamily: 'Inter_400Regular' }}>
+          <Text style={{ fontSize: 14, color: tc(0.35), fontFamily: 'System' }}>
             Start logging to see data
           </Text>
         </View>
@@ -2587,8 +2621,8 @@ function LifestyleTrendCard({
               <Line x1={LT_TML} y1={y} x2={w - LT_TMR} y2={y}
                 stroke={tc(0.07)} strokeWidth={1} strokeDasharray="3,4" />
               <SvgText x={LT_TML - 6} y={y + 3.5}
-                fontSize={9} fill={tc(0.35)}
-                textAnchor="end" fontFamily="Inter_400Regular">
+                fontSize={11} fill={tc(0.35)}
+                textAnchor="end" fontFamily="System">
                 {label}
               </SvgText>
             </React.Fragment>
@@ -2601,8 +2635,8 @@ function LifestyleTrendCard({
             <Line x1={lbl.x} y1={LT_TMT} x2={lbl.x} y2={LT_TMT + plotH}
               stroke={tc(0.04)} strokeWidth={1} />
             <SvgText x={lbl.x} y={chartH - 5}
-              fontSize={9} fill={tc(0.35)}
-              textAnchor="middle" fontFamily="Inter_400Regular">
+              fontSize={11} fill={tc(0.35)}
+              textAnchor="middle" fontFamily="System">
               {lbl.label}
             </SvgText>
           </React.Fragment>
@@ -2622,8 +2656,8 @@ function LifestyleTrendCard({
             <Line x1={LT_TML} y1={data.goalY} x2={w - LT_TMR} y2={data.goalY}
               stroke={metric.color} strokeWidth={1} strokeDasharray="5,4" strokeOpacity="0.5" />
             <SvgText x={w - LT_TMR - 3} y={data.goalY - 3}
-              fontSize={8} fill={metric.color} fillOpacity={0.6}
-              textAnchor="end" fontFamily="Inter_400Regular">
+              fontSize={10} fill={metric.color} fillOpacity={0.6}
+              textAnchor="end" fontFamily="System">
               Goal
             </SvgText>
           </>
@@ -2680,12 +2714,12 @@ function LifestyleTrendCard({
         {renderMetricPills(setMetricId)}
         {/* Footer stats */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ fontSize: 11, color: tc(0.5), fontFamily: 'Inter_400Regular' }}>
+          <Text style={{ fontSize: 13, color: tc(0.5), fontFamily: 'System' }}>
             Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
           </Text>
           {hasData && (
             <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${hitRateColor}22` }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: hitRateColor, fontFamily: 'Inter_400Regular' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: hitRateColor, fontFamily: 'System' }}>
                 {hitRatePct}% on target
               </Text>
             </View>
@@ -2721,7 +2755,7 @@ function LifestyleTrendCard({
 
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'System' }}>
                 {metric.label} Trend
               </Text>
               <Pressable onPress={dismiss} hitSlop={12}>
@@ -2764,12 +2798,12 @@ function LifestyleTrendCard({
               {/* Selected point tooltip */}
               {selValue !== null && selDate !== null && (
                 <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>{selDate}</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                  <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: 'System' }}>{selDate}</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFF', fontFamily: 'System', marginTop: 2 }}>
                     {fmtVal(selValue)} {metric.unit}
                   </Text>
                   <Text style={{
-                    fontSize: 12, fontWeight: '600', fontFamily: 'Inter_400Regular', marginTop: 2,
+                    fontSize: 14, fontWeight: '600', fontFamily: 'System', marginTop: 2,
                     color: selValue >= target ? '#27AE60' : '#E74C3C',
                   }}>
                     {selValue >= target
@@ -2784,10 +2818,10 @@ function LifestyleTrendCard({
                 <View style={{ marginTop: 16 }}>
                   {/* Hit rate */}
                   <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                    <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'Inter_400Regular', lineHeight: 60 }}>
+                    <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'System', lineHeight: 60 }}>
                       {hitRatePct}%
                     </Text>
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>
+                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', fontFamily: 'System' }}>
                       of days on target
                     </Text>
                   </View>
@@ -2800,15 +2834,15 @@ function LifestyleTrendCard({
                       { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
                     ].map((chip, i) => (
                       <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: chip.color, fontFamily: 'Inter_400Regular' }}>{chip.value}</Text>
-                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
+                        <Text style={{ fontSize: 17, fontWeight: '700', color: chip.color, fontFamily: 'System' }}>{chip.value}</Text>
+                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'System', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
                       </View>
                     ))}
                   </View>
 
                   {/* Contextual text */}
                   <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter_400Regular', lineHeight: 20 }}>
+                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', fontFamily: 'System', lineHeight: 20 }}>
                       {hitRatePct >= 70
                         ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
                         : hitRatePct >= 40
@@ -3116,7 +3150,15 @@ export default function InsightsScreen() {
   return (
     <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <SafeAreaView style={{ flex: 1 }}>
+      <View style={s.heroBg}>
+        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+          <View style={s.heroHeader}>
+            <Text style={s.heroTitle}>Insights</Text>
+          </View>
+        </SafeAreaView>
+        <View style={s.heroCurve} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
@@ -3127,16 +3169,11 @@ export default function InsightsScreen() {
         >
           <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
-          {/* ── Header ── */}
-          <View style={s.header}>
-            <Text style={s.headerTitle}>Insights</Text>
-          </View>
-
           {/* ── Segmented Control ── */}
           <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} tabs={onTreatment ? TABS : TABS.filter(t => t.key !== 'medication')} />
           {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
             <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
-            <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_400Regular' }}>
+            <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System' }}>
               Hold any card to ask AI
             </Text>
           </View> */}
@@ -3158,28 +3195,28 @@ export default function InsightsScreen() {
               <Text style={s.sectionTitle}>Daily Metrics</Text>
               <View style={s.dailyGrid}>
                 <DailyMetricCard
-                  icon={<MaterialIcons name="restaurant" size={20} color={ORANGE} />}
+                  icon={<MaterialIcons name="restaurant" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
                   label="Protein" value={`${todayProteinG}/${targets.proteinG}g`}
                   change={`${proteinPct}%`}
                   status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
                   pct={proteinPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<Ionicons name="leaf-outline" size={20} color={ORANGE} />}
+                  icon={<Ionicons name="leaf-outline" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
                   label="Fiber" value={`${todayFiberG}/${targets.fiberG}g`}
                   change={`${fiberPct}%`}
                   status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
                   pct={fiberPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<Ionicons name="water-outline" size={20} color={ORANGE} />}
+                  icon={<Ionicons name="water-outline" size={20} color={categoryColor(colors.isDark, 'hydration')} />}
                   label="Hydration" value={`${waterOz}/${waterTargetOz}oz`}
                   change={`${waterPct}%`}
                   status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
                   pct={waterPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<MaterialIcons name="grain" size={20} color={ORANGE} />}
+                  icon={<MaterialIcons name="grain" size={20} color={categoryColor(colors.isDark, 'activity')} />}
                   label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
                   change={`${carbsPct}%`}
                   status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
@@ -3188,7 +3225,10 @@ export default function InsightsScreen() {
                 <ActivityDailyCard
                   value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
                   label="Calories Burned"
-                  ringColor={ORANGE}
+                  ringColor={categoryColor(colors.isDark, 'activity')}
+                  current={todayActiveCalories}
+                  target={targets.activeCaloriesTarget}
+                  unit=" cal"
                   emptyCtaLabel="Log Activity"
                   onEmptyCta={() => router.push('/entry/log-activity')}
                 />
@@ -3196,6 +3236,9 @@ export default function InsightsScreen() {
                   value={todaySteps > 0 ? todaySteps.toLocaleString() : '-'}
                   label="Daily Steps"
                   ringColor={colors.textPrimary}
+                  current={todaySteps}
+                  target={targets.steps}
+                  unit=" steps"
                   emptyCtaLabel="Log Activity"
                   onEmptyCta={() => router.push('/entry/log-activity')}
                 />
@@ -3217,13 +3260,16 @@ export default function InsightsScreen() {
                         metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)),
                       })).filter(g => g.metrics.length > 0);
                   if (healthGroups.length === 0) return (
-                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter_400Regular', paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.4)', fontFamily: 'System', paddingVertical: 8 }}>
                       No health data available yet. Data will appear here as Apple Health collects it.
                     </Text>
                   );
                   return healthGroups.map((group) => (
                     <View key={group.category} style={{ marginBottom: 16 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'Inter_400Regular', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>{group.category}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>{group.category}</Text>
+                      </View>
                       <View style={s.hmGrid}>
                         {(() => {
                           const isOdd = group.metrics.length % 2 !== 0;
@@ -3309,6 +3355,7 @@ export default function InsightsScreen() {
               <PremiumGate
                 feature="weight_projection_advanced"
                 variant="hard"
+                title="Weight Journey"
                 teaser="See your projected weight curve and goal timeline."
               >
                 <WeightProjectionCard
@@ -3324,22 +3371,6 @@ export default function InsightsScreen() {
                 goalWeight={goalWeight}
                 toGoalPct={toGoalPct}
               />
-              {onTreatment && (
-                <>
-                  <PremiumGate feature="peer_comparison" variant="hard" teaser="See how your progress compares to others on the same medication.">
-                    <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
-                  </PremiumGate>
-                  <PremiumGate feature="metabolic_adaptation" variant="hard" teaser="Track how your metabolism adapts to weight loss over time.">
-                    <MetabolicAdaptationCard result={metabolicAdaptationResult} />
-                  </PremiumGate>
-                  <PremiumGate feature="peer_comparison" variant="hard" teaser="Compare your weight loss, side effects, and adherence with peers.">
-                    <PeerComparisonCard
-                      data={peerComparison}
-                      isOptedIn={!!profile?.peer_comparison_opted_in}
-                    />
-                  </PremiumGate>
-                </>
-              )}
               <View style={s.dailyGrid}>
                 <ProgressStatCard
                   icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}
@@ -3365,6 +3396,22 @@ export default function InsightsScreen() {
                   )}
                 </ProgressStatCard>
               </View>
+              {onTreatment && (
+                <>
+                  <PremiumGate feature="peer_comparison" variant="hard" title="Clinical Benchmark" teaser="See how your progress compares to others on the same medication.">
+                    <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
+                  </PremiumGate>
+                  <PremiumGate feature="metabolic_adaptation" variant="hard" title="Metabolic Adaptation" teaser="Track how your metabolism adapts to weight loss over time.">
+                    <MetabolicAdaptationCard result={metabolicAdaptationResult} />
+                  </PremiumGate>
+                  <PremiumGate feature="peer_comparison" variant="hard" title="Peer Comparison" teaser="Compare your weight loss, side effects, and adherence with peers.">
+                    <PeerComparisonCard
+                      data={peerComparison}
+                      isOptedIn={!!profile?.peer_comparison_opted_in}
+                    />
+                  </PremiumGate>
+                </>
+              )}
               <RecentLogsCard entries={progressLogs} onDelete={(id) => {
                 Alert.alert('Delete Weight Log', 'Remove this weight entry?', [
                   { text: 'Cancel', style: 'cancel' },
@@ -3393,9 +3440,15 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
-  // Header
+  // Hero header background
+  heroBg: { backgroundColor: '#E8652A' },
+  heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
+  heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
+  heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },
+
+  // Header (legacy)
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, fontFamily: 'Inter_800ExtraBold' },
+  headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, fontFamily: 'System' },
 
 
   // Card base
@@ -3406,8 +3459,8 @@ const createStyles = (c: AppColors) => {
   aiAccent: { position: 'absolute', top: 0, left: 0, bottom: 0, width: 4, backgroundColor: ORANGE, borderTopLeftRadius: 24, borderBottomLeftRadius: 24 },
   aiContent: { paddingVertical: 18, paddingLeft: 20, paddingRight: 18 },
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  aiLabel: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'Inter_400Regular' },
-  aiBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Inter_400Regular' },
+  aiLabel: { fontSize: 13, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'System' },
+  aiBody: { fontSize: 16, color: w(0.6), lineHeight: 21, fontFamily: 'System' },
 
   // Metrics row
   metricsRow: { flexDirection: 'row', gap: 20, marginBottom: 24, paddingHorizontal: 4 },
@@ -3415,40 +3468,40 @@ const createStyles = (c: AppColors) => {
   metricInner: { padding: 18, alignItems: 'center' },
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   ringCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  metricValue: { fontSize: 15, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
-  metricLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'Inter_400Regular' },
+  metricValue: { fontSize: 17, fontWeight: '800', letterSpacing: -0.5, fontFamily: 'System' },
+  metricLabel: { fontSize: 14, color: w(0.45), fontWeight: '500', textAlign: 'center', fontFamily: 'System' },
 
   // Daily Metrics grid
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Inter_800ExtraBold' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
   dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   dailyWrap: { width: '47%', borderRadius: 20 },
   dailyInner: { padding: 18 },
   dailyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  changeText: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter_400Regular' },
-  dailyLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Inter_400Regular' },
-  dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
+  changeText: { fontSize: 12, fontWeight: '700', fontFamily: 'System' },
+  dailyLabel: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'System' },
+  dailyValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'System' },
 
   // Medication chart card
-  chartMuted: { fontSize: 12, color: w(0.45), fontWeight: '500', fontFamily: 'Inter_400Regular' },
-  chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
-  dayLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
+  chartMuted: { fontSize: 14, color: w(0.45), fontWeight: '500', fontFamily: 'System' },
+  chartBig: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'System' },
+  dayLabel: { fontSize: 12, fontWeight: '600', color: w(0.35), letterSpacing: 0.5, fontFamily: 'System' },
 
   // Education sections (expanded modal)
-  eduTitle: { fontSize: 15, fontWeight: '700' as const, color: c.textPrimary, fontFamily: 'Inter_700Bold', marginBottom: 10 },
-  eduBody: { fontSize: 14, color: w(0.6), lineHeight: 21, fontFamily: 'Inter_400Regular' },
-  eduSubtitle: { fontSize: 12, fontStyle: 'italic' as const, color: w(0.4), marginBottom: 8, fontFamily: 'Inter_400Regular' },
+  eduTitle: { fontSize: 17, fontWeight: '700' as const, color: c.textPrimary, fontFamily: 'System', marginBottom: 10 },
+  eduBody: { fontSize: 16, color: w(0.6), lineHeight: 21, fontFamily: 'System' },
+  eduSubtitle: { fontSize: 14, fontStyle: 'italic' as const, color: w(0.4), marginBottom: 8, fontFamily: 'System' },
   eduDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginBottom: 20 },
 
   // Progress chart
   progPeriodRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
   progPeriodBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   progPeriodBtnActive: { backgroundColor: ORANGE },
-  progPeriodLabel: { fontSize: 12, fontWeight: '700', color: w(0.35), fontFamily: 'Inter_400Regular' },
-  progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'Inter_400Regular' },
+  progPeriodLabel: { fontSize: 14, fontWeight: '700', color: w(0.35), fontFamily: 'System' },
+  progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'System' },
   progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: c.bg },
-  progGoalLabel: { fontSize: 10, fontWeight: '600', color: w(0.35), fontFamily: 'Inter_400Regular' },
+  progGoalLabel: { fontSize: 12, fontWeight: '600', color: w(0.35), fontFamily: 'System' },
 
   // Progress stat card
   progStatSub: { marginTop: 6 },
@@ -3457,18 +3510,18 @@ const createStyles = (c: AppColors) => {
 
   // Recent Logs card
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  logHeaderText: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
+  logHeaderText: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
   logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)' },
-  logCountText: { fontSize: 11, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' },
+  logCountText: { fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'System' },
   logEntryList: { paddingHorizontal: 18, paddingBottom: 14 },
   logDivider: { height: 1, backgroundColor: w(0.06) },
   logEntryRow: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
   logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logEntryTitle: { fontSize: 13, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'Inter_400Regular' },
-  logEntryTime: { fontSize: 11, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'Inter_400Regular' },
-  logEntryDetails: { fontSize: 12, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'Inter_400Regular' },
+  logEntryTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'System' },
+  logEntryTime: { fontSize: 13, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'System' },
+  logEntryDetails: { fontSize: 14, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'System' },
   logImpactTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  logImpactText: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter_400Regular' },
+  logImpactText: { fontSize: 12, fontWeight: '700', fontFamily: 'System' },
 
   // Health Monitor
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 8 },
@@ -3477,9 +3530,9 @@ const createStyles = (c: AppColors) => {
   hmInner: { padding: 18 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   hmBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
-  hmBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: 'Inter_400Regular' },
-  hmLabel: { fontSize: 12, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'Inter_400Regular' },
-  hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_400Regular' },
-  hmUnit: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'Inter_400Regular' },
+  hmBadgeText: { fontSize: 11, fontWeight: '700', fontFamily: 'System' },
+  hmLabel: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 6, fontFamily: 'System' },
+  hmValue: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'System' },
+  hmUnit: { fontSize: 15, fontWeight: '500', color: w(0.45), letterSpacing: 0, fontFamily: 'System' },
   });
 };
