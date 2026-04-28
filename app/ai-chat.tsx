@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -182,6 +183,7 @@ export default function AiChatScreen() {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const seedSent = useRef(false);
@@ -266,14 +268,16 @@ export default function AiChatScreen() {
     } catch (err) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
       const isUsageLimit = err instanceof UsageLimitError;
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: isAuth
-          ? 'Your session has expired. Please sign out and sign back in to continue.'
-          : isUsageLimit
-            ? `You've reached your ${err.limit} free messages for today.${contextLabel ? ` Upgrade to Titra Pro to keep exploring insights about ${contextLabel}.` : ' Upgrade to Titra Pro for unlimited AI coaching.'}`
+      if (isUsageLimit) {
+        setShowUpgradeCard(true);
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: isAuth
+            ? 'Your session has expired. Please sign out and sign back in to continue.'
             : 'Unable to reach AI. Check your connection and try again.',
-      }]);
+        }]);
+      }
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -378,6 +382,75 @@ export default function AiChatScreen() {
                 <View style={[s.bubble, s.bubbleAssistant, s.bubbleLoading]}>
                   <ActivityIndicator size="small" color={ORANGE} />
                 </View>
+              </View>
+            )}
+
+            {/* ── Upgrade card when usage limit hit ── */}
+            {showUpgradeCard && (
+              <View style={{
+                marginTop: 16, marginHorizontal: 4, borderRadius: 24, overflow: 'hidden',
+                backgroundColor: colors.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
+                borderWidth: 1, borderColor: colors.isDark ? 'rgba(255,116,42,0.25)' : 'rgba(255,116,42,0.2)',
+                padding: 24,
+              }}>
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <Image
+                    source={require('@/assets/images/titra-logo.png')}
+                    style={{ width: 48, height: 48, borderRadius: 14, marginBottom: 12 }}
+                    resizeMode="cover"
+                  />
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', marginBottom: 6 }}>
+                    Upgrade to Titra Pro
+                  </Text>
+                  <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', textAlign: 'center', lineHeight: 20 }}>
+                    You've used all your free AI messages for today. Unlock unlimited access and more with Pro.
+                  </Text>
+                </View>
+
+                <View style={{ gap: 10, marginBottom: 20 }}>
+                  {[
+                    { icon: 'chatbubbles-outline', text: 'Unlimited AI coaching & insights' },
+                    { icon: 'analytics-outline', text: 'Advanced weight projections & cycle intelligence' },
+                    { icon: 'document-text-outline', text: 'Provider reports for your doctor' },
+                    { icon: 'school-outline', text: 'All guided courses unlocked' },
+                    { icon: 'camera-outline', text: 'Unlimited photo food logging' },
+                    { icon: 'mic-outline', text: 'Unlimited voice logging' },
+                    { icon: 'notifications-outline', text: 'Clinical alerts & weekly AI summaries' },
+                  ].map((item, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name={item.icon as any} size={18} color={ORANGE} />
+                      <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{item.text}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16,
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
+                  }}
+                  onPress={() => router.push('/settings/subscription' as any)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 }}>
+                    Subscribe for $4.99/month
+                  </Text>
+                  <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+                    7-day free trial included
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ alignItems: 'center', marginTop: 12 }}
+                  onPress={() => setShowUpgradeCard(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}>
+                    Maybe later
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>

@@ -3441,7 +3441,7 @@ const createStyles = (c: AppColors) => {
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
   // Hero header background
-  heroBg: { backgroundColor: '#E8652A' },
+  heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
   heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
   heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },

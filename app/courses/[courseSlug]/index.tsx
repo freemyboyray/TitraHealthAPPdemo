@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -14,6 +14,13 @@ import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const FF = 'Inter_400Regular';
 const ORANGE = '#FF742A';
+
+const COURSE_HERO_IMAGES: Record<string, any> = {
+  'injection-mastery': require('@/assets/images/injection-mastery.png'),
+  'side-effect-survival': require('@/assets/images/side-effect-survival.png'),
+  'protein-muscle-defense': require('@/assets/images/protein-muscle-defense.png'),
+  'mind-and-body': require('@/assets/images/mind-body.png'),
+};
 
 const CATEGORY_COLORS: Record<string, string> = {
   medical: ORANGE,
@@ -31,6 +38,7 @@ function renderIcon(name: string, iconSet: string, size: number, color: string) 
 export default function CourseDetailScreen() {
   const { courseSlug } = useLocalSearchParams<{ courseSlug: string }>();
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const courses = useCoursesStore((s) => s.courses);
@@ -64,20 +72,34 @@ export default function CourseDetailScreen() {
 
   const catColor = CATEGORY_COLORS[course.category] ?? ORANGE;
   const allDone = completedCount >= course.lesson_count;
+  const heroImage = COURSE_HERO_IMAGES[course.slug] ?? null;
 
   return (
-    <SafeAreaView style={s.root}>
-      <ScrollView contentContainerStyle={s.scroll}>
-        {/* Back button */}
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+    <View style={s.root}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Hero image or spacer */}
+        {heroImage ? (
+          <View style={s.heroWrap}>
+            <Image source={heroImage} style={s.heroImage} resizeMode="contain" />
+          </View>
+        ) : (
+          <View style={{ height: insets.top + 60 }} />
+        )}
+
+        {/* Back button — overlaid on image */}
+        <View style={[s.backBtnWrap, { top: insets.top + 10 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="chevron-back" size={22} color={heroImage ? '#FFFFFF' : colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
 
         {/* Header */}
         <View style={s.header}>
-          <View style={[s.iconWrap, { backgroundColor: catColor + '18' }]}>
-            {renderIcon(course.icon_name, course.icon_set, 32, catColor)}
-          </View>
+          {!heroImage && (
+            <View style={[s.iconWrap, { backgroundColor: catColor + '18' }]}>
+              {renderIcon(course.icon_name, course.icon_set, 32, catColor)}
+            </View>
+          )}
 
           <Text style={s.title}>{course.title}</Text>
           {course.subtitle && <Text style={s.subtitle}>{course.subtitle}</Text>}
@@ -127,7 +149,7 @@ export default function CourseDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -138,22 +160,33 @@ const createStyles = (c: AppColors) => {
       flex: 1,
       backgroundColor: c.bg,
     },
-    scroll: {
-      padding: 20,
-      paddingBottom: 40,
+    heroWrap: {
+      width: '100%',
+      aspectRatio: 1,
+      backgroundColor: '#FF5500',
+      marginBottom: 24,
+    },
+    heroImage: {
+      width: '100%',
+      height: '100%',
+    },
+    backBtnWrap: {
+      position: 'absolute',
+      left: 16,
+      zIndex: 10,
     },
     backBtn: {
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: w(0.06),
+      backgroundColor: 'rgba(0,0,0,0.35)',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 20,
     },
     header: {
       alignItems: 'center',
       marginBottom: 28,
+      paddingHorizontal: 20,
     },
     iconWrap: {
       width: 64,
@@ -208,6 +241,7 @@ const createStyles = (c: AppColors) => {
       borderColor: c.border,
       paddingHorizontal: 16,
       paddingVertical: 4,
+      marginHorizontal: 20,
     },
   });
 };

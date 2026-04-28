@@ -1,5 +1,6 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -22,7 +23,7 @@ import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
-import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision } from '@/lib/openai';
+import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 
@@ -186,6 +187,7 @@ export function AiChatOverlay() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const [pillVisible, setPillVisible] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ uri: string; base64: string } | null>(null);
@@ -343,7 +345,10 @@ export function AiChatOverlay() {
       }
     } catch (err: unknown) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
-      if (isAuth) {
+      const isUsageLimit = err instanceof UsageLimitError;
+      if (isUsageLimit) {
+        setShowUpgradeCard(true);
+      } else if (isAuth) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Your session has expired. Please sign out and sign back in to continue.', isError: false } as Message]);
       } else if (err instanceof Error && err.message.includes('not set')) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'AI not configured. Restart the dev server with: npx expo start --clear', isError: true, retryText: text, retryImageBase64: imageBase64 } as Message]);
@@ -494,6 +499,75 @@ export function AiChatOverlay() {
                   </View>
                 </View>
               )}
+
+              {/* Upgrade card when usage limit hit */}
+              {showUpgradeCard && (
+                <View style={{
+                  marginTop: 16, marginHorizontal: 4, borderRadius: 24, overflow: 'hidden',
+                  backgroundColor: colors.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
+                  borderWidth: 1, borderColor: colors.isDark ? 'rgba(255,116,42,0.25)' : 'rgba(255,116,42,0.2)',
+                  padding: 24,
+                }}>
+                  <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                    <Image
+                      source={require('@/assets/images/titra-logo.png')}
+                      style={{ width: 48, height: 48, borderRadius: 14, marginBottom: 12 }}
+                      resizeMode="cover"
+                    />
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', marginBottom: 6 }}>
+                      Upgrade to Titra Pro
+                    </Text>
+                    <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', textAlign: 'center', lineHeight: 20 }}>
+                      You've used all your free AI messages for today. Unlock unlimited access with Pro.
+                    </Text>
+                  </View>
+
+                  <View style={{ gap: 10, marginBottom: 20 }}>
+                    {[
+                      { icon: 'chatbubbles-outline', text: 'Unlimited AI coaching & insights' },
+                      { icon: 'analytics-outline', text: 'Advanced weight projections & cycle intelligence' },
+                      { icon: 'document-text-outline', text: 'Provider reports for your doctor' },
+                      { icon: 'school-outline', text: 'All guided courses unlocked' },
+                      { icon: 'camera-outline', text: 'Unlimited photo food logging' },
+                      { icon: 'mic-outline', text: 'Unlimited voice logging' },
+                      { icon: 'notifications-outline', text: 'Clinical alerts & weekly AI summaries' },
+                    ].map((item, i) => (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Ionicons name={item.icon as any} size={18} color="#FF742A" />
+                        <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{item.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#FF742A', borderRadius: 16, paddingVertical: 16,
+                      alignItems: 'center', justifyContent: 'center',
+                      shadowColor: '#FF742A', shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
+                    }}
+                    onPress={() => router.push('/settings/subscription' as any)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 }}>
+                      Subscribe for $4.99/month
+                    </Text>
+                    <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+                      7-day free trial included
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ alignItems: 'center', marginTop: 12 }}
+                    onPress={() => setShowUpgradeCard(false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}>
+                      Maybe later
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </ScrollView>
 
             {/* Suggestion chips — shown only when conversation is empty */}
@@ -567,14 +641,7 @@ export function AiChatOverlay() {
                       onSubmitEditing={() => sendMessage(inputText)}
                     />
                     <View style={s.inputBottomRow}>
-                      <View style={s.inputIcons}>
-                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn} onPress={handlePickCamera}>
-                          <Ionicons name="camera-outline" size={22} color={iconColor} />
-                        </TouchableOpacity>
-                        <TouchableOpacity activeOpacity={0.7} style={s.iconBtn} onPress={handlePickLibrary}>
-                          <MaterialIcons name="photo-library" size={22} color={iconColor} />
-                        </TouchableOpacity>
-                      </View>
+                      <View style={s.inputIcons} />
                       <TouchableOpacity
                         activeOpacity={canSend ? 0.7 : 1}
                         style={[s.sendBtn, canSend && s.sendBtnActive]}

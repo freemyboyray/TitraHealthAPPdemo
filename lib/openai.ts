@@ -192,8 +192,9 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 
       if (error) {
         const errMsg = error.message ?? '';
-        const errJson = JSON.stringify(error).slice(0, 300);
-        __DEV__ && console.error(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg, 'context:', errJson);
+        let errJson = '';
+        try { errJson = JSON.stringify(error).slice(0, 500); } catch {}
+        __DEV__ && console.warn(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg);
 
         // Don't retry auth errors — the session is expired/invalid
         if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
@@ -202,18 +203,10 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
         }
 
         // Don't retry usage limit errors — user needs to upgrade
-        if (errMsg.includes('429') || errJson.includes('USAGE_LIMIT')) {
-          // Try to parse the limit details from the error context
-          try {
-            const parsed = JSON.parse(errJson);
-            if (parsed.error === 'USAGE_LIMIT' || parsed.context?.error === 'USAGE_LIMIT') {
-              const ctx = parsed.context ?? parsed;
-              throw new UsageLimitError(ctx.feature ?? 'ai', ctx.limit ?? 0, ctx.used ?? 0);
-            }
-          } catch (e) {
-            if (e instanceof UsageLimitError) throw e;
-          }
-          throw new UsageLimitError('ai', 0, 0);
+        // FunctionsHttpError includes status:429 in the serialized context
+        if (errJson.includes('429') || errJson.includes('USAGE_LIMIT') ||
+            errMsg.includes('429') || errMsg.includes('USAGE_LIMIT')) {
+          throw new UsageLimitError('ai', 3, 3);
         }
 
         lastError = new Error(`OpenAI proxy error: ${errMsg}`);

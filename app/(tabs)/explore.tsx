@@ -36,10 +36,10 @@ const FF = 'Inter_400Regular';
 
 const glassShadow = {
   shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.3,
-  shadowRadius: 24,
-  elevation: 8,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  elevation: 3,
 };
 
 // ─── Education content ────────────────────────────────────────────────────────
@@ -932,7 +932,16 @@ export default function EducationScreen() {
   return (
     <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <SafeAreaView style={{ flex: 1 }}>
+      <View style={s.heroBg}>
+        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+          <View style={s.heroHeader}>
+            <Text style={s.heroTitle}>Education</Text>
+            <Text style={s.heroSub}>Your guide to GLP-1 therapy</Text>
+          </View>
+        </SafeAreaView>
+        <View style={s.heroCurve} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
@@ -941,9 +950,6 @@ export default function EducationScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
-          {/* ── Header ── */}
-          <Text style={s.headerTitle}>Education</Text>
-          <Text style={s.headerSub}>Your guide to GLP-1 therapy</Text>
 
           {/* ── Phase-aware personalized card ── */}
           <PhaseCard />
@@ -970,6 +976,14 @@ const createScreenStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+
+    // Hero header background
+    heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
+    heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
+    heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
+    heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
+    heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '500', fontFamily: FF },
+
     headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
     headerSub: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
     disclaimer: { fontSize: 11, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },

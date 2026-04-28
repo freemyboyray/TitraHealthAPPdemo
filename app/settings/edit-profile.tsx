@@ -498,7 +498,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
 
   // Personal
   bdayColLabels: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  bdayRow: { flexDirection: 'row', gap: 8, height: 180 },
+  bdayRow: { flexDirection: 'row', gap: 8, height: 180, overflow: 'hidden' },
   pickerWrapLg: { flex: 2 },
   pickerWrapSm: { flex: 1 },
   colLabel: {

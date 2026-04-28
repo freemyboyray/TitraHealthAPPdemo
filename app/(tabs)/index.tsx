@@ -1346,13 +1346,12 @@ export default function HomeScreen() {
   return (
     <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <SafeAreaView style={{ flex: 1 }}>
-
-        {/* ── Fixed header ── */}
-        <View
-          style={s.headerArea}
-          onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
-        >
+      <View style={s.heroBg}>
+        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+          <View
+            style={s.headerArea}
+            onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
+          >
           <View style={s.headerTopRow}>
             {/* Left: greeting */}
             <View style={{ flex: 1 }}>
@@ -1369,7 +1368,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name={calendarOpen ? 'chevron-up' : 'chevron-down'}
                     size={16}
-                    color={colors.textPrimary}
+                    color="#FFFFFF"
                     style={{ marginLeft: 5, marginTop: 2 }}
                   />
                 </View>
@@ -1387,6 +1386,10 @@ export default function HomeScreen() {
             <Text style={s.futureNote}>No entries logged for this day</Text>
           }
         </View>
+        </SafeAreaView>
+        <View style={s.heroCurve} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
 
         {/* ── Calendar dropdown overlay ── */}
         {calendarOpen && (
@@ -1837,14 +1840,18 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
+  // Hero orange header background
+  heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
+  heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
+
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   dateTitleRow: { alignItems: 'flex-end' },
-  dateTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.2, fontFamily: 'Inter_700Bold', textAlign: 'right' },
-  weekday: { fontSize: 12, fontWeight: '500', color: c.textMuted, marginTop: 2, fontFamily: 'Inter_400Regular', textAlign: 'right' },
-  greetingLabel: { fontSize: 13, fontWeight: '500', color: c.textMuted, fontFamily: 'Inter_400Regular', marginBottom: 2 },
-  greetingName: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' },
+  dateTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2, fontFamily: 'Inter_700Bold', textAlign: 'right' },
+  weekday: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2, fontFamily: 'Inter_400Regular', textAlign: 'right' },
+  greetingLabel: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter_400Regular', marginBottom: 2 },
+  greetingName: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
@@ -1853,7 +1860,7 @@ const createStyles = (c: AppColors) => {
   },
   medPillText: { fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'Inter_400Regular' },
   phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Inter_400Regular' },
-  futureNote: { fontSize: 11, color: '#FF742A', marginTop: 4, fontWeight: '600', fontFamily: 'Inter_400Regular' },
+  futureNote: { fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 4, fontWeight: '600', fontFamily: 'Inter_400Regular' },
   connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Inter_400Regular' },
 
   // Card containers
