@@ -97,7 +97,7 @@ const ts = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  label:        { fontSize: 15, fontFamily: FONT },
+  label:        { fontSize: 17, fontFamily: FONT },
   labelActive:  { color: TAB_ACTIVE, fontWeight: '700' },
   labelInactive:{ color: TAB_INACT,  fontWeight: '500' },
 });
@@ -160,7 +160,7 @@ const pi = StyleSheet.create({
     marginBottom: 12,
   },
   icon:  { marginRight: 10 },
-  input: { flex: 1, fontSize: 15, color: INPUT_TEXT, fontFamily: FONT },
+  input: { flex: 1, fontSize: 17, color: INPUT_TEXT, fontFamily: FONT },
 });
 
 // ─── Auth error sanitizer ────────────────────────────────────────────────────
@@ -236,16 +236,22 @@ export default function SignInScreen() {
 
   // ── Rate limiting helper ─────────────────────────────────────────────────
   async function checkRateLimit(identifier: string, type: string): Promise<boolean> {
-    const { data, error: rlErr } = await supabase.rpc('check_rate_limit', {
-      p_identifier: identifier,
-      p_attempt_type: type,
-      p_max_attempts: 5,
-      p_window_minutes: 15,
-    });
-    if (rlErr || data === false) {
-      setError('Too many attempts. Please wait 15 minutes before trying again.');
-      setLoading(false);
-      return false;
+    try {
+      const { data, error: rlErr } = await supabase.rpc('check_rate_limit', {
+        p_identifier: identifier,
+        p_attempt_type: type,
+        p_max_attempts: 5,
+        p_window_minutes: 15,
+      });
+      // Only block when the function explicitly returns false (over limit).
+      // If the RPC errors (e.g. function missing, network), allow auth to proceed.
+      if (!rlErr && data === false) {
+        setError('Too many attempts. Please wait 15 minutes before trying again.');
+        setLoading(false);
+        return false;
+      }
+    } catch {
+      // Rate limit check failed — don't block auth
     }
     return true;
   }
@@ -332,9 +338,21 @@ export default function SignInScreen() {
       return;
     }
 
+    // Supabase returns no error but empty identities when the email is already registered
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      setError('An account with this email already exists.');
+      setLoading(false);
+      return;
+    }
+
     if (data.session) {
       setSession(data.session);
-      await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
+      const { error: profileErr } = await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
+      if (profileErr) {
+        setError('Account created but profile setup failed. Please log in to continue.');
+        setLoading(false);
+        return;
+      }
       await loadProfile();
       router.replace('/');
     } else {
@@ -371,8 +389,8 @@ export default function SignInScreen() {
     if (data.session) {
       setSession(data.session);
       const trimmedUsername = username.trim();
-      if (trimmedUsername) {
-        await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
+      if (trimmedUsername && data.user) {
+        await supabase.from('profiles').upsert({ id: data.user.id, username: trimmedUsername });
       }
       await loadProfile();
       router.replace('/');
@@ -825,7 +843,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: w(0.55),
     fontWeight: '500',
     fontFamily: FONT,
@@ -861,13 +879,13 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'center',
   },
   checkboxOn:    { backgroundColor: ORANGE, borderColor: ORANGE },
-  rememberLabel: { fontSize: 13, color: INPUT_ICON, fontFamily: FONT },
-  forgotText:    { fontSize: 13, color: ORANGE, fontWeight: '600', fontFamily: FONT },
+  rememberLabel: { fontSize: 15, color: INPUT_ICON, fontFamily: FONT },
+  forgotText:    { fontSize: 15, color: ORANGE, fontWeight: '600', fontFamily: FONT },
 
   // Error
   errorText: {
     color: '#C0392B',
-    fontSize: 13,
+    fontSize: 15,
     textAlign: 'center',
     marginBottom: 8,
     fontFamily: FONT,
@@ -889,12 +907,12 @@ const createStyles = (c: AppColors) => {
     elevation: 6,
   },
   btnDisabled: { opacity: 0.55 },
-  ctaBtnText:  { fontSize: 16, fontWeight: '700', color: '#fff', fontFamily: FONT },
+  ctaBtnText:  { fontSize: 18, fontWeight: '700', color: '#fff', fontFamily: FONT },
 
   // Divider
   dividerRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E5EA' },
-  dividerText: { marginHorizontal: 12, fontSize: 13, color: INPUT_ICON, fontWeight: '500', fontFamily: FONT },
+  dividerText: { marginHorizontal: 12, fontSize: 15, color: INPUT_ICON, fontWeight: '500', fontFamily: FONT },
 
   // Social buttons
   socialRow:        { flexDirection: 'row', gap: 12, marginBottom: 24 },
@@ -913,11 +931,11 @@ const createStyles = (c: AppColors) => {
   },
   socialBtnFull: { flex: 0, width: 200 },
   appleSocialBtn: { backgroundColor: '#000000', borderColor: '#000000' },
-  socialBtnText: { fontSize: 15, fontWeight: '600', color: INPUT_TEXT, fontFamily: FONT },
+  socialBtnText: { fontSize: 17, fontWeight: '600', color: INPUT_TEXT, fontFamily: FONT },
 
   // Demo link
   demoLink:     { alignItems: 'center', paddingVertical: 8 },
-  demoLinkText: { fontSize: 14, color: INPUT_ICON, fontFamily: FONT },
+  demoLinkText: { fontSize: 16, color: INPUT_ICON, fontFamily: FONT },
 
   // OTP verification
   otpTitle: {
@@ -930,7 +948,7 @@ const createStyles = (c: AppColors) => {
     marginTop: 8,
   },
   otpSubtitle: {
-    fontSize: 15,
+    fontSize: 17,
     color: INPUT_ICON,
     fontFamily: FONT,
     textAlign: 'center',
@@ -942,7 +960,7 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 10,
   },
   resendText: {
-    fontSize: 14,
+    fontSize: 16,
     color: ORANGE,
     fontWeight: '600',
     fontFamily: FONT,

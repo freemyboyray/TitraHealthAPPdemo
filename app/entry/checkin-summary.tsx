@@ -16,7 +16,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const BLUE   = '#5AC8FA';
-const FF     = 'Inter_400Regular';
+const FF     = 'System';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,11 +160,11 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {icon}
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{label}</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{label}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, backgroundColor: increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)' }}>
           <Ionicons name={increased ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
-          <Text style={{ fontSize: 12, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -172,7 +172,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
         <Ionicons name="arrow-forward" size={14} color={w(0.25)} />
         <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>{after}</Text>
       </View>
-      <Text style={{ fontSize: 12, color: w(0.40), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>{reason}</Text>
+      <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>{reason}</Text>
     </View>
   );
 }
@@ -386,7 +386,7 @@ export default function CheckinSummaryScreen() {
           <View style={[s.card, { marginBottom: 12, borderWidth: 1, borderColor: 'rgba(246,203,69,0.4)', backgroundColor: 'rgba(246,203,69,0.08)' }]}>
             <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Ionicons name="alert-circle" size={22} color="#F6CB45" />
-              <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
                 Consider discussing these results with your healthcare provider.
               </Text>
             </View>
@@ -436,8 +436,8 @@ export default function CheckinSummaryScreen() {
             <GlassBorder r={20} />
             <View style={{ padding: 20, alignItems: 'center' }}>
               <Ionicons name="checkmark-circle" size={28} color={GREEN} style={{ marginBottom: 8 }} />
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>No adjustments needed</Text>
-              <Text style={{ fontSize: 13, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>No adjustments needed</Text>
+              <Text style={{ fontSize: 15, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
                 Your score is in a healthy range - continue with your regular targets.
               </Text>
             </View>
@@ -542,7 +542,7 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.15)', borderRadius: 20,
       paddingHorizontal: 14, paddingVertical: 6,
     },
-    pillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: FF },
+    pillText: { fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: FF },
 
     card: {
       borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
@@ -551,18 +551,18 @@ const createStyles = (c: AppColors) => {
     },
 
     sectionTitle: {
-      fontSize: 10, fontWeight: '800', color: w(0.35),
+      fontSize: 12, fontWeight: '800', color: w(0.35),
       fontFamily: FF, letterSpacing: 1.5, marginBottom: 2,
     },
 
     scoreLarge: { fontSize: 72, fontWeight: '800', lineHeight: 76, fontFamily: FF },
-    scoreDenom: { fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 2 },
+    scoreDenom: { fontSize: 15, color: c.textMuted, fontFamily: FF, marginTop: 2 },
     badge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
-    badgeText: { fontSize: 14, fontWeight: '700', fontFamily: FF, letterSpacing: 0.5 },
+    badgeText: { fontSize: 16, fontWeight: '700', fontFamily: FF, letterSpacing: 0.5 },
     sparkRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 14 },
 
     explanationBody: {
-      fontSize: 15, fontWeight: '500', color: c.textPrimary,
+      fontSize: 17, fontWeight: '500', color: c.textPrimary,
       fontFamily: FF, lineHeight: 22, marginTop: 10,
     },
 
@@ -571,12 +571,12 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.12)',
       alignItems: 'center', justifyContent: 'center',
     },
-    aiCardLabel: { fontSize: 10, fontWeight: '800', color: ORANGE, fontFamily: FF, letterSpacing: 1.5 },
+    aiCardLabel: { fontSize: 12, fontWeight: '800', color: ORANGE, fontFamily: FF, letterSpacing: 1.5 },
     aiCardTitle: {
-      fontSize: 16, fontWeight: '800', color: c.textPrimary,
-      fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
+      fontSize: 18, fontWeight: '800', color: c.textPrimary,
+      fontFamily: 'System', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
     },
-    aiCardSub: { fontSize: 12, fontFamily: FF, lineHeight: 17, marginBottom: 16 },
+    aiCardSub: { fontSize: 14, fontFamily: FF, lineHeight: 17, marginBottom: 16 },
 
     chip: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -585,7 +585,7 @@ const createStyles = (c: AppColors) => {
       borderColor: 'rgba(255,116,42,0.25)',
       backgroundColor: 'rgba(255,116,42,0.07)',
     },
-    chipText: { flex: 1, fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+    chipText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
 
     askBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -593,7 +593,7 @@ const createStyles = (c: AppColors) => {
       shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
     },
-    askBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF', fontFamily: FF },
+    askBtnText: { fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF },
 
     doneBtn: {
       backgroundColor: ORANGE, borderRadius: 28, paddingVertical: 17,
@@ -601,6 +601,6 @@ const createStyles = (c: AppColors) => {
       shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
     },
-    doneBtnText: { fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
+    doneBtnText: { fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
   });
 };

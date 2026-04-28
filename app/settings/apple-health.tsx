@@ -307,7 +307,7 @@ const createStyles = (c: AppColors) => {
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
     backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
 
     scroll: { flex: 1 },
     content: { padding: 16, paddingBottom: 80 },
@@ -328,8 +328,8 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,59,48,0.15)',
       alignItems: 'center', justifyContent: 'center',
     },
-    masterLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '700' },
-    masterSub: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+    masterLabel: { color: c.textPrimary, fontSize: 18, fontWeight: '700' },
+    masterSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
 
     /* Summary card */
     summaryCard: {
@@ -345,9 +345,9 @@ const createStyles = (c: AppColors) => {
       color: ORANGE, fontSize: 32, fontWeight: '800', letterSpacing: -1,
     },
     summaryDenom: {
-      color: c.textMuted, fontSize: 18, fontWeight: '600',
+      color: c.textMuted, fontSize: 20, fontWeight: '600',
     },
-    summarySub: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+    summarySub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
     refreshBtn: {
       width: 40, height: 40, borderRadius: 20,
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -369,8 +369,8 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.12)',
       alignItems: 'center', justifyContent: 'center',
     },
-    manageLabel: { color: c.textPrimary, fontSize: 14, fontWeight: '700' },
-    manageSub: { color: c.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+    manageLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '700' },
+    manageSub: { color: c.textMuted, fontSize: 13, lineHeight: 15, marginTop: 2 },
 
     /* Group headers */
     groupHeader: {
@@ -378,10 +378,10 @@ const createStyles = (c: AppColors) => {
       marginTop: 20, marginBottom: 6, paddingHorizontal: 4,
     },
     sectionLabel: {
-      color: c.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 2,
+      color: c.textMuted, fontSize: 13, fontWeight: '700', letterSpacing: 2,
     },
     groupCount: {
-      color: c.textMuted, fontSize: 11, fontWeight: '700',
+      color: c.textMuted, fontSize: 13, fontWeight: '700',
     },
 
     /* Category card */
@@ -404,9 +404,9 @@ const createStyles = (c: AppColors) => {
     rowIconWrapDormant: {
       backgroundColor: w(0.05),
     },
-    rowLabel: { color: c.textPrimary, fontSize: 14, fontWeight: '600' },
+    rowLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '600' },
     rowLabelDormant: { color: c.textMuted },
-    rowSub: { color: c.textMuted, fontSize: 11, lineHeight: 14, marginTop: 2 },
+    rowSub: { color: c.textMuted, fontSize: 13, lineHeight: 14, marginTop: 2 },
 
     statusPillLive: {
       backgroundColor: 'rgba(93,184,123,0.14)',
@@ -416,14 +416,14 @@ const createStyles = (c: AppColors) => {
       backgroundColor: w(0.05),
       paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
     },
-    statusTextLive: { color: '#5DB87B', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-    statusTextDormant: { color: c.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+    statusTextLive: { color: '#5DB87B', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+    statusTextDormant: { color: c.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
 
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 58 },
 
     footerNote: {
       color: c.textMuted,
-      fontSize: 11,
+      fontSize: 13,
       lineHeight: 16,
       marginTop: 24,
       paddingHorizontal: 4,

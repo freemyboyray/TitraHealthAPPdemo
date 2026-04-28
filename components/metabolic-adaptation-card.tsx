@@ -190,10 +190,10 @@ const createStyles = (c: AppColors) => {
       marginBottom: 14,
     },
     cardTitle: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     plateauBadge: {
       borderRadius: 10,
@@ -201,9 +201,9 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 5,
     },
     plateauBadgeText: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statRow: {
       flexDirection: 'row',
@@ -212,26 +212,26 @@ const createStyles = (c: AppColors) => {
       marginBottom: 14,
     },
     statLabel: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.5),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statValue: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     chartSection: {
       marginBottom: 14,
       gap: 10,
     },
     chartTitle: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.4),
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     barChartRow: {
       flexDirection: 'row',
@@ -251,10 +251,10 @@ const createStyles = (c: AppColors) => {
     },
     barLabel: {
       flex: 1,
-      fontSize: 9,
+      fontSize: 11,
       color: w(0.3),
       textAlign: 'center',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     alertBox: {
       borderRadius: 12,
@@ -263,22 +263,22 @@ const createStyles = (c: AppColors) => {
       marginBottom: 10,
     },
     alertText: {
-      fontSize: 13,
+      fontSize: 15,
       lineHeight: 18,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     emptyText: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.45),
       lineHeight: 19,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     tapHint: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
   });
 };

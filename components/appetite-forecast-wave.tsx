@@ -173,8 +173,8 @@ export function AppetiteForecastWave({
                 x={CHART_PAD_L + (i / (hourBlocks.length - 1)) * PLOT_W}
                 y={CHART_H - 2}
                 fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
-                fontSize={9}
-                fontFamily="Inter_400Regular"
+                fontSize={11}
+                fontFamily="System"
                 textAnchor="middle"
               >
                 {b.label}
@@ -286,10 +286,10 @@ export function AppetiteForecastWave({
           <Path d={linePath} fill="none" stroke="#FF742A" strokeWidth={2.5} strokeLinecap="round" />
 
           {/* Y-axis hints */}
-          <SvgText x={4} y={CHART_PAD_T + 10} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Inter_400Regular">
+          <SvgText x={4} y={CHART_PAD_T + 10} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={10} fontFamily="System">
             More suppressed
           </SvgText>
-          <SvgText x={4} y={CHART_PAD_T + PLOT_H - 4} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={8} fontFamily="Inter_400Regular">
+          <SvgText x={4} y={CHART_PAD_T + PLOT_H - 4} fill={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'} fontSize={10} fontFamily="System">
             Less suppressed
           </SvgText>
 
@@ -312,9 +312,9 @@ export function AppetiteForecastWave({
               x={CHART_PAD_L + 2}
               y={CHART_H - 2}
               fill="#FF742A"
-              fontSize={9}
+              fontSize={11}
               fontWeight="700"
-              fontFamily="Inter_400Regular"
+              fontFamily="System"
             >
               💉
             </SvgText>
@@ -329,9 +329,9 @@ export function AppetiteForecastWave({
               fill={d.isToday
                 ? '#FF742A'
                 : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
-              fontSize={9}
+              fontSize={11}
               fontWeight={d.isToday ? '700' : '400'}
-              fontFamily="Inter_400Regular"
+              fontFamily="System"
               textAnchor="middle"
             >
               {d.isToday ? 'TODAY' : `D${d.cycleDay}`}
@@ -405,16 +405,16 @@ const createStyles = (c: AppColors) => {
       marginBottom: 14,
     },
     title: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
       marginBottom: 2,
     },
     subtitle: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.4),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     chartWrap: {
       height: CHART_H,
@@ -438,13 +438,13 @@ const createStyles = (c: AppColors) => {
       borderRadius: 4,
     },
     advisoryLabel: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     projectedBadge: {
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: '700',
       color: '#FF742A',
       backgroundColor: 'rgba(255,116,42,0.15)',
@@ -453,39 +453,39 @@ const createStyles = (c: AppColors) => {
       borderRadius: 4,
       overflow: 'hidden',
       letterSpacing: 0.5,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     advisoryHeadline: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '600',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     advisoryDetail: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.5),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       fontStyle: 'italic',
     },
     advisoryTip: {
-      fontSize: 13,
+      fontSize: 15,
       color: c.textSecondary,
       lineHeight: 18,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       marginTop: 2,
     },
     disclaimer: {
-      fontSize: 10,
+      fontSize: 12,
       color: w(0.25),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
       marginTop: 12,
       lineHeight: 14,
     },
     emptyBody: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.6),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       lineHeight: 19,
       marginBottom: 8,
     },

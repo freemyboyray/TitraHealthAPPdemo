@@ -339,7 +339,7 @@ const createStyles = (c: AppColors) => {
   scanTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
@@ -368,7 +368,7 @@ const createStyles = (c: AppColors) => {
   cornerBR: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth: 0, borderBottomRightRadius: 4 },
   scanHint: {
     marginTop: 20,
-    fontSize: 14,
+    fontSize: 16,
     color: w(0.8),
     textAlign: 'center',
     letterSpacing: 0.3,
@@ -389,14 +389,14 @@ const createStyles = (c: AppColors) => {
   },
 
   notFoundTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
     marginBottom: 6,
     textAlign: 'center',
   },
   notFoundDesc: {
-    fontSize: 14,
+    fontSize: 16,
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
@@ -405,20 +405,20 @@ const createStyles = (c: AppColors) => {
   notFoundBtns: { flexDirection: 'row', gap: 10 },
 
   productName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
     marginBottom: 2,
     lineHeight: 24,
   },
-  productBrand: { fontSize: 13, color: c.textSecondary, marginBottom: 14 },
+  productBrand: { fontSize: 15, color: c.textSecondary, marginBottom: 14 },
 
   servingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
   },
-  servingLabel: { fontSize: 14, color: c.textPrimary, fontWeight: '500', marginRight: 12 },
+  servingLabel: { fontSize: 16, color: c.textPrimary, fontWeight: '500', marginRight: 12 },
   servingInputWrap: {
     width: 80,
     height: 38,
@@ -431,11 +431,11 @@ const createStyles = (c: AppColors) => {
   servingInput: {
     width: 80,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: c.textPrimary,
   },
-  servingUnit: { fontSize: 14, color: c.textSecondary },
+  servingUnit: { fontSize: 16, color: c.textSecondary },
 
   macroRow: {
     flexDirection: 'row',
@@ -450,10 +450,10 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 8,
     alignItems: 'center',
   },
-  macroPillValue: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
-  macroPillUnit: { fontSize: 11, fontWeight: '400', color: c.textSecondary },
+  macroPillValue: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
+  macroPillUnit: { fontSize: 13, fontWeight: '400', color: c.textSecondary },
   macroPillLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: c.textSecondary,
     marginTop: 2,
     textTransform: 'uppercase',
@@ -470,7 +470,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.glassOverlay,
   },
   mealChipActive: { backgroundColor: ORANGE },
-  mealChipText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
+  mealChipText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
   mealChipTextActive: { color: '#FFFFFF' },
 
   panelBtns: { flexDirection: 'row', gap: 10 },
@@ -488,7 +488,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 12,
     elevation: 6,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  primaryBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   secondaryBtn: {
     flex: 1,
     height: 52,
@@ -497,11 +497,11 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  secondaryBtnText: { fontSize: 17, fontWeight: '600', color: c.textPrimary },
 
   // Permission screen
   permTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginTop: 16, marginBottom: 8 },
-  permDesc: { fontSize: 14, color: c.textSecondary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 32 },
+  permDesc: { fontSize: 16, color: c.textSecondary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 32 },
   permBtn: {
     height: 52,
     paddingHorizontal: 32,
@@ -510,6 +510,6 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  permBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  permBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   });
 };

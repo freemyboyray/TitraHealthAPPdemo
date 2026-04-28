@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 type Props = {
   label: string;
@@ -63,7 +63,7 @@ const createStyles = (c: AppColors) => {
       flex: 1,
     },
     label: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '600',
       color: c.textPrimary,
       fontFamily: FF,
@@ -72,7 +72,7 @@ const createStyles = (c: AppColors) => {
       color: '#FF742A',
     },
     subtitle: {
-      fontSize: 13,
+      fontSize: 15,
       color: c.textSecondary,
       marginTop: 1,
       fontFamily: FF,

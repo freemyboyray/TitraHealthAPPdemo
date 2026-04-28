@@ -152,18 +152,18 @@ const createStyles = (c: AppColors) => {
     backgroundColor: 'rgba(255,116,42,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
-  subtitle: { fontSize: 12, color: w(0.4) },
+  title: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
+  subtitle: { fontSize: 14, color: w(0.4) },
   labelBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start' },
-  labelText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  labelText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   ctaBtn: {
     backgroundColor: ORANGE, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  ctaText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  ctaText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   rightCol: { alignItems: 'flex-end', gap: 2 },
   scoreText: { fontSize: 26, fontWeight: '800', lineHeight: 28 },
-  scoreDenom: { fontSize: 12, color: w(0.35), marginTop: -2 },
+  scoreDenom: { fontSize: 14, color: w(0.35), marginTop: -2 },
   sparkRow: { flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 },
   });
 };

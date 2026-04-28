@@ -16,7 +16,7 @@ import { useLogStore, type WeeklyCheckinRow } from '@/stores/log-store';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 
 const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 // ─── Domain config (mirrors weekly-checkin.tsx) ────────────────────────────────
 
@@ -165,7 +165,7 @@ export default function WeeklyCheckinHistoryScreen() {
           <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF }}>Past Check-Ins</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: FF }}>Past Check-Ins</Text>
 
         <View style={{ width: 40 }} />
       </View>
@@ -173,10 +173,10 @@ export default function WeeklyCheckinHistoryScreen() {
       {sessions.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 }}>
           <Ionicons name="clipboard-outline" size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 14 }} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: FF }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: FF }}>
             No past check-ins yet
           </Text>
-          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)', fontFamily: FF, marginTop: 6 }}>
+          <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.2)', fontFamily: FF, marginTop: 6 }}>
             Complete your first weekly check-in to see history here.
           </Text>
         </View>
@@ -228,7 +228,7 @@ function SessionCard({
       <View style={{ padding: 18 }}>
         {/* Card header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFF', fontFamily: FF }}>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF }}>
             {formatDate(date)}
           </Text>
           <TouchableOpacity
@@ -273,7 +273,7 @@ function SessionCard({
                 }}>
                   <Ionicons name={domain.icon} size={14} color={ORANGE} />
                 </View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)', fontFamily: FF }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.85)', fontFamily: FF }}>
                   {domain.label}
                 </Text>
               </View>
@@ -283,12 +283,12 @@ function SessionCard({
                   backgroundColor: `${status.color}22`,
                   borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3,
                 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: status.color, fontFamily: FF }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: status.color, fontFamily: FF }}>
                     {status.label}
                   </Text>
                 </View>
               ) : (
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontFamily: FF }}>—</Text>
+                <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.2)', fontFamily: FF }}>—</Text>
               )}
             </View>
           );

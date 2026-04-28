@@ -389,7 +389,7 @@ function createStyles(c: AppColors) {
       paddingHorizontal: 20, paddingVertical: 16,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
-    headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
 
     scroll: { flex: 1 },
     content: { padding: 16, gap: 8, paddingBottom: 120 },
@@ -409,11 +409,11 @@ function createStyles(c: AppColors) {
       backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
     },
     avatarLetter: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
-    profileName: { color: c.textPrimary, fontSize: 16, fontWeight: '600' },
-    profileEmail: { color: c.textSecondary, fontSize: 13, marginTop: 2 },
+    profileName: { color: c.textPrimary, fontSize: 18, fontWeight: '600' },
+    profileEmail: { color: c.textSecondary, fontSize: 15, marginTop: 2 },
 
     sectionLabel: {
-      color: c.textMuted, fontSize: 11, fontWeight: '700',
+      color: c.textMuted, fontSize: 13, fontWeight: '700',
       letterSpacing: 2, marginTop: 8, marginBottom: 4, marginLeft: 4,
     },
 
@@ -437,8 +437,8 @@ function createStyles(c: AppColors) {
       width: 34, height: 34, borderRadius: 10,
       alignItems: 'center', justifyContent: 'center',
     },
-    rowLabel: { color: c.textPrimary, fontSize: 15, fontWeight: '500' },
-    rowSub: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+    rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '500' },
+    rowSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
     chevronBtn: { padding: 4 },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginHorizontal: 16 },
 
@@ -448,7 +448,7 @@ function createStyles(c: AppColors) {
       borderRadius: 14, paddingVertical: 14,
       borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)',
     },
-    signOutText: { color: '#FF453A', fontSize: 15, fontWeight: '600' },
+    signOutText: { color: '#FF453A', fontSize: 17, fontWeight: '600' },
     deleteBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       paddingVertical: 14, marginTop: 12,

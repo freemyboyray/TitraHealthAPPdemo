@@ -47,7 +47,7 @@ const s = StyleSheet.create({
     flexShrink: 0,
   },
   text: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: ORANGE,
     letterSpacing: 0.5,

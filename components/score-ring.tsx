@@ -264,14 +264,14 @@ const styles = StyleSheet.create({
     letterSpacing: -2,
   },
   labelText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: 1.5,
     opacity: 0.75,
     marginTop: 1,
   },
   message: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     marginTop: 6,
     letterSpacing: 0.1,

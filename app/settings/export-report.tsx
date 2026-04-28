@@ -263,7 +263,7 @@ function createStyles(c: AppColors) {
       justifyContent: 'center',
     },
     headerTitle: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
     },
@@ -282,13 +282,13 @@ function createStyles(c: AppColors) {
       marginBottom: 16,
     },
     infoTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '700',
       color: c.textPrimary,
       textAlign: 'center',
     },
     infoBody: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.6),
       textAlign: 'center',
       lineHeight: 20,
@@ -306,14 +306,14 @@ function createStyles(c: AppColors) {
     },
     disclaimerText: {
       flex: 1,
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.6),
       lineHeight: 18,
     },
 
     sectionLabel: {
       color: c.textMuted,
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
       letterSpacing: 2,
       marginBottom: 8,
@@ -339,7 +339,7 @@ function createStyles(c: AppColors) {
       borderColor: ORANGE,
     },
     rangePillText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
       color: w(0.5),
     },
@@ -357,7 +357,7 @@ function createStyles(c: AppColors) {
     },
     generateBtnDisabled: { opacity: 0.55 },
     generateBtnText: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
       color: '#FFFFFF',
     },

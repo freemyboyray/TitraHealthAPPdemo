@@ -6,13 +6,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { contentCategoryColor } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseProgressRing } from '@/components/courses/course-progress-ring';
 import { LessonRow } from '@/components/courses/lesson-row';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 const COURSE_HERO_IMAGES: Record<string, any> = {
@@ -64,23 +65,27 @@ export default function CourseDetailScreen() {
 
   if (!course) {
     return (
-      <SafeAreaView style={s.root}>
+      <View style={s.root}>
         <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 100 }} />
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const catColor = CATEGORY_COLORS[course.category] ?? ORANGE;
+  const catColor = contentCategoryColor(colors.isDark, course.category);
   const allDone = completedCount >= course.lesson_count;
   const heroImage = COURSE_HERO_IMAGES[course.slug] ?? null;
 
   return (
     <View style={s.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {/* Hero image or spacer */}
+        {/* Hero image — full-width, top half */}
         {heroImage ? (
           <View style={s.heroWrap}>
-            <Image source={heroImage} style={s.heroImage} resizeMode="contain" />
+            <Image
+              source={heroImage}
+              style={s.heroImage}
+              resizeMode="contain"
+            />
           </View>
         ) : (
           <View style={{ height: insets.top + 60 }} />
@@ -89,7 +94,7 @@ export default function CourseDetailScreen() {
         {/* Back button — overlaid on image */}
         <View style={[s.backBtnWrap, { top: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={22} color={heroImage ? '#FFFFFF' : colors.textPrimary} />
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -160,16 +165,6 @@ const createStyles = (c: AppColors) => {
       flex: 1,
       backgroundColor: c.bg,
     },
-    heroWrap: {
-      width: '100%',
-      aspectRatio: 1,
-      backgroundColor: '#FF5500',
-      marginBottom: 24,
-    },
-    heroImage: {
-      width: '100%',
-      height: '100%',
-    },
     backBtnWrap: {
       position: 'absolute',
       left: 16,
@@ -188,6 +183,16 @@ const createStyles = (c: AppColors) => {
       marginBottom: 28,
       paddingHorizontal: 20,
     },
+    heroWrap: {
+      width: '100%',
+      aspectRatio: 1,
+      backgroundColor: '#FF5500',
+      marginBottom: 24,
+    },
+    heroImage: {
+      width: '100%',
+      height: '100%',
+    },
     iconWrap: {
       width: 64,
       height: 64,
@@ -200,13 +205,13 @@ const createStyles = (c: AppColors) => {
       fontSize: 24,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: 'Inter_800ExtraBold',
+      fontFamily: 'System',
       textAlign: 'center',
       letterSpacing: -0.5,
       marginBottom: 6,
     },
     subtitle: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.5),
       fontFamily: FF,
       textAlign: 'center',
@@ -223,13 +228,13 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 12,
     },
     progressText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
       color: c.textPrimary,
       fontFamily: FF,
     },
     progressSub: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.4),
       fontFamily: FF,
       marginTop: 2,

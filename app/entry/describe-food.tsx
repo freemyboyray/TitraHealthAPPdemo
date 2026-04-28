@@ -336,7 +336,7 @@ const createStyles = (c: AppColors) => {
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -0.3,
@@ -357,7 +357,7 @@ const createStyles = (c: AppColors) => {
   cardContent: { padding: 18 },
 
   sectionLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     color: ORANGE,
     letterSpacing: 2,
@@ -365,7 +365,7 @@ const createStyles = (c: AppColors) => {
   },
 
   textArea: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     minHeight: 90,
     lineHeight: 22,
@@ -377,11 +377,11 @@ const createStyles = (c: AppColors) => {
     gap: 6,
     paddingHorizontal: 4,
   },
-  errorText: { fontSize: 13, color: ORANGE },
+  errorText: { fontSize: 15, color: ORANGE },
 
-  itemRawName: { fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
+  itemRawName: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
 
-  noMatch: { fontSize: 13, color: c.textSecondary, fontStyle: 'italic' },
+  noMatch: { fontSize: 15, color: c.textSecondary, fontStyle: 'italic' },
 
   matchRow: {
     flexDirection: 'row',
@@ -401,31 +401,31 @@ const createStyles = (c: AppColors) => {
   },
   matchRadioActive: { borderColor: ORANGE },
   matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
-  matchName: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
-  matchBrand: { fontSize: 11, color: c.textSecondary },
-  matchCal: { fontSize: 12, color: c.textSecondary },
+  matchName: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  matchBrand: { fontSize: 13, color: c.textSecondary },
+  matchCal: { fontSize: 14, color: c.textSecondary },
 
   servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  servingLabel: { fontSize: 13, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
+  servingLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
   servingInputWrap: {
     width: 72, height: 36, borderRadius: 10,
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6,
   },
-  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: c.textPrimary },
-  servingUnit: { fontSize: 13, color: c.textSecondary },
+  servingInput: { width: 72, textAlign: 'center', fontSize: 17, fontWeight: '600', color: c.textPrimary },
+  servingUnit: { fontSize: 15, color: c.textSecondary },
 
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   macroPill: {
     backgroundColor: c.glassOverlay,
     borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10,
-    fontSize: 12, fontWeight: '600', color: c.textPrimary,
+    fontSize: 14, fontWeight: '600', color: c.textPrimary,
   },
 
   retryRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 8,
   },
-  retryText: { fontSize: 13, color: c.textSecondary },
+  retryText: { fontSize: 15, color: c.textSecondary },
 
   btnWrapper: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -438,6 +438,6 @@ const createStyles = (c: AppColors) => {
     shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  primaryBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
   });
 };

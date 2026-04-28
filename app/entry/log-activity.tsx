@@ -20,8 +20,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
-import { VoiceButton } from '@/components/ui/voice-button';
-import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
@@ -134,6 +132,8 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const lastHapticRef = useRef(value);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState('');
 
   const progress = clamp((value - min) / (max - min), 0, 1);
 
@@ -146,8 +146,21 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > Math.abs(gs.dy),
-      onPanResponderGrant: () => {
-        panStartValueRef.current = valueRef.current;
+      onPanResponderGrant: (evt) => {
+        // Tap-to-position: jump to the tapped location on the track
+        const tw = trackWidthRef.current;
+        if (tw > 0) {
+          const tapPct = evt.nativeEvent.locationX / tw;
+          const next = Math.round(clamp(min + tapPct * (max - min), min, max));
+          onChangeRef.current(next);
+          if (next !== lastHapticRef.current) {
+            lastHapticRef.current = next;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          panStartValueRef.current = next;
+        } else {
+          panStartValueRef.current = valueRef.current;
+        }
       },
       onPanResponderMove: (_, gs) => {
         if (!trackWidthRef.current) return;
@@ -162,48 +175,92 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
     })
   ).current;
 
+  function startEditing() {
+    setEditText(String(value));
+    setEditing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  function commitEdit() {
+    const parsed = parseInt(editText, 10);
+    if (!isNaN(parsed)) {
+      onChange(clamp(parsed, min, max));
+    }
+    setEditing(false);
+  }
+
   const isDark = colors.isDark;
 
   return (
     <View style={{ paddingVertical: 20, paddingHorizontal: 4 }}>
-      {/* Value display */}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginBottom: 16 }}>
-        <Text style={{
-          fontSize: 52,
-          fontWeight: '900',
-          color: colors.textPrimary,
-          lineHeight: 56,
-          fontFamily: 'Inter_400Regular',
-          letterSpacing: -2,
-        }}>
-          {value}
-        </Text>
+      {/* Value display — tap to type */}
+      <TouchableOpacity
+        onPress={startEditing}
+        activeOpacity={0.7}
+        style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginBottom: 16 }}
+      >
+        {editing ? (
+          <TextInput
+            style={{
+              fontSize: 52,
+              fontWeight: '900',
+              color: colors.textPrimary,
+              lineHeight: 56,
+              fontFamily: 'System',
+              letterSpacing: -2,
+              minWidth: 60,
+              borderBottomWidth: 2,
+              borderBottomColor: ORANGE,
+              paddingBottom: 2,
+            }}
+            value={editText}
+            onChangeText={t => setEditText(t.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            autoFocus
+            selectTextOnFocus
+            returnKeyType="done"
+            onSubmitEditing={commitEdit}
+            onBlur={commitEdit}
+            maxLength={String(max).length}
+          />
+        ) : (
+          <Text style={{
+            fontSize: 52,
+            fontWeight: '900',
+            color: colors.textPrimary,
+            lineHeight: 56,
+            fontFamily: 'System',
+            letterSpacing: -2,
+          }}>
+            {value}
+          </Text>
+        )}
         {unit && (
           <Text style={{
             fontSize: 20,
             fontWeight: '700',
             color: ORANGE,
             marginBottom: 8,
-            fontFamily: 'Inter_400Regular',
+            fontFamily: 'System',
           }}>
             {unit}
           </Text>
         )}
         <Text style={{
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: '700',
           color: colors.textMuted,
           letterSpacing: 1.2,
           textTransform: 'uppercase',
-          fontFamily: 'Inter_400Regular',
+          fontFamily: 'System',
           marginBottom: 10,
           marginLeft: 4,
         }}>
           {subtitleDerived}
         </Text>
-      </View>
+      </TouchableOpacity>
 
-      {/* Track */}
+      {/* Track — tap to position or drag */}
       <View
         style={{ height: 36, justifyContent: 'center' }}
         onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width; }}
@@ -247,12 +304,12 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
         {labels.map((l, i) => (
           <Text key={i} style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: '700',
             color: colors.textMuted,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fontFamily: 'Inter_400Regular',
+            fontFamily: 'System',
           }}>
             {l}
           </Text>
@@ -352,24 +409,6 @@ export default function LogActivityScreen() {
     setStepsInput(text.replace(/[^0-9]/g, ''));
   }
 
-  async function handleVoiceTranscription(text: string) {
-    try {
-      const result = await parseVoiceLog('activity', text) as VoiceActivityResult;
-      if (result.exercise_type) {
-        const matched = WORKOUT_TYPES.find(
-          t => t.toLowerCase() === result.exercise_type.toLowerCase(),
-        );
-        setWorkoutType(matched ?? result.exercise_type);
-      }
-      if (result.duration_min) setDurationMin(Math.round(result.duration_min));
-      if (result.intensity) {
-        setIntensity(result.intensity === 'low' ? 2 : result.intensity === 'moderate' ? 5 : 9);
-      }
-    } catch {
-      Alert.alert('Voice Input', 'Could not parse your activity. Try saying something like "30 minutes of running at moderate intensity".');
-    }
-  }
-
   const stepsValue = stepsInput === '' ? 0 : parseInt(stepsInput, 10);
   const weightKg = profile.weightKg > 0 ? profile.weightKg : 75;
   const met = MET_VALUES[workoutType] ?? 4.0;
@@ -413,7 +452,7 @@ export default function LogActivityScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
         <Text style={s.title}>Log Activity</Text>
-        <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
@@ -540,7 +579,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
     ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
   },
-  title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
+  title: { fontSize: 20, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
   cardsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -548,14 +587,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 4,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: c.textMuted,
     letterSpacing: 1.2,
     marginTop: 24,
     marginBottom: 12,
     marginLeft: 4,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   card: {
     borderRadius: 28,
@@ -571,18 +610,18 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   infoLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: c.textSecondary,
     letterSpacing: 0.8,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: c.textPrimary,
     maxWidth: 180,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   divider: {
     height: 1,
@@ -590,12 +629,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginHorizontal: 16,
   },
   stepsInput: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: c.textPrimary,
     textAlign: 'right',
     minWidth: 80,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   ctaWrap: {
     position: 'absolute',
@@ -619,11 +658,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     elevation: 8,
   },
   logBtnText: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: '#000000',
     letterSpacing: 0.5,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 });
 
@@ -639,25 +678,25 @@ const createSummaryCardStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.surface,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: c.textSecondary,
     letterSpacing: 0.3,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   value: {
     fontSize: 30,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -1,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   unit: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
     color: c.textSecondary,
     marginBottom: 4,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 });
 
@@ -696,7 +735,7 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'System',
   },
   doneBtn: {
     paddingHorizontal: 16,
@@ -705,10 +744,10 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: 'rgba(255,116,42,0.15)',
   },
   doneBtnText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: ORANGE,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   pillRow: {
     flexDirection: 'row',
@@ -730,10 +769,10 @@ const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
     borderColor: ORANGE,
   },
   pillText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: c.textSecondary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   pillTextSelected: {
     color: ORANGE,

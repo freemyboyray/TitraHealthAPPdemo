@@ -135,10 +135,10 @@ const createStyles = (c: AppColors) => {
     gap: 8,
   },
   title: {
-    fontSize: 14, fontWeight: '700', color: c.textPrimary, flex: 1, lineHeight: 19,
+    fontSize: 16, fontWeight: '700', color: c.textPrimary, flex: 1, lineHeight: 19,
   },
   body: {
-    fontSize: 13, color: w(0.55), lineHeight: 19,
+    fontSize: 15, color: w(0.55), lineHeight: 19,
   },
   closeBtn: {
     width: 24, height: 24, borderRadius: 12,
@@ -150,7 +150,7 @@ const createStyles = (c: AppColors) => {
     marginTop: 12, alignSelf: 'flex-start',
   },
   actionText: {
-    fontSize: 13, fontWeight: '700', color: '#FF742A',
+    fontSize: 15, fontWeight: '700', color: '#FF742A',
   },
   });
 };

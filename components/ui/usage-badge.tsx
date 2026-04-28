@@ -23,14 +23,14 @@ export function UsageBadge({ feature }: Props) {
           borderRadius: 10,
         }}
       >
-        <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '600' }}>PRO</Text>
+        <Text style={{ color: ORANGE, fontSize: 13, fontWeight: '600' }}>PRO</Text>
       </View>
     );
   }
 
   return (
     <View style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-      <Text style={{ color: colors.textMuted, fontSize: 11 }}>{limit} free/day</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 13 }}>{limit} free/day</Text>
     </View>
   );
 }

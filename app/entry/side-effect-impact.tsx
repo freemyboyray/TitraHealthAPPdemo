@@ -15,7 +15,7 @@ const ORANGE  = '#FF742A';
 const GREEN   = '#34C759';
 const RED     = '#FF3B30';
 const BLUE    = '#5AC8FA';
-const FF     = 'Inter_400Regular';
+const FF     = 'System';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {icon}
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{label}</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{label}</Text>
         </View>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -80,7 +80,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
             size={11}
             color={arrowColor}
           />
-          <Text style={{ fontSize: 12, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
         </View>
       </View>
 
@@ -92,7 +92,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
       </View>
 
       {/* Reason */}
-      <Text style={{ fontSize: 12, color: w(0.40), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>{reason}</Text>
+      <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>{reason}</Text>
     </View>
   );
 }
@@ -349,7 +349,7 @@ export default function SideEffectImpactScreen() {
                 <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, marginTop: 2 }}>
                   {adjusted.mealFrequency} small meals/day
                 </Text>
-                <Text style={{ fontSize: 12, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
+                <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
                   Smaller, more frequent meals reduce GI load and help GLP-1 manage gastric emptying more comfortably.
                 </Text>
               </View>
@@ -369,10 +369,10 @@ export default function SideEffectImpactScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.sectionTitle}>STRENGTH TRAINING</Text>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginTop: 2 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginTop: 2 }}>
                   Recommended 2–3×/week
                 </Text>
-                <Text style={{ fontSize: 12, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
+                <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
                   Resistance training is the most effective way to prevent lean muscle loss on GLP-1. Even bodyweight squats and rows count.
                 </Text>
               </View>
@@ -393,14 +393,14 @@ export default function SideEffectImpactScreen() {
                 <View style={{ marginTop: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <Ionicons name="checkmark-circle" size={16} color={GREEN} />
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: GREEN, fontFamily: FF, letterSpacing: 0.5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: GREEN, fontFamily: FF, letterSpacing: 0.5 }}>
                       PRIORITIZE
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {adjusted.foodsToPrioritize.map(food => (
                       <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(52,199,89,0.10)', borderColor: 'rgba(52,199,89,0.25)' }]}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: GREEN, fontFamily: FF }}>{food}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: GREEN, fontFamily: FF }}>{food}</Text>
                       </View>
                     ))}
                   </View>
@@ -411,14 +411,14 @@ export default function SideEffectImpactScreen() {
                 <View style={{ marginTop: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <Ionicons name="close-circle" size={16} color={RED} />
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: RED, fontFamily: FF, letterSpacing: 0.5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: RED, fontFamily: FF, letterSpacing: 0.5 }}>
                       AVOID
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {adjusted.foodsToAvoid.map(food => (
                       <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(255,59,48,0.08)', borderColor: 'rgba(255,59,48,0.20)' }]}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: RED, fontFamily: FF }}>{food}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: RED, fontFamily: FF }}>{food}</Text>
                       </View>
                     ))}
                   </View>
@@ -435,7 +435,7 @@ export default function SideEffectImpactScreen() {
             <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
             <GlassBorder r={20} />
             <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={{ fontSize: 14, color: w(0.40), textAlign: 'center', fontFamily: FF, lineHeight: 20 }}>
+              <Text style={{ fontSize: 16, color: w(0.40), textAlign: 'center', fontFamily: FF, lineHeight: 20 }}>
                 No target adjustments for these effects. Continue with your regular targets.
               </Text>
             </View>
@@ -539,7 +539,7 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: {
-      fontSize: 18, fontWeight: '800', color: c.textPrimary, fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.3,
+      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'System', letterSpacing: -0.3,
     },
 
     content: { paddingHorizontal: 20, paddingTop: 4, gap: 14 },
@@ -557,18 +557,18 @@ const createStyles = (c: AppColors) => {
       shadowOpacity: 0.4, shadowRadius: 12,
     },
     bannerTitle: {
-      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'Inter_800ExtraBold',
+      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'System',
       letterSpacing: -0.3, marginBottom: 6,
     },
     bannerSub: {
-      fontSize: 13, color: w(0.45), fontFamily: FF, textAlign: 'center', lineHeight: 19,
+      fontSize: 15, color: w(0.45), fontFamily: FF, textAlign: 'center', lineHeight: 19,
     },
     effectPill: {
       paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
       backgroundColor: 'rgba(255,116,42,0.12)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)',
     },
     effectPillText: {
-      fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: FF,
+      fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: FF,
     },
 
     card: {
@@ -578,7 +578,7 @@ const createStyles = (c: AppColors) => {
     },
 
     sectionTitle: {
-      fontSize: 10, fontWeight: '800', color: w(0.35), fontFamily: FF,
+      fontSize: 12, fontWeight: '800', color: w(0.35), fontFamily: FF,
       letterSpacing: 1.5, marginBottom: 2,
     },
 
@@ -603,15 +603,15 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     aiCardLabel: {
-      fontSize: 10, fontWeight: '800', color: ORANGE,
+      fontSize: 12, fontWeight: '800', color: ORANGE,
       fontFamily: FF, letterSpacing: 1.5,
     },
     aiCardTitle: {
-      fontSize: 16, fontWeight: '800', color: c.textPrimary,
-      fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
+      fontSize: 18, fontWeight: '800', color: c.textPrimary,
+      fontFamily: 'System', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
     },
     aiCardSub: {
-      fontSize: 12, fontFamily: FF, lineHeight: 17, marginBottom: 16,
+      fontSize: 14, fontFamily: FF, lineHeight: 17, marginBottom: 16,
     },
     chipsWrap: {
       gap: 8, marginBottom: 14,
@@ -624,7 +624,7 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.07)',
     },
     chipText: {
-      flex: 1, fontSize: 13, fontWeight: '600',
+      flex: 1, fontSize: 15, fontWeight: '600',
       color: c.textPrimary, fontFamily: FF,
     },
     askBtn: {
@@ -635,7 +635,7 @@ const createStyles = (c: AppColors) => {
       shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
     },
     askBtnText: {
-      fontSize: 15, fontWeight: '800', color: '#FFF', fontFamily: FF,
+      fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF,
     },
 
     ctaWrap: {
@@ -651,7 +651,7 @@ const createStyles = (c: AppColors) => {
       shadowOpacity: 0.4, shadowRadius: 18, elevation: 8,
     },
     doneBtnText: {
-      fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.3,
+      fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.3,
     },
   });
 };

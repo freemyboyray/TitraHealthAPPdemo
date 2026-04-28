@@ -352,7 +352,7 @@ const createStyles = (c: AppColors) => {
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
     backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
 
     scroll: { flex: 1 },
     content: { padding: 16, paddingBottom: 40 },
@@ -368,11 +368,11 @@ const createStyles = (c: AppColors) => {
       marginBottom: 8,
     },
     masterLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    masterLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '600' },
+    masterLabel: { color: c.textPrimary, fontSize: 18, fontWeight: '600' },
 
     /* Sections */
     sectionLabel: {
-      color: c.textMuted, fontSize: 11, fontWeight: '700',
+      color: c.textMuted, fontSize: 13, fontWeight: '700',
       letterSpacing: 2, marginTop: 16, marginBottom: 6, marginLeft: 4,
     },
 
@@ -396,7 +396,7 @@ const createStyles = (c: AppColors) => {
       backgroundColor: 'rgba(255,116,42,0.12)',
       alignItems: 'center', justifyContent: 'center',
     },
-    slotLabel: { color: c.textPrimary, fontSize: 14, fontWeight: '500', flex: 1 },
+    slotLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '500', flex: 1 },
     slotLabelDisabled: { color: c.textMuted },
     slotSwitch: { transform: [{ scale: 0.85 }] },
 
@@ -406,7 +406,7 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 10, paddingVertical: 5,
       borderRadius: 20,
     },
-    timeText: { color: ORANGE, fontSize: 12, fontWeight: '600' },
+    timeText: { color: ORANGE, fontSize: 14, fontWeight: '600' },
 
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 56 },
 
@@ -415,17 +415,17 @@ const createStyles = (c: AppColors) => {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingLeft: 16, paddingRight: 16, paddingTop: 14, paddingBottom: 6,
     },
-    medSub: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+    medSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
     autoBadge: {
       backgroundColor: 'rgba(10,132,255,0.12)',
       paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
     },
-    autoText: { color: '#0A84FF', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    autoText: { color: '#0A84FF', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
     medHintRow: {
       flexDirection: 'row', alignItems: 'flex-start', gap: 6,
       paddingHorizontal: 16, paddingBottom: 14, paddingTop: 4,
     },
-    medHint: { color: c.textMuted, fontSize: 12, flex: 1, lineHeight: 16 },
+    medHint: { color: c.textMuted, fontSize: 14, flex: 1, lineHeight: 16 },
 
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginVertical: 16 },
 
@@ -435,8 +435,8 @@ const createStyles = (c: AppColors) => {
       borderRadius: 14, paddingVertical: 14,
       borderWidth: 1, borderColor: 'rgba(255,116,42,0.20)',
     },
-    testBtnText: { color: ORANGE, fontSize: 15, fontWeight: '600' },
-    hint: { color: w(0.3), fontSize: 12, textAlign: 'center', marginTop: 8 },
+    testBtnText: { color: ORANGE, fontSize: 17, fontWeight: '600' },
+    hint: { color: w(0.3), fontSize: 14, textAlign: 'center', marginTop: 8 },
 
     /* Picker modal */
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
@@ -450,9 +450,9 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 20, paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.1),
     },
-    pickerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '600' },
-    pickerCancel: { color: w(0.5), fontSize: 15 },
-    pickerDone: { color: ORANGE, fontSize: 15, fontWeight: '600' },
+    pickerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '600' },
+    pickerCancel: { color: w(0.5), fontSize: 17 },
+    pickerDone: { color: ORANGE, fontSize: 17, fontWeight: '600' },
     picker: { backgroundColor: c.surface },
   });
 };

@@ -6,9 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { contentCategoryColor } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 type ArticleDetail = {
@@ -22,13 +23,6 @@ type ArticleDetail = {
   phase_focus: string;
 };
 
-const categoryColors: Record<string, string> = {
-  nutrition: '#27AE60',
-  medication: '#FF742A',
-  lifestyle: '#5B8BF5',
-  mindset: '#9B59B6',
-  exercise: '#E8960C',
-};
 
 export default function ArticleDetailScreen() {
   const { colors } = useAppTheme();
@@ -51,7 +45,7 @@ export default function ArticleDetailScreen() {
       });
   }, [id]);
 
-  const chipColor = article ? (categoryColors[article.category] ?? ORANGE) : ORANGE;
+  const chipColor = article ? contentCategoryColor(colors.isDark, article.category) : ORANGE;
   const categoryLabel = article
     ? article.category.charAt(0).toUpperCase() + article.category.slice(1)
     : '';
@@ -77,7 +71,7 @@ export default function ArticleDetailScreen() {
           </View>
         ) : !article ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.textMuted, fontSize: 15, fontFamily: FF }}>
+            <Text style={{ color: colors.textMuted, fontSize: 17, fontFamily: FF }}>
               Article not found.
             </Text>
           </View>
@@ -158,8 +152,8 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     navTitle: {
-      fontSize: 17, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.3, fontFamily: 'Inter_700Bold', flex: 1, textAlign: 'center',
+      fontSize: 19, fontWeight: '700', color: c.textPrimary,
+      letterSpacing: -0.3, fontFamily: 'System', flex: 1, textAlign: 'center',
     },
 
     content: { paddingHorizontal: 20, paddingBottom: 40 },
@@ -172,15 +166,15 @@ const createStyles = (c: AppColors) => {
       borderRadius: 20, borderWidth: 1,
       paddingHorizontal: 10, paddingVertical: 4,
     },
-    chipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-    readTime: { fontSize: 12, color: w(0.40), fontFamily: FF },
+    chipText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
+    readTime: { fontSize: 14, color: w(0.40), fontFamily: FF },
 
     title: {
       fontSize: 28, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: 'Inter_800ExtraBold',
+      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: 'System',
     },
     subtitle: {
-      fontSize: 16, color: w(0.55), lineHeight: 24,
+      fontSize: 18, color: w(0.55), lineHeight: 24,
       fontWeight: '400', marginBottom: 8, fontFamily: FF,
     },
     divider: {
@@ -190,18 +184,18 @@ const createStyles = (c: AppColors) => {
 
     bodyH1: {
       fontSize: 22, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: 'Inter_800ExtraBold',
+      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: 'System',
     },
     bodyH2: {
-      fontSize: 18, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: 'Inter_700Bold',
+      fontSize: 20, fontWeight: '700', color: c.textPrimary,
+      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: 'System',
     },
     bodyH3: {
-      fontSize: 15, fontWeight: '700', color: ORANGE,
-      marginBottom: 6, marginTop: 14, fontFamily: 'Inter_700Bold',
+      fontSize: 17, fontWeight: '700', color: ORANGE,
+      marginBottom: 6, marginTop: 14, fontFamily: 'System',
     },
     bodyText: {
-      fontSize: 15, color: w(0.75),
+      fontSize: 17, color: w(0.75),
       lineHeight: 24, marginBottom: 12, fontFamily: FF, flex: 1,
     },
     bulletRow: {

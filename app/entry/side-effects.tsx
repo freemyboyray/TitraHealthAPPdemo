@@ -26,8 +26,6 @@ import {
 } from '../../constants/side-effects';
 import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
-import { VoiceButton } from '../../components/ui/voice-button';
-import { parseVoiceLog, type VoiceSideEffectsResult } from '../../lib/openai';
 import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -161,27 +159,6 @@ export default function SideEffectsScreen() {
   const [phase, setPhase] = useState<PhaseType>('balance');
   const [loading, setLoading] = useState(false);
 
-  async function handleVoiceTranscription(text: string) {
-    try {
-      const result = await parseVoiceLog('side_effects', text) as VoiceSideEffectsResult;
-      if (result.phase) setPhase(result.phase);
-      if (result.symptoms?.length) {
-        setValues(prev => {
-          const next = { ...prev };
-          for (const sym of result.symptoms) {
-            // find by dbType or id match
-            const found = SIDE_EFFECTS.find(e => e.id === sym || e.id.includes(sym));
-            const id = found?.id ?? sym;
-            next[id] = result.severity ?? 5;
-          }
-          return next;
-        });
-      }
-    } catch {
-      Alert.alert('Voice Input', 'Could not parse your symptoms. Try saying something like "nausea at 7, fatigue at 4".');
-    }
-  }
-
   useFocusEffect(
     useCallback(() => {
       async function load() {
@@ -281,10 +258,9 @@ export default function SideEffectsScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Side Effects Log</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Side Effects Log</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <VoiceButton onTranscription={handleVoiceTranscription} size="sm" />
           <TouchableOpacity
             style={s.headerBtn}
             onPress={() => router.push('/entry/customize-side-effects' as any)}
@@ -311,7 +287,7 @@ export default function SideEffectsScreen() {
           <GB r={20} />
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10 }}>
             <Ionicons name="calendar-outline" size={18} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
               {dateStr}
             </Text>
           </View>
@@ -324,7 +300,7 @@ export default function SideEffectsScreen() {
           <GB r={20} />
           <View style={{ padding: 20 }}>
             {allActive.length === 0 ? (
-              <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', textAlign: 'center', paddingVertical: 20 }}>
+              <Text style={{ fontSize: 16, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', textAlign: 'center', paddingVertical: 20 }}>
                 No effects tracked yet. Tap the settings icon to customize.
               </Text>
             ) : (
@@ -346,7 +322,7 @@ export default function SideEffectsScreen() {
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
+                        <Text style={{ fontSize: 17, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
                         {fromHK && (
                           <View style={{
                             flexDirection: 'row', alignItems: 'center', gap: 3,
@@ -354,7 +330,7 @@ export default function SideEffectsScreen() {
                             paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
                           }}>
                             <Ionicons name="heart" size={9} color="#FF3B30" />
-                            <Text style={{ fontSize: 9, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.3 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.3 }}>
                               HEALTH
                             </Text>
                           </View>
@@ -362,7 +338,7 @@ export default function SideEffectsScreen() {
                       </View>
                       <Text
                         style={{
-                          fontSize: 15, fontWeight: '800',
+                          fontSize: 17, fontWeight: '800',
                           color: val > 0 ? GREEN : (colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'),
                           minWidth: 20, textAlign: 'right',
                         }}
@@ -385,7 +361,7 @@ export default function SideEffectsScreen() {
                             : 'rgba(93,184,123,0.08)',
                       }}>
                         <Text style={{
-                          fontSize: 12, lineHeight: 16,
+                          fontSize: 14, lineHeight: 16,
                           color: ctx.severity === 'flag'
                             ? '#F5A623'
                             : ctx.severity === 'watch'
@@ -405,7 +381,7 @@ export default function SideEffectsScreen() {
 
         {/* Customize prompt */}
         <View style={{ marginTop: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
+          <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
             Any other side effects you'd like to track?
           </Text>
           <TouchableOpacity
@@ -413,7 +389,7 @@ export default function SideEffectsScreen() {
             onPress={() => router.push('/entry/customize-side-effects' as any)}
             activeOpacity={0.75}
           >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
               Customize side effects
             </Text>
           </TouchableOpacity>
@@ -433,10 +409,10 @@ export default function SideEffectsScreen() {
               activeOpacity={0.8}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, marginBottom: 3 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, marginBottom: 3 }}>
                   Weekly Food Noise Check-In
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
+                <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
                   Track how much you're thinking about food this week · 2 min
                 </Text>
               </View>
@@ -470,7 +446,7 @@ export default function SideEffectsScreen() {
         >
           {loading
             ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={{ fontSize: 16, fontWeight: '800', color: hasAny ? '#FFF' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'), letterSpacing: 0.4 }}>
+            : <Text style={{ fontSize: 18, fontWeight: '800', color: hasAny ? '#FFF' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'), letterSpacing: 0.4 }}>
                 Log Side Effects
               </Text>
           }

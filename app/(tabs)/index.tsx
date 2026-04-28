@@ -24,7 +24,8 @@ import {
 } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
 import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { AnimatedFire } from '@/components/animated-fire';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
@@ -36,6 +37,7 @@ import { useLogStore, computeStreak } from '@/stores/log-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { focusCategoryColor } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
@@ -55,7 +57,7 @@ const INJECTION_SITES = [
   'Left Thigh', 'Right Thigh',
   'Left Upper Arm', 'Right Upper Arm',
 ];
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 const MED_BRAND: Record<string, string> = {
   semaglutide: 'Ozempic',
@@ -144,7 +146,7 @@ const createMbStyles = (c: AppColors) => {
       paddingHorizontal: 12, paddingVertical: 5,
     },
     chipText: {
-      fontSize: 12, fontWeight: '600',
+      fontSize: 14, fontWeight: '600',
       color: w(0.7),
       fontFamily: FF,
     },
@@ -236,8 +238,13 @@ function isProjectedShot(lastDate: string | null, freqDays: number, target: Date
   const lastMs = new Date(lastDate + 'T00:00:00').getTime();
   const targetMs = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
   const diff = Math.round((targetMs - lastMs) / 86400000);
-  // Only match the single next projected shot, not every future multiple
-  return diff === freqDays;
+  // Match the projected shot day AND any overdue days (diff >= freqDays)
+  // so the reminder persists if the user is late rather than silently vanishing.
+  // For future dates, only match the single next projected shot (exact multiple).
+  if (diff < freqDays) return false;
+  if (diff === freqDays) return true;
+  // Overdue: show reminder for current day only (not future dates)
+  return diff > freqDays && targetMs <= new Date().setHours(23, 59, 59, 999);
 }
 
 // ─── Calendar Dropdown ────────────────────────────────────────────────────────
@@ -397,17 +404,17 @@ function activityIconNameDL(exerciseType: string | null | undefined): React.Comp
 
 // ── Style helpers (outside component to avoid recreation) ──────────────────
 function dlSectionLabel(w: (a: number) => string) {
-  return { fontSize: 11, fontWeight: '700' as const, color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase' as const, marginBottom: 6, fontFamily: FF };
+  return { fontSize: 13, fontWeight: '700' as const, color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase' as const, marginBottom: 6, fontFamily: FF };
 }
 function dlEditLabel(w: (a: number) => string) {
-  return { fontSize: 12, fontWeight: '600' as const, color: w(0.45), marginBottom: 6, fontFamily: FF };
+  return { fontSize: 14, fontWeight: '600' as const, color: w(0.45), marginBottom: 6, fontFamily: FF };
 }
 function dlInput(colors: AppColors, w: (a: number) => string) {
   return {
     backgroundColor: w(0.05),
     borderRadius: 12,
     padding: 12,
-    fontSize: 15,
+    fontSize: 17,
     color: w(0.85),
     fontFamily: FF,
     borderWidth: StyleSheet.hairlineWidth,
@@ -426,8 +433,8 @@ function MetricBar({ label, current, target, unit, colors, color }: {
   return (
     <View style={{ marginBottom: 12 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-        <Text style={{ fontSize: 12, color: w(0.5), fontFamily: FF }}>{label}</Text>
-        <Text style={{ fontSize: 12, fontWeight: '700', color: over ? ORANGE : w(0.65), fontFamily: FF }}>
+        <Text style={{ fontSize: 14, color: w(0.5), fontFamily: FF }}>{label}</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: over ? ORANGE : w(0.65), fontFamily: FF }}>
           {current}{unit} / {target}{unit}
         </Text>
       </View>
@@ -594,7 +601,7 @@ function DailyLogSummaryCard({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             {totalCals > 0 && (
               <View style={{ backgroundColor: colors.borderSubtle, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.55), fontFamily: FF }}>{totalCals} cal</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: w(0.55), fontFamily: FF }}>{totalCals} cal</Text>
               </View>
             )}
             {canExpand && (
@@ -607,18 +614,18 @@ function DailyLogSummaryCard({
         {!expanded && (
           <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
             {isFuture ? (
-              <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF }}>Nothing logged yet - this is a future date.</Text>
+              <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>Nothing logged yet - this is a future date.</Text>
             ) : isEmpty ? (
-              <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
+              <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
             ) : (
               <View style={{ gap: 7 }}>
                 {summaryRows.map((row, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <View style={{ width: 16, alignItems: 'center' }}>{row.icon}</View>
-                    <Text style={{ fontSize: 14, color: w(0.65), fontFamily: FF }}>{row.label}</Text>
+                    <Text style={{ fontSize: 16, color: w(0.65), fontFamily: FF }}>{row.label}</Text>
                   </View>
                 ))}
-                <Text style={{ fontSize: 12, color: w(0.28), marginTop: 4, fontFamily: FF }}>Tap to view details & edit</Text>
+                <Text style={{ fontSize: 14, color: w(0.28), marginTop: 4, fontFamily: FF }}>Tap to view details & edit</Text>
               </View>
             )}
           </View>
@@ -630,7 +637,7 @@ function DailyLogSummaryCard({
 
             {/* ── Metrics Impact ── */}
             <View style={{ marginBottom: 18, padding: 14, borderRadius: 16, backgroundColor: w(0.04) }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, fontFamily: FF }}>Metrics Impact</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, fontFamily: FF }}>Metrics Impact</Text>
               {targets.caloriesTarget > 0 && (
                 <MetricBar label="Calories" current={totalCals}    target={targets.caloriesTarget} unit=" cal" colors={colors} color={ORANGE} />
               )}
@@ -651,7 +658,7 @@ function DailyLogSummaryCard({
                 <Text style={dlSectionLabel(w)}>{oral ? 'Dose' : 'Injection'}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 10 }}>
                   <FontAwesome5 name={doseIconName(oral)} size={14} color={w(0.45)} />
-                  <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>
+                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
                   <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)}>
@@ -670,8 +677,8 @@ function DailyLogSummaryCard({
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                       <MealIcon mealType={f.meal_type ?? 'snack'} size={14} color={w(0.45)} />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, color: w(0.82), fontFamily: FF }} numberOfLines={1}>{f.food_name}</Text>
-                        <Text style={{ fontSize: 11, color: w(0.38), marginTop: 2, fontFamily: FF }}>
+                        <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }} numberOfLines={1}>{f.food_name}</Text>
+                        <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>
                           {f.calories} cal · P {f.protein_g}g · C {f.carbs_g}g · F {f.fat_g}g
                         </Text>
                       </View>
@@ -697,8 +704,8 @@ function DailyLogSummaryCard({
                   <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
                     <MaterialIcons name={activityIconNameDL(a.exercise_type)} size={16} color={w(0.45)} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, color: w(0.82), fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
-                      <Text style={{ fontSize: 11, color: w(0.38), marginTop: 2, fontFamily: FF }}>
+                      <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
+                      <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>
                         {[
                           a.duration_min > 0 ? `${a.duration_min} min` : null,
                           a.steps > 0 ? `${a.steps.toLocaleString()} steps` : null,
@@ -725,7 +732,7 @@ function DailyLogSummaryCard({
                 <Text style={dlSectionLabel(w)}>Weight</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
                   <MaterialCommunityIcons name="scale" size={16} color={w(0.45)} />
-                  <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
+                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
                   <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                     <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })}>
                       <Ionicons name="pencil-outline" size={15} color={w(0.35)} />
@@ -744,7 +751,7 @@ function DailyLogSummaryCard({
                 <Text style={dlSectionLabel(w)}>Water</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
                   <Ionicons name="water-outline" size={16} color="#5B8BF5" />
-                  <Text style={{ fontSize: 14, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
+                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
                 </View>
               </View>
             )}
@@ -757,7 +764,7 @@ function DailyLogSummaryCard({
                   {sideEffectLogs.map(se => (
                     <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(231,76,60,0.1)', borderRadius: 20, paddingLeft: 8, paddingRight: 6, paddingVertical: 5 }}>
                       <MaterialIcons name="sick" size={12} color="#E74C3C" />
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
                         {se.effect_type.replace(/_/g, ' ')} · {se.severity}/10
                       </Text>
                       <Pressable hitSlop={6} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))}>
@@ -785,7 +792,7 @@ function DailyLogSummaryCard({
                 {/* ── Food edit form ── */}
                 {editTarget?.kind === 'food' && (
                   <>
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Food Entry</Text>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Food Entry</Text>
                     <Text style={dlEditLabel(w)}>Food Name</Text>
                     <TextInput
                       style={dlInput(colors, w)}
@@ -818,7 +825,7 @@ function DailyLogSummaryCard({
                           onPress={() => setEditForm(f => ({ ...f, meal_type: mt }))}
                           style={{ flex: 1, padding: 9, borderRadius: 10, backgroundColor: editForm.meal_type === mt ? ORANGE : w(0.07), alignItems: 'center' }}
                         >
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: editForm.meal_type === mt ? '#fff' : w(0.55), fontFamily: FF }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: editForm.meal_type === mt ? '#fff' : w(0.55), fontFamily: FF }}>
                             {MEAL_LABELS[mt]}
                           </Text>
                         </Pressable>
@@ -830,7 +837,7 @@ function DailyLogSummaryCard({
                 {/* ── Activity edit form ── */}
                 {editTarget?.kind === 'activity' && (
                   <>
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Activity</Text>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Activity</Text>
                     <Text style={dlEditLabel(w)}>Exercise Type</Text>
                     <TextInput
                       style={dlInput(colors, w)}
@@ -861,7 +868,7 @@ function DailyLogSummaryCard({
                 {/* ── Weight edit form ── */}
                 {editTarget?.kind === 'weight' && (
                   <>
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Weight</Text>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Weight</Text>
                     <Text style={dlEditLabel(w)}>Weight (lbs)</Text>
                     <TextInput
                       style={dlInput(colors, w)}
@@ -882,7 +889,7 @@ function DailyLogSummaryCard({
                     style={{ flex: 1, padding: 15, borderRadius: 14, backgroundColor: w(0.07), alignItems: 'center' }}
                     onPress={() => setEditTarget(null)}
                   >
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: w(0.6), fontFamily: FF }}>Cancel</Text>
+                    <Text style={{ fontSize: 17, fontWeight: '600', color: w(0.6), fontFamily: FF }}>Cancel</Text>
                   </Pressable>
                   <Pressable
                     style={{ flex: 2, padding: 15, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', opacity: saving ? 0.65 : 1 }}
@@ -891,7 +898,7 @@ function DailyLogSummaryCard({
                   >
                     {saving
                       ? <ActivityIndicator color="#fff" />
-                      : <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff', fontFamily: FF }}>Save Changes</Text>
+                      : <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff', fontFamily: FF }}>Save Changes</Text>
                     }
                   </Pressable>
                 </View>
@@ -923,10 +930,11 @@ export default function HomeScreen() {
   const personalizationStore = usePersonalizationStore();
   const logStore = useLogStore();
   const plan = personalizationStore.plan;
+  const router = useRouter();
   const { openAiChat } = useUiStore();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
   const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
@@ -944,6 +952,9 @@ export default function HomeScreen() {
   const biometricStore = useBiometricStore();
 
   useFocusEffect(useCallback(() => {
+    // Re-verify actuals (including injectionLogged) from Supabase on every tab focus
+    // so the injection reminder updates immediately after logging a dose.
+    healthData.refreshActuals();
     hkStore.fetchAll().then(() => logStore.syncWeightFromHealthKit()).catch(() => {});
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
@@ -1058,10 +1069,16 @@ export default function HomeScreen() {
 
   // Medication strip - always relative to today
   const todayDayNum = daysSinceInjection(effectiveLastInjectionDate, today, freq ?? 7);
-  const daysUntil = Math.max(0, (freq ?? 7) - (todayDayNum - 1));
+  // Use uncapped day math for accurate "days until next shot" — daysSinceInjection
+  // caps at freq which causes an off-by-one when the shot is due today.
+  const uncappedDaysUntil = effectiveLastInjectionDate
+    ? (freq ?? 7) - Math.floor(
+        ((() => { const t = new Date(today); t.setHours(0,0,0,0); return t.getTime(); })()
+          - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
+      )
+    : null;
+  const daysUntil = uncappedDaysUntil != null ? Math.max(0, uncappedDaysUntil) : (freq ?? 7);
   // Use actuals as source of truth for whether today's injection is already logged.
-  // daysSinceInjection is capped at 7 so daysUntil can't go negative — we must
-  // distinguish "due and not yet logged" from "due and already logged".
   // During washout, treat injection as "logged" so UI doesn't nag about missing dose
   const todayInjLogged = transitionPhase === 'washout' ? true : actuals.injectionLogged;
   const nextShotLabel = transitionPhase === 'washout'
@@ -1348,70 +1365,44 @@ export default function HomeScreen() {
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
       <View style={s.heroBg}>
         <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+          {/* ── Fixed header ── */}
           <View
             style={s.headerArea}
             onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
           >
-          <View style={s.headerTopRow}>
-            {/* Left: greeting */}
-            <View style={{ flex: 1 }}>
-              <Text style={s.greetingLabel}>Welcome,</Text>
-              <Text style={s.greetingName}>
-                {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
-              </Text>
-            </View>
-            {/* Right: date + weekday */}
-            <Pressable style={s.dateTitleRow} onPress={() => setCalendarOpen(v => !v)}>
-              <View style={{ alignItems: 'flex-end' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={s.dateTitle}>{dateLabel}</Text>
-                  <Ionicons
-                    name={calendarOpen ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color="#FFFFFF"
-                    style={{ marginLeft: 5, marginTop: 2 }}
-                  />
-                </View>
-                <Text style={s.weekday}>{weekday}</Text>
+            <View style={s.headerTopRow}>
+              {/* Left: greeting */}
+              <View style={{ flex: 1 }}>
+                <Text style={s.greetingLabel}>Welcome,</Text>
+                <Text style={s.greetingName}>
+                  {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
+                </Text>
               </View>
-            </Pressable>
-          </View>
+              {/* Right: date + streak fire */}
+              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.dateTitle}>{dateLabel}</Text>
+                    <Text style={s.weekday}>{weekday}</Text>
+                  </View>
+                  <AnimatedFire size={30} streak={streak} showNumber={streak > 0} active={streak > 0} />
+                </View>
+              </Pressable>
+            </View>
 
-          {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
-          {isPast && isLoadingDate && <ActivityIndicator size="small" color={ORANGE} style={{ marginTop: 6 }} />}
-          {isPast && !isLoadingDate && historicalSnapshot !== null &&
-            historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
-            historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
-            historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
-            <Text style={s.futureNote}>No entries logged for this day</Text>
-          }
-        </View>
+            {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
+            {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
+            {isPast && !isLoadingDate && historicalSnapshot !== null &&
+              historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
+              historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
+              historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
+              <Text style={s.futureNote}>No entries logged for this day</Text>
+            }
+          </View>
         </SafeAreaView>
         <View style={s.heroCurve} />
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
-
-        {/* ── Calendar dropdown overlay ── */}
-        {calendarOpen && (
-          <>
-            {/* Full-screen backdrop — tapping it closes the calendar */}
-            <Pressable
-              style={[StyleSheet.absoluteFillObject, { zIndex: 199 }]}
-              onPress={() => setCalendarOpen(false)}
-            />
-            <CalendarDropdown
-              selectedDate={selectedDate}
-              onSelect={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
-              top={headerHeight}
-              minDate={calMinDate}
-              lastInjectionDate={effectiveLastInjectionDate}
-              injectionFrequencyDays={profile.injectionFrequencyDays}
-              datesWithLogs={datesWithLogs}
-              datesWithInjections={datesWithInjections}
-              oral={oral}
-            />
-          </>
-        )}
 
         <ScrollView
           contentContainerStyle={s.content}
@@ -1437,62 +1428,17 @@ export default function HomeScreen() {
               paddingVertical: 9,
               marginBottom: 14,
             }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF }}>
                 {`Viewing ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
               </Text>
               <Pressable onPress={() => { setSelectedDate(new Date()); setCalendarOpen(false); }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: FF }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: FF }}>
                   Back to today
                 </Text>
               </Pressable>
             </View>
           )}
 
-          {/* ── First-Use Checklist ── */}
-          {(() => {
-            const checklistItems = onTreatment
-              ? [
-                  { label: `Log your first ${doseNoun(oral)}`, done: logStore.injectionLogs.length > 0 },
-                  { label: 'Log your starting weight', done: logStore.weightLogs.length > 0 },
-                ]
-              : [
-                  { label: 'Log your current weight', done: logStore.weightLogs.length > 0 },
-                ];
-            const allDone = checklistItems.every((i) => i.done);
-            if (allDone) return null;
-            return (
-            <View style={[s.cardWrap, { marginBottom: 20 }]}>
-              <View style={[s.cardBody, { backgroundColor: colors.surface, padding: 20 }]}>
-                <Text style={{ color: ORANGE, fontSize: 11, fontWeight: '700', letterSpacing: 2, fontFamily: FF, marginBottom: 8 }}>
-                  GET STARTED
-                </Text>
-                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', fontFamily: FF, marginBottom: 4 }}>
-                  {onTreatment ? 'Set up your journey' : 'Start tracking'}
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: FF, marginBottom: 16 }}>
-                  {onTreatment
-                    ? 'Complete these steps to unlock your personalized phase tracking.'
-                    : 'Log your first entry to get personalized insights.'}
-                </Text>
-                {checklistItems.map((item, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <View style={{
-                      width: 22, height: 22, borderRadius: 11,
-                      backgroundColor: item.done ? ORANGE : 'transparent',
-                      borderWidth: 2, borderColor: item.done ? ORANGE : (colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'),
-                      alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {item.done && <Ionicons name="checkmark" size={13} color="#fff" />}
-                    </View>
-                    <Text style={{ color: item.done ? colors.textSecondary : colors.textPrimary, fontSize: 14, fontFamily: FF, textDecorationLine: item.done ? 'line-through' : 'none' }}>
-                      {item.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            );
-          })()}
 
           {/* ── Treatment Hero Card (medication users only) ── */}
           {onTreatment ? (
@@ -1504,23 +1450,8 @@ export default function HomeScreen() {
             <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               <View style={s.heroCard}>
 
-                {/* Streak + medication row */}
+                {/* Medication row */}
                 <View style={s.heroTopRow}>
-                  {streak > 0 ? (
-                    <View style={[s.heroPhaseBadge, { backgroundColor: ORANGE + '22' }]}>
-                      <Ionicons name="flame" size={13} color={ORANGE} />
-                      <Text style={[s.heroPhaseText, { color: ORANGE }]}>
-                        {streak} DAY{streak !== 1 ? 'S' : ''}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[s.heroPhaseBadge, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-                      <Ionicons name="flame-outline" size={13} color={colors.textSecondary} />
-                      <Text style={[s.heroPhaseText, { color: colors.textSecondary }]}>
-                        NO STREAK
-                      </Text>
-                    </View>
-                  )}
                   <Text style={s.heroMedLabel}>
                     {medName}{medDose ? ` · ${medDose}` : ''}
                   </Text>
@@ -1592,7 +1523,7 @@ export default function HomeScreen() {
                         !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
                       ]}>
                         {todayInjLogged
-                          ? `${oral ? 'Dosed' : 'Injected'} today ✓`
+                          ? <>{oral ? 'Dosed' : 'Injected'} today <Ionicons name="checkmark-circle" size={14} color="#27AE60" /></>
                           : rawDaysUntil == null
                             ? `In ${daysUntil} days`
                             : rawDaysUntil < 0
@@ -1656,24 +1587,24 @@ export default function HomeScreen() {
           )}
 
           {/* ── Daily Focuses ── */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
+            <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>{focusSectionLabel}</Text>
+            <View style={s.focusCountBadge}>
+              <Text style={s.focusCountText}>
+                {(() => {
+                  const items = displayFocuses ?? [];
+                  const done = items.filter(f => f.status === 'completed').length;
+                  return `${done}/${items.length} done`;
+                })()}
+              </Text>
+            </View>
+          </View>
           <View style={s.focusCard}>
             <View style={s.focusCardInner}>
-              {/* Header */}
-              <View style={s.focusCardHeader}>
-                <Text style={[s.sectionTitle, { marginBottom: 0 }]}>{focusSectionLabel}</Text>
-                <View style={s.focusCountBadge}>
-                  <Text style={s.focusCountText}>
-                    {(() => {
-                      const items = displayFocuses ?? [];
-                      const done = items.filter(f => f.status === 'completed').length;
-                      return `${done}/${items.length} done`;
-                    })()}
-                  </Text>
-                </View>
-              </View>
 
               {/* Coaching cards - long-press any to open AI chat */}
               {(displayFocuses ?? []).map((item, index) => {
+                const focusColor = focusCategoryColor(colors.isDark, item.id);
                 const isLast = index === (displayFocuses ?? []).length - 1;
                 const handleFocusPress = () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1683,10 +1614,10 @@ export default function HomeScreen() {
                   <React.Fragment key={item.id}>
                     <Pressable style={s.focusRow} onLongPress={handleFocusPress} delayLongPress={400}>
                       {/* Icon */}
-                      <View style={[s.focusIconWrap, item.status === 'completed' && s.focusIconDone]}>
+                      <View style={[s.focusIconWrap, { backgroundColor: focusColor + '1F' }, item.status === 'completed' && s.focusIconDone]}>
                         {item.iconSet === 'MaterialIcons'
-                          ? <MaterialIcons name={item.iconName as any} size={18} color={item.status === 'completed' ? 'rgba(255,116,42,0.4)' : ORANGE} />
-                          : <Ionicons name={item.iconName as any} size={18} color={item.status === 'completed' ? 'rgba(255,116,42,0.4)' : ORANGE} />
+                          ? <MaterialIcons name={item.iconName as any} size={18} color={item.status === 'completed' ? `${focusColor}66` : focusColor} />
+                          : <Ionicons name={item.iconName as any} size={18} color={item.status === 'completed' ? `${focusColor}66` : focusColor} />
                         }
                       </View>
                       {/* Text + progress bar */}
@@ -1706,7 +1637,7 @@ export default function HomeScreen() {
                           <View style={s.focusBarTrack}>
                             <View style={[
                               s.focusBarFill,
-                              { width: `${item.progressPct}%` as any },
+                              { width: `${item.progressPct}%` as any, backgroundColor: focusColor },
                               item.status === 'completed' && s.focusBarDone,
                             ]} />
                           </View>
@@ -1841,27 +1772,35 @@ const createStyles = (c: AppColors) => {
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
   // Hero orange header background
-  heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
-  heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
+  heroBg: {
+    backgroundColor: '#E8652A',
+  },
+  heroCurve: {
+    height: 28,
+    backgroundColor: c.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -1,
+  },
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   dateTitleRow: { alignItems: 'flex-end' },
-  dateTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2, fontFamily: 'Inter_700Bold', textAlign: 'right' },
-  weekday: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2, fontFamily: 'Inter_400Regular', textAlign: 'right' },
-  greetingLabel: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter_400Regular', marginBottom: 2 },
-  greetingName: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'Inter_800ExtraBold' },
+  dateTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2, fontFamily: 'System', textAlign: 'right' },
+  weekday: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2, fontFamily: 'System', textAlign: 'right' },
+  greetingLabel: { fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.7)', fontFamily: 'System', marginBottom: 2 },
+  greetingName: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'System' },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  medPillText: { fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'Inter_400Regular' },
-  phaseLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: 'Inter_400Regular' },
-  futureNote: { fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 4, fontWeight: '600', fontFamily: 'Inter_400Regular' },
-  connectHealthKit: { fontSize: 12, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'Inter_400Regular' },
+  medPillText: { fontSize: 14, fontWeight: '600', color: c.textMuted, fontFamily: 'System' },
+  phaseLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: 'System' },
+  futureNote: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4, fontWeight: '600', fontFamily: 'System' },
+  connectHealthKit: { fontSize: 14, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'System' },
 
   // Card containers
   cardWrap: { borderRadius: 28, ...(c.isDark
@@ -1871,9 +1810,9 @@ const createStyles = (c: AppColors) => {
 
   // Insights card (kept for DailyLogSummaryCard insightsTitle usage)
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  insightsTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_700Bold' },
-  shotPhase: { fontSize: 10, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'Inter_400Regular' },
-  insightsParagraph: { fontSize: 15, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'Inter_400Regular' },
+  insightsTitle: { fontSize: 19, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
+  shotPhase: { fontSize: 12, fontWeight: '700', color: ORANGE, letterSpacing: 1.2, fontFamily: 'System' },
+  insightsParagraph: { fontSize: 17, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'System' },
 
   // Treatment Hero card
   heroCard: {
@@ -1901,16 +1840,16 @@ const createStyles = (c: AppColors) => {
     borderRadius: 3,
   },
   heroPhaseText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.8,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   heroMedLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: c.textSecondary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   heroStats: {
     flexDirection: 'row',
@@ -1930,15 +1869,15 @@ const createStyles = (c: AppColors) => {
     fontSize: 26,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     letterSpacing: -0.5,
   },
   heroStatLbl: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 14,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   heroCycleRow: {
     gap: 8,
@@ -1949,9 +1888,9 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
   },
   heroCycleLbl: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textSecondary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   heroCycleBar: {
     height: 4,
@@ -1978,57 +1917,57 @@ const createStyles = (c: AppColors) => {
     marginBottom: 4,
   },
   transitionTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FF742A',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   transitionBody: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: c.textPrimary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   transitionHint: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textSecondary,
     marginTop: 4,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'Inter_800ExtraBold' },
+  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
   },
   pendingBadgeText: {
-    fontSize: 11, fontWeight: '700', color: '#FF742A', fontFamily: 'Inter_400Regular',
+    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'System',
   },
 
   // Focus coaching cards
   focusCard: { borderRadius: 28, ...(c.isDark
     ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.30, shadowRadius: 24, elevation: 8 }
     : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }), marginBottom: 24, marginTop: 8 },
-  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, padding: 22 },
+  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, paddingHorizontal: 22, paddingBottom: 22, paddingTop: 10 },
   focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  focusCountText: { fontSize: 10, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Inter_400Regular' },
+  focusCountText: { fontSize: 12, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'System' },
   focusRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
   focusIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
   focusIconDone: { backgroundColor: 'rgba(255,116,42,0.06)' },
   focusBody: { flex: 1 },
   focusLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  focusLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_400Regular', flex: 1 },
+  focusLabel: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System', flex: 1 },
   focusLabelDone: { color: w(0.38), textDecorationLine: 'line-through' },
-  focusSubtitle: { fontSize: 12, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'Inter_400Regular' },
+  focusSubtitle: { fontSize: 14, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'System' },
   focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden', marginBottom: 6 },
   focusBarFill: { height: 4, borderRadius: 2, backgroundColor: ORANGE },
   focusBarDone: { backgroundColor: '#4CAF50' },
-  focusValueLabel: { fontSize: 11, fontWeight: '600', color: w(0.45), letterSpacing: 0.3, fontFamily: 'Inter_400Regular' },
+  focusValueLabel: { fontSize: 13, fontWeight: '600', color: w(0.45), letterSpacing: 0.3, fontFamily: 'System' },
   injectionPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,116,42,0.12)', marginTop: 4 },
   injectionPillDone: { backgroundColor: 'rgba(76,175,80,0.12)' },
-  injectionPillText: { fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: 'Inter_400Regular' },
+  injectionPillText: { fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: 'System' },
   focusDivider: { height: 0.5, backgroundColor: w(0.12), marginLeft: 50 },
 
   // Escalation Phase Banner
@@ -2042,22 +1981,22 @@ const createStyles = (c: AppColors) => {
     alignItems: 'flex-start',
   },
   phaseDisplayName: {
-    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'Inter_400Regular',
+    fontSize: 15, fontWeight: '700', color: '#FF742A', fontFamily: 'System',
   },
   phaseWeek: {
-    fontSize: 11, fontWeight: '600', color: w(0.4),
+    fontSize: 13, fontWeight: '600', color: w(0.4),
     backgroundColor: c.borderSubtle, borderRadius: 8,
-    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'Inter_400Regular',
+    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'System',
   },
   plasticityBadge: {
     backgroundColor: 'rgba(255,116,42,0.2)', borderRadius: 8,
     paddingHorizontal: 6, paddingVertical: 2,
   },
   plasticityText: {
-    fontSize: 9, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'Inter_400Regular',
+    fontSize: 11, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'System',
   },
   phaseFocus: {
-    fontSize: 12, color: w(0.55), lineHeight: 17, fontFamily: 'Inter_400Regular',
+    fontSize: 14, color: w(0.55), lineHeight: 17, fontFamily: 'System',
   },
 
   });
@@ -2075,13 +2014,13 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   },
   inner:      { padding: 16 },
   monthRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  monthLabel: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
+  monthLabel: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
   weekRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  dayHeader:  { width: 36, textAlign: 'center', fontSize: 10, fontWeight: '600', color: c.textMuted, fontFamily: 'Inter_400Regular' },
+  dayHeader:  { width: 36, textAlign: 'center', fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'System' },
   cell:       { width: 36, height: 42, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 3 },
   dayCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   daySelected: { backgroundColor: '#FF742A' },
-  dayNum:     { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
+  dayNum:     { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: 'System' },
   dayNumSel:  { fontWeight: '800' },
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#5AC8FA', marginTop: 2 },
@@ -2090,5 +2029,5 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   legend:      { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
   legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:   { width: 6, height: 6, borderRadius: 3 },
-  legendLabel: { fontSize: 11, color: c.textMuted, fontFamily: 'Inter_400Regular' },
+  legendLabel: { fontSize: 13, color: c.textMuted, fontFamily: 'System' },
 });

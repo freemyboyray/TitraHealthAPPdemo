@@ -252,10 +252,10 @@ const st = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     letterSpacing: -0.3,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   messagesContainer: {
     paddingHorizontal: 16,
@@ -277,9 +277,9 @@ const st = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   bubbleText: {
-    fontSize: 15,
+    fontSize: 17,
     lineHeight: 21,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   inputArea: {
     paddingHorizontal: 16,
@@ -300,9 +300,9 @@ const st = StyleSheet.create({
     justifyContent: 'center',
   },
   voiceHint: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   switchBtn: {
     flexDirection: 'row',
@@ -311,9 +311,9 @@ const st = StyleSheet.create({
     paddingVertical: 6,
   },
   switchText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   textInputRow: {
     flexDirection: 'row',
@@ -329,12 +329,12 @@ const st = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   sendBtn: {
     width: 36,

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -58,18 +58,13 @@ export default function MedicationScreen() {
   const router = useRouter();
   const { updateDraft } = useProfile();
   const [selected, setSelected] = useState<MedicationBrand | null>(null);
-  const [otherName, setOtherName] = useState('');
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const trimmedOther = otherName.trim();
-  const isValid = selected !== null && (selected !== 'other' || trimmedOther.length > 0);
-
   const handleContinue = () => {
-    if (!selected || !isValid) return;
+    if (!selected) return;
     updateDraft({
       medicationBrand: selected,
-      medicationCustomName: selected === 'other' ? trimmedOther : null,
       glp1Type: BRAND_TO_GLP1_TYPE[selected],
       routeOfAdministration: BRAND_TO_ROUTE[selected],
       injectionFrequencyDays: BRAND_DEFAULT_FREQ_DAYS[selected],
@@ -99,24 +94,11 @@ export default function MedicationScreen() {
                   onPress={() => setSelected(b.value)}
                 />
               ))}
-              {group.heading === 'Other' && selected === 'other' && (
-                <TextInput
-                  style={s.otherInput}
-                  placeholder="What's the name of your medication?"
-                  placeholderTextColor={colors.textMuted}
-                  value={otherName}
-                  onChangeText={setOtherName}
-                  autoFocus
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  maxLength={80}
-                />
-              )}
             </View>
           ))}
         </ScrollView>
 
-        <ContinueButton onPress={handleContinue} disabled={!isValid} />
+        <ContinueButton onPress={handleContinue} disabled={!selected} />
       </View>
     </SafeAreaView>
   );
@@ -126,21 +108,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   safe:         { flex: 1, backgroundColor: c.bg },
   container:    { flex: 1, paddingHorizontal: 24 },
   content:      { paddingBottom: 16 },
-  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
-  subtitle:     { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Inter_400Regular' },
+  title:        { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+  subtitle:     { fontSize: 17, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'System' },
   group:        { marginBottom: 24 },
-  groupHeading: { fontSize: 13, fontWeight: '700', color: '#FF742A', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Inter_400Regular' },
-  groupSub:     { fontSize: 12, color: c.textMuted, marginBottom: 10, fontFamily: 'Inter_400Regular' },
-  otherInput:   {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: c.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontFamily: 'Inter_400Regular',
-    color: c.textPrimary,
-    marginTop: 8,
-    backgroundColor: c.bg,
-  },
+  groupHeading: { fontSize: 15, fontWeight: '700', color: '#FF742A', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4, fontFamily: 'System' },
+  groupSub:     { fontSize: 14, color: c.textMuted, marginBottom: 10, fontFamily: 'System' },
 });

@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   LayoutAnimation,
   Pressable,
   ScrollView,
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { contentCategoryColor } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useProfile } from '@/contexts/profile-context';
 import { getEscalationPhase } from '@/lib/escalation-phase';
@@ -32,7 +34,7 @@ type ArticleRow = {
 };
 
 const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -460,14 +462,14 @@ const createPhaseCardStyles = (c: AppColors) => {
       borderColor: `${ORANGE}40`,
       paddingHorizontal: 10, paddingVertical: 4,
     },
-    pillText: { fontSize: 9, fontWeight: '800', color: ORANGE, letterSpacing: 1.2, fontFamily: FF },
-    weekLabel: { fontSize: 12, fontWeight: '600', color: w(0.35), fontFamily: FF },
-    phaseTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
-    phaseSub: { fontSize: 13, color: w(0.5), lineHeight: 19, marginBottom: 14, fontFamily: FF },
+    pillText: { fontSize: 11, fontWeight: '800', color: ORANGE, letterSpacing: 1.2, fontFamily: FF },
+    weekLabel: { fontSize: 14, fontWeight: '600', color: w(0.35), fontFamily: FF },
+    phaseTitle: { fontSize: 19, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'System' },
+    phaseSub: { fontSize: 15, color: w(0.5), lineHeight: 19, marginBottom: 14, fontFamily: FF },
     divider: { height: 1, backgroundColor: w(0.07), marginBottom: 14 },
     tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
     tipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ORANGE, marginTop: 7, flexShrink: 0 },
-    tipText: { fontSize: 13, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
+    tipText: { fontSize: 15, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
   });
 };
 
@@ -516,9 +518,9 @@ const createMythCardStyles = (c: AppColors) => {
     iconWrap: { marginBottom: 10 },
     labelRow: { flexDirection: 'row', marginBottom: 8 },
     labelChip: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-    labelText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, fontFamily: FF },
-    mythText: { fontSize: 13, color: w(0.7), lineHeight: 20, fontFamily: FF, flex: 1 },
-    tapHint: { fontSize: 11, color: w(0.3), marginTop: 10, fontFamily: FF },
+    labelText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, fontFamily: FF },
+    mythText: { fontSize: 15, color: w(0.7), lineHeight: 20, fontFamily: FF, flex: 1 },
+    tapHint: { fontSize: 13, color: w(0.3), marginTop: 10, fontFamily: FF },
   });
 };
 
@@ -529,10 +531,10 @@ function MythFactRow() {
   return (
     <View style={{ marginBottom: 24 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <Text style={{ fontSize: 9, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: FF }}>
+        <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: FF }}>
           MYTH VS. FACT
         </Text>
-        <Text style={{ fontSize: 11, color: w(0.35), fontFamily: FF }}>Tap a card to reveal</Text>
+        <Text style={{ fontSize: 13, color: w(0.35), fontFamily: FF }}>Tap a card to reveal</Text>
       </View>
       <FlatList
         horizontal
@@ -651,30 +653,30 @@ const createDecoderStyles = (c: AppColors) => {
       padding: 18,
     },
     header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-    title: { fontSize: 16, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, fontFamily: FF },
-    subtitle: { fontSize: 13, color: w(0.45), lineHeight: 18, marginBottom: 14, fontFamily: FF },
+    title: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, fontFamily: FF },
+    subtitle: { fontSize: 15, color: w(0.45), lineHeight: 18, marginBottom: 14, fontFamily: FF },
     filterRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
     filterChip: {
       borderRadius: 20, borderWidth: 1, borderColor: w(0.12),
       paddingHorizontal: 12, paddingVertical: 5,
     },
-    filterText: { fontSize: 11, fontWeight: '500', color: w(0.45), fontFamily: FF },
+    filterText: { fontSize: 13, fontWeight: '500', color: w(0.45), fontFamily: FF },
     divider: { height: 1, backgroundColor: w(0.07), marginBottom: 14 },
     chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
     symptomChip: {
       borderRadius: 20, borderWidth: 1, borderColor: w(0.10),
       paddingHorizontal: 12, paddingVertical: 6,
     },
-    symptomText: { fontSize: 12, fontWeight: '500', color: w(0.6), fontFamily: FF },
+    symptomText: { fontSize: 14, fontWeight: '500', color: w(0.6), fontFamily: FF },
     detailPanel: {
       marginTop: 14, borderLeftWidth: 3, paddingLeft: 12,
       backgroundColor: w(0.03), borderRadius: 8, padding: 12,
     },
     detailHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
     detailBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-    detailBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3, fontFamily: FF },
-    detailName: { fontSize: 14, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
-    detailText: { fontSize: 13, color: w(0.6), lineHeight: 20, fontFamily: FF },
+    detailBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, fontFamily: FF },
+    detailName: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+    detailText: { fontSize: 15, color: w(0.6), lineHeight: 20, fontFamily: FF },
   });
 };
 
@@ -753,19 +755,19 @@ const createSafetyStyles = (c: AppColors) => {
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     iconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231,76,60,0.12)', alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 15, fontWeight: '800', color: '#E74C3C', letterSpacing: -0.2, fontFamily: FF },
-    subtitle: { fontSize: 12, color: 'rgba(231,76,60,0.65)', fontFamily: FF, marginTop: 1 },
+    title: { fontSize: 17, fontWeight: '800', color: '#E74C3C', letterSpacing: -0.2, fontFamily: FF },
+    subtitle: { fontSize: 14, color: 'rgba(231,76,60,0.65)', fontFamily: FF, marginTop: 1 },
     content: {},
     divider: { height: 1, backgroundColor: 'rgba(231,76,60,0.15)', marginVertical: 12 },
     flagRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
     flagDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0 },
-    flagText: { fontSize: 13, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
+    flagText: { fontSize: 15, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
     emergencyNote: {
       marginTop: 8, borderRadius: 10,
       backgroundColor: 'rgba(231,76,60,0.10)',
       padding: 12,
     },
-    emergencyText: { fontSize: 12, color: '#E74C3C', fontWeight: '600', lineHeight: 17, fontFamily: FF },
+    emergencyText: { fontSize: 14, color: '#E74C3C', fontWeight: '600', lineHeight: 17, fontFamily: FF },
   });
 };
 
@@ -832,11 +834,7 @@ function EducationCard({ section }: { section: Section }) {
 function ArticleCard({ article }: { article: ArticleRow }) {
   const { colors } = useAppTheme();
   const ac = useMemo(() => createArticleCardStyles(colors), [colors]);
-  const categoryColors: Record<string, string> = {
-    nutrition: '#27AE60', medication: '#FF742A', lifestyle: '#5B8BF5',
-    mindset: '#9B59B6', exercise: '#E8960C',
-  };
-  const chipColor = categoryColors[article.category] ?? ORANGE;
+  const chipColor = contentCategoryColor(colors.isDark, article.category);
 
   return (
     <Pressable
@@ -878,10 +876,10 @@ const createArticleCardStyles = (c: AppColors) => {
       borderRadius: 20, borderWidth: 1,
       paddingHorizontal: 8, paddingVertical: 3,
     },
-    chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-    readTime: { fontSize: 11, color: w(0.35), fontFamily: FF },
-    title: { fontSize: 16, fontWeight: '700', color: c.textPrimary, lineHeight: 22, marginBottom: 4, fontFamily: FF },
-    subtitle: { fontSize: 13, color: w(0.50), lineHeight: 19, fontFamily: FF },
+    chipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
+    readTime: { fontSize: 13, color: w(0.35), fontFamily: FF },
+    title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, lineHeight: 22, marginBottom: 4, fontFamily: FF },
+    subtitle: { fontSize: 15, color: w(0.50), lineHeight: 19, fontFamily: FF },
   });
 };
 
@@ -897,7 +895,7 @@ function GuidedCoursesRow() {
   return (
     <View style={{ marginBottom: 24 }}>
       <Text style={{
-        fontSize: 9, fontWeight: '700', color: ORANGE,
+        fontSize: 11, fontWeight: '700', color: ORANGE,
         letterSpacing: 1.5, textTransform: 'uppercase',
         marginBottom: 14, fontFamily: FF,
       }}>GUIDED COURSES</Text>
@@ -978,15 +976,15 @@ const createScreenStyles = (c: AppColors) => {
     content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
     // Hero header background
-    heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
+    heroBg: { backgroundColor: '#E8652A' },
     heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
     heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-    heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
-    heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '500', fontFamily: FF },
+    heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
+    heroSub: { fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: '500', fontFamily: FF },
 
-    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
-    headerSub: { fontSize: 14, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
-    disclaimer: { fontSize: 11, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
+    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
+    headerSub: { fontSize: 16, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
+    disclaimer: { fontSize: 13, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
   });
 };
 
@@ -1001,7 +999,7 @@ const createCardStyles = (c: AppColors) => {
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
     iconWrap: { marginRight: 12 },
-    cardTitle: { fontSize: 16, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: 'Inter_800ExtraBold' },
+    cardTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: 'System' },
     divider: { height: 1, backgroundColor: c.borderSubtle, marginHorizontal: 18 },
     itemHeader: {
       flexDirection: 'row',
@@ -1010,9 +1008,9 @@ const createCardStyles = (c: AppColors) => {
       paddingHorizontal: 18,
       paddingVertical: 14,
     },
-    itemQ: { fontSize: 14, fontWeight: '600', color: c.textPrimary, flex: 1, lineHeight: 20, fontFamily: FF },
+    itemQ: { fontSize: 16, fontWeight: '600', color: c.textPrimary, flex: 1, lineHeight: 20, fontFamily: FF },
     itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
-    itemA: { fontSize: 14, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
+    itemA: { fontSize: 16, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
     itemDivider: { height: 1, backgroundColor: w(0.06), marginHorizontal: 18 },
   });
 };

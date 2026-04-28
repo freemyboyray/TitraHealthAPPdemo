@@ -145,7 +145,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     letterSpacing: -0.4,
   },
   totalScore: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -158,7 +158,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   rowLabel: {
     width: 76,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: c.textSecondary,
   },
@@ -176,17 +176,17 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   rowScore: {
     width: 36,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     textAlign: 'right',
   },
   rowMax: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
     color: c.textMuted,
   },
   rowNote: {
-    fontSize: 12,
+    fontSize: 14,
     fontStyle: 'italic',
     color: '#6A6764',
     marginTop: 3,
@@ -202,19 +202,19 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 8,
   },
   coachLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     color: ORANGE,
     letterSpacing: 1.5,
     marginBottom: 8,
   },
   coachText: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     lineHeight: 20,
   },
   footer: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textMuted,
     textAlign: 'center',
     marginTop: 16,

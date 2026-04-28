@@ -15,7 +15,7 @@ import {
 import { GlassBorder } from '@/components/ui/glass-border';
 
 const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 type MissedShotModalProps = {
   visible: boolean;
@@ -200,17 +200,17 @@ const s = StyleSheet.create({
     padding: 28,
   },
   title: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
     color: ORANGE,
     letterSpacing: 3.5,
     textTransform: 'uppercase',
     textAlign: 'center',
     marginBottom: 10,
-    fontFamily: 'Inter_800ExtraBold',
+    fontFamily: 'System',
   },
   body: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -218,7 +218,7 @@ const s = StyleSheet.create({
     fontFamily: FF,
   },
   expected: {
-    fontSize: 13,
+    fontSize: 15,
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     fontFamily: FF,
@@ -239,7 +239,7 @@ const s = StyleSheet.create({
     backgroundColor: ORANGE,
   },
   btnPrimaryText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: FF,
@@ -251,7 +251,7 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,116,42,0.4)',
   },
   btnSecondaryText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: ORANGE,
     fontFamily: FF,
@@ -260,13 +260,13 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   btnGhostText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.5)',
     fontFamily: FF,
   },
   pickerLabel: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',

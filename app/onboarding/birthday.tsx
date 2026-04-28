@@ -89,8 +89,8 @@ export default function BirthdayScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Inter_400Regular' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'System' },
   pickersRow: {
     flex: 1,
     flexDirection: 'row',
@@ -100,9 +100,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   pickerWrap: { flex: 2 },
   pickerSm: { flex: 1 },
   colLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 8,

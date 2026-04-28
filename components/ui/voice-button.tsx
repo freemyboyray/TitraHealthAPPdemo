@@ -105,7 +105,7 @@ export function VoiceButton({ onTranscription, onProcessingChange, size = 'md', 
       </Pressable>
       <Text
         style={{
-          fontSize: 8,
+          fontSize: 10,
           fontWeight: '700',
           color: isRecording ? RED : 'rgba(196,120,75,0.7)',
           letterSpacing: 0.5,

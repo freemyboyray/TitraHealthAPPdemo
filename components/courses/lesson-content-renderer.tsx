@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 type Props = {
@@ -214,7 +214,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
           borderColor: 'rgba(155,89,182,0.3)',
         }}>
           <Text style={{
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: '700',
             color: '#9B59B6',
             fontFamily: FF,
@@ -222,7 +222,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
             marginBottom: 8,
           }}>JOURNAL PROMPT</Text>
           <Text style={{
-            fontSize: 14,
+            fontSize: 16,
             color: colors.textPrimary,
             fontFamily: FF,
             lineHeight: 21,
@@ -234,7 +234,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
       {contentType === 'exercise' && contentJson?.commonThoughts && (
         <View style={{ marginTop: 16 }}>
           <Text style={{
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: '700',
             color: ORANGE,
             fontFamily: FF,
@@ -249,7 +249,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
               marginBottom: 8,
             }}>
               <Text style={{
-                fontSize: 13,
+                fontSize: 15,
                 color: colors.textPrimary,
                 fontFamily: FF,
                 fontStyle: 'italic',
@@ -269,7 +269,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
           borderColor: 'rgba(39,174,96,0.3)',
         }}>
           <Text style={{
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: '700',
             color: '#27AE60',
             fontFamily: FF,
@@ -284,14 +284,14 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
               marginBottom: 8,
             }}>
               <Text style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: '700',
                 color: 'rgba(39,174,96,0.6)',
                 fontFamily: FF,
                 width: 32,
               }}>{phase.durationSec}s</Text>
               <Text style={{
-                fontSize: 13,
+                fontSize: 15,
                 color: colors.textPrimary,
                 fontFamily: FF,
                 flex: 1,
@@ -311,24 +311,24 @@ const mdStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     heading: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: 'Inter_800ExtraBold',
+      fontFamily: 'System',
       marginTop: 20,
       marginBottom: 8,
       letterSpacing: -0.3,
     },
     subheading: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
       marginTop: 16,
       marginBottom: 6,
     },
     paragraph: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.7),
       fontFamily: FF,
       lineHeight: 22,
@@ -340,13 +340,13 @@ const mdStyles = (c: AppColors) => {
       marginBottom: 6,
     },
     bulletDot: {
-      fontSize: 14,
+      fontSize: 16,
       color: ORANGE,
       fontFamily: FF,
       lineHeight: 22,
     },
     numberDot: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '700',
       color: ORANGE,
       fontFamily: FF,
@@ -354,7 +354,7 @@ const mdStyles = (c: AppColors) => {
       width: 24,
     },
     bulletText: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.7),
       fontFamily: FF,
       lineHeight: 22,
@@ -368,7 +368,7 @@ const mdStyles = (c: AppColors) => {
       paddingVertical: 4,
     },
     blockquoteText: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.65),
       fontFamily: FF,
       lineHeight: 22,
@@ -382,7 +382,7 @@ const mdStyles = (c: AppColors) => {
     },
     tableCell: {
       flex: 1,
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.6),
       fontFamily: FF,
     },
@@ -405,10 +405,10 @@ const checkStyles = (c: AppColors) => {
       borderColor: w(0.08),
     },
     checkTitle: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
       color: ORANGE,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
       letterSpacing: 1,
       marginBottom: 12,
     },
@@ -419,7 +419,7 @@ const checkStyles = (c: AppColors) => {
       paddingVertical: 8,
     },
     checkText: {
-      fontSize: 13,
+      fontSize: 15,
       color: c.textPrimary,
       fontFamily: FF,
       flex: 1,

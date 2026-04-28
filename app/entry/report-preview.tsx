@@ -17,7 +17,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 function formatDateDisplay(d: string): string {
   try {
@@ -139,13 +139,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   headerCenter: { alignItems: 'center', flex: 1 },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
     fontFamily: FF,
   },
   headerSub: {
-    fontSize: 11,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.45)',
     marginTop: 2,
     fontFamily: FF,
@@ -170,7 +170,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: 'rgba(255,255,255,0.5)',
     fontFamily: FF,
   },
@@ -182,7 +182,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     gap: 12,
   },
   errorText: {
-    fontSize: 15,
+    fontSize: 17,
     color: 'rgba(255,255,255,0.4)',
     fontFamily: FF,
   },
@@ -214,7 +214,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   secondaryBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 17,
     fontFamily: FF,
   },
   primaryBtn: {
@@ -230,7 +230,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   primaryBtnText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: FF,
   },
 });

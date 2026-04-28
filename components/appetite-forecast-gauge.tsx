@@ -114,10 +114,10 @@ function GaugeArc({ appetiteLevel, stateColor, isDark }: GaugeProps) {
       <Circle cx={needlePt.x} cy={needlePt.y} r={4} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} />
 
       {/* Labels */}
-      <SvgText x={ARC_CX - ARC_R - 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Inter_400Regular" textAnchor="middle">
+      <SvgText x={ARC_CX - ARC_R - 2} y={ARC_CY + 16} fill={labelColor} fontSize={11} fontFamily="System" textAnchor="middle">
         Suppressed
       </SvgText>
-      <SvgText x={ARC_CX + ARC_R + 2} y={ARC_CY + 16} fill={labelColor} fontSize={9} fontFamily="Inter_400Regular" textAnchor="middle">
+      <SvgText x={ARC_CX + ARC_R + 2} y={ARC_CY + 16} fill={labelColor} fontSize={11} fontFamily="System" textAnchor="middle">
         Normal
       </SvgText>
     </Svg>
@@ -304,10 +304,10 @@ const createStyles = (c: AppColors) => {
       marginBottom: 4,
     },
     title: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     badge: {
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -316,10 +316,10 @@ const createStyles = (c: AppColors) => {
       borderRadius: 8,
     },
     badgeText: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       letterSpacing: 0.5,
     },
     gaugeWrap: {
@@ -335,12 +335,12 @@ const createStyles = (c: AppColors) => {
     gaugeValue: {
       fontSize: 28,
       fontWeight: '800',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     gaugeLabel: {
-      fontSize: 10,
+      fontSize: 12,
       color: w(0.35),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
       lineHeight: 13,
     },
@@ -360,22 +360,22 @@ const createStyles = (c: AppColors) => {
       borderRadius: 3.5,
     },
     riskText: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     advisoryHeadline: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '600',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
       marginBottom: 4,
     },
     advisoryTip: {
-      fontSize: 13,
+      fontSize: 15,
       color: c.textSecondary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
       lineHeight: 18,
     },
@@ -387,10 +387,10 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center',
     },
     cycleToggleText: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '600',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     cycleDetail: {
       marginTop: 8,
@@ -402,9 +402,9 @@ const createStyles = (c: AppColors) => {
       marginTop: 4,
     },
     cycleLabelText: {
-      fontSize: 9,
+      fontSize: 11,
       color: w(0.3),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     cycleDayRow: {
       flexDirection: 'row',
@@ -412,10 +412,10 @@ const createStyles = (c: AppColors) => {
       gap: 8,
     },
     cycleDayNum: {
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: '700',
       color: w(0.4),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       width: 22,
     },
     cycleDayBar: {
@@ -425,23 +425,23 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 8,
     },
     cycleDayBarText: {
-      fontSize: 10,
+      fontSize: 12,
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       fontWeight: '500',
     },
     disclaimer: {
-      fontSize: 10,
+      fontSize: 12,
       color: w(0.25),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
       marginTop: 14,
       lineHeight: 14,
     },
     emptyBody: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.6),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       lineHeight: 19,
       marginBottom: 8,
     },

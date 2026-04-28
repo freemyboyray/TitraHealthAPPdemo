@@ -85,10 +85,73 @@ export function statusColor(isDark: boolean) {
   };
 }
 
+// ─── Apple Health-inspired category colors ───────────────────────────────────
+
+export const CATEGORY_COLORS: Record<string, { dark: string; light: string }> = {
+  medication:  { dark: '#FF742A', light: '#E8652A' },
+  nutrition:   { dark: '#34C759', light: '#28A745' },
+  hydration:   { dark: '#5AC8FA', light: '#2A9FD6' },
+  activity:    { dark: '#5B8BF5', light: '#3D6FE0' },
+  vitals:      { dark: '#FF3B30', light: '#D63031' },
+  body:        { dark: '#AF52DE', light: '#9B37C4' },
+  sleep:       { dark: '#5856D6', light: '#4A48B8' },
+  mindfulness: { dark: '#FF9500', light: '#E8860A' },
+  glucose:     { dark: '#FF2D55', light: '#E0264A' },
+};
+
+/** Get the category color for the current mode */
+export function categoryColor(isDark: boolean, key: string): string {
+  const entry = CATEGORY_COLORS[key];
+  if (!entry) return isDark ? '#FF742A' : '#E8652A';
+  return isDark ? entry.dark : entry.light;
+}
+
+/** Map FocusCategory id to category key */
+const FOCUS_TO_CATEGORY: Record<string, string> = {
+  injection: 'medication',
+  hydration: 'hydration',
+  protein:   'nutrition',
+  fiber:     'nutrition',
+  activity:  'activity',
+  sleep:     'sleep',
+  recovery:  'vitals',
+  rest:      'mindfulness',
+};
+
+export function focusCategoryColor(isDark: boolean, focusId: string): string {
+  return categoryColor(isDark, FOCUS_TO_CATEGORY[focusId] ?? 'medication');
+}
+
+/** Map content categories (courses/articles) to category key */
+const CONTENT_TO_CATEGORY: Record<string, string> = {
+  medical:       'medication',
+  nutrition:     'nutrition',
+  mental_health: 'sleep',
+  lifestyle:     'activity',
+};
+
+export function contentCategoryColor(isDark: boolean, contentCategory: string): string {
+  return categoryColor(isDark, CONTENT_TO_CATEGORY[contentCategory] ?? 'medication');
+}
+
+/** Map health monitor groups to category key */
+const HM_TO_CATEGORY: Record<string, string> = {
+  'Vitals':           'vitals',
+  'Body Composition': 'body',
+  'Activity':         'activity',
+  'Workouts':         'activity',
+  'Mindfulness':      'mindfulness',
+  'Glucose (24h)':    'glucose',
+};
+
+export function healthCategoryColor(isDark: boolean, groupName: string): string {
+  return categoryColor(isDark, HM_TO_CATEGORY[groupName] ?? 'vitals');
+}
+
 // ─── Back-compat named exports ────────────────────────────────────────────────
 
 export const ORANGE       = '#FF742A';
-export const FONT_FAMILY  = 'Inter_400Regular';
+export const FONT_FAMILY  = 'System';
 
 // ─── Back-compat flat exports (dark values) ───────────────────────────────────
 
@@ -158,21 +221,21 @@ export function cardElevation(isDark: boolean): {
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'Inter_400Regular',
+    sans: 'System',
     serif: 'ui-serif',
     rounded: 'ui-rounded',
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'Inter_400Regular',
+    sans: 'System',
     serif: 'serif',
-    rounded: 'Inter_400Regular',
+    rounded: 'System',
     mono: 'monospace',
   },
   web: {
-    sans: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    sans: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'Inter', system-ui, sans-serif",
+    rounded: "-apple-system, BlinkMacSystemFont, system-ui, sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });

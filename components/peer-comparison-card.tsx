@@ -158,10 +158,10 @@ const createStyles = (c: AppColors) => {
       marginBottom: 14,
     },
     cardTitle: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     weekBadge: {
       borderRadius: 10,
@@ -170,10 +170,10 @@ const createStyles = (c: AppColors) => {
       backgroundColor: w(0.06),
     },
     weekBadgeText: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
       color: w(0.5),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     heroLine: {
       marginBottom: 6,
@@ -181,32 +181,32 @@ const createStyles = (c: AppColors) => {
     heroPct: {
       fontSize: 32,
       fontWeight: '800',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     heroSuffix: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '600',
       color: w(0.5),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     comparisonText: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.5),
       lineHeight: 18,
       marginBottom: 16,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     bodyText: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.5),
       lineHeight: 19,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     privacyText: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.35),
       lineHeight: 17,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     joinButton: {
       backgroundColor: ORANGE,
@@ -217,16 +217,16 @@ const createStyles = (c: AppColors) => {
     },
     joinButtonText: {
       color: '#FFFFFF',
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     disclaimer: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.3),
       lineHeight: 15,
       textAlign: 'center',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       marginBottom: 4,
     },
     percentileContainer: {
@@ -262,16 +262,16 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: '20%',
     },
     percentileLabel: {
-      fontSize: 9,
+      fontSize: 11,
       color: w(0.3),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     tapHint: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
   });
 };

@@ -369,7 +369,7 @@ export default function AiChatScreen() {
                     {msg.content}
                   </Text>
                   {msg.content.includes('Upgrade to Titra Pro') && (
-                    <Text style={{ color: ORANGE, fontSize: 12, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
+                    <Text style={{ color: ORANGE, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
                   )}
                 </Pressable>
               </View>
@@ -492,12 +492,6 @@ export default function AiChatScreen() {
                     <Text style={s.modePillText}>Coach</Text>
                   </View>
                   <View style={s.inputIcons}>
-                    <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                      <Ionicons name="camera-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-                    </TouchableOpacity>
-                    <TouchableOpacity activeOpacity={0.7} style={s.iconBtn}>
-                      <MaterialIcons name="attach-file" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-                    </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={inputText.trim().length > 0 ? 0.7 : 1}
                       style={[s.iconBtn, s.sendBtn, inputText.trim().length > 0 && s.sendBtnActive]}
@@ -545,7 +539,7 @@ const createStyles = (c: AppColors) => {
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: c.textPrimary,
     letterSpacing: -0.2,
@@ -574,7 +568,7 @@ const createStyles = (c: AppColors) => {
   },
   inputPillText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: ORANGE,
     letterSpacing: 0.3,
@@ -638,7 +632,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: w(0.35),
     textAlign: 'center',
     fontWeight: '400',
@@ -668,7 +662,7 @@ const createStyles = (c: AppColors) => {
     padding: 12,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: c.textPrimary,
     textAlign: 'center',
@@ -686,7 +680,7 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 8,
   },
   refreshText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: ORANGE,
   },
@@ -740,7 +734,7 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 12,
   },
   bubbleText: {
-    fontSize: 15,
+    fontSize: 17,
     lineHeight: 22,
   },
   bubbleTextUser: {
@@ -767,7 +761,7 @@ const createStyles = (c: AppColors) => {
     flexShrink: 0,
   },
   bubbleContextText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.65)', // on orange bubble - stays white
     letterSpacing: 0.2,
@@ -796,7 +790,7 @@ const createStyles = (c: AppColors) => {
     paddingBottom: 12,
   },
   textInput: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     fontWeight: '400',
     lineHeight: 22,
@@ -820,7 +814,7 @@ const createStyles = (c: AppColors) => {
     borderColor: w(0.10),
   },
   modePillText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: c.textPrimary,
   },
@@ -844,7 +838,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: ORANGE,
   },
   disclaimer: {
-    fontSize: 11,
+    fontSize: 13,
     color: w(0.25),
     textAlign: 'center',
     marginTop: 8,

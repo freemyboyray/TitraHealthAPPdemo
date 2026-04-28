@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   desc: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   benefitText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
   },
   ctaButton: {
@@ -182,11 +182,11 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
   },
   priceNote: {
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 12,
   },
 });

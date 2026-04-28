@@ -270,8 +270,8 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                       />
                       <SvgText
                         x={ML - 6} y={y + 4}
-                        fontSize={10} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
-                        textAnchor="end" fontFamily="Inter_400Regular"
+                        fontSize={12} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
+                        textAnchor="end" fontFamily="System"
                       >
                         {tick}%
                       </SvgText>
@@ -290,8 +290,8 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                       />
                       <SvgText
                         x={x} y={MT + plotH + 16}
-                        fontSize={9} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
-                        textAnchor="middle" fontFamily="Inter_400Regular"
+                        fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
+                        textAnchor="middle" fontFamily="System"
                       >
                         Wk {week}
                       </SvgText>
@@ -393,17 +393,17 @@ const createStyles = (c: AppColors) => {
       marginBottom: 20,
     },
     title: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.3,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     weekLabel: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
       color: `${dim}0.4)`,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statsRow: {
       flexDirection: 'row',
@@ -420,16 +420,16 @@ const createStyles = (c: AppColors) => {
       fontWeight: '800',
       color: ORANGE,
       letterSpacing: -1,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statLabel: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
       color: `${dim}0.4)`,
       letterSpacing: 1.5,
       marginTop: 4,
       textTransform: 'uppercase',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statDivider: {
       width: 1,
@@ -437,11 +437,11 @@ const createStyles = (c: AppColors) => {
       backgroundColor: `${dim}0.1)`,
     },
     contextLabel: {
-      fontSize: 11,
+      fontSize: 13,
       color: `${dim}0.35)`,
       textAlign: 'center',
       marginBottom: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     statusRow: {
       flexDirection: 'row',
@@ -455,9 +455,9 @@ const createStyles = (c: AppColors) => {
       borderRadius: 3,
     },
     statusText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     legendRow: {
       flexDirection: 'row',
@@ -481,23 +481,23 @@ const createStyles = (c: AppColors) => {
       borderRadius: 2,
     },
     legendLabel: {
-      fontSize: 11,
+      fontSize: 13,
       color: `${dim}0.4)`,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     emptyText: {
-      fontSize: 13,
+      fontSize: 15,
       color: `${dim}0.4)`,
       lineHeight: 19,
       marginTop: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     hint: {
-      fontSize: 11,
+      fontSize: 13,
       color: `${dim}0.25)`,
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
   });
 };

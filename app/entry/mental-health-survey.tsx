@@ -79,7 +79,7 @@ function DotScale({
           >
             <Text
               style={{
-                fontSize: 15, fontWeight: '700',
+                fontSize: 17, fontWeight: '700',
                 color: value === v ? '#FFF' : (dotColors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'),
               }}
             >
@@ -88,7 +88,7 @@ function DotScale({
           </View>
           <Text
             style={{
-              fontSize: 9, color: dotColors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+              fontSize: 11, color: dotColors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
               textAlign: 'center', width: 44,
             }}
             numberOfLines={1}
@@ -160,8 +160,8 @@ export default function MentalHealthSurveyScreen() {
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Mental Health Check-In</Text>
-          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>Weekly · 5 questions</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Mental Health Check-In</Text>
+          <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 1 }}>Weekly · 5 questions</Text>
         </View>
 
         <View style={{ width: 40 }} />
@@ -183,7 +183,7 @@ export default function MentalHealthSurveyScreen() {
             }}
           >
             <Ionicons name="alert-circle" size={20} color="#F6CB45" />
-            <Text style={{ flex: 1, fontSize: 13, color: colors.textPrimary, lineHeight: 18 }}>
+            <Text style={{ flex: 1, fontSize: 15, color: colors.textPrimary, lineHeight: 18 }}>
               Consider discussing these results with your healthcare provider.
             </Text>
           </View>
@@ -198,11 +198,11 @@ export default function MentalHealthSurveyScreen() {
             <Text style={{ fontSize: 48, fontWeight: '800', color: colors.textPrimary, lineHeight: 52 }}>
               {score}
             </Text>
-            <Text style={{ fontSize: 12, color: colors.textSecondary, letterSpacing: 1.5, marginTop: 2 }}>
+            <Text style={{ fontSize: 14, color: colors.textSecondary, letterSpacing: 1.5, marginTop: 2 }}>
               OUT OF 20
             </Text>
             <View style={[s.badge, { backgroundColor: `${interpretation.color}22`, marginTop: 10 }]}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: interpretation.color, letterSpacing: 0.5 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: interpretation.color, letterSpacing: 0.5 }}>
                 {interpretation.label} Mood
               </Text>
             </View>
@@ -218,9 +218,9 @@ export default function MentalHealthSurveyScreen() {
             <View style={{ padding: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 2 }}>
                 <View style={s.qNumber}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: ORANGE }}>Q{idx + 1}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE }}>Q{idx + 1}</Text>
                 </View>
-                <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary, lineHeight: 20 }}>
+                <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.textPrimary, lineHeight: 20 }}>
                   {q}
                 </Text>
               </View>
@@ -237,7 +237,7 @@ export default function MentalHealthSurveyScreen() {
         ))}
 
         {/* Attribution footnote */}
-        <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 16 }}>
+        <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 16 }}>
           Questions adapted from PHQ-2 and GAD-2 screening tools. This is not a clinical diagnosis.
         </Text>
       </ScrollView>
@@ -267,7 +267,7 @@ export default function MentalHealthSurveyScreen() {
           {loading ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
-            <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 }}>
               Save Score · {score}/20
             </Text>
           )}

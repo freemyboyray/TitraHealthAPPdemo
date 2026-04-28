@@ -227,13 +227,13 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
   },
   tooltipTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   tooltipSubtitle: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    fontFamily: 'System',
     marginTop: 1,
   },
   tooltipBadge: {
@@ -244,8 +244,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tooltipBadgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 });

@@ -290,24 +290,24 @@ const createStyles = (c: AppColors) => {
       marginBottom: 4,
     },
     chevron: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.4),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     title: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     subheader: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '500',
       color: '#FF742A',
       letterSpacing: 0.2,
       marginBottom: 18,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     metrics: {
       gap: 0,
@@ -321,12 +321,12 @@ const createStyles = (c: AppColors) => {
       flex: 1,
     },
     metricLabel: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.45),
       letterSpacing: 0.5,
       textTransform: 'uppercase',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       marginBottom: 4,
     },
     metricValues: {
@@ -336,16 +336,16 @@ const createStyles = (c: AppColors) => {
       fontSize: 20,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     metricUnit: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '500',
     },
     metricBaseline: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.45),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     badge: {
       borderRadius: 10,
@@ -354,9 +354,9 @@ const createStyles = (c: AppColors) => {
       alignSelf: 'center',
     },
     badgeText: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     divider: {
       height: StyleSheet.hairlineWidth,
@@ -368,11 +368,11 @@ const createStyles = (c: AppColors) => {
       gap: 12,
     },
     emptyText: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.55),
       textAlign: 'center',
       lineHeight: 20,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     enableBtn: {
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -381,20 +381,20 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 8,
     },
     enableBtnText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     bootstrapState: {
       paddingVertical: 8,
       gap: 10,
     },
     bootstrapText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
       color: c.textSecondary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     progressTrack: {
       height: 4,
@@ -408,17 +408,17 @@ const createStyles = (c: AppColors) => {
       backgroundColor: '#FF742A',
     },
     bootstrapHint: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.4),
       lineHeight: 17,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     tapHint: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 14,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     expandDivider: {
       height: StyleSheet.hairlineWidth,
@@ -430,12 +430,12 @@ const createStyles = (c: AppColors) => {
       marginTop: 4,
     },
     expandSectionTitle: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.4),
       letterSpacing: 0.8,
       textTransform: 'uppercase',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     expandRow: {
       flexDirection: 'row',
@@ -443,13 +443,13 @@ const createStyles = (c: AppColors) => {
       alignItems: 'flex-start',
     },
     expandIcon: {
-      fontSize: 14,
+      fontSize: 16,
     },
     expandText: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.65),
       lineHeight: 19,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       flex: 1,
     },
     badgeGuideRow: {
@@ -472,10 +472,10 @@ const createStyles = (c: AppColors) => {
       marginTop: 8,
     },
     askAiText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
   });
 };

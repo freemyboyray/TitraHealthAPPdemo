@@ -10,7 +10,7 @@ import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 
 const ORANGE = '#FF742A';
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 export type WeeklyCheckinCardProps = {
   /** ISO date string of the last time the unified weekly check-in was completed */
@@ -145,31 +145,31 @@ const createStyles = (c: AppColors) => {
       alignSelf: 'flex-start', marginBottom: 4,
     },
     dueText: {
-      fontSize: 9, fontWeight: '800', color: ORANGE,
+      fontSize: 11, fontWeight: '800', color: ORANGE,
       fontFamily: FF, letterSpacing: 1,
     },
     title: {
-      fontSize: 15, fontWeight: '800', color: c.textPrimary,
+      fontSize: 17, fontWeight: '800', color: c.textPrimary,
       fontFamily: FF, letterSpacing: -0.2,
     },
     subtitle: {
-      fontSize: 12, color: w(0.4), fontFamily: FF, marginTop: 2,
+      fontSize: 14, color: w(0.4), fontFamily: FF, marginTop: 2,
     },
     ctaBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
       backgroundColor: ORANGE, borderRadius: 16,
       paddingHorizontal: 14, paddingVertical: 9, marginLeft: 12, flexShrink: 0,
     },
-    ctaText: { fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: FF },
+    ctaText: { fontSize: 15, fontWeight: '700', color: '#FFF', fontFamily: FF },
     retakeBtn: {
       borderWidth: 1.5, borderColor: ORANGE, borderRadius: 14,
       paddingHorizontal: 12, paddingVertical: 6,
     },
     retakeText: {
-      fontSize: 12, fontWeight: '700', color: ORANGE, fontFamily: FF,
+      fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: FF,
     },
     viewPastLink: {
-      fontSize: 11, fontWeight: '600', color: w(0.35), fontFamily: FF,
+      fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: FF,
     },
   });
 };

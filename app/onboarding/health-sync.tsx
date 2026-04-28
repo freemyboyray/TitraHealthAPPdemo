@@ -30,7 +30,10 @@ export default function HealthSyncScreen() {
 
   const navigateNext = () => {
     if (!draft.startWeightLbs) {
-      updateDraft({ startWeightLbs: draft.weightLbs, startDate: new Date().toISOString().slice(0, 10) });
+      updateDraft({
+        startWeightLbs: draft.weightLbs,
+        startDate: draft.doseStartDate ?? new Date().toISOString().slice(0, 10),
+      });
     }
     router.push('/onboarding/goal-weight');
   };
@@ -86,8 +89,8 @@ export default function HealthSyncScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'Inter_400Regular' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'System' },
   illustration: {
     flex: 1,
     alignItems: 'center',
@@ -109,12 +112,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   healthLabel: {
     fontSize: 20,
     fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
+    fontFamily: 'System',
     color: c.textPrimary,
   },
   healthDesc: {
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 17,
+    fontFamily: 'System',
     color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
@@ -126,8 +129,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 16,
   },
   skipText: {
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 17,
+    fontFamily: 'System',
     color: c.textSecondary,
     fontWeight: '500',
   },

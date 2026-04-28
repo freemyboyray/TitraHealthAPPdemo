@@ -865,7 +865,7 @@ export default function EditTreatmentScreen() {
             style={{
               fontSize: 32, fontWeight: '700', color: '#FFFFFF', textAlign: 'center',
               minWidth: 120, borderBottomWidth: 2, borderBottomColor: ORANGE, paddingBottom: 4,
-              fontFamily: 'Inter_400Regular',
+              fontFamily: 'System',
             }}
             keyboardType="decimal-pad"
             value={confirmStartWeight}
@@ -873,7 +873,7 @@ export default function EditTreatmentScreen() {
             placeholder="---"
             placeholderTextColor="rgba(255,255,255,0.3)"
           />
-          <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular' }}>
+          <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', fontFamily: 'System' }}>
             {unitLabel}
           </Text>
         </View>
@@ -886,7 +886,7 @@ export default function EditTreatmentScreen() {
 
     return (
       <View style={{ marginBottom: 20 }}>
-        <Text style={[ms.modalTitle, { fontSize: 11, marginBottom: 14 }]}>YOUR MEDICATION HISTORY</Text>
+        <Text style={[ms.modalTitle, { fontSize: 13, marginBottom: 14 }]}>YOUR MEDICATION HISTORY</Text>
         <View style={{ paddingLeft: 16 }}>
           {medHistory.map((entry, i) => {
             const isLast = i === medHistory.length - 1;
@@ -922,11 +922,11 @@ export default function EditTreatmentScreen() {
                   )}
                 </View>
                 <View style={{ flex: 1, paddingBottom: isLast ? 0 : 8 }}>
-                  <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter_400Regular' }}>
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'System' }}>
                     {dateLabel}
                   </Text>
                   <Text style={{
-                    fontSize: 13, fontWeight: '500', fontFamily: 'Inter_400Regular',
+                    fontSize: 15, fontWeight: '500', fontFamily: 'System',
                     color: isStopped ? '#FF4444' : '#FFFFFF',
                   }}>
                     {label}
@@ -943,8 +943,8 @@ export default function EditTreatmentScreen() {
                 <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 4, backgroundColor: ORANGE }} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, color: ORANGE, fontFamily: 'Inter_400Regular' }}>Now</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: 'Inter_400Regular' }}>
+                <Text style={{ fontSize: 13, color: ORANGE, fontFamily: 'System' }}>Now</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>
                   {wasOffTreatment ? '→ Starting' : '→ Switching to'} {BRAND_LABEL[brand] ?? brand} {doseMg}mg
                 </Text>
               </View>
@@ -1090,7 +1090,7 @@ export default function EditTreatmentScreen() {
                     <Text style={[s.summaryValue, { color: ORANGE }]}>{pendingDateStr}</Text>
                   </View>
 
-                  <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 17 }}>
+                  <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 17 }}>
                     Medication tracking will activate automatically on your start date.
                     {'\n'}Weight, food, and activity tracking are active now.
                   </Text>
@@ -1468,20 +1468,20 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+  headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, gap: 4 },
   group: { marginBottom: 20 },
   groupHeading: {
-    fontSize: 13, fontWeight: '700', color: ORANGE,
+    fontSize: 15, fontWeight: '700', color: ORANGE,
     letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4,
   },
-  groupSub: { fontSize: 12, color: c.textMuted, marginBottom: 10 },
-  sectionLabel: { fontSize: 16, fontWeight: '600', color: c.textPrimary, marginBottom: 12 },
-  helperText: { fontSize: 13, color: c.textSecondary, lineHeight: 18 },
+  groupSub: { fontSize: 14, color: c.textMuted, marginBottom: 10 },
+  sectionLabel: { fontSize: 18, fontWeight: '600', color: c.textPrimary, marginBottom: 12 },
+  helperText: { fontSize: 15, color: c.textSecondary, lineHeight: 18 },
   input: {
     height: 52, borderWidth: 1.5, borderColor: c.border, borderRadius: 14,
-    paddingHorizontal: 16, fontSize: 16, color: c.textPrimary,
+    paddingHorizontal: 16, fontSize: 18, color: c.textPrimary,
     marginTop: 4, marginBottom: 4, backgroundColor: c.bg,
   },
   datePickerWrap: { marginBottom: 8 },
@@ -1492,14 +1492,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   stopBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
     paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14,
     backgroundColor: 'rgba(255,68,68,0.06)',
   },
-  stopBtnText: { fontSize: 15, fontWeight: '600' as const, color: '#FF4444' },
-  stopHint: { fontSize: 12, color: c.textMuted, textAlign: 'center' as const, marginTop: 8, lineHeight: 17 },
+  stopBtnText: { fontSize: 17, fontWeight: '600' as const, color: '#FF4444' },
+  stopHint: { fontSize: 14, color: c.textMuted, textAlign: 'center' as const, marginTop: 8, lineHeight: 17 },
 
   // Off-treatment landing card
   offCard: {
@@ -1521,11 +1521,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   offTitle: {
     fontSize: 20, fontWeight: '700' as const, color: c.textPrimary,
-    textAlign: 'center' as const, marginBottom: 8, fontFamily: 'Inter_400Regular',
+    textAlign: 'center' as const, marginBottom: 8, fontFamily: 'System',
   },
   offSubtitle: {
-    fontSize: 14, color: c.textSecondary, textAlign: 'center' as const,
-    lineHeight: 20, marginBottom: 28, fontFamily: 'Inter_400Regular',
+    fontSize: 16, color: c.textSecondary, textAlign: 'center' as const,
+    lineHeight: 20, marginBottom: 28, fontFamily: 'System',
   },
   startBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const,
@@ -1533,7 +1533,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 16, paddingHorizontal: 24, width: '100%' as any,
   },
   startBtnText: {
-    fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF', fontFamily: 'Inter_400Regular',
+    fontSize: 18, fontWeight: '700' as const, color: '#FFFFFF', fontFamily: 'System',
   },
 
   // Wizard progress bar
@@ -1547,11 +1547,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   // Wizard question
   wizardQuestion: {
     fontSize: 22, fontWeight: '700' as const, color: c.textPrimary,
-    marginBottom: 6, lineHeight: 28, fontFamily: 'Inter_400Regular',
+    marginBottom: 6, lineHeight: 28, fontFamily: 'System',
   },
   wizardHint: {
-    fontSize: 14, color: c.textSecondary, marginBottom: 24, lineHeight: 20,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 16, color: c.textSecondary, marginBottom: 24, lineHeight: 20,
+    fontFamily: 'System',
   },
 
   // Summary card
@@ -1571,10 +1571,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   summaryBrand: {
     fontSize: 22, fontWeight: '700' as const, color: c.textPrimary,
-    fontFamily: 'Inter_400Regular', textAlign: 'center' as const,
+    fontFamily: 'System', textAlign: 'center' as const,
   },
   summaryMolecule: {
-    fontSize: 13, color: c.textMuted, fontFamily: 'Inter_400Regular',
+    fontSize: 15, color: c.textMuted, fontFamily: 'System',
     marginTop: 2, textAlign: 'center' as const,
   },
   summaryDivider: {
@@ -1585,15 +1585,15 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     flexDirection: 'row' as const, justifyContent: 'space-between' as const,
     alignSelf: 'stretch' as const, paddingVertical: 6,
   },
-  summaryLabel: { fontSize: 14, color: c.textMuted, fontFamily: 'Inter_400Regular' },
-  summaryValue: { fontSize: 14, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Inter_400Regular' },
+  summaryLabel: { fontSize: 16, color: c.textMuted, fontFamily: 'System' },
+  summaryValue: { fontSize: 16, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'System' },
   pendingBadge: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
     alignSelf: 'stretch' as const, marginTop: 12,
     backgroundColor: 'rgba(255,116,42,0.08)', borderRadius: 10, padding: 10,
     borderWidth: 1, borderColor: 'rgba(255,116,42,0.2)',
   },
-  pendingText: { fontSize: 12, color: ORANGE, fontFamily: 'Inter_400Regular', flex: 1 },
+  pendingText: { fontSize: 14, color: ORANGE, fontFamily: 'System', flex: 1 },
 
   // Change medication button
   changeMedBtn: {
@@ -1605,11 +1605,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
   },
   changeMedBtnText: {
-    fontSize: 15, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'Inter_400Regular',
+    fontSize: 17, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'System',
   },
 });
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 // ─── Confirmation Modal Styles ───────────────────────────────────────────────
 
@@ -1666,7 +1666,7 @@ const ms = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   btnCancelText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.5)',
     fontFamily: FF,
@@ -1679,13 +1679,13 @@ const ms = StyleSheet.create({
     backgroundColor: ORANGE,
   },
   btnConfirmText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: FF,
   },
   modalTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
     color: ORANGE,
     letterSpacing: 3.5,
@@ -1703,13 +1703,13 @@ const ms = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   changeLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.5)',
     fontFamily: FF,
   },
   changeValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: FF,
@@ -1721,7 +1721,7 @@ const ms = StyleSheet.create({
     marginTop: 16,
   },
   targetTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.7)',
     marginBottom: 6,
@@ -1733,14 +1733,14 @@ const ms = StyleSheet.create({
     marginBottom: 4,
   },
   targetDiffLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
     width: 70,
     fontFamily: FF,
   },
   targetLine: {
-    fontSize: 13,
+    fontSize: 15,
     color: 'rgba(255,255,255,0.5)',
     lineHeight: 20,
     fontFamily: FF,
@@ -1755,20 +1755,20 @@ const ms = StyleSheet.create({
     marginTop: 16,
   },
   washoutTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: '#F5A623',
     marginBottom: 4,
     fontFamily: FF,
   },
   washoutBody: {
-    fontSize: 12,
+    fontSize: 14,
     color: 'rgba(255,255,255,0.55)',
     lineHeight: 17,
     fontFamily: FF,
   },
   stepQuestion: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1776,7 +1776,7 @@ const ms = StyleSheet.create({
     fontFamily: FF,
   },
   stepHint: {
-    fontSize: 13,
+    fontSize: 15,
     color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
     lineHeight: 18,
@@ -1796,7 +1796,7 @@ const ms = StyleSheet.create({
     borderColor: ORANGE,
   },
   sitePillText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
     fontFamily: FF,

@@ -115,7 +115,7 @@ function createStyles(c: AppColors) {
       justifyContent: 'center',
     },
     headerTitle: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '700',
       color: c.textPrimary,
     },
@@ -137,14 +137,14 @@ function createStyles(c: AppColors) {
       alignItems: 'center',
     },
     tabActive: { backgroundColor: ORANGE },
-    tabText: { fontSize: 13, fontWeight: '600', color: w(0.5) },
+    tabText: { fontSize: 15, fontWeight: '600', color: w(0.5) },
     tabTextActive: { color: '#FFFFFF' },
 
     scroll: { flex: 1 },
     scrollContent: { paddingBottom: 40 },
 
     versionInfo: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.4),
       fontWeight: '600',
       marginBottom: 20,
@@ -152,13 +152,13 @@ function createStyles(c: AppColors) {
 
     section: { marginBottom: 24 },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
       color: c.textPrimary,
       marginBottom: 8,
     },
     sectionBody: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.65),
       lineHeight: 22,
     },

@@ -357,7 +357,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
     letterSpacing: 0.3,
@@ -388,7 +388,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 18,
     color: c.textPrimary,
     paddingVertical: 0,
   },
@@ -405,7 +405,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingTop: 80,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textSecondary,
     textAlign: 'center',
   },
@@ -432,19 +432,19 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingRight: 12,
   },
   resultName: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: c.textPrimary,
     lineHeight: 20,
     marginBottom: 2,
   },
   resultBrand: {
-    fontSize: 12,
+    fontSize: 14,
     color: c.textSecondary,
     marginBottom: 4,
   },
   per100g: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textSecondary,
     fontStyle: 'italic',
   },
@@ -452,13 +452,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'flex-end',
   },
   resultCalories: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: ORANGE,
     marginBottom: 4,
   },
   resultMacros: {
-    fontSize: 12,
+    fontSize: 14,
     color: c.textSecondary,
   },
 
@@ -483,7 +483,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     zIndex: 10,
   },
   panelName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: c.textPrimary,
     marginBottom: 2,
@@ -491,7 +491,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     lineHeight: 24,
   },
   panelBrand: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     marginBottom: 14,
   },
@@ -503,7 +503,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 14,
   },
   servingLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: c.textPrimary,
     fontWeight: '500',
     marginRight: 12,
@@ -524,12 +524,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   servingInput: {
     width: 80,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: c.textPrimary,
   },
   servingUnit: {
-    fontSize: 14,
+    fontSize: 16,
     color: c.textSecondary,
   },
 
@@ -548,17 +548,17 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center',
   },
   macroPillValue: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: c.textPrimary,
   },
   macroPillUnit: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
     color: c.textSecondary,
   },
   macroPillLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: c.textSecondary,
     marginTop: 2,
     textTransform: 'uppercase',
@@ -583,7 +583,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: ORANGE,
   },
   mealChipText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: c.textSecondary,
   },
@@ -605,7 +605,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     elevation: 6,
   },
   logBtnText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.3,

@@ -254,7 +254,7 @@ const createStyles = (c: AppColors) => {
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -0.3,
@@ -274,8 +274,8 @@ const createStyles = (c: AppColors) => {
   cardOverlay: { borderRadius: 20, backgroundColor: c.borderSubtle },
   cardContent: { padding: 18 },
 
-  itemName: { fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
-  noMatch: { fontSize: 13, color: c.textSecondary, fontStyle: 'italic' },
+  itemName: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
+  noMatch: { fontSize: 15, color: c.textSecondary, fontStyle: 'italic' },
 
   matchRow: {
     flexDirection: 'row',
@@ -291,18 +291,18 @@ const createStyles = (c: AppColors) => {
   matchRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: c.textSecondary, alignItems: 'center', justifyContent: 'center' },
   matchRadioActive: { borderColor: ORANGE },
   matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
-  matchName: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
-  matchBrand: { fontSize: 11, color: c.textSecondary },
-  matchCal: { fontSize: 12, color: c.textSecondary },
+  matchName: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  matchBrand: { fontSize: 13, color: c.textSecondary },
+  matchCal: { fontSize: 14, color: c.textSecondary },
 
   servingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  servingLabel: { fontSize: 13, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
+  servingLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500', marginRight: 10 },
   servingInputWrap: { width: 72, height: 36, borderRadius: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  servingInput: { width: 72, textAlign: 'center', fontSize: 15, fontWeight: '600', color: c.textPrimary },
-  servingUnit: { fontSize: 13, color: c.textSecondary },
+  servingInput: { width: 72, textAlign: 'center', fontSize: 17, fontWeight: '600', color: c.textPrimary },
+  servingUnit: { fontSize: 15, color: c.textSecondary },
 
   macroRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
-  macroPill: { backgroundColor: c.glassOverlay, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, fontSize: 12, fontWeight: '600', color: c.textPrimary },
+  macroPill: { backgroundColor: c.glassOverlay, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, fontSize: 14, fontWeight: '600', color: c.textPrimary },
 
   btnWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 12 },
   primaryBtnFull: {
@@ -317,12 +317,12 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 18,
     elevation: 8,
   },
-  primaryBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  primaryBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Camera phase
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
   circleBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
-  camTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  camTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
   shutterWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' },
   shutterBtn: {
     width: 80, height: 80, borderRadius: 40,
@@ -341,16 +341,16 @@ const createStyles = (c: AppColors) => {
     backgroundColor: ORANGE,
     shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
-  analyzeBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  analyzeBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Error phase
   backBtnLight: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.borderSubtle },
   errTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginTop: 14, marginBottom: 8 },
-  errDesc: { fontSize: 14, color: c.textSecondary, textAlign: 'center', paddingHorizontal: 32, marginBottom: 24, lineHeight: 20 },
+  errDesc: { fontSize: 16, color: c.textSecondary, textAlign: 'center', paddingHorizontal: 32, marginBottom: 24, lineHeight: 20 },
   errSecBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center' },
-  errSecBtnText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  errSecBtnText: { fontSize: 17, fontWeight: '600', color: c.textPrimary },
   errPrimBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  errPrimBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  errPrimBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
 
   // Intro phase
   introCentered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
@@ -361,19 +361,19 @@ const createStyles = (c: AppColors) => {
     shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8,
   },
   introTitle: { fontSize: 24, fontWeight: '800', color: c.textPrimary, marginBottom: 10, textAlign: 'center' },
-  introDesc: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 32 },
+  introDesc: { fontSize: 16, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 32 },
   introBtn: {
     flexDirection: 'row', alignItems: 'center',
     width: '100%', height: 56, borderRadius: 28,
     backgroundColor: ORANGE, justifyContent: 'center', marginBottom: 12,
     shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
-  introBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  introBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
   introSecBtn: {
     flexDirection: 'row', alignItems: 'center',
     width: '100%', height: 52, borderRadius: 28,
     backgroundColor: c.borderSubtle, justifyContent: 'center',
   },
-  introSecBtnText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
+  introSecBtnText: { fontSize: 17, fontWeight: '600', color: c.textSecondary },
   });
 };

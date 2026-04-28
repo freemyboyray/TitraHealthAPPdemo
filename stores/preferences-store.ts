@@ -10,6 +10,8 @@ type PreferencesStore = {
   setAppleHealthEnabled: (v: boolean) => void;
   lastWeeklySummaryDate: string | null;
   setLastWeeklySummaryDate: (date: string) => void;
+  lastDailyStreakDate: string | null;
+  setLastDailyStreakDate: (date: string) => void;
   reset: () => void;
 };
 
@@ -23,7 +25,9 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setAppleHealthEnabled: (v) => set({ appleHealthEnabled: v }),
       lastWeeklySummaryDate: null,
       setLastWeeklySummaryDate: (date) => set({ lastWeeklySummaryDate: date }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null }),
+      lastDailyStreakDate: null,
+      setLastDailyStreakDate: (date) => set({ lastDailyStreakDate: date }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

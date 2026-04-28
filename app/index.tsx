@@ -19,7 +19,7 @@ export default function Index() {
   const { injectionLogs } = useLogStore();
   const logStoreHydrated = useLogStore((s) => s.hydrated);
   const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
-  const { lastWeeklySummaryDate } = usePreferencesStore();
+  const { lastWeeklySummaryDate, lastDailyStreakDate } = usePreferencesStore();
   const router = useRouter();
 
   // Kick off data fetch as soon as we have a valid session + profile
@@ -68,6 +68,8 @@ export default function Index() {
 
     if (freq >= 7 && isShotDay && !alreadyShown) {
       router.replace('/entry/weekly-summary');
+    } else if (lastDailyStreakDate !== today) {
+      router.replace('/daily-streak');
     } else {
       router.replace('/(tabs)');
     }
@@ -96,7 +98,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     letterSpacing: -1.5,
   },
   tagline: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textSecondary,
     marginTop: 8,
     letterSpacing: 0.5,

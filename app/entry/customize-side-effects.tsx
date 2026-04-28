@@ -136,7 +136,7 @@ export default function CustomizeSideEffectsScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }}>Customize Side Effects</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Customize Side Effects</Text>
 
         <TouchableOpacity
           style={s.headerBtn}
@@ -175,7 +175,7 @@ export default function CustomizeSideEffectsScreen() {
                         key={effect.id}
                         style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
                       >
-                        <Text style={{ fontSize: 15, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>
+                        <Text style={{ fontSize: 17, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>
                           {effect.label}
                         </Text>
                         <Switch
@@ -211,7 +211,7 @@ export default function CustomizeSideEffectsScreen() {
                       key={c.id}
                       style={[s.row, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>{c.label}</Text>
+                      <Text style={{ fontSize: 17, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>{c.label}</Text>
                       <Switch
                         value={on}
                         onValueChange={() => toggleEffect(c.id)}
@@ -237,7 +237,7 @@ export default function CustomizeSideEffectsScreen() {
 
         {/* Add new */}
         <View style={{ marginTop: 16, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
+          <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
             Any other side effects you'd like to track?
           </Text>
 
@@ -259,7 +259,7 @@ export default function CustomizeSideEffectsScreen() {
                 onPress={addCustomEffect}
                 activeOpacity={0.8}
               >
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }}>Add</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Add</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -268,7 +268,7 @@ export default function CustomizeSideEffectsScreen() {
               onPress={() => { setShowAddInput(true); setTimeout(() => inputRef.current?.focus(), 100); }}
               activeOpacity={0.75}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
                 Add a new side effect
               </Text>
             </TouchableOpacity>
@@ -296,7 +296,7 @@ export default function CustomizeSideEffectsScreen() {
           onPress={handleSave}
           activeOpacity={0.8}
         >
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 }}>Save</Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 }}>Save</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -318,7 +318,7 @@ const createStyles = (c: AppColors) => {
       ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
     },
     sectionHeader: {
-      fontSize: 11, fontWeight: '700', color: c.textMuted,
+      fontSize: 13, fontWeight: '700', color: c.textMuted,
       letterSpacing: 3.5, textTransform: 'uppercase',
       marginBottom: 10, marginLeft: 4,
     },
@@ -338,7 +338,7 @@ const createStyles = (c: AppColors) => {
       flex: 1, height: 48, borderRadius: 14,
       backgroundColor: c.glassOverlay,
       borderWidth: 1, borderColor: c.borderSubtle,
-      paddingHorizontal: 16, fontSize: 15, fontWeight: '600', color: c.textPrimary,
+      paddingHorizontal: 16, fontSize: 17, fontWeight: '600', color: c.textPrimary,
     },
     addBtn: {
       height: 48, paddingHorizontal: 20, borderRadius: 14,

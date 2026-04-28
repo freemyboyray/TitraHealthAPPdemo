@@ -423,7 +423,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: c.textPrimary, fontSize: 13, fontWeight: '700', letterSpacing: 3.5 },
+  headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24 },
 
@@ -432,7 +432,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     letterSpacing: 0.5, marginBottom: 20,
   },
   sectionLabel: {
-    fontSize: 13, fontWeight: '600', color: c.textSecondary,
+    fontSize: 15, fontWeight: '600', color: c.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
   },
   divider: {
@@ -448,14 +448,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   toggleBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   toggleBtnActive: { backgroundColor: ORANGE },
-  toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
+  toggleText: { fontSize: 16, fontWeight: '600', color: c.textSecondary },
   toggleTextActive: { color: '#FFFFFF' },
   pickersRow: { flexDirection: 'row', gap: 8 },
   pickerWrap: { flex: 1 },
 
   // Goals
   display: { alignItems: 'center', marginBottom: 16 },
-  displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5 },
+  displaySmall: { fontSize: 15, color: c.textSecondary, letterSpacing: 0.5 },
   displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4 },
   rulerContainer: {
     height: 72, position: 'relative', marginBottom: 32, marginHorizontal: -24,
@@ -468,17 +468,17 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   tickLine: { width: 1.5, height: 18, backgroundColor: 'rgba(255,255,255,0.3)' },
   tickMid: { height: 26, backgroundColor: 'rgba(255,255,255,0.55)' },
   tickMajor: { height: 36, backgroundColor: '#FFFFFF', width: 2 },
-  tickLabel: { fontSize: 11, color: c.textSecondary, marginTop: 4 },
+  tickLabel: { fontSize: 13, color: c.textSecondary, marginTop: 4 },
   chip: {
     alignSelf: 'flex-start', backgroundColor: c.glassOverlay,
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, marginBottom: 20,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+  chipText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
   goalDisplay: { alignItems: 'center', marginBottom: 12 },
-  goalDisplayLabel: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5 },
+  goalDisplayLabel: { fontSize: 15, color: c.textSecondary, letterSpacing: 0.5 },
   goalDisplayBig: { fontSize: 48, fontWeight: '800', color: c.textPrimary, marginTop: 4 },
   contextNote: {
-    fontSize: 14, color: c.textSecondary, textAlign: 'center',
+    fontSize: 16, color: c.textSecondary, textAlign: 'center',
     marginBottom: 24, lineHeight: 20, paddingHorizontal: 8,
   },
   selectorRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6, marginBottom: 12 },
@@ -487,14 +487,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg,
   },
   snapItemSelected: { backgroundColor: ORANGE, borderColor: ORANGE },
-  snapLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+  snapLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
   snapLabelSelected: { color: '#FFFFFF' },
   markerRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 8 },
-  markerText: { fontSize: 12, color: c.textMuted },
+  markerText: { fontSize: 14, color: c.textMuted },
 
   warningBox: { alignItems: 'center', paddingVertical: 24 },
-  warningTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 12 },
-  warningText: { color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center' },
+  warningTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 12 },
+  warningText: { color: 'rgba(255,255,255,0.6)', fontSize: 17, textAlign: 'center' },
 
   // Personal
   bdayColLabels: { flexDirection: 'row', gap: 8, marginBottom: 4 },
@@ -502,7 +502,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   pickerWrapLg: { flex: 2 },
   pickerWrapSm: { flex: 1 },
   colLabel: {
-    fontSize: 12, fontWeight: '600', color: c.textSecondary,
+    fontSize: 14, fontWeight: '600', color: c.textSecondary,
     textAlign: 'center', letterSpacing: 0.5, textTransform: 'uppercase',
   },
 
@@ -512,5 +512,5 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
 });

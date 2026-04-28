@@ -210,8 +210,9 @@ export function computePersonalizedPlan(params: {
 
   // 1b. Injection schedule - uncapped date math, independent of shot phase cap
   const injectionFrequencyDays = profile.injectionFrequencyDays;
-  const lastInjMs = new Date(profile.lastInjectionDate).getTime();
-  const actualDaysSinceShot = Math.floor((Date.now() - lastInjMs) / 86400000) + 1;
+  const lastInjMs = new Date(profile.lastInjectionDate + 'T00:00:00').getTime();
+  const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
+  const actualDaysSinceShot = Math.floor((todayMs - lastInjMs) / 86400000);
   const daysUntilNextDose = injectionFrequencyDays - actualDaysSinceShot;
   const isInjectionDue = daysUntilNextDose <= 0;
 

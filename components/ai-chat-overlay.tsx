@@ -592,7 +592,7 @@ export function AiChatOverlay() {
                         borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
                       }}
                     >
-                      <Text style={{ color: '#FF742A', fontSize: 13, fontWeight: '600' }}>{chip}</Text>
+                      <Text style={{ color: '#FF742A', fontSize: 15, fontWeight: '600' }}>{chip}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -720,7 +720,7 @@ const createStyles = (c: AppColors) => {
     marginBottom: 12,
   },
   resumedBannerText: {
-    fontSize: 12,
+    fontSize: 14,
     color: ORANGE,
     fontWeight: '500',
   },
@@ -756,7 +756,7 @@ const createStyles = (c: AppColors) => {
     borderBottomLeftRadius: 4,
   },
   bubbleText: {
-    fontSize: 15,
+    fontSize: 17,
     lineHeight: 22,
   },
   bubbleTextUser: { color: '#FFFFFF', fontWeight: '500' },
@@ -773,7 +773,7 @@ const createStyles = (c: AppColors) => {
     marginTop: 6,
   },
   retryLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: 'rgba(220,80,50,0.8)',
   },
@@ -797,7 +797,7 @@ const createStyles = (c: AppColors) => {
     flexShrink: 0,
   },
   bubbleContextText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.65)',
     letterSpacing: 0.2,
@@ -855,7 +855,7 @@ const createStyles = (c: AppColors) => {
   },
   inputPillText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: ORANGE,
     letterSpacing: 0.3,
@@ -868,7 +868,7 @@ const createStyles = (c: AppColors) => {
     flexShrink: 0,
   },
   textInput: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     fontWeight: '400',
     lineHeight: 22,
@@ -901,7 +901,7 @@ const createStyles = (c: AppColors) => {
   },
   sendBtnActive: { backgroundColor: ORANGE },
   disclaimer: {
-    fontSize: 11,
+    fontSize: 13,
     color: w(0.25),
     textAlign: 'center',
     marginTop: 8,
@@ -919,7 +919,7 @@ const createStyles = (c: AppColors) => {
   historyTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: c.textPrimary,
   },
@@ -933,13 +933,13 @@ const createStyles = (c: AppColors) => {
   historyEmpty: {
     textAlign: 'center',
     color: w(0.5),
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
   },
   historyEmptySub: {
     textAlign: 'center',
     color: w(0.3),
-    fontSize: 13,
+    fontSize: 15,
   },
 
   // ── Conversation list ────────────────────────────────────────────────────
@@ -967,7 +967,7 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'space-between',
   },
   convDate: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: w(0.45),
     letterSpacing: 0.2,
@@ -979,12 +979,12 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 2,
   },
   convCountText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: w(0.4),
   },
   convPreview: {
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
     color: w(0.75),
     fontWeight: '400',
@@ -996,7 +996,7 @@ const createStyles = (c: AppColors) => {
     marginTop: 2,
   },
   convResumeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: ORANGE,
   },

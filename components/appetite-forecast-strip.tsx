@@ -76,7 +76,7 @@ function ForecastPill({ day, selected, onPress, compact }: ForecastPillProps) {
       onPress={onPress}
     >
       <View style={[s.stateDot, { backgroundColor: day.isToday ? 'rgba(255,255,255,0.85)' : stateColor }]} />
-      <Text style={[s.dayLabel, day.isToday && s.dayLabelToday, compact && { fontSize: 9 }]}>
+      <Text style={[s.dayLabel, day.isToday && s.dayLabelToday, compact && { fontSize: 11 }]}>
         {day.isToday
           ? (day.isShotDay ? 'SHOT\nDAY' : 'TODAY')
           : `D${day.cycleDay}`}
@@ -229,7 +229,7 @@ export function AppetiteForecastStrip({
                 onPress={() => {}}
               >
                 <View style={[s.stateDot, { backgroundColor: block.isCurrent ? 'rgba(255,255,255,0.85)' : blockColor }]} />
-                <Text style={[s.dayLabel, block.isCurrent && s.dayLabelToday, { fontSize: 9 }]}>
+                <Text style={[s.dayLabel, block.isCurrent && s.dayLabelToday, { fontSize: 11 }]}>
                   {block.isCurrent ? 'NOW' : block.label}
                 </Text>
               </Pressable>
@@ -453,23 +453,23 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center',
     },
     title: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
     },
     subtitle: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.35),
       letterSpacing: 0.5,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     chevron: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.4),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     pills: {
       flexDirection: 'row',
@@ -492,14 +492,14 @@ const createStyles = (c: AppColors) => {
       borderRadius: 3.5,
     },
     dayLabel: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '700',
       color: w(0.6),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayLabelToday: {
       color: '#FFFFFF',
-      fontSize: 9,
+      fontSize: 11,
       letterSpacing: 0.3,
     },
     legend: {
@@ -523,9 +523,9 @@ const createStyles = (c: AppColors) => {
       borderRadius: 3.5,
     },
     legendLabel: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.45),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     expandDivider: {
       height: StyleSheet.hairlineWidth,
@@ -536,11 +536,11 @@ const createStyles = (c: AppColors) => {
       gap: 10,
     },
     expandSectionTitle: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.4),
       letterSpacing: 0.8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     expandRow: {
       flexDirection: 'row',
@@ -548,14 +548,14 @@ const createStyles = (c: AppColors) => {
       alignItems: 'flex-start',
     },
     expandIcon: {
-      fontSize: 14,
+      fontSize: 16,
     },
     expandText: {
       flex: 1,
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.65),
       lineHeight: 19,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     askAiBtn: {
       backgroundColor: 'rgba(255,116,42,0.12)',
@@ -566,17 +566,17 @@ const createStyles = (c: AppColors) => {
       marginTop: 12,
     },
     askAiText: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     hintText: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.3),
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayDetail: {
       marginTop: 10,
@@ -597,15 +597,15 @@ const createStyles = (c: AppColors) => {
     },
     dayDetailTitle: {
       flex: 1,
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayDetailClose: {
-      fontSize: 13,
+      fontSize: 15,
       color: c.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayDetailStats: {
       flexDirection: 'row',
@@ -622,33 +622,33 @@ const createStyles = (c: AppColors) => {
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
     },
     dayDetailStatVal: {
-      fontSize: 17,
+      fontSize: 19,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayDetailStatLbl: {
-      fontSize: 10,
+      fontSize: 12,
       color: c.textSecondary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       textAlign: 'center',
     },
     dayDetailProjectedNote: {
-      fontSize: 11,
+      fontSize: 13,
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       fontStyle: 'italic',
     },
     dayDetailTip: {
-      fontSize: 12,
+      fontSize: 14,
       color: c.textSecondary,
       lineHeight: 17,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     dayDetailSubNote: {
-      fontSize: 11,
+      fontSize: 13,
       color: c.textSecondary,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       fontStyle: 'italic',
       opacity: 0.7,
     },
@@ -656,22 +656,22 @@ const createStyles = (c: AppColors) => {
       alignSelf: 'flex-start',
     },
     dayDetailAiBtnText: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
       color: '#FF742A',
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
     emptyBody: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.6),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       lineHeight: 19,
       marginBottom: 8,
     },
     emptyNote: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.4),
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
       lineHeight: 17,
     },
   });

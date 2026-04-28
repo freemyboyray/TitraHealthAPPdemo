@@ -169,9 +169,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   text: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   tapBadge: {
     backgroundColor: 'rgba(39,174,96,0.15)',
@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   tapText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: '#27AE60',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   dismiss: {
     marginLeft: 8,

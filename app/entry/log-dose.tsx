@@ -90,7 +90,7 @@ function GlassBorder({ r = 20 }: { r?: number }) {
 function SectionLabel({ text }: { text: string }) {
   return (
     <View style={{ alignSelf: 'flex-start', marginBottom: 14 }}>
-      <Text style={{ fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 2 }}>{text}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 2 }}>{text}</Text>
     </View>
   );
 }
@@ -241,7 +241,7 @@ export default function LogDoseScreen() {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ marginTop: 12 }}
           >
-            <Text style={{ fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' }}>
+            <Text style={{ fontSize: 14, color: colors.textMuted, textDecorationLine: 'underline' }}>
               Doesn't match? Update in Settings
             </Text>
           </TouchableOpacity>
@@ -256,7 +256,7 @@ export default function LogDoseScreen() {
             {lastInjectionSite && (
               <View style={s.rotateRow}>
                 <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
-                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 19, flex: 1 }}>
+                <Text style={{ fontSize: 15, color: colors.textSecondary, lineHeight: 19, flex: 1 }}>
                   Last site: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{lastInjectionSite}</Text>
                   {'\n'}
                   <Text style={{ color: ORANGE, fontWeight: '700' }}>
@@ -267,7 +267,7 @@ export default function LogDoseScreen() {
             )}
 
             {isFirstInjection && (
-              <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 19 }}>
+              <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: 12, lineHeight: 19 }}>
                 Select your injection site. We'll track rotation for you going forward.
               </Text>
             )}
@@ -304,9 +304,9 @@ export default function LogDoseScreen() {
         {isOral && (
           <GlassCard colors={colors}>
             <SectionLabel text="FASTING WINDOW" />
-            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 14, lineHeight: 19 }}>
+            <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: 14, lineHeight: 19 }}>
               Did you take your dose on an empty stomach?{'\n'}
-              <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 14 }}>
                 Oral semaglutide must be taken 30 min before food or water for proper absorption.
               </Text>
             </Text>
@@ -408,7 +408,7 @@ const createSiteStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.borderSubtle,
   },
   siteBtnText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
@@ -458,7 +458,7 @@ const createStyles = (c: AppColors) => {
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -0.3,
@@ -470,7 +470,7 @@ const createStyles = (c: AppColors) => {
   // Date label
   dateLabel: {
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: c.textMuted,
     letterSpacing: 3.5,
@@ -525,7 +525,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.borderSubtle,
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -553,13 +553,13 @@ const createStyles = (c: AppColors) => {
     marginRight: 4,
   },
   rotateLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: c.textMuted,
     letterSpacing: 1.5,
   },
   rotateValue: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: ORANGE,
     letterSpacing: 1,
@@ -567,7 +567,7 @@ const createStyles = (c: AppColors) => {
 
   // Text inputs
   textInput: {
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     fontWeight: '500',
     paddingVertical: 6,
@@ -617,7 +617,7 @@ const createStyles = (c: AppColors) => {
     marginTop: 1,
   },
   saveBtnText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,

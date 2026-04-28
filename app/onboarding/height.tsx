@@ -104,8 +104,8 @@ export default function HeightScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Helvetica Neue' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Helvetica Neue' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'System' },
   toggle: {
     flexDirection: 'row',
     backgroundColor: c.glassOverlay,
@@ -116,8 +116,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   toggleBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   toggleBtnActive: { backgroundColor: '#FF742A' },
-  toggleText: { fontSize: 14, fontWeight: '600', fontFamily: 'Helvetica Neue', color: c.textSecondary },
-  toggleTextActive: { color: '#FFFFFF', fontFamily: 'Helvetica Neue' },
+  toggleText: { fontSize: 16, fontWeight: '600', fontFamily: 'System', color: c.textSecondary },
+  toggleTextActive: { color: '#FFFFFF', fontFamily: 'System' },
   scrollContent: { paddingBottom: 16 },
   pickersRow: { flexDirection: 'row', gap: 8 },
   pickerWrap: { flex: 1 },

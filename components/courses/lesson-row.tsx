@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 type Props = {
@@ -88,7 +88,7 @@ const createStyles = (c: AppColors) => {
       flex: 1,
     },
     title: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: c.textPrimary,
       fontFamily: FF,
@@ -97,13 +97,13 @@ const createStyles = (c: AppColors) => {
       color: w(0.4),
     },
     subtitle: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.35),
       fontFamily: FF,
       marginTop: 1,
     },
     duration: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.3),
       fontFamily: FF,

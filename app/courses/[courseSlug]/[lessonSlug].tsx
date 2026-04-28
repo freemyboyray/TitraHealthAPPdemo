@@ -10,7 +10,7 @@ import type { AppColors } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { LessonContentRenderer } from '@/components/courses/lesson-content-renderer';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 export default function LessonScreen() {
@@ -154,14 +154,14 @@ const createStyles = (c: AppColors) => {
       flex: 1,
     },
     lessonNumber: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '700',
       color: ORANGE,
       fontFamily: FF,
       letterSpacing: 0.5,
     },
     estimatedTime: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.35),
       fontFamily: FF,
       marginTop: 1,
@@ -177,7 +177,7 @@ const createStyles = (c: AppColors) => {
       marginBottom: 16,
     },
     disclaimerText: {
-      fontSize: 11,
+      fontSize: 13,
       color: w(0.4),
       fontFamily: FF,
       flex: 1,
@@ -187,12 +187,12 @@ const createStyles = (c: AppColors) => {
       fontSize: 26,
       fontWeight: '800',
       color: c.textPrimary,
-      fontFamily: 'Inter_800ExtraBold',
+      fontFamily: 'System',
       letterSpacing: -0.5,
       marginBottom: 6,
     },
     subtitle: {
-      fontSize: 14,
+      fontSize: 16,
       color: w(0.5),
       fontFamily: FF,
       lineHeight: 20,
@@ -215,7 +215,7 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 16,
     },
     completeBtnText: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
       color: '#FFFFFF',
       fontFamily: FF,
@@ -228,7 +228,7 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 12,
     },
     completedText: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: '#27AE60',
       fontFamily: FF,
@@ -243,7 +243,7 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 14,
     },
     nextBtnText: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '600',
       color: c.textPrimary,
       fontFamily: FF,

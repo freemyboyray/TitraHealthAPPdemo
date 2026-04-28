@@ -442,17 +442,17 @@ const createFormStyles = (c: AppColors) => {
     borderWidth: 1,
     borderColor: w(0.10),
     paddingHorizontal: 16,
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '600',
     color: c.textPrimary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   unit: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: w(0.35),
     minWidth: 32,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   confirmBtn: {
     height: 52,
@@ -462,11 +462,11 @@ const createFormStyles = (c: AppColors) => {
     justifyContent: 'center',
   },
   confirmText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 
   // AI parse button
@@ -481,10 +481,10 @@ const createFormStyles = (c: AppColors) => {
     marginBottom: 4,
   },
   aiParseBtnText: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FF742A',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 
   // AI loading
@@ -495,18 +495,18 @@ const createFormStyles = (c: AppColors) => {
     gap: 14,
   },
   aiLoadingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: w(0.45),
     fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   aiErrorText: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#F39C12',
     fontWeight: '500',
     marginBottom: 12,
     lineHeight: 19,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
 
   // Parsed result card
@@ -519,17 +519,17 @@ const createFormStyles = (c: AppColors) => {
     marginBottom: 4,
   },
   parsedName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: c.textPrimary,
     marginBottom: 2,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   parsedServing: {
-    fontSize: 12,
+    fontSize: 14,
     color: w(0.40),
     marginBottom: 14,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   parsedRow: {
     flexDirection: 'row',
@@ -538,16 +538,16 @@ const createFormStyles = (c: AppColors) => {
   },
   parsedStat: { alignItems: 'center' },
   parsedStatVal: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   parsedStatLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: w(0.40),
     fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   confidenceBadge: {
     alignSelf: 'flex-start',
@@ -557,14 +557,14 @@ const createFormStyles = (c: AppColors) => {
     marginBottom: 10,
   },
   confidenceText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   parsedEditHint: {
-    fontSize: 12,
+    fontSize: 14,
     color: w(0.30),
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     textDecorationLine: 'underline',
   },
 
@@ -577,10 +577,10 @@ const createFormStyles = (c: AppColors) => {
   },
   orLine: { flex: 1, height: 1, backgroundColor: c.borderSubtle },
   orText: {
-    fontSize: 11,
+    fontSize: 13,
     color: w(0.30),
     fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   });
 };
@@ -598,8 +598,8 @@ const createSheetStyles = (c: AppColors) => {
   sheetShadow: { borderRadius: 28, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: c.isDark ? 0.4 : 0.12, shadowRadius: 20, elevation: 12 },
   sheetBody: { borderRadius: 28, overflow: 'hidden' },
   sheetContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 16 },
-  title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
-  subtitle: { fontSize: 14, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'Inter_400Regular' },
+  title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'System' },
+  subtitle: { fontSize: 16, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'System' },
   dash: { marginBottom: 22 },
 
   // Grid
@@ -614,7 +614,7 @@ const createSheetStyles = (c: AppColors) => {
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 
-  gridLabel: { fontSize: 10, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'Inter_400Regular' },
+  gridLabel: { fontSize: 12, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'System' },
   gridLabelSpecial: { color: ORANGE },
 
   });

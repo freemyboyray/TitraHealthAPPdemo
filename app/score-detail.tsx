@@ -30,7 +30,7 @@ import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useUiStore } from '@/stores/ui-store';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 const glassShadow = {
   shadowColor: '#000000',
@@ -154,11 +154,11 @@ const createBannerStyles = (c: AppColors) => {
     },
     inner: { padding: 18 },
     heading: {
-      fontSize: 13, fontWeight: '700', color: '#FF742A',
+      fontSize: 15, fontWeight: '700', color: '#FF742A',
       letterSpacing: 0.1, marginBottom: 6, fontFamily: FF,
     },
     bodyText: {
-      fontSize: 13, color: w(0.60),
+      fontSize: 15, color: w(0.60),
       lineHeight: 19, fontWeight: '400', fontFamily: FF,
     },
   });
@@ -224,20 +224,20 @@ const createCardStyles = (c: AppColors) => {
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     iconLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     iconWrap: { alignItems: 'center', justifyContent: 'center' },
-    label: { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+    label: { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
     ptsGroup: { alignItems: 'flex-end', gap: 4 },
     statusBadge: {
-      fontSize: 10, fontWeight: '700', letterSpacing: 0.5,
+      fontSize: 12, fontWeight: '700', letterSpacing: 0.5,
       borderWidth: 1, borderRadius: 5,
       paddingHorizontal: 6, paddingVertical: 2,
       fontFamily: FF, overflow: 'hidden',
     },
-    pts: { fontSize: 14, fontWeight: '800', fontFamily: FF },
-    ptsMax: { fontSize: 12, fontWeight: '500', color: w(0.35), fontFamily: FF },
+    pts: { fontSize: 16, fontWeight: '800', fontFamily: FF },
+    ptsMax: { fontSize: 14, fontWeight: '500', color: w(0.35), fontFamily: FF },
     value: { fontSize: 28, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 12, fontFamily: FF },
     barTrack: { height: 6, borderRadius: 3, backgroundColor: c.borderSubtle, overflow: 'hidden', marginBottom: 10 },
     barFill: { height: 6, borderRadius: 3 },
-    note: { fontSize: 12, color: w(0.45), lineHeight: 18, fontWeight: '400', fontFamily: FF },
+    note: { fontSize: 14, color: w(0.45), lineHeight: 18, fontWeight: '400', fontFamily: FF },
   });
 };
 
@@ -285,15 +285,15 @@ const createFocusStyles = (c: AppColors) => {
     },
     inner: { padding: 18 },
     sectionLabel: {
-      fontSize: 9, fontWeight: '700', color: '#FF742A',
+      fontSize: 11, fontWeight: '700', color: '#FF742A',
       letterSpacing: 1.5, textTransform: 'uppercase',
       marginBottom: 10, fontFamily: FF,
     },
-    focusLabel: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'Inter_800ExtraBold' },
-    detail: { fontSize: 13, color: w(0.45), marginBottom: 8, fontFamily: FF },
+    focusLabel: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'System' },
+    detail: { fontSize: 15, color: w(0.45), marginBottom: 8, fontFamily: FF },
     ptsAvail: { color: '#FF742A', fontWeight: '700' },
-    note: { fontSize: 12, color: w(0.40), lineHeight: 18, fontFamily: FF },
-    allGood: { fontSize: 14, color: w(0.55), lineHeight: 20, fontFamily: FF },
+    note: { fontSize: 14, color: w(0.40), lineHeight: 18, fontFamily: FF },
+    allGood: { fontSize: 16, color: w(0.55), lineHeight: 20, fontFamily: FF },
   });
 };
 
@@ -562,7 +562,7 @@ export default function ScoreDetailScreen() {
                       </View>
                       <Text style={[cStyles.label, { color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }]}>Fiber (Informational)</Text>
                     </View>
-                    <Text style={{ fontSize: 10, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', fontFamily: FF }}>NOT SCORED</Text>
+                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', fontFamily: FF }}>NOT SCORED</Text>
                   </View>
                   <Text style={[cStyles.value, { fontSize: 20, color: colors.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)' }]}>
                     {actuals.fiberG}g / {targets.fiberG}g
@@ -626,19 +626,19 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     navCenter: { flex: 1, alignItems: 'center' },
-    navTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: 'Inter_700Bold' },
-    navDate: { fontSize: 12, fontWeight: '500', color: w(0.40), marginTop: 1, fontFamily: FF },
+    navTitle: { fontSize: 19, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: 'System' },
+    navDate: { fontSize: 14, fontWeight: '500', color: w(0.40), marginTop: 1, fontFamily: FF },
 
     content: { paddingHorizontal: 20, paddingBottom: 40 },
 
     hero: { alignItems: 'center', paddingVertical: 24 },
     phaseStrip: { marginTop: 14, alignItems: 'center', gap: 3 },
-    messageText: { fontSize: 11, fontWeight: '600', color: w(0.55), letterSpacing: 0.1, fontFamily: FF },
+    messageText: { fontSize: 13, fontWeight: '600', color: w(0.55), letterSpacing: 0.1, fontFamily: FF },
     targetText: {
-      fontSize: 11, fontWeight: '700', color: '#FF742A',
+      fontSize: 13, fontWeight: '700', color: '#FF742A',
       letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3, fontFamily: FF,
     },
-    phaseText: { fontSize: 13, fontWeight: '500', color: w(0.45), letterSpacing: 0.2, fontFamily: FF },
+    phaseText: { fontSize: 15, fontWeight: '500', color: w(0.45), letterSpacing: 0.2, fontFamily: FF },
     chatBtn: {
       width: 40, height: 40, borderRadius: 12,
       backgroundColor: c.borderSubtle,
@@ -646,7 +646,7 @@ const createStyles = (c: AppColors) => {
     },
 
     sectionLabel: {
-      fontSize: 9, fontWeight: '700', color: '#FF742A',
+      fontSize: 11, fontWeight: '700', color: '#FF742A',
       letterSpacing: 1.5, textTransform: 'uppercase',
       marginBottom: 14, marginTop: 4, fontFamily: FF,
     },
@@ -660,6 +660,6 @@ const createStyles = (c: AppColors) => {
       borderWidth: 0.5, borderColor: c.border,
     },
     coachInner: { padding: 18 },
-    coachText: { fontSize: 15, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
+    coachText: { fontSize: 17, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
   });
 };

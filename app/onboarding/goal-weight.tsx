@@ -144,11 +144,11 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     container: { flex: 1, paddingHorizontal: 24 },
-    title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
-    subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'Inter_400Regular' },
+    title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+    subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 24, lineHeight: 22, fontFamily: 'System' },
     display: { alignItems: 'center', marginBottom: 16 },
-    displaySmall: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
-    displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Inter_800ExtraBold' },
+    displaySmall: { fontSize: 15, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'System' },
+    displayValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'System' },
     toggle: {
       flexDirection: 'row',
       backgroundColor: c.glassOverlay,
@@ -159,8 +159,8 @@ const createStyles = (c: AppColors) => {
     },
     toggleBtn: { paddingHorizontal: 20, paddingVertical: 6, borderRadius: 8 },
     toggleBtnActive: { backgroundColor: '#FF742A' },
-    toggleText: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: 'Inter_400Regular' },
-    toggleTextActive: { color: '#FFFFFF', fontFamily: 'Inter_400Regular' },
+    toggleText: { fontSize: 16, fontWeight: '600', color: c.textSecondary, fontFamily: 'System' },
+    toggleTextActive: { color: '#FFFFFF', fontFamily: 'System' },
     rulerContainer: {
       height: 72,
       position: 'relative',
@@ -190,10 +190,10 @@ const createStyles = (c: AppColors) => {
     tickMid: { height: 26, backgroundColor: w(0.55) },
     tickMajor: { height: 36, backgroundColor: c.textPrimary, width: 2 },
     tickLabel: {
-      fontSize: 11,
+      fontSize: 13,
       color: c.textSecondary,
       marginTop: 4,
-      fontFamily: 'Inter_400Regular',
+      fontFamily: 'System',
     },
   });
 };

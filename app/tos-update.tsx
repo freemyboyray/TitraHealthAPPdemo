@@ -139,7 +139,7 @@ function createStyles(c: AppColors) {
       letterSpacing: -0.5,
     },
     subtitle: {
-      fontSize: 15,
+      fontSize: 17,
       color: w(0.55),
       lineHeight: 22,
       marginTop: 8,
@@ -160,7 +160,7 @@ function createStyles(c: AppColors) {
       alignItems: 'center',
     },
     tabActive: { backgroundColor: ORANGE },
-    tabText: { fontSize: 13, fontWeight: '600', color: w(0.5) },
+    tabText: { fontSize: 15, fontWeight: '600', color: w(0.5) },
     tabTextActive: { color: '#FFFFFF' },
 
     legalContainer: {
@@ -175,7 +175,7 @@ function createStyles(c: AppColors) {
     legalContent: { padding: 16, paddingBottom: 24 },
 
     effectiveDate: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.4),
       fontWeight: '600',
       marginBottom: 16,
@@ -183,13 +183,13 @@ function createStyles(c: AppColors) {
 
     section: { marginBottom: 20 },
     sectionTitle: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
       marginBottom: 6,
     },
     sectionBody: {
-      fontSize: 13,
+      fontSize: 15,
       color: w(0.65),
       lineHeight: 20,
     },
@@ -211,8 +211,8 @@ function createStyles(c: AppColors) {
       justifyContent: 'center',
     },
     checkboxChecked: { backgroundColor: ORANGE, borderColor: ORANGE },
-    checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-    checkboxLabel: { flex: 1, fontSize: 13, color: w(0.7), lineHeight: 18 },
+    checkmark: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+    checkboxLabel: { flex: 1, fontSize: 15, color: w(0.7), lineHeight: 18 },
 
     acceptBtn: {
       height: 52,
@@ -223,6 +223,6 @@ function createStyles(c: AppColors) {
       marginBottom: 24,
     },
     acceptBtnDisabled: { opacity: 0.4 },
-    acceptBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+    acceptBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
   });
 }

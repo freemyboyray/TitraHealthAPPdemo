@@ -434,8 +434,8 @@ const createStyles = (c: AppColors) => {
   },
   backOverlay: { borderRadius: 20, backgroundColor: c.borderSubtle },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 11, color: w(0.45), fontWeight: '500', letterSpacing: 0.5 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 13, color: w(0.45), fontWeight: '500', letterSpacing: 0.5 },
   infoBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -459,7 +459,7 @@ const createStyles = (c: AppColors) => {
     shadowRadius: 8,
     elevation: 4,
   },
-  userText: { fontSize: 15, color: '#FFFFFF', lineHeight: 21 },
+  userText: { fontSize: 17, color: '#FFFFFF', lineHeight: 21 },
 
   assistantBubble: {
     maxWidth: '80%',
@@ -478,10 +478,10 @@ const createStyles = (c: AppColors) => {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: c.borderSubtle,
   },
-  assistantText: { fontSize: 15, color: c.textPrimary, lineHeight: 21 },
+  assistantText: { fontSize: 17, color: c.textPrimary, lineHeight: 21 },
 
   typingRow: { alignItems: 'flex-start', marginBottom: 10 },
-  typingDots: { fontSize: 18, color: w(0.45), letterSpacing: 4 },
+  typingDots: { fontSize: 20, color: w(0.45), letterSpacing: 4 },
 
   // Input bar
   inputBar: {
@@ -509,7 +509,7 @@ const createStyles = (c: AppColors) => {
   textInput: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 15,
+    fontSize: 17,
     color: c.textPrimary,
     lineHeight: 20,
   },
@@ -530,8 +530,8 @@ const createStyles = (c: AppColors) => {
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginTop: 16, marginBottom: 8 },
-  emptyDesc: { fontSize: 14, color: w(0.45), textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginTop: 16, marginBottom: 8 },
+  emptyDesc: { fontSize: 16, color: w(0.45), textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 
   // Suggestion chips
   chipsRow: { paddingVertical: 4, gap: 8, paddingHorizontal: 4 },
@@ -543,7 +543,7 @@ const createStyles = (c: AppColors) => {
     borderWidth: 1,
     borderColor: 'rgba(255,116,42,0.25)',
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: ORANGE },
+  chipText: { fontSize: 15, fontWeight: '600', color: ORANGE },
 
   // Disclaimer
   disclaimerBackdrop: {
@@ -568,8 +568,8 @@ const createStyles = (c: AppColors) => {
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   disclaimerContent: { padding: 24 },
-  disclaimerTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, marginBottom: 12 },
-  disclaimerBody: { fontSize: 14, color: w(0.45), lineHeight: 22, marginBottom: 20 },
+  disclaimerTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, marginBottom: 12 },
+  disclaimerBody: { fontSize: 16, color: w(0.45), lineHeight: 22, marginBottom: 20 },
   disclaimerBtn: {
     height: 48,
     borderRadius: 14,
@@ -577,6 +577,6 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disclaimerBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  disclaimerBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   });
 };

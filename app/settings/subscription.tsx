@@ -316,7 +316,7 @@ function createStyles(c: AppColors) {
     scroll: { padding: 20, paddingBottom: 60 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 },
     backBtn: { width: 32 },
-    headerTitle: { fontSize: 17, fontWeight: '600', color: c.textPrimary },
+    headerTitle: { fontSize: 19, fontWeight: '600', color: c.textPrimary },
 
     statusCard: {
       backgroundColor: c.cardBg,
@@ -329,8 +329,8 @@ function createStyles(c: AppColors) {
     },
     statusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
     planName: { fontSize: 22, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
-    statusText: { fontSize: 14, color: c.textSecondary, marginBottom: 4 },
-    periodText: { fontSize: 12, color: c.textMuted },
+    statusText: { fontSize: 16, color: c.textSecondary, marginBottom: 4 },
+    periodText: { fontSize: 14, color: c.textMuted },
 
     planToggle: {
       flexDirection: 'row',
@@ -350,11 +350,11 @@ function createStyles(c: AppColors) {
       borderColor: ORANGE,
       backgroundColor: 'rgba(255,116,42,0.08)',
     },
-    planOptionTitle: { fontSize: 14, fontWeight: '600', color: c.textSecondary, marginBottom: 4 },
+    planOptionTitle: { fontSize: 16, fontWeight: '600', color: c.textSecondary, marginBottom: 4 },
     planOptionTitleActive: { color: c.textPrimary },
     planOptionPrice: { fontSize: 20, fontWeight: '800', color: c.textSecondary, marginBottom: 2 },
     planOptionPriceActive: { color: c.textPrimary },
-    planOptionSub: { fontSize: 11, color: c.textMuted },
+    planOptionSub: { fontSize: 13, color: c.textMuted },
     planOptionSubActive: { color: ORANGE },
     bestValueBadge: {
       backgroundColor: ORANGE,
@@ -363,7 +363,7 @@ function createStyles(c: AppColors) {
       paddingVertical: 2,
       marginBottom: 6,
     },
-    bestValueText: { color: '#FFF', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+    bestValueText: { color: '#FFF', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
 
     benefitsCard: {
       backgroundColor: c.cardBg,
@@ -373,9 +373,9 @@ function createStyles(c: AppColors) {
       borderColor: c.borderSubtle,
       marginBottom: 24,
     },
-    benefitsTitle: { fontSize: 14, fontWeight: '600', color: c.textPrimary, marginBottom: 14 },
+    benefitsTitle: { fontSize: 16, fontWeight: '600', color: c.textPrimary, marginBottom: 14 },
     benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-    benefitText: { fontSize: 13, color: c.textPrimary, flex: 1 },
+    benefitText: { fontSize: 15, color: c.textPrimary, flex: 1 },
 
     purchaseBtn: {
       backgroundColor: ORANGE,
@@ -384,7 +384,7 @@ function createStyles(c: AppColors) {
       alignItems: 'center',
       marginBottom: 16,
     },
-    purchaseBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+    purchaseBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
 
     manageBtn: {
       flexDirection: 'row',
@@ -398,10 +398,10 @@ function createStyles(c: AppColors) {
       borderColor: c.borderSubtle,
       marginBottom: 16,
     },
-    manageBtnText: { color: ORANGE, fontSize: 15, fontWeight: '600' },
+    manageBtnText: { color: ORANGE, fontSize: 17, fontWeight: '600' },
 
     restoreBtn: { alignItems: 'center', paddingVertical: 14, marginBottom: 16 },
-    restoreBtnText: { color: c.textMuted, fontSize: 14 },
+    restoreBtnText: { color: c.textMuted, fontSize: 16 },
 
     demoCard: {
       backgroundColor: c.cardBg,
@@ -411,7 +411,7 @@ function createStyles(c: AppColors) {
       borderColor: c.borderSubtle,
       marginBottom: 20,
     },
-    demoTitle: { fontSize: 13, fontWeight: '600', color: c.textSecondary, marginBottom: 10 },
+    demoTitle: { fontSize: 15, fontWeight: '600', color: c.textSecondary, marginBottom: 10 },
     demoRow: { flexDirection: 'row', gap: 10 },
     demoInput: {
       flex: 1,
@@ -419,7 +419,7 @@ function createStyles(c: AppColors) {
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 10,
-      fontSize: 14,
+      fontSize: 16,
       color: c.textPrimary,
       borderWidth: 1,
       borderColor: c.borderSubtle,
@@ -430,8 +430,8 @@ function createStyles(c: AppColors) {
       paddingHorizontal: 18,
       justifyContent: 'center',
     },
-    demoBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+    demoBtnText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
 
-    finePrint: { fontSize: 11, color: c.textMuted, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12 },
+    finePrint: { fontSize: 13, color: c.textMuted, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12 },
   });
 }

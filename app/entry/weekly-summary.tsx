@@ -32,7 +32,7 @@ import { useUiStore } from '@/stores/ui-store';
 const ORANGE = '#FF742A';
 const GREEN  = '#27AE60';
 const RED    = '#E53E3E';
-const FF     = 'Inter_400Regular';
+const FF     = 'System';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -411,7 +411,7 @@ export default function WeeklySummaryScreen() {
             {/* Weight */}
             <SectionCard title="Weight" colors={colors}>
               {summary.weight.start == null && summary.weight.end == null ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>No weight logs this week</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>No weight logs this week</Text>
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '700', fontFamily: FF }}>
@@ -495,7 +495,7 @@ export default function WeeklySummaryScreen() {
             {/* Check-In Scores */}
             <SectionCard title="Check-In Scores" colors={colors}>
               {Object.entries(summary.checkins).every(([, v]) => v == null) ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>No check-ins completed this week</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>No check-ins completed this week</Text>
               ) : (
                 <View style={s.checkinGrid}>
                   {Object.entries(summary.checkins)
@@ -544,12 +544,12 @@ export default function WeeklySummaryScreen() {
             {/* Side Effects */}
             <SectionCard title="Side Effects" colors={colors}>
               {summary.sideEffects.totalCount === 0 ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>None logged this week</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>None logged this week</Text>
               ) : (
                 <View>
                   <Text style={[s.actSteps, { marginBottom: 10 }]}>
                     {summary.sideEffects.totalCount}
-                    <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: '400' }}> logged</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 17, fontWeight: '400' }}> logged</Text>
                   </Text>
                   <View style={s.seChips}>
                     {summary.sideEffects.topTypes.map(t => (
@@ -597,7 +597,7 @@ function cardStyles(c: AppColors) {
       marginBottom: 12,
     },
     title: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
       color: c.textSecondary,
       textTransform: 'uppercase',
@@ -607,9 +607,9 @@ function cardStyles(c: AppColors) {
     },
     row: { marginBottom: 12 },
     rowHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-    rowLabel: { fontSize: 14, color: c.textPrimary, fontFamily: FF },
-    rowValue: { fontSize: 14, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
-    rowTarget: { fontSize: 13, fontWeight: '400', color: c.textSecondary },
+    rowLabel: { fontSize: 16, color: c.textPrimary, fontFamily: FF },
+    rowValue: { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+    rowTarget: { fontSize: 15, fontWeight: '400', color: c.textSecondary },
     barBg: {
       height: 5,
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
@@ -634,11 +634,11 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'Inter_800ExtraBold',
+    fontFamily: 'System',
     letterSpacing: -0.5,
   },
   headerSub: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     marginTop: 2,
     fontFamily: FF,
@@ -664,7 +664,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   aiOrangeBorder: { width: 4, backgroundColor: ORANGE },
   aiContent: { flex: 1, padding: 14 },
   aiLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: ORANGE,
     textTransform: 'uppercase',
@@ -673,13 +673,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontFamily: FF,
   },
   aiText: {
-    fontSize: 14,
+    fontSize: 16,
     color: c.textPrimary,
     lineHeight: 20,
     fontFamily: FF,
   },
   shimmerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  shimmerText: { fontSize: 14, color: c.textSecondary, fontFamily: FF },
+  shimmerText: { fontSize: 16, color: c.textSecondary, fontFamily: FF },
   askAiBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -687,7 +687,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 10,
     alignSelf: 'flex-start',
   },
-  askAiBtnText: { fontSize: 13, color: ORANGE, fontWeight: '600', fontFamily: FF },
+  askAiBtnText: { fontSize: 15, color: ORANGE, fontWeight: '600', fontFamily: FF },
 
   // Weight
   deltaBadge: {
@@ -698,12 +698,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
-  deltaBadgeText: { fontSize: 12, fontWeight: '700', fontFamily: FF },
+  deltaBadgeText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
 
   // Activity
   actRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 12 },
   actSteps: { fontSize: 28, fontWeight: '800', color: c.textPrimary, fontFamily: FF },
-  actTarget: { fontSize: 14, color: c.textSecondary, fontFamily: FF },
+  actTarget: { fontSize: 16, color: c.textSecondary, fontFamily: FF },
   dayDots: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   dayDotCol: { alignItems: 'center', gap: 4 },
   dayDot: {
@@ -713,8 +713,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
   },
   dayDotActive: { backgroundColor: ORANGE },
-  dayDotLabel: { fontSize: 10, color: c.textSecondary, fontFamily: FF },
-  subNote: { fontSize: 12, color: c.textSecondary, fontFamily: FF },
+  dayDotLabel: { fontSize: 12, color: c.textSecondary, fontFamily: FF },
+  subNote: { fontSize: 14, color: c.textSecondary, fontFamily: FF },
 
   // Check-ins
   checkinGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -726,9 +726,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
   },
-  checkinPillLabel: { fontSize: 13, color: c.textPrimary, fontFamily: FF },
+  checkinPillLabel: { fontSize: 15, color: c.textPrimary, fontFamily: FF },
   checkinScore: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  checkinScoreText: { fontSize: 12, fontWeight: '700', fontFamily: FF },
+  checkinScoreText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
 
   // PK comparison
   pkCompareBlock: {
@@ -744,12 +744,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center',
   },
   pkCompareLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     fontFamily: FF,
   },
   pkDeltaLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: c.textSecondary,
     fontFamily: FF,
     fontStyle: 'italic',
@@ -764,7 +764,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  seChipText: { fontSize: 13, color: c.textPrimary, fontFamily: FF },
+  seChipText: { fontSize: 15, color: c.textPrimary, fontFamily: FF },
 
   // Footer
   footer: {
@@ -789,7 +789,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     height: 46,
     borderRadius: 12,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15, fontFamily: FF },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 17, fontFamily: FF },
   secondaryBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -801,5 +801,5 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     height: 46,
     borderRadius: 12,
   },
-  secondaryBtnText: { color: ORANGE, fontWeight: '700', fontSize: 15, fontFamily: FF },
+  secondaryBtnText: { color: ORANGE, fontWeight: '700', fontSize: 17, fontFamily: FF },
 });

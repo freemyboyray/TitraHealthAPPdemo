@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 type Props = {
   onPress: () => void;
@@ -46,7 +46,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     opacity: 0.35,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: c.isDark ? '#000000' : '#FFFFFF',
     letterSpacing: 0.2,

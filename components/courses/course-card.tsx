@@ -5,18 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { contentCategoryColor } from '@/constants/theme';
 import { CourseProgressRing } from './course-progress-ring';
 import type { CourseRow } from '@/stores/courses-store';
 
-const FF = 'Inter_400Regular';
+const FF = 'System';
 const ORANGE = '#FF742A';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  medical: ORANGE,
-  nutrition: '#27AE60',
-  mental_health: '#9B59B6',
-  lifestyle: '#5B8BF5',
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   medical: 'Medical',
@@ -39,7 +33,7 @@ function renderIcon(name: string, iconSet: string, size: number, color: string) 
 export function CourseCard({ course, completedCount }: Props) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const catColor = CATEGORY_COLORS[course.category] ?? ORANGE;
+  const catColor = contentCategoryColor(colors.isDark, course.category);
   const done = completedCount >= course.lesson_count;
 
   return (
@@ -90,17 +84,17 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
     card: {
       width: 200,
-      backgroundColor: c.surface,
+      backgroundColor: c.isDark ? c.surface : '#FFFFFF',
       borderRadius: 20,
-      borderWidth: 0.5,
-      borderColor: c.border,
+      borderWidth: c.isDark ? 0.5 : 1,
+      borderColor: c.isDark ? c.border : 'rgba(0,0,0,0.06)',
       padding: 16,
       marginRight: 12,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
+      shadowColor: c.isDark ? '#000000' : 'rgba(0,0,0,0.08)',
+      shadowOffset: { width: 0, height: c.isDark ? 6 : 2 },
+      shadowOpacity: c.isDark ? 0.2 : 1,
+      shadowRadius: c.isDark ? 16 : 8,
+      elevation: c.isDark ? 6 : 2,
     },
     topRow: {
       flexDirection: 'row',
@@ -116,15 +110,15 @@ const createStyles = (c: AppColors) => {
       justifyContent: 'center',
     },
     title: {
-      fontSize: 15,
+      fontSize: 17,
       fontWeight: '700',
       color: c.textPrimary,
-      fontFamily: 'Inter_700Bold',
+      fontFamily: 'System',
       marginBottom: 4,
       lineHeight: 20,
     },
     subtitle: {
-      fontSize: 12,
+      fontSize: 14,
       color: w(0.45),
       fontFamily: FF,
       lineHeight: 16,
@@ -142,12 +136,12 @@ const createStyles = (c: AppColors) => {
       paddingVertical: 3,
     },
     categoryText: {
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: '700',
       fontFamily: FF,
     },
     lessonCount: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
       color: w(0.35),
       fontFamily: FF,

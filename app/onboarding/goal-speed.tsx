@@ -123,8 +123,8 @@ export default function GoalSpeedScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'Inter_800ExtraBold' },
-  subtitle: { fontSize: 15, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'Inter_400Regular' },
+  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
+  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 20, lineHeight: 22, fontFamily: 'System' },
   chip: {
     alignSelf: 'flex-start',
     backgroundColor: c.glassOverlay,
@@ -133,13 +133,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 20,
     marginBottom: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: c.textPrimary, fontFamily: 'Inter_400Regular' },
+  chipText: { fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: 'System' },
   display: { alignItems: 'center', marginBottom: 12 },
-  displayLabel: { fontSize: 13, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'Inter_400Regular' },
-  displayValue: { fontSize: 52, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'Inter_800ExtraBold' },
+  displayLabel: { fontSize: 15, color: c.textSecondary, letterSpacing: 0.5, fontFamily: 'System' },
+  displayValue: { fontSize: 52, fontWeight: '800', color: c.textPrimary, marginTop: 4, fontFamily: 'System' },
   contextNote: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    fontFamily: 'System',
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
@@ -167,14 +167,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderColor: '#FF742A',
   },
   snapLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
     color: c.textSecondary,
   },
   snapLabelSelected: {
     color: '#FFFFFF',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'System',
   },
   markerRow: {
     flexDirection: 'row',
@@ -183,8 +183,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 8,
   },
   markerText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    fontFamily: 'System',
     color: c.textMuted,
   },
   spacer: { flex: 1 },
