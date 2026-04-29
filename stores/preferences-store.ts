@@ -44,6 +44,9 @@ type PreferencesStore = {
   markAchievementShown: (id: string) => void;
   /** Seed all currently-earned achievements as already shown (one-time on first run). */
   seedAchievements: (ids: string[]) => void;
+  /** Whether to use the gradient header or solid orange. */
+  useGradientHeader: boolean;
+  setUseGradientHeader: (v: boolean) => void;
   reset: () => void;
 };
 
@@ -84,7 +87,9 @@ export const usePreferencesStore = create<PreferencesStore>()(
         const merged = new Set([...s.shownAchievementIds, ...ids]);
         return { shownAchievementIds: [...merged], achievementsSeeded: true };
       }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, themeMode: 'system' as ThemeMode }),
+      useGradientHeader: true,
+      setUseGradientHeader: (v) => set({ useGradientHeader: v }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

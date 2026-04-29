@@ -1846,7 +1846,7 @@ export default function HomeScreen() {
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+  content: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 120 },
 
   // Hero gradient — absolute positioned behind all content, fades to page bg
   heroGradientBg: {

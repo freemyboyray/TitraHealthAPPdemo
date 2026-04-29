@@ -1,7 +1,7 @@
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
   const { masterEnabled } = useRemindersStore();
-  const { themeMode, setThemeMode, appleHealthEnabled } = usePreferencesStore();
+  const { themeMode, setThemeMode, appleHealthEnabled, useGradientHeader, setUseGradientHeader } = usePreferencesStore();
   const { lastRefreshed, liveCategories } = useHealthKitStore();
   const { colors } = useAppTheme();
   const isPremium = useSubscriptionStore((s) => s.isPremium);
@@ -318,6 +318,23 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             ))}
+          </View>
+
+          <View style={s.divider} />
+
+          {/* Gradient Header */}
+          <View style={s.cardRow}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <IconSymbol name="paintbrush.fill" size={18} color={ORANGE} />
+              </View>
+              <Text style={s.rowLabel}>Gradient Header</Text>
+            </View>
+            <Switch
+              value={useGradientHeader}
+              onValueChange={setUseGradientHeader}
+              trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: ORANGE }}
+            />
           </View>
 
           <View style={s.divider} />
