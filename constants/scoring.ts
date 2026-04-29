@@ -93,8 +93,8 @@ export function daysSinceInjection(
   // Anchor ref to local midnight so timezone doesn't shift the day count
   const ref = new Date(refDate ?? new Date());
   ref.setHours(0, 0, 0, 0);
-  const days = Math.round((ref.getTime() - lastMs) / 86400000) + 1;
-  return Math.max(1, Math.min(injFreqDays, days));
+  const days = Math.round((ref.getTime() - lastMs) / 86400000);
+  return Math.max(0, Math.min(injFreqDays, days));
 }
 
 /** Hours since last dose (for intraday phase computation on daily drugs). */

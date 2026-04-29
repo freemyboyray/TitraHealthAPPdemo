@@ -133,17 +133,23 @@ async function resolveItems(
   }
 
   // ── Build resolved items with top candidates kept for user override ────
-  return itemsWithCandidates.map((ic, idx) => ({
-    item: ic.parsed.item,
-    estimated_g: ic.parsed.estimated_g,
-    results: ic.candidates.slice(0, 5), // Keep top 5 for user to override
-    selectedIdx: selectedIndices[idx] ?? 0,
-    servingG: String(Math.round(ic.parsed.estimated_g)),
-    selectedServingIdx: -1,
-    qty: String(Math.round(ic.parsed.estimated_g)),
-    unitGrams: 1,
-    unitLabel: 'g',
-  }));
+  return itemsWithCandidates.map((ic, idx) => {
+    const top = ic.candidates[selectedIndices[idx] ?? 0];
+    const firstServing = top?.serving_options?.[0];
+    const useServing = top?.fdcId === -1 && firstServing && firstServing.label !== 'g';
+
+    return {
+      item: ic.parsed.item,
+      estimated_g: ic.parsed.estimated_g,
+      results: ic.candidates.slice(0, 5), // Keep top 5 for user to override
+      selectedIdx: selectedIndices[idx] ?? 0,
+      servingG: useServing ? String(firstServing.grams) : String(Math.round(ic.parsed.estimated_g)),
+      selectedServingIdx: -1,
+      qty: useServing ? '1' : String(Math.round(ic.parsed.estimated_g)),
+      unitGrams: useServing ? firstServing.grams : 1,
+      unitLabel: useServing ? firstServing.label : 'g',
+    };
+  });
 }
 
 async function fetchServingOptions(
@@ -165,8 +171,11 @@ async function fetchServingOptions(
           ...t,
           resolvedItems: t.resolvedItems.map((it, i) => {
             if (i !== idx) return it;
+            const firstOpt = detail.serving_options?.[0];
+            const autoSwitch = firstOpt && it.unitLabel === 'g';
             return {
               ...it,
+              ...(autoSwitch ? { unitLabel: firstOpt.label, unitGrams: firstOpt.grams, qty: '1', servingG: String(firstOpt.grams) } : {}),
               results: it.results.map((r, ri) =>
                 ri === 0
                   ? {

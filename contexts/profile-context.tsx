@@ -124,7 +124,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Shared logic for loading the profile from cache / Supabase.
   // Called on mount and again after sign-in to ensure fresh state.
-  async function loadProfileFromServer() {
+  async function loadProfileFromServer(attempt = 0) {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1500;
     setIsLoading(true);
     try {
       // One-time cache migration: wipe legacy caches without uid tagging
@@ -134,8 +136,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem('@titrahealth_cache_v2', '1');
       }
 
-      // 1. Get current user first so we can verify cache ownership
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1. Get current user — may fail on transient network errors (e.g. simulator reload)
+      let user: { id: string } | null = null;
+      try {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      } catch {
+        // Network error reaching Supabase — fall back to cached profile if available
+        const json = await AsyncStorage.getItem(STORAGE_KEY);
+        if (json) {
+          setProfile(JSON.parse(json) as FullUserProfile);
+          return;
+        }
+        // No cache and network is down — retry before giving up
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+          return loadProfileFromServer(attempt + 1);
+        }
+        return;
+      }
 
       // 2. Try AsyncStorage (fast, offline-capable) — but only if it belongs to this user
       const json = await AsyncStorage.getItem(STORAGE_KEY);
@@ -159,11 +178,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data: row } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      let row: Record<string, any> | null = null;
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        row = data;
+      } catch {
+        // Network error fetching profile row — retry
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+          return loadProfileFromServer(attempt + 1);
+        }
+        return;
+      }
 
       // 3. If Supabase has a row with program_start_date → reconstruct + cache
       if (row && row.program_start_date) {

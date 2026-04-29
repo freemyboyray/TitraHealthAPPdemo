@@ -1,5 +1,6 @@
-import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GradientBackground } from '@/components/ui/gradient-background';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
@@ -279,37 +281,37 @@ type MythItem = {
 
 const MYTHS: MythItem[] = [
   {
-    icon: <MaterialIcons name="psychology" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="brain.head.profile" size={26} color="#FF742A" />,
     myth: '"GLP-1s are the easy way out. Real weight loss takes willpower."',
     fact: 'Obesity is a chronic metabolic disease driven by biology, not willpower. GLP-1 medications correct a hormonal dysfunction, just as insulin treats diabetes. Studies show GLP-1 therapy is more effective than lifestyle intervention alone for sustained weight loss.',
   },
   {
-    icon: <MaterialIcons name="restaurant" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="fork.knife" size={26} color="#FF742A" />,
     myth: '"I can eat whatever I want since the medication controls my appetite."',
     fact: 'Poor nutrition on GLP-1s leads to muscle loss, micronutrient deficiency, and rebound weight gain. The medication reduces quantity. What you eat determines quality of your results. Protein intake is especially critical for preserving muscle mass.',
   },
   {
-    icon: <MaterialCommunityIcons name="scale" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="scalemass.fill" size={26} color="#FF742A" />,
     myth: '"The weight will stay off permanently once I lose it."',
     fact: 'Weight regain occurs in ~70% of patients within 12 months of stopping GLP-1 therapy. The brain\'s appetite regulation and metabolic set point revert without the medication. Long-term treatment is the evidence-based approach for sustained results.',
   },
   {
-    icon: <MaterialIcons name="face" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="face.smiling" size={26} color="#FF742A" />,
     myth: '"Hair loss on GLP-1s is permanent and keeps getting worse."',
     fact: 'Hair shedding (telogen effluvium) is temporary, caused by rapid caloric restriction, not a direct drug effect. It typically peaks at 3–4 months and fully reverses by 9–12 months. Prioritizing protein and micronutrients (zinc, iron, biotin) significantly reduces severity.',
   },
   {
-    icon: <MaterialIcons name="sick" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="exclamationmark.triangle.fill" size={26} color="#FF742A" />,
     myth: '"Nausea means the medication is working. More nausea = faster weight loss."',
     fact: 'Nausea is a side effect of the medication\'s gut effects, not an indicator of efficacy. Severe nausea often means you\'re eating too much or too fast, or escalating doses too quickly. It has no correlation with weight loss rate.',
   },
   {
-    icon: <MaterialIcons name="local-hospital" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="cross.case.fill" size={26} color="#FF742A" />,
     myth: '"GLP-1s are only for people with type 2 diabetes."',
     fact: 'Semaglutide (Wegovy) and tirzepatide (Zepbound) are FDA-approved for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition, regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
   },
   {
-    icon: <MaterialIcons name="biotech" size={26} color="#FF742A" />,
+    icon: <IconSymbol name="cross.case.fill" size={26} color="#FF742A" />,
     myth: '"GLP-1 medications damage your thyroid or pancreas."',
     fact: 'The thyroid tumor signal seen in rodent studies has not been observed in humans in any clinical trial. The FDA requires a warning on labeling as a precaution, but human evidence for this risk is not established. Pancreatitis risk exists but is rare (~0.1%) and not higher than in the general population with obesity-related risk factors.',
   },
@@ -576,7 +578,7 @@ function SideEffectDecoder() {
     <View style={[s.wrap, glassShadow]}>
       <View style={s.body}>
         <View style={s.header}>
-          <Ionicons name="search" size={18} color={ORANGE} />
+          <IconSymbol name="magnifyingglass" size={18} color={ORANGE} />
           <Text style={s.title}>Side Effect Decoder</Text>
         </View>
         <Text style={s.subtitle}>Tap a symptom to understand if it's expected or needs attention.</Text>
@@ -711,14 +713,14 @@ function SafetyCard() {
       >
         <View style={s.headerRow}>
           <View style={s.iconWrap}>
-            <Ionicons name="alert-circle" size={20} color="#E74C3C" />
+            <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#E74C3C" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.title}>When to Call Your Doctor</Text>
             <Text style={s.subtitle}>Critical warning signs to know</Text>
           </View>
-          <Ionicons
-            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          <IconSymbol
+            name={isExpanded ? 'chevron.up' : 'chevron.down'}
             size={16}
             color="rgba(231,76,60,0.6)"
           />
@@ -808,8 +810,8 @@ function EducationCard({ section }: { section: Section }) {
                 activeOpacity={0.7}
               >
                 <Text style={c.itemQ} numberOfLines={isOpen ? undefined : 2}>{item.q}</Text>
-                <Ionicons
-                  name={isOpen ? 'chevron-up' : 'chevron-down'}
+                <IconSymbol
+                  name={isOpen ? 'chevron.up' : 'chevron.down'}
                   size={16}
                   color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'}
                   style={{ marginLeft: 8, flexShrink: 0 }}
@@ -930,15 +932,12 @@ export default function EducationScreen() {
   return (
     <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={s.heroBg}>
-        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-          <View style={s.heroHeader}>
-            <Text style={s.heroTitle}>Education</Text>
-            <Text style={s.heroSub}>Your guide to GLP-1 therapy</Text>
-          </View>
-        </SafeAreaView>
-        <View style={s.heroCurve} />
-      </View>
+      <GradientBackground />
+      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+        <View style={s.heroHeader}>
+          <Text style={s.heroTitle}>Education</Text>
+        </View>
+      </SafeAreaView>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}

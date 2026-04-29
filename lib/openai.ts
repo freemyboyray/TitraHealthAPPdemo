@@ -206,7 +206,7 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
         // FunctionsHttpError includes status:429 in the serialized context
         if (errJson.includes('429') || errJson.includes('USAGE_LIMIT') ||
             errMsg.includes('429') || errMsg.includes('USAGE_LIMIT')) {
-          throw new UsageLimitError('ai', 3, 3);
+          throw new UsageLimitError('ai_chat', 5, 5);
         }
 
         lastError = new Error(`OpenAI proxy error: ${errMsg}`);
@@ -615,11 +615,37 @@ export async function selectBestFoodMatches(
   }
 }
 
+// ─── GLP-1 Meal Tip ─────────────────────────────────────────────────────────
+
+export async function generateMealTip(
+  foodName: string,
+  macros: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number },
+  score: number,
+  phase: string,
+  sideEffects: string[],
+): Promise<string> {
+  const sideEffectStr = sideEffects.length > 0 ? sideEffects.join(', ') : 'none';
+  const systemPrompt = `You are a GLP-1 medication nutrition coach. The user just logged a meal. Give ONE concise, actionable tip (1 sentence, max 25 words) to improve this meal for their GLP-1 journey. Focus on the biggest gap. If the meal scored 8+, give a brief affirmation instead. Never say "consider" — be direct.`;
+  const userPrompt = `Food: ${foodName} | ${macros.calories} cal, ${macros.protein_g}g protein, ${macros.carbs_g}g carbs, ${macros.fat_g}g fat, ${macros.fiber_g}g fiber | Score: ${score}/10 | Phase: ${phase} | Side effects: ${sideEffectStr}`;
+
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: 60,
+    temperature: 0.5,
+  });
+
+  return (data as any).choices[0].message.content as string;
+}
+
 // ─── AI Macro Estimation Fallback ─────────────────────────────────────────────
 
 const MACRO_ESTIMATE_SYSTEM = `You are a nutrition database. Return ONLY valid JSON for the exact food named, per 100g:
-{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number}
-Use standard nutritional values. No extra text, no markdown.`;
+{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"serving":{"label":"string","grams":number},"alt_servings":[{"label":"string","grams":number}]}
+Use standard nutritional values. For "serving", provide a natural typical serving with a human-friendly label (e.g. "1 burger", "1 cup", "1 slice", "1 bowl") and its weight in grams. For "alt_servings", provide 1-2 alternative portion sizes with natural labels. No extra text, no markdown.`;
 
 export async function estimateMacrosWithAI(foodName: string): Promise<{
   fdcId: number;
@@ -637,6 +663,18 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const m = JSON.parse(match[0]);
+
+    // Build natural serving options from AI response with fallback
+    const serving = m.serving && m.serving.label && m.serving.grams
+      ? { label: m.serving.label, grams: Math.round(m.serving.grams) }
+      : { label: '1 serving', grams: 150 };
+    const altServings: { label: string; grams: number }[] = Array.isArray(m.alt_servings)
+      ? m.alt_servings
+          .filter((s: any) => s?.label && s?.grams)
+          .map((s: any) => ({ label: s.label, grams: Math.round(s.grams) }))
+      : [];
+    const serving_options = [serving, ...altServings];
+
     return {
       fdcId: -1,
       name: foodName,
@@ -646,11 +684,7 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
       carbs_g: parseFloat((m.carbs_g ?? 0).toFixed(1)),
       fat_g: parseFloat((m.fat_g ?? 0).toFixed(1)),
       fiber_g: parseFloat((m.fiber_g ?? 0).toFixed(1)),
-      serving_options: [
-        { label: '100g', grams: 100 },
-        { label: '150g', grams: 150 },
-        { label: '200g', grams: 200 },
-      ],
+      serving_options,
     };
   } catch {
     return null;

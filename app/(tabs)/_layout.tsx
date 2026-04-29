@@ -1,4 +1,5 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
@@ -55,10 +56,10 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
   const miniScale   = minimized.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] });
 
   const ICON_DEFS = [
-    { focused: <Ionicons name="home" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="home-outline" size={24} color={colors.textMuted} /> },
-    { focused: <MaterialIcons name="menu" size={26} color="#FFFFFF" />, unfocused: <MaterialIcons name="menu" size={26} color={colors.textMuted} /> },
-    { focused: <Ionicons name="document" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="document-outline" size={24} color={colors.textMuted} /> },
-    { focused: <Ionicons name="settings" size={24} color="#FFFFFF" />, unfocused: <Ionicons name="settings-outline" size={24} color={colors.textMuted} /> },
+    { focused: <IconSymbol name="house.fill" size={24} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="house" size={24} color={colors.textMuted} /> },
+    { focused: <IconSymbol name="list.bullet" size={26} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="list.bullet" size={26} color={colors.textMuted} /> },
+    { focused: <IconSymbol name="book.fill" size={24} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="book" size={24} color={colors.textMuted} /> },
+    { focused: <IconSymbol name="gearshape.fill" size={24} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="gearshape" size={24} color={colors.textMuted} /> },
   ];
 
   return (
@@ -136,7 +137,7 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
         activeOpacity={0.85}
       >
         <View style={s.fabInner}>
-          <Ionicons name={fabOpen ? 'close' : 'add'} size={32} color="#FFFFFF" />
+          <IconSymbol name={fabOpen ? 'xmark' : 'plus'} size={32} color="#FFFFFF" weight="semibold" />
         </View>
       </TouchableOpacity>
 

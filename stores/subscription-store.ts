@@ -28,8 +28,8 @@ const PREMIUM_FEATURES = new Set([
 const METERED_FEATURES = new Set<FeatureKey>(['ai_chat', 'photo_analysis', 'voice_log']);
 
 const FEATURE_LIMITS: Record<FeatureKey, number> = {
-  ai_chat: 3,
-  photo_analysis: 5,
+  ai_chat: 5,
+  photo_analysis: 3,
   voice_log: 3,
 };
 

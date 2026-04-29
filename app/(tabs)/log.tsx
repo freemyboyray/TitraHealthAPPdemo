@@ -7,6 +7,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GradientBackground } from '@/components/ui/gradient-background';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -43,6 +44,7 @@ import { useAnimatedReaction, runOnJS as reanimatedRunOnJS } from 'react-native-
 import { useChartScrub } from '@/hooks/useChartScrub';
 import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const ORANGE = '#FF742A';
 
@@ -453,7 +455,7 @@ function foodToEntry(f: FoodLog): LogEntry {
   return {
     id: f.id, timestamp: fmtDateTime(f.logged_at), title: f.food_name,
     details, impact, impactStatus: 'positive',
-    icon: <MaterialIcons name="restaurant" size={20} color={ORANGE_LOG} />,
+    icon: <IconSymbol name="fork.knife" size={20} color={ORANGE_LOG} />,
   };
 }
 
@@ -496,7 +498,7 @@ function weightToEntry(log: WeightLog, prevLog?: WeightLog): LogEntry {
     details: `${log.weight_lbs} lbs · ${deltaStr} from last entry`,
     impact: delta <= 0 ? deltaStr : `Up ${Math.abs(delta)} lbs`,
     impactStatus: delta < 0 ? 'positive' : delta > 0 ? 'negative' : 'neutral',
-    icon: <MaterialCommunityIcons name="scale" size={20} color={ORANGE_LOG} />,
+    icon: <IconSymbol name="scalemass.fill" size={20} color={ORANGE_LOG} />,
   };
 }
 
@@ -1505,7 +1507,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     padding: 12,
                     alignItems: 'center',
                   }}>
-                    <Ionicons name="arrow-up-circle" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
+                    <IconSymbol name="checkmark.circle.fill" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Peak</Text>
                     <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
                   </View>
@@ -1517,7 +1519,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     padding: 12,
                     alignItems: 'center',
                   }}>
-                    <Ionicons name="time-outline" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
+                    <IconSymbol name="magnifyingglass" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Half-life</Text>
                     <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
                   </View>
@@ -1529,7 +1531,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     padding: 12,
                     alignItems: 'center',
                   }}>
-                    <Ionicons name="arrow-down-circle" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
+                    <IconSymbol name="chart.line.downtrend.xyaxis" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Trough</Text>
                     <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
                   </View>
@@ -2262,7 +2264,7 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
 
           {top.length === 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
-              <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
+              <IconSymbol name="checkmark.circle.fill" size={20} color="#27AE60" />
               <Text style={{ fontSize: 16, color: w(0.45), fontFamily: 'System' }}>No side effects logged recently</Text>
             </View>
           ) : (
@@ -2347,7 +2349,7 @@ function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?:
                             onPress={() => onDelete(entry.id)}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
-                            <Ionicons name="trash-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                            <IconSymbol name="trash.fill" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -2454,16 +2456,17 @@ function LifestyleTrendCard({
       return d.toISOString().slice(0, 10);
     });
     const vs = ds.map(d => metric.getValue(foodByDate, activityByDate, d));
-    const tgt = metric.getTarget(targets);
+    const tgtRaw = metric.getTarget(targets);
+    const tgt = Math.round(tgtRaw);
     const withData = vs.filter(v => v !== null) as number[];
-    const hr = withData.length ? withData.filter(v => v >= tgt).length / withData.length : 0;
+    const hr = withData.length ? withData.filter(v => Math.round(v) >= tgt).length / withData.length : 0;
     const avg = withData.length ? withData.reduce((s, v) => s + v, 0) / withData.length : 0;
     const mid = Math.floor(withData.length / 2);
     const firstHalf = mid > 0 ? withData.slice(0, mid).reduce((s, v) => s + v, 0) / mid : 0;
     const secondHalf = mid > 0 ? withData.slice(mid).reduce((s, v) => s + v, 0) / (withData.length - mid) : 0;
     const tp = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
     let cur = 0, best = 0;
-    vs.forEach(v => { if (v !== null && v >= tgt) { cur++; best = Math.max(best, cur); } else cur = 0; });
+    vs.forEach(v => { if (v !== null && Math.round(v) >= tgt) { cur++; best = Math.max(best, cur); } else cur = 0; });
     return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best };
   }, [effectiveDays, todayStr, metric, foodByDate, activityByDate, targets]);
 
@@ -2762,24 +2765,24 @@ function LifestyleTrendCard({
               transform: [{ translateY: sheetY }],
             }}
           >
-            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.07)' }]} />
+            <BlurView intensity={60} tint={dk ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: dk ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.85)' }]} />
 
             {/* Drag handle */}
             <View
               {...panRef.panHandlers}
               style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 12 }}
             >
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)' }} />
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: tc(0.18) }} />
             </View>
 
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, fontFamily: 'System' }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
                 {metric.label} Trend
               </Text>
               <Pressable onPress={dismiss} hitSlop={12}>
-                <Ionicons name="close-circle" size={28} color="rgba(255,255,255,0.4)" />
+                <Ionicons name="close-circle" size={28} color={tc(0.4)} />
               </Pressable>
             </View>
 
@@ -2817,16 +2820,16 @@ function LifestyleTrendCard({
 
               {/* Selected point tooltip */}
               {selValue !== null && selDate !== null && (
-                <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontFamily: 'System' }}>{selDate}</Text>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFF', fontFamily: 'System', marginTop: 2 }}>
+                <View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: tc(0.08), marginBottom: 4 }}>
+                  <Text style={{ fontSize: 14, color: tc(0.5), fontFamily: 'System' }}>{selDate}</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginTop: 2 }}>
                     {fmtVal(selValue)} {metric.unit}
                   </Text>
                   <Text style={{
                     fontSize: 14, fontWeight: '600', fontFamily: 'System', marginTop: 2,
-                    color: selValue >= target ? '#27AE60' : '#E74C3C',
+                    color: Math.round(selValue) >= target ? '#27AE60' : '#E74C3C',
                   }}>
-                    {selValue >= target
+                    {Math.round(selValue) >= target
                       ? 'On target ✓'
                       : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% below target`}
                   </Text>
@@ -2841,7 +2844,7 @@ function LifestyleTrendCard({
                     <Text style={{ fontSize: 56, fontWeight: '800', color: hitRateColor, fontFamily: 'System', lineHeight: 60 }}>
                       {hitRatePct}%
                     </Text>
-                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', fontFamily: 'System' }}>
+                    <Text style={{ fontSize: 15, color: tc(0.5), fontFamily: 'System' }}>
                       of days on target
                     </Text>
                   </View>
@@ -2849,20 +2852,20 @@ function LifestyleTrendCard({
                   {/* Stat chips */}
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     {[
-                      { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: '#FFF' },
+                      { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: colors.textPrimary },
                       { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: trendPct >= 0 ? '#27AE60' : '#E74C3C' },
-                      { value: `${bestStreak}d`, sub: 'best streak', color: '#FFF' },
+                      { value: `${bestStreak}d`, sub: 'best streak', color: colors.textPrimary },
                     ].map((chip, i) => (
-                      <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                      <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: tc(0.06), alignItems: 'center' }}>
                         <Text style={{ fontSize: 17, fontWeight: '700', color: chip.color, fontFamily: 'System' }}>{chip.value}</Text>
-                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'System', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
+                        <Text style={{ fontSize: 12, color: tc(0.45), fontFamily: 'System', marginTop: 2, textAlign: 'center' }}>{chip.sub}</Text>
                       </View>
                     ))}
                   </View>
 
                   {/* Contextual text */}
-                  <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', fontFamily: 'System', lineHeight: 20 }}>
+                  <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: tc(0.04) }}>
+                    <Text style={{ fontSize: 15, color: tc(0.6), fontFamily: 'System', lineHeight: 20 }}>
                       {hitRatePct >= 70
                         ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
                         : hitRatePct >= 40
@@ -2927,11 +2930,15 @@ export default function InsightsScreen() {
   const loggedProteinG = Math.round(todayFoodLogs.reduce((s, f) => s + f.protein_g, 0));
   const loggedFiberG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fiber_g, 0));
   const loggedCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
+  const loggedFatG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fat_g, 0));
+  const loggedCalories = Math.round(todayFoodLogs.reduce((s, f) => s + f.calories, 0));
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
   const todayProteinG = loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0);
   const todayFiberG = loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0);
   const todayCarbsG = loggedCarbsG > 0 ? loggedCarbsG : Math.round(hkStore.todayNutrition?.carbs ?? 0);
+  const todayFatG = loggedFatG > 0 ? loggedFatG : Math.round(hkStore.todayNutrition?.fat ?? 0);
+  const todayCalories = loggedCalories > 0 ? loggedCalories : Math.round(hkStore.todayNutrition?.calories ?? 0);
   const todayActiveCalories = loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0);
   const todaySteps = loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0);
   // Hydration: actuals.waterMl is from in-app logs; HK waterToday is in fl oz.
@@ -2969,6 +2976,8 @@ export default function InsightsScreen() {
   const waterTargetOz = Math.round(targets.waterMl / 29.57);
   const waterPct = targets.waterMl > 0 ? Math.round((resolvedWaterMl / targets.waterMl) * 100) : 0;
   const carbsPct = targets.carbsG > 0 ? Math.round((todayCarbsG / targets.carbsG) * 100) : 0;
+  const fatPct = targets.fatG > 0 ? Math.round((todayFatG / targets.fatG) * 100) : 0;
+  const caloriesPct = targets.caloriesTarget > 0 ? Math.round((todayCalories / targets.caloriesTarget) * 100) : 0;
 
   // ── Lifestyle logs ─────────────────────────────────────────────────────────
   const lifestyleLogs: LogEntry[] = [
@@ -3175,14 +3184,12 @@ export default function InsightsScreen() {
   return (
     <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <View style={s.heroBg}>
-        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-          <View style={s.heroHeader}>
-            <Text style={s.heroTitle}>Insights</Text>
-          </View>
-        </SafeAreaView>
-        <View style={s.heroCurve} />
-      </View>
+      <GradientBackground />
+      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+        <View style={s.heroHeader}>
+          <Text style={s.heroTitle}>Insights</Text>
+        </View>
+      </SafeAreaView>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -3220,32 +3227,46 @@ export default function InsightsScreen() {
               <Text style={s.sectionTitle}>Daily Metrics</Text>
               <View style={s.dailyGrid}>
                 <DailyMetricCard
-                  icon={<MaterialIcons name="restaurant" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
+                  icon={<IconSymbol name="fork.knife" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
                   label="Protein" value={`${todayProteinG}/${targets.proteinG}g`}
                   change={`${proteinPct}%`}
                   status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
                   pct={proteinPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<Ionicons name="leaf-outline" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
+                  icon={<IconSymbol name="leaf.fill" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
                   label="Fiber" value={`${todayFiberG}/${targets.fiberG}g`}
                   change={`${fiberPct}%`}
                   status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
                   pct={fiberPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<Ionicons name="water-outline" size={20} color={categoryColor(colors.isDark, 'hydration')} />}
+                  icon={<IconSymbol name="drop.fill" size={20} color={categoryColor(colors.isDark, 'hydration')} />}
                   label="Hydration" value={`${waterOz}/${waterTargetOz}oz`}
                   change={`${waterPct}%`}
                   status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
                   pct={waterPct / 100}
                 />
                 <DailyMetricCard
-                  icon={<MaterialIcons name="grain" size={20} color={categoryColor(colors.isDark, 'activity')} />}
+                  icon={<IconSymbol name="leaf.fill" size={20} color={categoryColor(colors.isDark, 'activity')} />}
                   label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
                   change={`${carbsPct}%`}
                   status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
                   pct={carbsPct / 100}
+                />
+                <DailyMetricCard
+                  icon={<IconSymbol name="drop.triangle.fill" size={20} color="#F6CB45" />}
+                  label="Fat" value={`${todayFatG}/${targets.fatG}g`}
+                  change={`${fatPct}%`}
+                  status={fatPct >= 80 ? 'positive' : fatPct >= 40 ? 'neutral' : 'negative'}
+                  pct={fatPct / 100}
+                />
+                <DailyMetricCard
+                  icon={<IconSymbol name="flame.fill" size={20} color="#C084FC" />}
+                  label="Calories" value={`${todayCalories}/${targets.caloriesTarget} cal`}
+                  change={`${caloriesPct}%`}
+                  status={caloriesPct >= 80 ? 'positive' : caloriesPct >= 40 ? 'neutral' : 'negative'}
+                  pct={caloriesPct / 100}
                 />
                 <ActivityDailyCard
                   value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
@@ -3341,14 +3362,14 @@ export default function InsightsScreen() {
               <View style={[s.dailyGrid, { marginBottom: 24 }]}>
                 {!oral && (
                   <InjectionCard
-                    icon={<Ionicons name="body-outline" size={20} color={ORANGE} />}
+                    icon={<IconSymbol name="figure.stand" size={20} color={ORANGE} />}
                     label="Last Injection Site"
                     value={lastSite ?? '-'}
                   />
                 )}
                 {!oral && (
                   <InjectionCard
-                    icon={<Ionicons name="sync-outline" size={20} color={ORANGE} />}
+                    icon={<IconSymbol name="magnifyingglass" size={20} color={ORANGE} />}
                     label="Rotate To"
                     value={rotateTo}
                   />
@@ -3359,7 +3380,7 @@ export default function InsightsScreen() {
                   value={lastDosage}
                 />
                 <InjectionCard
-                  icon={<Ionicons name="calendar-outline" size={20} color={ORANGE} />}
+                  icon={<IconSymbol name="magnifyingglass" size={20} color={ORANGE} />}
                   label={oral ? 'Next Dose' : 'Next Injection'}
                   value={nextInjLabel}
                 />
@@ -3389,9 +3410,9 @@ export default function InsightsScreen() {
                 goalWeight={goalWeight}
                 toGoalPct={toGoalPct}
               />
-              <View style={s.dailyGrid}>
+              <View style={[s.dailyGrid, { marginBottom: 14 }]}>
                 <ProgressStatCard
-                  icon={<MaterialIcons name="fitness-center" size={20} color={ORANGE} />}
+                  icon={<IconSymbol name="dumbbell.fill" size={20} color={ORANGE} />}
                   label="Current BMI"
                   value={bmi != null ? String(bmi) : '-'}
                 >
@@ -3403,7 +3424,7 @@ export default function InsightsScreen() {
                 </ProgressStatCard>
 
                 <ProgressStatCard
-                  icon={<MaterialIcons name="trending-down" size={20} color={ORANGE} />}
+                  icon={<IconSymbol name="chart.line.downtrend.xyaxis" size={20} color={ORANGE} />}
                   label="Lost So Far"
                   value={weightLost != null ? `${weightLost} lbs` : '0 lbs'}
                 >

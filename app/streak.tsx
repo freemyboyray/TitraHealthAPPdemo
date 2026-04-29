@@ -14,6 +14,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { AnimatedFire } from '@/components/animated-fire';
+import { GradientBackground } from '@/components/ui/gradient-background';
 import { ACHIEVEMENTS, type Achievement } from '@/constants/achievements';
 import type { AppColors } from '@/constants/theme';
 
@@ -112,6 +113,7 @@ export default function StreakScreen() {
 
   return (
     <View style={s.root}>
+      <GradientBackground />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={s.header}>
@@ -193,17 +195,14 @@ export default function StreakScreen() {
                             {day}
                           </Text>
                         </View>
-                        {isScheduledInj && isFuture && (
-                          <View style={s.scheduledDot} />
-                        )}
                         {hasInjLog && !isTod && (
                           <View style={s.injDot} />
                         )}
-                        {!hasInjLog && hasOtherLog && !isTod && (
-                          <View style={s.logDot} />
+                        {isScheduledInj && !isTod && (
+                          <View style={s.scheduledDot} />
                         )}
-                        {isTod && !hasInjLog && (
-                          <View style={s.todayDot} />
+                        {!hasInjLog && !isScheduledInj && hasOtherLog && !isTod && (
+                          <View style={s.logDot} />
                         )}
                       </View>
                     );
@@ -224,10 +223,6 @@ export default function StreakScreen() {
                 <View style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: '#34C759' }]} />
                   <Text style={s.legendLabel}>Logged</Text>
-                </View>
-                <View style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: '#5AC8FA' }]} />
-                  <Text style={s.legendLabel}>Today</Text>
                 </View>
               </View>
             </View>

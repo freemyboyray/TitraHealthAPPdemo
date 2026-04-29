@@ -14,10 +14,14 @@ function yesterdayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 type PreferencesStore = {
   isLightMode: boolean;
   toggleLightMode: () => void;
   setLightMode: (v: boolean) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   appleHealthEnabled: boolean;
   setAppleHealthEnabled: (v: boolean) => void;
   lastWeeklySummaryDate: string | null;
@@ -49,6 +53,8 @@ export const usePreferencesStore = create<PreferencesStore>()(
       isLightMode: false,
       toggleLightMode: () => set((s) => ({ isLightMode: !s.isLightMode })),
       setLightMode: (v) => set({ isLightMode: v }),
+      themeMode: 'system' as ThemeMode,
+      setThemeMode: (mode) => set({ themeMode: mode }),
       appleHealthEnabled: false,
       setAppleHealthEnabled: (v) => set({ appleHealthEnabled: v }),
       lastWeeklySummaryDate: null,
@@ -78,7 +84,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         const merged = new Set([...s.shownAchievementIds, ...ids]);
         return { shownAchievementIds: [...merged], achievementsSeeded: true };
       }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, themeMode: 'system' as ThemeMode }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

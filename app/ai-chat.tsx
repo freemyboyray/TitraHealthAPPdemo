@@ -24,6 +24,7 @@ import { daysSinceInjection } from '@/constants/scoring';
 import { buildSystemPrompt, callOpenAI, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { UsageBadge } from '@/components/ui/usage-badge';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const ORANGE = '#FF742A';
 
@@ -184,6 +185,7 @@ export default function AiChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
   const [userId, setUserId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const seedSent = useRef(false);
@@ -268,9 +270,9 @@ export default function AiChatScreen() {
     } catch (err) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
       const isUsageLimit = err instanceof UsageLimitError;
-      if (isUsageLimit) {
+      if (isUsageLimit && !isPremium) {
         setShowUpgradeCard(true);
-      } else {
+      } else if (!isUsageLimit) {
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: isAuth
@@ -368,7 +370,7 @@ export default function AiChatScreen() {
                   <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
                     {msg.content}
                   </Text>
-                  {msg.content.includes('Upgrade to Titra Pro') && (
+                  {!isPremium && msg.content.includes('Upgrade to Titra Pro') && (
                     <Text style={{ color: ORANGE, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
                   )}
                 </Pressable>
@@ -386,7 +388,7 @@ export default function AiChatScreen() {
             )}
 
             {/* ── Upgrade card when usage limit hit ── */}
-            {showUpgradeCard && (
+            {showUpgradeCard && !isPremium && (
               <View style={{
                 marginTop: 16, marginHorizontal: 4, borderRadius: 24, overflow: 'hidden',
                 backgroundColor: colors.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
@@ -487,10 +489,7 @@ export default function AiChatScreen() {
                   onSubmitEditing={() => sendMessage(inputText)}
                 />
                 <View style={s.inputBottomRow}>
-                  <View style={s.modePill}>
-                    <Ionicons name="chevron-down" size={14} color={colors.textPrimary} style={{ marginRight: 3 }} />
-                    <Text style={s.modePillText}>Coach</Text>
-                  </View>
+                  <View style={{ flex: 1 }} />
                   <View style={s.inputIcons}>
                     <TouchableOpacity
                       activeOpacity={inputText.trim().length > 0 ? 0.7 : 1}
@@ -724,7 +723,7 @@ const createStyles = (c: AppColors) => {
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: c.cardBg,
     borderWidth: 0.5,
     borderColor: w(0.12),
     borderBottomLeftRadius: 4,

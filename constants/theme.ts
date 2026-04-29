@@ -19,6 +19,8 @@ export type AppColors = {
   ringTrack: string;
   blurTint: 'dark' | 'light' | 'systemThinMaterialDark' | 'systemThinMaterialLight' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight' | 'systemUltraThinMaterialDark' | 'systemUltraThinMaterialLight' | 'systemMaterialDark' | 'systemMaterialLight';
   statusBar: 'light' | 'dark';
+  /** Hero header gradient stops (top → bottom), used with expo-linear-gradient. */
+  heroGradient: readonly string[];
   /** true = dark mode, false = light mode. Use to flip rgba(255,255,255,X) → rgba(0,0,0,X) in createStyles factories. */
   isDark: boolean;
 };
@@ -41,15 +43,16 @@ export const darkColors: AppColors = {
   ringTrack: 'rgba(255,255,255,0.06)',
   blurTint: 'systemThinMaterialDark',
   statusBar: 'light',
+  heroGradient: ['#5C3324', '#8B4A2B', '#C4652A', '#000000'] as const,
   isDark: true,
 };
 
 // ─── Light palette ─────────────────────────────────────────────────────────────
 
 export const lightColors: AppColors = {
-  bg: '#FFFFFF',
-  surface: '#EEEDEB',
-  cardBg: '#EEEDEB',
+  bg: '#F2F2F7',
+  surface: '#FFFFFF',
+  cardBg: '#FFFFFF',
   textPrimary: '#1A1A1A',
   textSecondary: '#6B6965',
   textMuted: '#9A9690',
@@ -62,6 +65,7 @@ export const lightColors: AppColors = {
   ringTrack: 'rgba(0,0,0,0.04)',
   blurTint: 'systemThinMaterialLight',
   statusBar: 'dark',
+  heroGradient: ['#D4845A', '#E8975A', '#F2A96B', '#F2F2F7'] as const,
   isDark: false,
 };
 
@@ -121,6 +125,31 @@ const FOCUS_TO_CATEGORY: Record<string, string> = {
 export function focusCategoryColor(isDark: boolean, focusId: string): string {
   return categoryColor(isDark, FOCUS_TO_CATEGORY[focusId] ?? 'medication');
 }
+
+// ─── Typography scale (Apple HIG-aligned) ──────────────────────────────────
+
+export const TYPE = {
+  display:  { fontSize: 28, fontWeight: '800' as const, lineHeight: 34 },
+  title1:   { fontSize: 22, fontWeight: '700' as const, lineHeight: 28 },
+  title2:   { fontSize: 20, fontWeight: '700' as const, lineHeight: 25 },
+  title3:   { fontSize: 17, fontWeight: '600' as const, lineHeight: 22 },
+  body:     { fontSize: 15, fontWeight: '400' as const, lineHeight: 20 },
+  callout:  { fontSize: 14, fontWeight: '600' as const, lineHeight: 19 },
+  caption1: { fontSize: 13, fontWeight: '500' as const, lineHeight: 18 },
+  caption2: { fontSize: 11, fontWeight: '600' as const, lineHeight: 13 },
+};
+
+// ─── Spacing scale (8px base) ──────────────────────────────────────────────
+
+export const SPACE = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+};
 
 /** Map content categories (courses/articles) to category key */
 const CONTENT_TO_CATEGORY: Record<string, string> = {

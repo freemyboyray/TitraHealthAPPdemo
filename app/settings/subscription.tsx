@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { supabase } from '@/lib/supabase';
 // react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let storekit: typeof import('@/lib/storekit') | undefined;
 try { storekit = require('@/lib/storekit'); } catch {}
@@ -45,7 +46,7 @@ export default function SubscriptionScreen() {
 
   useEffect(() => {
     if (!storekit) {
-      Alert.alert('IAP DIAG', 'storekit module did not load (Expo Go or missing native module).');
+      console.warn('[IAP] storekit module did not load (Expo Go or missing native module).');
       return;
     }
     storekit
@@ -53,10 +54,10 @@ export default function SubscriptionScreen() {
       .then((p: any[]) => {
         setProducts(p);
         const ids = p.map((x: any) => x.productId ?? x.id ?? '?').join(', ') || 'NONE';
-        console.log('[IAP DIAG] fetchProducts returned', p.length, 'products:', ids);
+        console.log('[IAP] fetchProducts returned', p.length, 'products:', ids);
       })
       .catch((err: any) => {
-        Alert.alert('IAP DIAG — getProducts failed', `code=${err?.code}\nmsg=${err?.message}\n${JSON.stringify(err)}`);
+        console.warn('[IAP] getProducts failed:', err?.code, err?.message);
       });
     refreshPremiumStatus();
   }, []);
@@ -89,14 +90,11 @@ export default function SubscriptionScreen() {
     setPurchasing(true);
     try {
       if (!storekit) {
-        Alert.alert('IAP DIAG', 'storekit module is not loaded.');
+        console.warn('[IAP] storekit module is not loaded.');
         return;
       }
       if (products.length === 0) {
-        Alert.alert(
-          'IAP DIAG — no products loaded',
-          `App Store returned 0 products.\n\nExpected IDs:\n• ${storekit.PRODUCT_IDS.MONTHLY}\n• ${storekit.PRODUCT_IDS.ANNUAL}\n\nLikely causes:\n1. Paid Apps Agreement not Active\n2. Products in "Missing Metadata" (need Ready to Submit)\n3. Product IDs don't match exactly\n4. First-IAP gotcha — must be attached to a build submitted for review`,
-        );
+        Alert.alert('Not Available', 'In-app purchases are not available right now. Please try again later.');
         return;
       }
       if (selectedPlan === 'annual') {
@@ -107,10 +105,8 @@ export default function SubscriptionScreen() {
       // Purchase listener in storekit.ts handles the state update
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
-        Alert.alert(
-          'IAP DIAG — Purchase Error',
-          `code=${err?.code ?? 'none'}\nmsg=${err?.message ?? 'none'}\n\n${JSON.stringify(err, null, 2)}`,
-        );
+        console.warn('[IAP] Purchase error:', err?.code, err?.message);
+        Alert.alert('Purchase Failed', 'Something went wrong. Please try again.');
       }
     } finally {
       setPurchasing(false);
@@ -133,13 +129,25 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const handleRedeemDemo = () => {
-    if (demoCode.trim().toLowerCase() === 'demo123') {
+  const handleRedeemDemo = async () => {
+    const code = demoCode.trim();
+    if (!code) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('redeem-demo', {
+        body: { code },
+      });
+
+      if (error || !data?.success) {
+        Alert.alert('Invalid Code', 'Please enter a valid demo code.');
+        return;
+      }
+
       setPremium(true);
-      Alert.alert('Demo Activated', 'Premium features are now unlocked for this session.');
+      Alert.alert('Demo Activated', 'Premium features are now unlocked.');
       setDemoCode('');
-    } else {
-      Alert.alert('Invalid Code', 'Please enter a valid demo code.');
+    } catch {
+      Alert.alert('Error', 'Could not redeem code. Please try again.');
     }
   };
 

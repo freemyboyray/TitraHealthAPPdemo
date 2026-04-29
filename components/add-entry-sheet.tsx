@@ -1,4 +1,4 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +25,7 @@ import { useLogStore } from '@/stores/log-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
 import { useUiStore } from '@/stores/ui-store';
 import { useProfile } from '@/contexts/profile-context';
-import { isOralDrug, doseIconName } from '@/constants/drug-pk';
+import { isOralDrug } from '@/constants/drug-pk';
 import { isOnTreatment } from '@/constants/user-profile';
 
 const ORANGE = '#FF742A';
@@ -156,22 +156,22 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const GRID = [
     {
       label: 'DESCRIBE FOOD',
-      icon: <MaterialIcons name="restaurant" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="fork.knife" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
     },
     ...(onTreatment ? [{
       label: oral ? 'LOG DOSE' : 'LOG INJECTION',
-      icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name={oral ? 'pills.fill' : 'syringe.fill'} size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: handleLogDose,
     }] : []),
     {
       label: 'CAPTURE FOOD',
-      icon: <Ionicons name="camera-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="camera.fill" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); },
     },
     {
       label: 'SCAN FOOD',
-      icon: <Ionicons name="barcode-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="barcode.viewfinder" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); },
     },
     {
@@ -182,17 +182,17 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     },
     ...(onTreatment ? [{
       label: 'SIDE EFFECTS',
-      icon: <Ionicons name="warning-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="exclamationmark.triangle.fill" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
     }] : []),
     {
       label: 'LOG WEIGHT',
-      icon: <MaterialCommunityIcons name="scale-bathroom" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="scalemass.fill" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-weight'); },
     },
     {
       label: 'LOG WATER',
-      icon: <Ionicons name="water-outline" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="drop.fill" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => {
         closeSheet();
         setTimeout(() => setWaterLogVisible(true), 300);
@@ -200,7 +200,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     },
     {
       label: 'LOG ACTIVITY',
-      icon: <MaterialIcons name="directions-run" size={ICON_SIZE} color={colors.textPrimary} />,
+      icon: <IconSymbol name="figure.run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
     },
   ];
@@ -356,7 +356,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                   <>
                     <View style={f.header}>
                       <TouchableOpacity onPress={handleBackFromForm} style={f.backBtn} activeOpacity={0.7}>
-                        <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+                        <IconSymbol name="chevron.left" size={22} color={colors.textPrimary} />
                       </TouchableOpacity>
                       <Text style={s.title}>{formConfig[activeEntry].title}</Text>
                       <View style={{ width: 36 }} />
@@ -378,7 +378,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                         <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress}>
                           {item.special ? (
                             <View style={s.specialCircle}>
-                              <Ionicons name="chatbubble-ellipses-outline" size={ICON_SIZE} color="#FFF" />
+                              <IconSymbol name="bubble.left.fill" size={ICON_SIZE} color="#FFF" />
                             </View>
                           ) : (
                             <View style={s.iconCircle}>

@@ -1082,9 +1082,6 @@ export default function EditTreatmentScreen() {
         <ScrollView style={s.scroll} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           {/* Medication card */}
           <View style={s.summaryCard}>
-            <View style={s.summaryIconWrap}>
-              <Ionicons name={profile?.routeOfAdministration === 'oral' ? 'medical-outline' : 'flask-outline'} size={28} color={ORANGE} />
-            </View>
             <Text style={s.summaryBrand}>{summaryBrandName}</Text>
             <Text style={s.summaryMolecule}>{summaryGlp1Label}</Text>
 

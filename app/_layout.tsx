@@ -10,7 +10,6 @@ import { View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MOCK_PROFILE } from '@/constants/mock-profile';
 import { cancelAllReminders } from '@/lib/notifications';
 import { HealthProvider } from '@/contexts/health-data';
@@ -78,13 +77,26 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
     });
 
-    supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
+    // Retry wrapper for transient network failures on app start / simulator reload.
+    // Without this, a single failed fetch signs the user out even though the token
+    // is perfectly valid — the server was just momentarily unreachable.
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1500;
+
+    async function initSession(attempt = 0): Promise<void> {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // Verify the user still exists before trusting the cached session
           const { data: { user }, error } = await supabase.auth.getUser();
           if (error || !user) {
-            // User was deleted or token is invalid — clear everything
+            // Distinguish network errors from genuine auth failures.
+            // Auth errors have HTTP status codes (401, 403); network errors don't.
+            const isNetworkError = error && !('status' in error && (error as any).status >= 400);
+            if (isNetworkError && attempt < MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+              return initSession(attempt + 1);
+            }
+            // Genuine auth failure — clear everything
             await AsyncStorage.clear().catch(() => {});
             await supabase.auth.signOut().catch(() => {});
             setSession(null);
@@ -96,13 +108,19 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           }
         }
         setSessionLoaded(true);
-      })
-      .catch(async () => {
-        // Stale/invalid token (e.g. user deleted) — sign out to clear it
-        await supabase.auth.signOut().catch(() => {});
-        setSession(null);
+      } catch (err) {
+        // Network-level failure (fetch threw) — retry before giving up
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+          return initSession(attempt + 1);
+        }
+        // Exhausted retries — let the user through without signing out.
+        // They'll see stale/cached data but won't lose their session.
         setSessionLoaded(true);
-      });
+      }
+    }
+
+    initSession();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -117,7 +135,6 @@ function AchievementLayer() {
 }
 
 function RootLayoutInner() {
-  const colorScheme = useColorScheme();
   const { colors } = useAppTheme();
   const router = useRouter();
 
@@ -137,7 +154,7 @@ function RootLayoutInner() {
       <ProfileProvider>
         <AuthGate>
           <AppWithHealth>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <ThemeProvider value={colors.isDark ? DarkTheme : DefaultTheme}>
               <Stack>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -152,6 +169,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="daily-streak" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="progress-photos" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />

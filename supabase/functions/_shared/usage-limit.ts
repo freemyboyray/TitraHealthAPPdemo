@@ -4,8 +4,8 @@ import { CORS } from './auth.ts';
 export type FeatureKey = 'ai_chat' | 'photo_analysis' | 'voice_log';
 
 const LIMITS: Record<FeatureKey, number> = {
-  ai_chat: 3,
-  photo_analysis: 5,
+  ai_chat: 5,
+  photo_analysis: 3,
   voice_log: 3,
 };
 

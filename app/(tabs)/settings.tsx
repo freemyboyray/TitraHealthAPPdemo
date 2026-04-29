@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+import { GradientBackground } from '@/components/ui/gradient-background';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -55,9 +56,10 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
   const { masterEnabled } = useRemindersStore();
-  const { isLightMode, toggleLightMode, appleHealthEnabled } = usePreferencesStore();
+  const { themeMode, setThemeMode, appleHealthEnabled } = usePreferencesStore();
   const { lastRefreshed, liveCategories } = useHealthKitStore();
   const { colors } = useAppTheme();
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const p = profile;
@@ -180,10 +182,13 @@ export default function SettingsScreen() {
 
   return (
     <TabScreenWrapper>
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-      <View style={s.header}>
-        <Text style={s.headerTitle}>SETTINGS</Text>
-      </View>
+    <View style={s.safe}>
+      <GradientBackground />
+      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+        <View style={s.header}>
+          <Text style={s.headerTitle}>SETTINGS</Text>
+        </View>
+      </SafeAreaView>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
@@ -210,21 +215,21 @@ export default function SettingsScreen() {
             )}
             {displayEmail ? <Text style={s.profileEmail}>{displayEmail}</Text> : null}
           </View>
-          {!editingName && <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />}
+          {!editingName && <IconSymbol name="pencil" size={16} color={colors.textMuted} />}
         </Pressable>
 
         {/* SUBSCRIPTION */}
         <Pressable style={[s.card, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20 }]} onPress={() => router.push('/settings/subscription' as any)}>
           <View style={s.rowLeft}>
             <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-              <Ionicons name="flash" size={18} color={ORANGE} />
+              <IconSymbol name="bolt.fill" size={18} color={ORANGE} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{useSubscriptionStore.getState().isPremium ? 'Titra Pro' : 'Upgrade to Pro'}</Text>
-              <Text style={s.rowSub}>{useSubscriptionStore.getState().isPremium ? 'Manage your subscription' : '$4.99/month \u00b7 7-day free trial'}</Text>
+              <Text style={s.rowLabel}>{isPremium ? 'Titra Pro' : 'Upgrade to Pro'}</Text>
+              <Text style={s.rowSub}>{isPremium ? 'Manage your subscription' : '$4.99/month \u00b7 7-day free trial'}</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
         </Pressable>
 
         {/* MY PLAN section */}
@@ -235,7 +240,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-treatment')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name="flask-outline" size={18} color={ORANGE} />
+                <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Treatment Plan</Text>
@@ -243,7 +248,7 @@ export default function SettingsScreen() {
                 {treatmentLine2 ? <Text style={s.rowSub}>{treatmentLine2}</Text> : null}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
 
           <View style={s.divider} />
@@ -252,7 +257,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
-                <Ionicons name="body-outline" size={18} color="#0A84FF" />
+                <IconSymbol name="figure.stand" size={18} color="#0A84FF" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Body & Goals</Text>
@@ -260,29 +265,59 @@ export default function SettingsScreen() {
                 {goalsLine ? <Text style={s.rowSub}>{goalsLine}</Text> : null}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
+
+          {isPremium && (
+            <>
+              <View style={s.divider} />
+              <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)}>
+                <View style={s.rowLeft}>
+                  <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                    <IconSymbol name="doc.text.fill" size={18} color="#34C759" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowLabel}>Provider Report</Text>
+                    <Text style={s.rowSub}>Export PDF for your doctor</Text>
+                  </View>
+                </View>
+                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+              </Pressable>
+            </>
+          )}
         </View>
 
         {/* PREFERENCES section */}
         <Text style={s.sectionLabel}>PREFERENCES</Text>
 
         <View style={s.card}>
-          {/* Light mode */}
+          {/* Appearance */}
           <View style={s.cardRow}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name={isLightMode ? 'sunny' : 'moon'} size={18} color={ORANGE} />
+                <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={ORANGE} />
               </View>
-              <Text style={s.rowLabel}>Light Mode</Text>
+              <Text style={s.rowLabel}>Appearance</Text>
             </View>
-            <Switch
-              value={isLightMode}
-              onValueChange={toggleLightMode}
-              trackColor={{ false: '#333', true: ORANGE }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#333"
-            />
+          </View>
+          <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+            {(['system', 'light', 'dark'] as const).map((mode) => (
+              <Pressable
+                key={mode}
+                onPress={() => setThemeMode(mode)}
+                style={{
+                  flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
+                  backgroundColor: themeMode === mode ? ORANGE : 'transparent',
+                }}
+              >
+                <Text style={{
+                  fontSize: 13, fontWeight: '600',
+                  color: themeMode === mode ? '#FFF' : colors.textSecondary,
+                }}>
+                  {mode === 'system' ? 'System' : mode === 'light' ? 'Light' : 'Dark'}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
           <View style={s.divider} />
@@ -291,14 +326,14 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <Ionicons name="notifications-outline" size={18} color={ORANGE} />
+                <IconSymbol name="bell.fill" size={18} color={ORANGE} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Reminders</Text>
                 <Text style={s.rowSub}>{masterEnabled ? 'On' : 'Off'}</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -309,7 +344,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
-                <Ionicons name="heart" size={18} color="#FF3B30" />
+                <IconSymbol name="heart.fill" size={18} color="#FF3B30" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Apple Health</Text>
@@ -320,7 +355,7 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -331,11 +366,11 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
-                <Ionicons name="document-text-outline" size={18} color="#5856D6" />
+                <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
               </View>
               <Text style={s.rowLabel}>Terms & Privacy</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
 
           <View style={s.divider} />
@@ -346,14 +381,14 @@ export default function SettingsScreen() {
           >
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
-                <Ionicons name="trash-outline" size={18} color="#FF453A" />
+                <IconSymbol name="trash.fill" size={18} color="#FF453A" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.rowLabel, { color: '#FF453A' }]}>Delete Account</Text>
                 <Text style={s.rowSub}>Permanently delete all your data</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -361,7 +396,7 @@ export default function SettingsScreen() {
 
         {/* Sign out */}
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={18} color="#FF453A" style={{ marginRight: 8 }} />
+          <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="#FF453A" style={{ marginRight: 8 }} />
           <Text style={s.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
@@ -372,12 +407,12 @@ export default function SettingsScreen() {
           activeOpacity={0.8}
           disabled={deleting}
         >
-          <Ionicons name="trash-outline" size={18} color="#FF453A" style={{ marginRight: 8 }} />
+          <IconSymbol name="trash.fill" size={18} color="#FF453A" style={{ marginRight: 8 }} />
           <Text style={s.signOutText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
         </TouchableOpacity>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
     </TabScreenWrapper>
   );
 }
@@ -413,8 +448,9 @@ function createStyles(c: AppColors) {
     profileEmail: { color: c.textSecondary, fontSize: 15, marginTop: 2 },
 
     sectionLabel: {
-      color: c.textMuted, fontSize: 13, fontWeight: '700',
-      letterSpacing: 2, marginTop: 8, marginBottom: 4, marginLeft: 4,
+      color: c.textMuted, fontSize: 11, fontWeight: '600',
+      letterSpacing: 1, marginTop: 12, marginBottom: 6, marginLeft: 4,
+      textTransform: 'uppercase',
     },
 
     card: {
@@ -434,13 +470,13 @@ function createStyles(c: AppColors) {
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     iconBadge: {
-      width: 34, height: 34, borderRadius: 10,
+      width: 36, height: 36, borderRadius: 12,
       alignItems: 'center', justifyContent: 'center',
     },
-    rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '500' },
-    rowSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
+    rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '600', lineHeight: 22 },
+    rowSub: { color: c.textSecondary, fontSize: 13, fontWeight: '500', lineHeight: 18, marginTop: 2 },
     chevronBtn: { padding: 4 },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginHorizontal: 16 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 64, marginRight: 16 },
 
     signOutBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

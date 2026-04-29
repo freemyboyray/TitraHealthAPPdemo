@@ -1,11 +1,13 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { GradientBackground } from '@/components/ui/gradient-background';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
 import { localDateStr } from '@/lib/date-utils';
@@ -136,7 +138,7 @@ function MedicationBanner({
       </View>
       <Pressable style={mb.viewChip} onPress={() => router.push('/medication-detail' as any)}>
         <Text style={mb.viewChipText}>View</Text>
-        <Ionicons name="chevron-forward" size={13} color={ORANGE} />
+        <IconSymbol name="chevron.right" size={13} color={ORANGE} />
       </Pressable>
     </View>
   );
@@ -203,7 +205,7 @@ function buildPhaseLabel(
     return `Trough Phase · ${nextDoseLabel}`;
   }
   // Cycle-day mode
-  if (daysSinceShot <= 1) return `${oral ? 'Dose Day' : PHASE_DISPLAY.shot} · ${Noun} logged`;
+  if (daysSinceShot === 0) return `${oral ? 'Dose Day' : PHASE_DISPLAY.shot} · ${Noun} logged`;
   if (daysSinceShot <= Math.round(injFreqDays * 0.5)) return `Peak Phase · Day ${daysSinceShot} since last ${shotOrDose}`;
   if (daysSinceShot <= Math.round(injFreqDays * 0.85)) return `Balance Phase · Day ${daysSinceShot} since last ${shotOrDose}`;
   if (daysSinceShot < injFreqDays) return `Reset Phase · ${Noun} due in ${injFreqDays - daysSinceShot}d`;
@@ -315,11 +317,11 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
         {/* Month nav */}
         <View style={cal.monthRow}>
           <Pressable onPress={prevMonth} hitSlop={10}>
-            <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+            <IconSymbol name="chevron.left" size={20} color={colors.textPrimary} />
           </Pressable>
           <Text style={cal.monthLabel}>{monthLabel}</Text>
           <Pressable onPress={nextMonth} hitSlop={10}>
-            <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+            <IconSymbol name="chevron.right" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
         {/* Day headers */}
@@ -599,10 +601,10 @@ function DailyLogSummaryCard({
   // ── Compact summary lines ─────────────────────────────────────────────────
   const summaryRows: { icon: React.ReactNode; label: string }[] = [];
   if (injectionLog) summaryRows.push({ icon: <FontAwesome5 name={doseIconName(oral)} size={12} color={w(0.45)} />, label: `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg logged` });
-  if (foodLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name="restaurant" size={14} color={w(0.45)} />, label: `${foodLogs.length} meal${foodLogs.length > 1 ? 's' : ''} · ${totalCals} cal` });
+  if (foodLogs.length > 0) summaryRows.push({ icon: <IconSymbol name="fork.knife" size={14} color={w(0.45)} />, label: `${foodLogs.length} meal${foodLogs.length > 1 ? 's' : ''} · ${totalCals} cal` });
   if (activityLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name={activityIconNameDL(activityLogs[0]?.exercise_type)} size={14} color={w(0.45)} />, label: `${activityLogs.length} activit${activityLogs.length > 1 ? 'ies' : 'y'}` });
-  if (weightLog) summaryRows.push({ icon: <MaterialCommunityIcons name="scale" size={14} color={w(0.45)} />, label: `${weightLog.weight_lbs} lbs` });
-  if (waterOz > 0) summaryRows.push({ icon: <Ionicons name="water-outline" size={14} color={w(0.45)} />, label: `${waterOz} oz water` });
+  if (weightLog) summaryRows.push({ icon: <IconSymbol name="scalemass.fill" size={14} color={w(0.45)} />, label: `${weightLog.weight_lbs} lbs` });
+  if (waterOz > 0) summaryRows.push({ icon: <IconSymbol name="drop.fill" size={14} color={w(0.45)} />, label: `${waterOz} oz water` });
   if (sideEffectLogs.length > 0) summaryRows.push({ icon: <MaterialIcons name="sick" size={14} color={w(0.45)} />, label: `${sideEffectLogs.length} side effect${sideEffectLogs.length > 1 ? 's' : ''}` });
 
   return (
@@ -622,7 +624,7 @@ function DailyLogSummaryCard({
               </View>
             )}
             {canExpand && (
-              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={w(0.35)} />
+              <IconSymbol name={expanded ? 'chevron.up' : 'chevron.down'} size={16} color={w(0.35)} />
             )}
           </View>
         </Pressable>
@@ -679,7 +681,7 @@ function DailyLogSummaryCard({
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
                   <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)}>
-                    <Ionicons name="trash-outline" size={15} color={w(0.28)} />
+                    <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                   </Pressable>
                 </View>
               </View>
@@ -701,10 +703,10 @@ function DailyLogSummaryCard({
                       </View>
                       <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', paddingTop: 2 }}>
                         <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'food', item: f })}>
-                          <Ionicons name="pencil-outline" size={15} color={w(0.35)} />
+                          <IconSymbol name="pencil" size={15} color={w(0.35)} />
                         </Pressable>
                         <Pressable hitSlop={10} onPress={() => confirmDelete('food_logs', f.id, f.food_name)}>
-                          <Ionicons name="trash-outline" size={15} color={w(0.28)} />
+                          <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                         </Pressable>
                       </View>
                     </View>
@@ -732,10 +734,10 @@ function DailyLogSummaryCard({
                     </View>
                     <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                       <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'activity', item: a })}>
-                        <Ionicons name="pencil-outline" size={15} color={w(0.35)} />
+                        <IconSymbol name="pencil" size={15} color={w(0.35)} />
                       </Pressable>
                       <Pressable hitSlop={10} onPress={() => confirmDelete('activity_logs', a.id, a.exercise_type || 'Activity')}>
-                        <Ionicons name="trash-outline" size={15} color={w(0.28)} />
+                        <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                       </Pressable>
                     </View>
                   </View>
@@ -748,14 +750,14 @@ function DailyLogSummaryCard({
               <View style={{ marginBottom: 16 }}>
                 <Text style={dlSectionLabel(w)}>Weight</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <MaterialCommunityIcons name="scale" size={16} color={w(0.45)} />
+                  <IconSymbol name="scalemass.fill" size={16} color={w(0.45)} />
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
                   <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                     <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })}>
-                      <Ionicons name="pencil-outline" size={15} color={w(0.35)} />
+                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
                     </Pressable>
                     <Pressable hitSlop={10} onPress={() => confirmDelete('weight_logs', weightLog.id, `${weightLog.weight_lbs} lbs`)}>
-                      <Ionicons name="trash-outline" size={15} color={w(0.28)} />
+                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                     </Pressable>
                   </View>
                 </View>
@@ -767,7 +769,7 @@ function DailyLogSummaryCard({
               <View style={{ marginBottom: 16 }}>
                 <Text style={dlSectionLabel(w)}>Water</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <Ionicons name="water-outline" size={16} color="#5B8BF5" />
+                  <IconSymbol name="drop.fill" size={16} color="#5B8BF5" />
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
                 </View>
               </View>
@@ -1399,45 +1401,45 @@ export default function HomeScreen() {
   return (
     <TabScreenWrapper>
     <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <View style={s.heroBg}>
-        <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-          {/* ── Fixed header ── */}
-          <View
-            style={s.headerArea}
-            onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
-          >
-            <View style={s.headerTopRow}>
-              {/* Left: greeting */}
-              <View style={{ flex: 1 }}>
-                <Text style={s.greetingLabel}>Welcome,</Text>
-                <Text style={s.greetingName}>
-                  {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
-                </Text>
-              </View>
-              {/* Right: date + streak fire */}
-              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={s.dateTitle}>{dateLabel}</Text>
-                    <Text style={s.weekday}>{weekday}</Text>
-                  </View>
+      <GradientBackground />
+      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
+        {/* ── Fixed header ── */}
+        <View
+          style={s.headerArea}
+          onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <View style={s.headerTopRow}>
+            {/* Left: greeting */}
+            <View style={{ flex: 1 }}>
+              <Text style={s.greetingLabel}>Welcome,</Text>
+              <Text style={s.greetingName}>
+                {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
+              </Text>
+            </View>
+            {/* Right: date + streak fire */}
+            <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={s.dateTitle}>{dateLabel}</Text>
+                  <Text style={s.weekday}>{weekday}</Text>
+                </View>
+                <View style={s.fireWrap}>
                   <AnimatedFire size={30} streak={streak} showNumber={streak > 0} active={streak > 0} />
                 </View>
-              </Pressable>
-            </View>
-
-            {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
-            {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
-            {isPast && !isLoadingDate && historicalSnapshot !== null &&
-              historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
-              historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
-              historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
-              <Text style={s.futureNote}>No entries logged for this day</Text>
-            }
+              </View>
+            </Pressable>
           </View>
-        </SafeAreaView>
-        <View style={s.heroCurve} />
-      </View>
+
+          {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
+          {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
+          {isPast && !isLoadingDate && historicalSnapshot !== null &&
+            historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
+            historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
+            historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
+            <Text style={s.futureNote}>No entries logged for this day</Text>
+          }
+        </View>
+      </SafeAreaView>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
 
         <ScrollView
@@ -1496,7 +1498,7 @@ export default function HomeScreen() {
                     onPress={() => router.push('/medication-detail' as any)}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>View</Text>
-                    <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+                    <IconSymbol name="chevron.right" size={14} color={ORANGE} />
                   </Pressable>
                 </View>
 
@@ -1555,7 +1557,7 @@ export default function HomeScreen() {
                 {onTreatment && transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
                   (() => {
                     // Shot-day override: show start of new cycle instead of end of old one
-                    const displayDayNum = (!todayInjLogged && rawDaysUntil === 0) ? 1 : todayDayNum;
+                    const displayDayNum = todayDayNum === 0 ? 1 : todayDayNum;
                     return (
                   <View style={s.heroCycleRow}>
                     <View style={s.heroCycleLabels}>
@@ -1566,7 +1568,7 @@ export default function HomeScreen() {
                         !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
                       ]}>
                         {todayInjLogged
-                          ? <>{oral ? 'Dosed' : 'Injected'} today <Ionicons name="checkmark-circle" size={14} color="#27AE60" /></>
+                          ? <>{oral ? 'Dosed' : 'Injected'} today <IconSymbol name="checkmark.circle.fill" size={14} color="#27AE60" /></>
                           : rawDaysUntil == null
                             ? `In ${daysUntil} days`
                             : rawDaysUntil < 0
@@ -1650,31 +1652,12 @@ export default function HomeScreen() {
             >
               <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 }}>
-                  {/* Thumbnail */}
-                  {progressPhotoUrl ? (
-                    <Image
-                      source={{ uri: progressPhotoUrl }}
-                      style={{ width: 56, height: 72, borderRadius: 10 }}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={{ width: 56, height: 72, borderRadius: 10, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="camera-outline" size={22} color={colors.textMuted} />
-                    </View>
-                  )}
-                  {/* Text */}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginBottom: 3 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                       Progress Photos
                     </Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary, fontFamily: FF }}>
-                      {progressPhotos.length === 1
-                        ? '1 photo — take another to compare'
-                        : `${progressPhotos.length} photos`}
-                    </Text>
                   </View>
-                  {/* Chevron */}
-                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                  <IconSymbol name="chevron.right" size={20} color={colors.textMuted} />
                 </View>
               </View>
             </Pressable>
@@ -1721,7 +1704,7 @@ export default function HomeScreen() {
                             {item.label}
                           </Text>
                           {item.status === 'completed' && (
-                            <Ionicons name="checkmark-circle" size={16} color={ORANGE} />
+                            <IconSymbol name="checkmark.circle.fill" size={16} color={ORANGE} />
                           )}
                         </View>
                         <Text style={s.focusSubtitle}>{item.subtitle}</Text>
@@ -1865,21 +1848,20 @@ const createStyles = (c: AppColors) => {
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
 
-  // Hero orange header background
-  heroBg: {
-    backgroundColor: '#E8652A',
-  },
-  heroCurve: {
-    height: 28,
-    backgroundColor: c.bg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: -1,
+  // Hero gradient — absolute positioned behind all content, fades to page bg
+  heroGradientBg: {
+    ...StyleSheet.absoluteFillObject,
+    height: 320,
   },
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  fireWrap: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   dateTitleRow: { alignItems: 'flex-end' },
   dateTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2, fontFamily: 'System', textAlign: 'right' },
   weekday: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2, fontFamily: 'System', textAlign: 'right' },
@@ -1898,7 +1880,7 @@ const createStyles = (c: AppColors) => {
 
   // Card containers
   cardWrap: { borderRadius: 28, ...(c.isDark
-    ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.30, shadowRadius: 24, elevation: 8 }
+    ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4 }
     : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }) },
   cardBody: { borderRadius: 28, overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
 
@@ -2030,7 +2012,7 @@ const createStyles = (c: AppColors) => {
   },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
+  sectionTitle: { fontSize: 22, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, lineHeight: 28, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
@@ -2040,21 +2022,21 @@ const createStyles = (c: AppColors) => {
   },
 
   // Focus coaching cards
-  focusCard: { borderRadius: 28, ...(c.isDark
+  focusCard: { borderRadius: 24, ...(c.isDark
     ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.30, shadowRadius: 24, elevation: 8 }
     : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }), marginBottom: 24, marginTop: 8 },
-  focusCardInner: { borderRadius: 28, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, paddingHorizontal: 22, paddingBottom: 22, paddingTop: 10 },
-  focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
+  focusCardInner: { borderRadius: 24, overflow: 'hidden', backgroundColor: c.surface, borderWidth: 0.5, borderColor: c.border, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 12 },
+  focusCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   focusCountBadge: { backgroundColor: c.borderSubtle, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   focusCountText: { fontSize: 12, fontWeight: '700', color: w(0.50), letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'System' },
   focusRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
-  focusIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
+  focusIconWrap: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 14, marginTop: 2 },
   focusIconDone: { backgroundColor: 'rgba(255,116,42,0.06)' },
   focusBody: { flex: 1 },
   focusLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  focusLabel: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System', flex: 1 },
+  focusLabel: { fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: 'System', lineHeight: 20, flex: 1 },
   focusLabelDone: { color: w(0.38), textDecorationLine: 'line-through' },
-  focusSubtitle: { fontSize: 14, fontWeight: '400', color: w(0.50), lineHeight: 17, marginBottom: 10, fontFamily: 'System' },
+  focusSubtitle: { fontSize: 13, fontWeight: '400', color: w(0.50), lineHeight: 18, marginBottom: 10, fontFamily: 'System' },
   focusBarTrack: { height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden', marginBottom: 6 },
   focusBarFill: { height: 4, borderRadius: 2, backgroundColor: ORANGE },
   focusBarDone: { backgroundColor: '#4CAF50' },

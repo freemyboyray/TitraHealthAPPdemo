@@ -11,10 +11,11 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-// Duolingo-style flat flame colors
+// Refined flame palette — warm and balanced
 const OUTER = '#F0932B';   // warm orange body
 const INNER = '#F7C948';   // golden yellow core
-const BASE  = '#FDE8A0';   // light cream base
+const BASE  = '#FDE8A0';   // light cream base glow
+const TIP   = '#E8872A';   // darker orange tip
 
 const ease = Easing.inOut(Easing.sin);
 
@@ -26,22 +27,16 @@ type Props = {
 };
 
 export function AnimatedFire({ size, streak = 0, showNumber = false, active = true }: Props) {
-  // Core glow — gentle opacity breathing
   const coreOpacity = useSharedValue(1);
-  // Core size — subtle scale that follows opacity
   const coreScale = useSharedValue(1);
-  // Hot center — slow fade in/out
   const hotOpacity = useSharedValue(0);
-  // Tip — gentle horizontal sway via translateX
   const tipX = useSharedValue(0);
-  // Base glow
   const baseOpacity = useSharedValue(0.8);
 
   useEffect(() => {
     if (!active) return;
 
-    // Core glow — SLOW, smooth breathing. Never goes below 0.6 so it
-    // always looks lit. Long durations (800-1400ms) prevent jittery feel.
+    // Core glow — slow, smooth breathing. Never below 0.6.
     coreOpacity.value = withRepeat(
       withSequence(
         withTiming(0.6,  { duration: 1200, easing: ease }),
@@ -55,7 +50,6 @@ export function AnimatedFire({ size, streak = 0, showNumber = false, active = tr
     );
 
     // Core scale — very subtle, mirrors opacity rhythm.
-    // Grows to 1.04 at brightest, shrinks to 0.95 at dimmest.
     coreScale.value = withRepeat(
       withSequence(
         withTiming(0.95, { duration: 1200, easing: ease }),
@@ -68,23 +62,20 @@ export function AnimatedFire({ size, streak = 0, showNumber = false, active = tr
       -1, false,
     );
 
-    // Hot center — very slow, gentle appearance. Stays mostly invisible,
-    // occasionally blooms into view and fades back out.
+    // Hot center — occasional gentle bloom
     hotOpacity.value = withDelay(1000, withRepeat(
       withSequence(
         withTiming(0.5, { duration: 1500, easing: ease }),
         withTiming(0,   { duration: 2000, easing: ease }),
-        withTiming(0,   { duration: 1500 }), // rest
+        withTiming(0,   { duration: 1500 }),
         withTiming(0.4, { duration: 1800, easing: ease }),
         withTiming(0,   { duration: 1200, easing: ease }),
-        withTiming(0,   { duration: 2000 }), // longer rest
+        withTiming(0,   { duration: 2000 }),
       ),
       -1, false,
     ));
 
-    // Tip sway — gentle horizontal drift. Uses translateX instead of
-    // rotation so the tip slides naturally like a candle in a draft.
-    // Asymmetric timing and distances so it never feels mechanical.
+    // Tip sway — gentle horizontal drift like a candle
     tipX.value = withDelay(300, withRepeat(
       withSequence(
         withTiming(1.5,  { duration: 1800, easing: ease }),
@@ -188,7 +179,7 @@ export function AnimatedFire({ size, streak = 0, showNumber = false, active = tr
         <Svg width={w} height={h} viewBox="0 0 80 100">
           <Path
             d="M40 8 C40 8 42 13 43 17 C44 21 44 23 43 25 C42 27 41 27 40 27 C39 27 38 27 37 25 C36 23 36 21 37 17 C38 13 40 8 40 8Z"
-            fill="#E8872A"
+            fill={TIP}
             opacity={0.6}
           />
         </Svg>
