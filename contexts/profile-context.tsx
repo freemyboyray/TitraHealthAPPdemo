@@ -449,8 +449,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Medication detail fields
-      if (fields.medicationNotes    !== undefined) row.medication_notes     = fields.medicationNotes ?? null;
-      if (fields.medicationPhotoUrl !== undefined) row.medication_photo_url = fields.medicationPhotoUrl ?? null;
+      if (fields.medicationNotes    !== undefined) (row as any).medication_notes     = fields.medicationNotes ?? null;
+      if (fields.medicationPhotoUrl !== undefined) (row as any).medication_photo_url = fields.medicationPhotoUrl ?? null;
 
       // Pending medication transition fields
       if (fields.pendingMedicationBrand !== undefined) row.pending_medication_brand = fields.pendingMedicationBrand;

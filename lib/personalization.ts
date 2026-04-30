@@ -341,6 +341,7 @@ export function computePersonalizedPlan(params: {
       doseMg:            profile.doseMg,
       sex:               profile.sex,
       heightCm:          profile.heightCm,
+      targetWeeklyLossLbs: (profile as any).targetWeeklyLossLbs ?? 1.0,
     });
   }
 

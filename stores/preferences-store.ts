@@ -66,9 +66,9 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setLastDailyStreakDate: (date) => set({ lastDailyStreakDate: date }),
       streakCount: 0,
       lastStreakDate: null,
-      updateStreakOnOpen: () => {
+      updateStreakOnOpen: (): number => {
         const today = todayKey();
-        const state = usePreferencesStore.getState();
+        const state: PreferencesStore = usePreferencesStore.getState();
         if (state.lastStreakDate === today) return state.streakCount;
         const yesterday = yesterdayKey();
         const newCount = state.lastStreakDate === yesterday ? state.streakCount + 1 : 1;

@@ -174,9 +174,10 @@ export default function ScanFoodScreen() {
   return (
     <View style={s.root}>
       {/* Full-screen camera */}
+      {/* barcodeScannerEnabled exists in expo-camera types but React 19 class component inference drops it */}
       <CameraView
         style={StyleSheet.absoluteFillObject}
-        barcodeScannerEnabled={!scanned}
+        {...({ barcodeScannerEnabled: !scanned } as any)}
         onBarcodeScanned={scanned ? undefined : handleBarcode}
       />
 

@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
+  Animated,
   ScrollView,
   StyleSheet,
 } from 'react-native';
@@ -113,10 +114,15 @@ export default function StreakScreen() {
 
   return (
     <View style={s.root}>
-      <GradientBackground />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View style={s.header}>
+      <SafeAreaView style={{ flex: 1 }} edges={[]}>
+        <ScrollView
+          contentContainerStyle={s.scroll}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <GradientBackground />
+          {/* Header */}
+          <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
           </Pressable>
@@ -124,11 +130,6 @@ export default function StreakScreen() {
           <View style={{ width: 26 }} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={s.scroll}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
           {/* ── Fire Hero ── */}
           <View style={s.fireHero}>
             <AnimatedFire size={150} streak={streak} showNumber active={streak > 0} />

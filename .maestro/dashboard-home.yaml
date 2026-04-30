@@ -1,0 +1,31 @@
+appId: com.titrahealth.app
+name: "Dashboard - Home Tab"
+tags:
+  - smoke
+  - dashboard
+---
+
+- clearState
+- launchApp
+
+- tapOn: "Try demo - no account needed"
+
+# Wait for dashboard to fully load
+- extendedWaitUntil:
+    visible:
+      text: ".*Daily Focuses.*"
+    timeout: 15000
+
+# Verify key dashboard content (all in one grouped accessibility element, use regex)
+- assertVisible:
+    text: ".*NO STREAK.*"
+- assertVisible:
+    text: ".*weeks on.*treatment.*"
+- assertVisible:
+    text: ".*Log your first injection.*"
+- assertVisible:
+    text: ".*Log your starting weight.*"
+- assertVisible:
+    text: ".*Sip water throughout your day.*"
+- assertVisible:
+    text: ".*GET STARTED.*"

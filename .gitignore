@@ -43,6 +43,9 @@ app-example
 /ios
 /android
 
+# Supabase local temp
+supabase/.temp/
+
 # AI agent worktrees
 .claude/
 .claire/

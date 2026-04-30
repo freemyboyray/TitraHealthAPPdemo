@@ -8,7 +8,7 @@ type ThemeContextValue = { colors: AppColors; isDark: boolean };
 const ThemeContext = createContext<ThemeContextValue>({ colors: darkColors, isDark: true });
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
-  const themeMode = usePreferencesStore((s) => s.themeMode);
+  const themeMode = usePreferencesStore((s: { themeMode: string }) => s.themeMode);
   const systemScheme = useColorScheme();
 
   const isDark =

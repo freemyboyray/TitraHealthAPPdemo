@@ -1,7 +1,7 @@
-import { GradientBackground } from '@/components/ui/gradient-background';
+import { ScrollTitle } from '@/components/ui/scroll-title';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -14,7 +14,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { isOnTreatment } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 import { useSubscriptionStore } from '@/stores/subscription-store';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { supabase } from '@/lib/supabase';
@@ -180,17 +180,16 @@ export default function SettingsScreen() {
     setEditingName(false);
   };
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   return (
     <TabScreenWrapper>
     <View style={s.safe}>
-      <GradientBackground />
-      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-        <View style={s.header}>
-          <Text style={s.headerTitle}>SETTINGS</Text>
-        </View>
-      </SafeAreaView>
-
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} onScroll={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)} scrollEventThrottle={16}>
+          <View style={s.header}>
+            <Text style={s.headerTitle}>SETTINGS</Text>
+          </View>
 
         {/* Profile card */}
         <Pressable style={s.profileCard} onPress={() => { setNameInput(displayName); setEditingName(true); }}>
@@ -376,6 +375,24 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* SUPPORT section */}
+        <Text style={s.sectionLabel}>SUPPORT</Text>
+
+        <View style={s.card}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/feedback' as any)}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
+                <IconSymbol name="exclamationmark.bubble.fill" size={18} color="#32ADE6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Send Feedback</Text>
+                <Text style={s.rowSub}>Report a bug or suggest a feature</Text>
+              </View>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
         {/* LEGAL & ACCOUNT section */}
         <Text style={s.sectionLabel}>LEGAL & ACCOUNT</Text>
 
@@ -428,7 +445,9 @@ export default function SettingsScreen() {
           <Text style={s.signOutText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
         </TouchableOpacity>
 
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
+      <ScrollTitle title="Settings" scrollY={scrollY} />
     </View>
     </TabScreenWrapper>
   );

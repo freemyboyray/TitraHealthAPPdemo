@@ -64,8 +64,8 @@ export default function SubscriptionScreen() {
 
   const monthlyProduct = products.find((p: any) => p.productId?.includes('monthly'));
   const annualProduct = products.find((p: any) => p.productId?.includes('annual'));
-  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct) : '$4.99/mo';
-  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct) : '$49.99/yr';
+  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct as any) : '$4.99/mo';
+  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct as any) : '$49.99/yr';
 
   const periodEndDate = currentPeriodEnd
     ? new Date(currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })

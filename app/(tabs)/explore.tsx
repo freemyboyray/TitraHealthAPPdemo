@@ -1,12 +1,13 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
   LayoutAnimation,
   Pressable,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
+import { ScrollTitle } from '@/components/ui/scroll-title';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
@@ -410,19 +412,18 @@ const PHASE_TIPS: Record<string, { title: string; tips: string[] }> = {
 
 // ─── Phase-aware focus card component ────────────────────────────────────────
 
+const PHASE_KEYS = Object.keys(PHASE_TIPS) as (keyof typeof PHASE_TIPS)[];
+
 function PhaseCard() {
-  const { profile } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createPhaseCardStyles(colors), [colors]);
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
-  if (!profile || !profile.doseStartDate) return null;
-
-  const startMs = new Date(profile.doseStartDate).getTime();
-  const programWeek = Math.max(1, Math.floor((Date.now() - startMs) / (7 * 24 * 60 * 60 * 1000)) + 1);
-
-  const phase = getEscalationPhase(programWeek, profile.doseMg ?? 0, profile.glp1Type ?? 'semaglutide');
-  const focusTips = PHASE_TIPS[phase.name] ?? PHASE_TIPS['initiation'];
+  // Rotate through all 6 topic sets weekly based on calendar week number
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const calendarWeek = Math.ceil(((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000) + startOfYear.getDay() + 1) / 7);
+  const rotationIndex = (calendarWeek - 1) % PHASE_KEYS.length;
+  const focusTips = PHASE_TIPS[PHASE_KEYS[rotationIndex]];
 
   return (
     <View style={[s.wrap, glassShadow]}>
@@ -431,10 +432,8 @@ function PhaseCard() {
           <View style={s.pill}>
             <Text style={s.pillText}>THIS WEEK'S FOCUS</Text>
           </View>
-          <Text style={s.weekLabel}>Week {programWeek}</Text>
         </View>
         <Text style={s.phaseTitle}>{focusTips.title}</Text>
-        <Text style={s.phaseSub}>{phase.weeklyFocus}</Text>
         <View style={s.divider} />
         {focusTips.tips.map((tip, i) => (
           <View key={i} style={s.tipRow}>
@@ -919,7 +918,9 @@ function GuidedCoursesRow() {
 }
 
 export default function EducationScreen() {
-  const { onScroll, onScrollEnd } = useTabBarVisibility();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
+  const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const { colors } = useAppTheme();
   const s = useMemo(() => createScreenStyles(colors), [colors]);
 
@@ -932,12 +933,6 @@ export default function EducationScreen() {
   return (
     <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <GradientBackground />
-      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-        <View style={s.heroHeader}>
-          <Text style={s.heroTitle}>Education</Text>
-        </View>
-      </SafeAreaView>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -947,6 +942,10 @@ export default function EducationScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
+          <GradientBackground />
+          <View style={s.heroHeader}>
+            <Text style={s.heroTitle}>Education</Text>
+          </View>
 
           {/* ── Phase-aware personalized card ── */}
           <PhaseCard />
@@ -962,6 +961,7 @@ export default function EducationScreen() {
           </Text>
         </ScrollView>
       </SafeAreaView>
+      <ScrollTitle title="Education" scrollY={scrollY} />
     </View>
     </TabScreenWrapper>
   );
@@ -972,7 +972,7 @@ export default function EducationScreen() {
 const createScreenStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-    content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+    content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
     // Hero header background
     heroBg: { backgroundColor: '#E8652A' },

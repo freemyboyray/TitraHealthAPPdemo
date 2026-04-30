@@ -57,7 +57,7 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
     const ut = result.userTrajectory;
     if (!ut || idx < 0 || idx >= ut.length) return { title: '', subtitle: '' };
     const pt = ut[idx];
-    const trialAtWeek = result.trialTrajectory ? interpolateBenchmarkBand(result.trialTrajectory, pt.week) : null;
+    const trialAtWeek = result.trialTrajectory ? interpolateBenchmarkBand(result.trialTrajectory as any, pt.week) : null;
     const trialStr = trialAtWeek ? `Trial: ${trialAtWeek.mean}%` : '';
     return {
       title: `${pt.lossPct}% lost`,

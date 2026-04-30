@@ -1,0 +1,22 @@
+appId: com.titrahealth.app
+name: "Auth - Demo Mode Entry"
+tags:
+  - smoke
+  - auth
+---
+
+# Clear state and launch fresh
+- clearState
+- launchApp
+
+# Verify login screen loads
+- assertVisible: "Welcome back"
+
+# Tap demo mode to bypass auth
+- tapOn: "Try demo - no account needed"
+
+# Wait for dashboard to fully load (use regex to match within grouped text)
+- extendedWaitUntil:
+    visible:
+      text: ".*Daily Focuses.*"
+    timeout: 15000

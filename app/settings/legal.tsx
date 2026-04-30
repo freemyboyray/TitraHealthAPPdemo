@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { SlidingTabs } from '@/components/ui/sliding-tabs';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import {
@@ -50,24 +51,14 @@ export default function LegalScreen() {
 
       <View style={s.container}>
         {/* Tab switcher */}
-        <View style={s.tabRow}>
-          <Pressable
-            style={[s.tab, activeTab === 'tos' && s.tabActive]}
-            onPress={() => setActiveTab('tos')}
-          >
-            <Text style={[s.tabText, activeTab === 'tos' && s.tabTextActive]}>
-              Terms of Service
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[s.tab, activeTab === 'privacy' && s.tabActive]}
-            onPress={() => setActiveTab('privacy')}
-          >
-            <Text style={[s.tabText, activeTab === 'privacy' && s.tabTextActive]}>
-              Privacy Policy
-            </Text>
-          </Pressable>
-        </View>
+        <SlidingTabs
+          tabs={[{ key: 'tos' as Tab, label: 'Terms of Service' }, { key: 'privacy' as Tab, label: 'Privacy Policy' }]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          height={38}
+          borderRadius={12}
+          padding={3}
+        />
 
         {/* Content */}
         <ScrollView
@@ -121,24 +112,6 @@ function createStyles(c: AppColors) {
     },
 
     container: { flex: 1, paddingHorizontal: 16 },
-
-    tabRow: {
-      flexDirection: 'row',
-      backgroundColor: w(0.06),
-      borderRadius: 12,
-      padding: 3,
-      marginTop: 12,
-      marginBottom: 12,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 10,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    tabActive: { backgroundColor: ORANGE },
-    tabText: { fontSize: 15, fontWeight: '600', color: w(0.5) },
-    tabTextActive: { color: '#FFFFFF' },
 
     scroll: { flex: 1 },
     scrollContent: { paddingBottom: 40 },

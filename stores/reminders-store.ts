@@ -168,10 +168,8 @@ export const useRemindersStore = create<RemindersStore>()(
       reset() {
         set({
           masterEnabled: false,
-          meals: { enabled: true, times: ['08:00', '19:00'] },
-          weight: { enabled: true, times: ['07:30'] },
-          sideEffects: { enabled: true, times: ['21:00'] },
-          dailyPlan: { enabled: true, times: ['08:00'] },
+          doseReminderEnabled: true,
+          slots: { ...DEFAULT_SLOTS },
         });
       },
     }),

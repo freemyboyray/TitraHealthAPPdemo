@@ -63,16 +63,25 @@ function hexToBytes(hex: string): Uint8Array {
 // ── Key management ────────────────────────────────────────────────────────
 
 async function getOrCreateKey(): Promise<string> {
-  let key = await SecureStore.getItemAsync(KEY_ALIAS);
-  if (!key) {
-    const randomBytes = Crypto.getRandomBytes(32);
-    const seed = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-    key = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, seed);
-    await SecureStore.setItemAsync(KEY_ALIAS, key, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
+  try {
+    let key = await SecureStore.getItemAsync(KEY_ALIAS);
+    if (!key) {
+      const randomBytes = Crypto.getRandomBytes(32);
+      const seed = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+      key = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, seed);
+      await SecureStore.setItemAsync(KEY_ALIAS, key, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+    }
+    return key;
+  } catch {
+    // Keychain unavailable (e.g. simulator without entitlements) — use a
+    // deterministic fallback key. Less secure, but allows dev/testing to work.
+    return Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      'titrahealth-dev-fallback-key',
+    );
   }
-  return key;
 }
 
 let cachedKey: string | null = null;

@@ -166,6 +166,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="ai-chat" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="score-detail" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="streak" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="log-history" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="daily-streak" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />

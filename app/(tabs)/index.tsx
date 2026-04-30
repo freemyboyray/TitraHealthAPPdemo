@@ -2,8 +2,9 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { GradientBackground } from '@/components/ui/gradient-background';
+import { ScrollTitle } from '@/components/ui/scroll-title';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
@@ -937,12 +938,14 @@ function DailyLogSummaryCard({
 export default function HomeScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { onScroll, onScrollEnd } = useTabBarVisibility();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
+  const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const healthData = useHealthData();
   const { lastLogAction, actuals, targets, profile, focuses } = healthData;
   const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
-  const { appleHealthEnabled } = usePreferencesStore();
+  const { appleHealthEnabled, updateStreakOnOpen } = usePreferencesStore();
   const { updateProfile, applyPendingTransition, profile: fullUserProfile } = useProfile();
   const onTreatment = isOnTreatment(fullUserProfile);
 
@@ -953,7 +956,7 @@ export default function HomeScreen() {
   const { openAiChat } = useUiStore();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
   const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
@@ -974,6 +977,8 @@ export default function HomeScreen() {
   const [progressPhotoUrl, setProgressPhotoUrl] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
+    // Update streak on every home tab focus so the fire icon is always current.
+    updateStreakOnOpen();
     // Re-verify actuals (including injectionLogged) from Supabase on every tab focus
     // so the injection reminder updates immediately after logging a dose.
     healthData.refreshActuals();
@@ -1400,48 +1405,8 @@ export default function HomeScreen() {
 
   return (
     <TabScreenWrapper>
-    <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <GradientBackground />
-      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-        {/* ── Fixed header ── */}
-        <View
-          style={s.headerArea}
-          onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
-        >
-          <View style={s.headerTopRow}>
-            {/* Left: greeting */}
-            <View style={{ flex: 1 }}>
-              <Text style={s.greetingLabel}>Welcome,</Text>
-              <Text style={s.greetingName}>
-                {logStore.profile?.username?.split(' ')[0] ?? fullUserProfile?.username?.split(' ')[0] ?? 'there'}!
-              </Text>
-            </View>
-            {/* Right: date + streak fire */}
-            <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={s.dateTitle}>{dateLabel}</Text>
-                  <Text style={s.weekday}>{weekday}</Text>
-                </View>
-                <View style={s.fireWrap}>
-                  <AnimatedFire size={30} streak={streak} showNumber={streak > 0} active={streak > 0} />
-                </View>
-              </View>
-            </Pressable>
-          </View>
-
-          {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
-          {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
-          {isPast && !isLoadingDate && historicalSnapshot !== null &&
-            historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
-            historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
-            historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
-            <Text style={s.futureNote}>No entries logged for this day</Text>
-          }
-        </View>
-      </SafeAreaView>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
-
         <ScrollView
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
@@ -1450,6 +1415,43 @@ export default function HomeScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
+          <GradientBackground />
+          {/* ── Header (scrolls with content) ── */}
+          <View
+            style={s.headerArea}
+            onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
+          >
+            <View style={s.headerTopRow}>
+              {/* Left: greeting */}
+              <View style={{ flex: 1 }}>
+                <Text style={s.greetingLabel}>Welcome,</Text>
+                <Text style={s.greetingName}>
+                  {(logStore.profile as any)?.username?.split(' ')[0] ?? 'there'}!
+                </Text>
+              </View>
+              {/* Right: date + streak fire */}
+              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.dateTitle}>{dateLabel}</Text>
+                    <Text style={s.weekday}>{weekday}</Text>
+                  </View>
+                  <View style={s.fireWrap}>
+                    <AnimatedFire size={30} streak={streak} showNumber={streak > 0} active={streak > 0} />
+                  </View>
+                </View>
+              </Pressable>
+            </View>
+
+            {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
+            {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
+            {isPast && !isLoadingDate && historicalSnapshot !== null &&
+              historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
+              historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
+              historicalSnapshot.actuals.waterMl === 0 && historicalSnapshot.foodLogs.length === 0 &&
+              <Text style={s.futureNote}>No entries logged for this day</Text>
+            }
+          </View>
           <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
           {/* ── Viewing History Banner ── */}
@@ -1481,7 +1483,7 @@ export default function HomeScreen() {
           {/* ── Treatment Hero Card (medication users only) ── */}
           {onTreatment ? (
           <Pressable
-            style={[s.cardWrap, { marginBottom: 20 }]}
+            style={[s.cardWrap, { marginBottom: 20, marginTop: 16 }]}
             onLongPress={handlePhasePillPress}
             delayLongPress={500}
           >
@@ -1836,7 +1838,8 @@ export default function HomeScreen() {
         />
 
       </SafeAreaView>
-    </Pressable>
+      <ScrollTitle title="Home" scrollY={scrollY} />
+    </View>
     </TabScreenWrapper>
   );
 }
@@ -1846,7 +1849,7 @@ export default function HomeScreen() {
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 120 },
+  content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
   // Hero gradient — absolute positioned behind all content, fades to page bg
   heroGradientBg: {

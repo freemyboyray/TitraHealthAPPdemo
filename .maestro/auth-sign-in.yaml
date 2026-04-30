@@ -1,0 +1,34 @@
+appId: com.titrahealth.app
+name: "Auth - Sign In Flow"
+---
+
+# Clear state and launch fresh
+- clearState
+- launchApp
+
+# Should see login screen
+- assertVisible: "Welcome back"
+- assertVisible: "Login"
+- assertVisible: "Register"
+
+# Verify email and password fields exist
+- assertVisible: "Email"
+- assertVisible: "Password"
+
+# Verify social login option
+- assertVisible: "Google"
+
+# Verify demo mode option
+- assertVisible: "Try demo - no account needed"
+
+# Enter test credentials
+- tapOn: "Email"
+- inputText: "test@titrahealth.com"
+- tapOn: "Password"
+- inputText: "TestPassword123!"
+
+# Tap Log In button
+- tapOn: "Log In"
+
+# Wait for response
+- waitForAnimationToEnd

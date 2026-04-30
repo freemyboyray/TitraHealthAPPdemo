@@ -75,7 +75,7 @@ export default function SearchFoodScreen() {
   const [servingG, setServingG] = useState('100');
   const [mealType, setMealType] = useState<MealType>('lunch');
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   async function doSearch(q: string) {
     if (!q.trim()) {

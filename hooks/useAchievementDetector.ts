@@ -19,11 +19,11 @@ export function useAchievementDetector() {
   const { profile } = useProfile();
   const weightLogs = useLogStore((s) => s.weightLogs);
   const hydrated = useLogStore((s) => s.hydrated);
-  const streakCount = usePreferencesStore((s) => s.streakCount);
-  const shownIds = usePreferencesStore((s) => s.shownAchievementIds);
-  const seeded = usePreferencesStore((s) => s.achievementsSeeded);
-  const markShown = usePreferencesStore((s) => s.markAchievementShown);
-  const seedAchievements = usePreferencesStore((s) => s.seedAchievements);
+  const streakCount = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
+  const shownIds = usePreferencesStore((s: { shownAchievementIds: string[] }) => s.shownAchievementIds);
+  const seeded = usePreferencesStore((s: { achievementsSeeded: boolean }) => s.achievementsSeeded);
+  const markShown = usePreferencesStore((s: { markAchievementShown: (id: string) => void }) => s.markAchievementShown);
+  const seedAchievements = usePreferencesStore((s: { seedAchievements: (ids: string[]) => void }) => s.seedAchievements);
 
   const weightLost = useMemo(() => {
     const startWeight = profile?.startWeightLbs ?? 0;

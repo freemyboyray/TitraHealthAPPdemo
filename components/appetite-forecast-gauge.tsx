@@ -111,7 +111,7 @@ function GaugeArc({ appetiteLevel, stateColor, isDark }: GaugeProps) {
 
       {/* Needle dot */}
       <Circle cx={needlePt.x} cy={needlePt.y} r={8} fill={stateColor} />
-      <Circle cx={needlePt.x} cy={needlePt.y} r={4} fill={colors.isDark ? '#FFFFFF' : '#1A1D26'} />
+      <Circle cx={needlePt.x} cy={needlePt.y} r={4} fill={isDark ? '#FFFFFF' : '#1A1D26'} />
 
       {/* Labels */}
       <SvgText x={ARC_CX - ARC_R - 2} y={ARC_CY + 16} fill={labelColor} fontSize={11} fontFamily="System" textAnchor="middle">

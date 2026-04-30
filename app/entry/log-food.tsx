@@ -159,7 +159,7 @@ export default function LogFoodScreen() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // ── Scan state ────────────────────────────────────────────────────────────
   const [scanned, setScanned] = useState(false);

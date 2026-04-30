@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { OptionPill } from '@/components/onboarding/option-pill';
+import { DoseSelector } from '@/components/treatment/DoseSelector';
+import { MedicationPicker } from '@/components/treatment/MedicationPicker';
+import { ScheduleSelector } from '@/components/treatment/ScheduleSelector';
 import type { AppColors } from '@/constants/theme';
 import {
   BRAND_DEFAULT_FREQ_DAYS, BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, BRAND_TO_ROUTE,
@@ -63,59 +65,10 @@ function buildTargetDiffs(current: DailyTargets, next: DailyTargets): TargetDiff
   return diffs;
 }
 
-type BrandOption = { value: MedicationBrand; label: string; note?: string };
-type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] };
-
-const BRAND_GROUPS: BrandGroup[] = [
-  {
-    heading: 'Weekly Injection',
-    subheading: 'Administered once a week by subcutaneous injection',
-    brands: [
-      { value: 'zepbound',               label: 'Zepbound®',              note: 'Tirzepatide' },
-      { value: 'mounjaro',               label: 'Mounjaro®',              note: 'Tirzepatide' },
-      { value: 'wegovy',                 label: 'Wegovy®',                note: 'Semaglutide' },
-      { value: 'ozempic',                label: 'Ozempic®',               note: 'Semaglutide (off-label wt loss)' },
-      { value: 'trulicity',              label: 'Trulicity®',             note: 'Dulaglutide' },
-      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide', note: 'Weekly' },
-      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide', note: 'Weekly' },
-    ],
-  },
-  {
-    heading: 'Daily Injection',
-    subheading: 'Administered once a day by subcutaneous injection',
-    brands: [
-      { value: 'saxenda',                label: 'Saxenda®',               note: 'Liraglutide 3 mg' },
-      { value: 'victoza',                label: 'Victoza®',               note: 'Liraglutide (off-label wt loss)' },
-      { value: 'compounded_liraglutide', label: 'Compounded Liraglutide', note: 'Daily' },
-    ],
-  },
-  {
-    heading: 'Daily Oral Pill',
-    subheading: 'Taken by mouth once a day - no injections',
-    brands: [
-      { value: 'oral_wegovy',  label: 'Oral Wegovy®',  note: 'Semaglutide 25 mg · FDA approved Dec 2025' },
-      { value: 'rybelsus',     label: 'Rybelsus®',     note: 'Semaglutide 3/7/14 mg · T2D approved' },
-      { value: 'orforglipron', label: 'Orforglipron',  note: 'Eli Lilly · NDA filed - FDA decision Q2 2026' },
-    ],
-  },
-  {
-    heading: 'Other',
-    subheading: '',
-    brands: [{ value: 'other', label: 'Other / Not listed' }],
-  },
-];
-
 const INJECTION_SITES = [
   'Left Abdomen', 'Right Abdomen',
   'Left Thigh', 'Right Thigh',
   'Left Upper Arm', 'Right Upper Arm',
-];
-
-const INJECTABLE_FREQUENCIES = [
-  { label: 'Every day',                  days: 1 as number | 'custom' },
-  { label: 'Every 7 days (most common)', days: 7 as number | 'custom' },
-  { label: 'Every 14 days',             days: 14 as number | 'custom' },
-  { label: 'Custom',                     days: 'custom' as number | 'custom' },
 ];
 
 export default function EditTreatmentScreen() {
@@ -233,7 +186,6 @@ export default function EditTreatmentScreen() {
 
   const glp1Type = brand ? BRAND_TO_GLP1_TYPE[brand] : null;
   const isOral = glp1Type ? (DRUG_IS_ORAL[glp1Type] ?? false) : false;
-  const brandDoses = brand ? getBrandDoses(brand) : [];
   const isDaily = (freq === 1) || (freq === 'custom' && customFreq === '1');
 
   // ── Change detection ──
@@ -433,7 +385,7 @@ export default function EditTreatmentScreen() {
           daily_protein_g_target: newTargets.proteinG,
           daily_fiber_g_target: newTargets.fiberG,
           daily_steps_target: newTargets.steps,
-          active_calories_target: newTargets.activeMinutes * 3,
+          active_calories_target: newTargets.activeCaloriesTarget,
         });
         if (goalsErr) console.warn('edit-treatment: user_goals.upsert failed:', goalsErr);
       }
@@ -1155,140 +1107,42 @@ export default function EditTreatmentScreen() {
 
             {/* ── STEP: BRAND ── */}
             {wizardStep === 'brand' && (
-              <>
-                <Text style={s.wizardQuestion}>Which medication are you on?</Text>
-                <Text style={s.wizardHint}>Select the brand prescribed by your provider.</Text>
-                {BRAND_GROUPS.map((group) => (
-                  <View key={group.heading} style={s.group}>
-                    <Text style={s.groupHeading}>{group.heading}</Text>
-                    {group.subheading ? <Text style={s.groupSub}>{group.subheading}</Text> : null}
-                    {group.brands.map((b) => (
-                      <OptionPill
-                        key={b.value}
-                        label={b.note ? `${b.label}  ·  ${b.note}` : b.label}
-                        selected={brand === b.value}
-                        onPress={() => handleBrandChange(b.value)}
-                      />
-                    ))}
-                  </View>
-                ))}
-              </>
+              <MedicationPicker
+                currentBrand={profile?.medicationBrand}
+                selectedBrand={brand}
+                onSelectBrand={handleBrandChange}
+              />
             )}
 
             {/* ── STEP: DOSE ── */}
             {wizardStep === 'dose' && (
-              <>
-                <Text style={s.wizardQuestion}>
-                  What dose of {brand ? (BRAND_LABEL[brand] ?? brand) : 'your medication'}?
-                </Text>
-                <Text style={s.wizardHint}>Select your current prescribed dose.</Text>
-                {brandDoses.map((d) => (
-                  <OptionPill
-                    key={String(d)}
-                    label={`${d} mg`}
-                    selected={dose === d}
-                    onPress={() => { setDose(d); setCustomDose(''); }}
-                  />
-                ))}
-                <OptionPill
-                  label="Custom / Other"
-                  selected={dose === 'custom'}
-                  onPress={() => setDose('custom')}
-                />
-                {dose === 'custom' && (
-                  <TextInput
-                    style={s.input}
-                    placeholder="Enter dose in mg (e.g. 3.5)"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                    value={customDose}
-                    onChangeText={setCustomDose}
-                    autoFocus
-                  />
-                )}
-              </>
+              <DoseSelector
+                brand={brand}
+                currentDose={profile?.doseMg}
+                selectedDose={dose}
+                customDose={customDose}
+                onSelectDose={(d) => { if (d === 'custom') { setDose('custom'); } else { setDose(d); setCustomDose(''); } }}
+                onCustomDoseChange={setCustomDose}
+              />
             )}
 
             {/* ── STEP: SCHEDULE ── */}
             {wizardStep === 'schedule' && (
-              <>
-                {/* Frequency — hide for oral (auto-set to daily) */}
-                {!isOral && (
-                  <>
-                    <Text style={s.wizardQuestion}>How often do you take it?</Text>
-                    <Text style={s.wizardHint}>Select the frequency prescribed by your provider.</Text>
-                    {INJECTABLE_FREQUENCIES.map((f) => (
-                      <OptionPill
-                        key={String(f.days)}
-                        label={f.label}
-                        selected={freq === f.days}
-                        onPress={() => { setFreq(f.days); setCustomFreq(''); }}
-                      />
-                    ))}
-                    {freq === 'custom' && (
-                      <TextInput
-                        style={s.input}
-                        placeholder="Frequency in days (e.g. 10)"
-                        placeholderTextColor={colors.textMuted}
-                        keyboardType="number-pad"
-                        value={customFreq}
-                        onChangeText={setCustomFreq}
-                        autoFocus
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* Daily dose time */}
-                {isDaily && (
-                  <>
-                    <Text style={[s.sectionLabel, { marginTop: isOral ? 0 : 24 }]}>
-                      {isOral ? 'What time do you take your pill?' : 'Daily Dose Time'}
-                    </Text>
-                    <Text style={s.helperText}>
-                      Used for reminders and tracking your medication cycle.
-                    </Text>
-                    <DateTimePicker
-                      value={doseTime}
-                      mode="time"
-                      display="spinner"
-                      onChange={(_, date) => { if (date) setDoseTime(date); }}
-                      style={{ alignSelf: 'flex-start', marginTop: 8 }}
-                    />
-                  </>
-                )}
-
-                {/* Last dose + dose start — only for on-treatment users changing meds */}
-                {!wasOffTreatment && (
-                  <>
-                    <Text style={[s.sectionLabel, { marginTop: 24 }]}>
-                      {isOral ? 'When did you last take your pill?' : 'When was your last injection?'}
-                    </Text>
-                    <View style={s.datePickerWrap}>
-                      <DateTimePicker
-                        value={lastInjDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                        maximumDate={new Date()}
-                        onChange={(_, date) => { if (date) setLastInjDate(date); }}
-                        style={s.datePicker}
-                      />
-                    </View>
-
-                    <Text style={[s.sectionLabel, { marginTop: 24 }]}>When did you start this dose?</Text>
-                    <View style={s.datePickerWrap}>
-                      <DateTimePicker
-                        value={doseStartDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                        maximumDate={new Date()}
-                        onChange={(_, date) => { if (date) setDoseStartDate(date); }}
-                        style={s.datePicker}
-                      />
-                    </View>
-                  </>
-                )}
-              </>
+              <ScheduleSelector
+                isOral={isOral}
+                isDaily={isDaily}
+                wasOffTreatment={wasOffTreatment}
+                freq={freq}
+                customFreq={customFreq}
+                doseTime={doseTime}
+                lastInjDate={lastInjDate}
+                doseStartDate={doseStartDate}
+                onFreqChange={(f) => { setFreq(f); if (f !== 'custom') setCustomFreq(''); }}
+                onCustomFreqChange={setCustomFreq}
+                onDoseTimeChange={setDoseTime}
+                onLastInjDateChange={setLastInjDate}
+                onDoseStartDateChange={setDoseStartDate}
+              />
             )}
 
           </ScrollView>
@@ -1435,21 +1289,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, gap: 4 },
-  group: { marginBottom: 20 },
-  groupHeading: {
-    fontSize: 15, fontWeight: '700', color: ORANGE,
-    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4,
-  },
-  groupSub: { fontSize: 14, color: c.textMuted, marginBottom: 10 },
-  sectionLabel: { fontSize: 18, fontWeight: '600', color: c.textPrimary, marginBottom: 12 },
-  helperText: { fontSize: 15, color: c.textSecondary, lineHeight: 18 },
-  input: {
-    height: 52, borderWidth: 1.5, borderColor: c.border, borderRadius: 14,
-    paddingHorizontal: 16, fontSize: 18, color: c.textPrimary,
-    marginTop: 4, marginBottom: 4, backgroundColor: c.bg,
-  },
-  datePickerWrap: { marginBottom: 8 },
-  datePicker: { alignSelf: 'flex-start' },
   footer: { padding: 16, paddingBottom: 8 },
   saveBtn: {
     backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16,
@@ -1507,16 +1346,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   progressSegment: { flex: 1, height: 3, borderRadius: 1.5 },
   progressSegmentActive: { backgroundColor: ORANGE },
   progressSegmentInactive: { backgroundColor: 'rgba(255,255,255,0.1)' },
-
-  // Wizard question
-  wizardQuestion: {
-    fontSize: 22, fontWeight: '700' as const, color: c.textPrimary,
-    marginBottom: 6, lineHeight: 28, fontFamily: 'System',
-  },
-  wizardHint: {
-    fontSize: 16, color: c.textSecondary, marginBottom: 24, lineHeight: 20,
-    fontFamily: 'System',
-  },
 
   // Summary card
   summaryCard: {
@@ -1646,7 +1475,6 @@ const ms = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: FF,
   },
   modalTitle: {
     fontSize: 15,

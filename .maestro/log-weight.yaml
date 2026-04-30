@@ -1,0 +1,23 @@
+appId: com.titrahealth.app
+name: "Entry - Log Weight via Get Started"
+tags:
+  - entry
+  - weight
+---
+
+- clearState
+- launchApp
+
+- tapOn: "Try demo - no account needed"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Log your starting weight.*"
+    timeout: 15000
+
+# Tap the checklist item (tap on the grouped element containing this text)
+- tapOn:
+    text: ".*Log your starting weight.*"
+
+- waitForAnimationToEnd:
+    timeout: 5000

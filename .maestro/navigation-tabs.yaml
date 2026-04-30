@@ -1,0 +1,32 @@
+appId: com.titrahealth.app
+name: "Navigation - Tab Switching"
+tags:
+  - smoke
+  - navigation
+---
+
+- clearState
+- launchApp
+
+- tapOn: "Try demo - no account needed"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Daily Focuses.*"
+    timeout: 15000
+
+# Tap Settings tab icon (gear, 4th position)
+- tapOn:
+    point: "490, 1380"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Tap Home tab icon (house, 1st position)
+- tapOn:
+    point: "110, 1380"
+
+# Verify returned to home
+- extendedWaitUntil:
+    visible:
+      text: ".*Daily Focuses.*"
+    timeout: 10000

@@ -8,6 +8,8 @@ import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
+import { ScrollTitle } from '@/components/ui/scroll-title';
+import { SlidingTabs } from '@/components/ui/sliding-tabs';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -434,7 +436,7 @@ function ltXLabels(dates: string[], plotW: number, periodDays: number): { x: num
 
 const ORANGE_LOG = '#FF742A';
 
-function activityIcon(exerciseType: string | null | undefined): React.ReactNode {
+function activityIcon(exerciseType: string | null | undefined): React.ReactElement {
   const t = (exerciseType ?? '').toLowerCase();
   let name: React.ComponentProps<typeof MaterialIcons>['name'] = 'flash-on';
   if (t.includes('run') || t.includes('jog'))      name = 'directions-run';
@@ -453,8 +455,8 @@ function foodToEntry(f: FoodLog): LogEntry {
   const details = `${Math.round(f.calories)} cal · ${Math.round(f.protein_g)}g protein · ${Math.round(f.fiber_g)}g fiber · ${Math.round(f.carbs_g)}g carbs`;
   const impact = `+${Math.round(f.protein_g)}g protein, +${Math.round(f.carbs_g)}g carbs, +${Math.round(f.fiber_g)}g fiber`;
   return {
-    id: f.id, timestamp: fmtDateTime(f.logged_at), title: f.food_name,
-    details, impact, impactStatus: 'positive',
+    id: f.id, timestamp: fmtDateTime(f.logged_at), rawDate: localDateStr(new Date(f.logged_at)),
+    title: f.food_name, details, impact, impactStatus: 'positive',
     icon: <IconSymbol name="fork.knife" size={20} color={ORANGE_LOG} />,
   };
 }
@@ -466,8 +468,8 @@ function activityToEntry(a: ActivityLog): LogEntry {
   const details = [durationStr, stepsStr, calStr].filter(Boolean).join(' · ') || 'Activity logged';
   const impact = `Steps ${a.steps ? `+${a.steps.toLocaleString()}` : '-'} · Calories ${a.active_calories ? `+${a.active_calories}` : '-'}`;
   return {
-    id: a.id, timestamp: fmtDateOnly(a.date), title: a.exercise_type ?? 'Activity',
-    details, impact, impactStatus: 'positive',
+    id: a.id, timestamp: fmtDateOnly(a.date), rawDate: a.date,
+    title: a.exercise_type ?? 'Activity', details, impact, impactStatus: 'positive',
     icon: activityIcon(a.exercise_type),
   };
 }
@@ -482,7 +484,7 @@ function injectionToEntry(inj: InjectionLog, oral = false): LogEntry {
     ? `Next ${doseNoun(true)} in 1 day`
     : `Next injection in 7 days - rotate to ${next}`;
   return {
-    id: inj.id, timestamp: fmtDateOnly(inj.injection_date),
+    id: inj.id, timestamp: fmtDateOnly(inj.injection_date), rawDate: inj.injection_date,
     title: `${medName} ${inj.dose_mg}mg`,
     details, impact, impactStatus: 'neutral',
     icon: <FontAwesome5 name={doseIconName(oral)} size={18} color={ORANGE_LOG} />,
@@ -493,12 +495,24 @@ function weightToEntry(log: WeightLog, prevLog?: WeightLog): LogEntry {
   const delta = prevLog ? Math.round((log.weight_lbs - prevLog.weight_lbs) * 10) / 10 : 0;
   const deltaStr = delta < 0 ? `Down ${Math.abs(delta)} lbs` : delta > 0 ? `Up ${delta} lbs` : 'Steady';
   return {
-    id: log.id, timestamp: fmtDateTime(log.logged_at),
+    id: log.id, timestamp: fmtDateTime(log.logged_at), rawDate: localDateStr(new Date(log.logged_at)),
     title: `Weight Log - ${log.weight_lbs} lbs`,
     details: `${log.weight_lbs} lbs · ${deltaStr} from last entry`,
     impact: delta <= 0 ? deltaStr : `Up ${Math.abs(delta)} lbs`,
     impactStatus: delta < 0 ? 'positive' : delta > 0 ? 'negative' : 'neutral',
     icon: <IconSymbol name="scalemass.fill" size={20} color={ORANGE_LOG} />,
+  };
+}
+
+function sideEffectToEntry(se: SideEffectLog): LogEntry {
+  const label = se.effect_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const sevLabel = se.severity <= 3 ? 'Mild' : se.severity <= 6 ? 'Moderate' : 'Severe';
+  const details = `Severity: ${se.severity}/10${se.notes ? ` · ${se.notes}` : ''}`;
+  return {
+    id: se.id, timestamp: fmtDateTime(se.logged_at), rawDate: localDateStr(new Date(se.logged_at)),
+    title: label, details, impact: sevLabel,
+    impactStatus: se.severity <= 3 ? 'neutral' : 'negative',
+    icon: <MaterialIcons name="sick" size={20} color={ORANGE_LOG} />,
   };
 }
 
@@ -512,55 +526,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'progress', label: 'Progress' },
 ];
 
-function SegmentedControl({ active, onChange, colors, tabs }: { active: Tab; onChange: (t: Tab) => void; colors: AppColors; tabs?: typeof TABS }) {
-  const sc = useMemo(() => createSegmentedStyles(colors), [colors]);
-  const displayTabs = tabs ?? TABS;
-  return (
-    <View style={sc.wrap}>
-      <View style={sc.row}>
-        {displayTabs.map(({ key, label }) => {
-          const isActive = active === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[sc.tab, isActive && sc.tabActive]}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(key); }}
-              activeOpacity={0.7}
-            >
-              {isActive && (
-                <>
-                  <BlurView intensity={30} tint={colors.blurTint} style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]} />
-                  <View style={[StyleSheet.absoluteFillObject, sc.tabActiveOverlay]} />
-                </>
-              )}
-              <Text style={[sc.tabLabel, isActive && sc.tabLabelActive]}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const createSegmentedStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  return StyleSheet.create({
-    wrap: {
-      borderRadius: 36, overflow: 'hidden', marginBottom: 24,
-      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: c.isDark ? 0.3 : 0.08, shadowRadius: c.isDark ? 16 : 6, elevation: c.isDark ? 6 : 2,
-      backgroundColor: c.isDark ? c.borderSubtle : c.cardBg,
-      borderWidth: 0.5, borderColor: c.border,
-    },
-    overlay: { borderRadius: 36, backgroundColor: c.glassOverlay },
-    row: { flexDirection: 'row', padding: 5 },
-    tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 28, overflow: 'hidden' },
-    tabActive: {},
-    tabActiveOverlay: { borderRadius: 28, backgroundColor: 'rgba(255,116,42,0.15)' },
-    tabLabel: { fontSize: 15, fontWeight: '600', color: w(0.35), fontFamily: 'System' },
-    tabLabelActive: { color: ORANGE, fontWeight: '700', fontFamily: 'System' },
-  });
-};
+// SegmentedControl replaced by SlidingTabs component
 
 // ─── Ring indicator ───────────────────────────────────────────────────────────
 
@@ -726,6 +692,7 @@ type Status = 'positive' | 'negative' | 'neutral';
 type LogEntry = {
   id: string;
   timestamp: string;
+  rawDate: string; // YYYY-MM-DD for grouping
   title: string;
   details: string;
   impact: string;
@@ -1050,7 +1017,7 @@ function pkPointLabel(idx: number, injFreqDays: number, nPoints: number, injTime
   return `Day ${day}${h > 0 ? `, +${h}h` : ''}`;
 }
 
-function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp }: {
+function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp, lastDoseMg }: {
   chartData: number[] | null;
   daysSince: number;
   dayLabels: string[];
@@ -1061,6 +1028,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   currentConcentrationPct?: number | null;
   injFreqDays: number;
   injTimestamp?: string | null;
+  lastDoseMg?: number | null;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -1280,19 +1248,17 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   return (
     <>
       <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
-        <View>
-          <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Drug Concentration</Text>
-          <Text style={[s.chartMuted, { marginTop: 2, fontSize: 13 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} />
-      </View>
+      {/* Title outside card, between nav bar and graph */}
+      <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 8 }]}>Drug Concentration</Text>
       <Pressable
         style={s.cardWrap}
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
       >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
+
+            {/* Medication info */}
+            <Text style={[s.chartMuted, { marginBottom: 14, fontSize: 13 }]}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
 
             {/* Level display */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
@@ -1903,36 +1869,37 @@ function WeightProjectionCard({
 
   return (
     <>
+      {/* Header row — outside the card */}
+      <Pressable
+        onPress={() => setExpanded(true)}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          openAiChat({
+            type: 'metric',
+            contextLabel: 'Weight Journey',
+            contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
+            chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
+          });
+        }}
+        delayLongPress={400}
+        style={{ marginBottom: 10, paddingHorizontal: 4 }}
+      >
+        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>Weight Journey</Text>
+      </Pressable>
+
       <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            {/* Header row — tappable to expand */}
-            <Pressable
-              onPress={() => setExpanded(true)}
-              onLongPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                openAiChat({
-                  type: 'metric',
-                  contextLabel: 'Weight Journey',
-                  contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
-                  chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
-                });
-              }}
-              delayLongPress={400}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}
-            >
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1, fontFamily: 'System' }}>
-                  {currentWeight != null ? `${currentWeight} lbs` : '-'}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Ionicons name="expand-outline" size={11} color={w(0.3)} />
-                  <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
-                </View>
+            {/* Weight value + tap hint */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1 }}>
+                {currentWeight != null ? `${currentWeight} lbs` : '-'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Ionicons name="expand-outline" size={11} color={w(0.3)} />
+                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
               </View>
-            </Pressable>
-
+            </View>
             {/* Period selector */}
             <View style={s.progPeriodRow}>
               {(['7D', '14D', '30D', '90D', 'MAX'] as const).map((p) => (
@@ -2304,7 +2271,21 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
 
 // ─── Recent Logs card ─────────────────────────────────────────────────────────
 
-function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?: (id: string) => void }) {
+function formatGroupDate(dateStr: string): string {
+  const today = localDateStr();
+  if (dateStr === today) return 'Today';
+  const yesterday = localDateStr(new Date(Date.now() - 86400000));
+  if (dateStr === yesterday) return 'Yesterday';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
+  entries: LogEntry[];
+  onDelete?: (id: string) => void;
+  grouped?: boolean;
+  onViewAll?: () => void;
+}) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
@@ -2313,6 +2294,51 @@ function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?:
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(e => !e);
   };
+
+  const capped = entries.slice(0, 20);
+
+  // Group entries by date when grouped mode is on
+  const sections = useMemo(() => {
+    if (!grouped) return null;
+    const map = new Map<string, LogEntry[]>();
+    for (const e of capped) {
+      const list = map.get(e.rawDate) ?? [];
+      list.push(e);
+      map.set(e.rawDate, list);
+    }
+    return Array.from(map.entries()).map(([date, items]) => ({ date, label: formatGroupDate(date), items }));
+  }, [grouped, capped]);
+
+  const renderEntry = (entry: LogEntry, isLast: boolean) => (
+    <View key={entry.id}>
+      <View style={s.logEntryRow}>
+        <View style={s.logEntryIconWrap}>{entry.icon}</View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Text style={s.logEntryTitle} numberOfLines={1}>{entry.title}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={s.logEntryTime}>{entry.timestamp}</Text>
+              {onDelete && (
+                <TouchableOpacity
+                  onPress={() => onDelete(entry.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <IconSymbol name="trash.fill" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <Text style={s.logEntryDetails}>{entry.details}</Text>
+          <View style={[s.logImpactTag, { backgroundColor: statusStyle[entry.impactStatus].bg, marginTop: 6, alignSelf: 'flex-start' }]}>
+            <Text style={[s.logImpactText, { color: statusStyle[entry.impactStatus].text }]}>
+              {entry.impact}
+            </Text>
+          </View>
+        </View>
+      </View>
+      {!isLast && <View style={s.logDivider} />}
+    </View>
+  );
 
   return (
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
@@ -2331,40 +2357,27 @@ function RecentLogsCard({ entries, onDelete }: { entries: LogEntry[]; onDelete?:
         {expanded && (
           <View style={s.logEntryList}>
             <View style={s.logDivider} />
-            {entries.length === 0 ? (
+            {capped.length === 0 ? (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
                 <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>No entries yet</Text>
               </View>
-            ) : entries.map((entry, i) => (
-              <View key={entry.id}>
-                <View style={s.logEntryRow}>
-                  <View style={s.logEntryIconWrap}>{entry.icon}</View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Text style={s.logEntryTitle} numberOfLines={1}>{entry.title}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={s.logEntryTime}>{entry.timestamp}</Text>
-                        {onDelete && (
-                          <TouchableOpacity
-                            onPress={() => onDelete(entry.id)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <IconSymbol name="trash.fill" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                    <Text style={s.logEntryDetails}>{entry.details}</Text>
-                    <View style={[s.logImpactTag, { backgroundColor: statusStyle[entry.impactStatus].bg, marginTop: 6, alignSelf: 'flex-start' }]}>
-                      <Text style={[s.logImpactText, { color: statusStyle[entry.impactStatus].text }]}>
-                        {entry.impact}
-                      </Text>
-                    </View>
-                  </View>
+            ) : grouped && sections ? (
+              sections.map((section, si) => (
+                <View key={section.date}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textMuted, paddingHorizontal: 16, paddingTop: si === 0 ? 8 : 16, paddingBottom: 6, fontFamily: 'System' }}>
+                    {section.label}
+                  </Text>
+                  {section.items.map((entry, i) => renderEntry(entry, si === sections.length - 1 && i === section.items.length - 1))}
                 </View>
-                {i < entries.length - 1 && <View style={s.logDivider} />}
-              </View>
-            ))}
+              ))
+            ) : (
+              capped.map((entry, i) => renderEntry(entry, i === capped.length - 1))
+            )}
+            {onViewAll && capped.length > 0 && (
+              <TouchableOpacity onPress={onViewAll} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>View All Logs</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -2707,9 +2720,9 @@ function LifestyleTrendCard({
       <View
         style={{
           borderRadius: 16,
-          backgroundColor: tc(0.06),
-          borderWidth: 1,
-          borderColor: tc(0.1),
+          backgroundColor: colors.surface,
+          borderWidth: 0.5,
+          borderColor: colors.border,
           padding: 14,
         }}
       >
@@ -2888,7 +2901,9 @@ function LifestyleTrendCard({
 export default function InsightsScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { onScroll, onScrollEnd } = useTabBarVisibility();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
+  const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
   const { actuals, targets } = health;
   const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, deleteWeightLog, weeklyCheckins, peerComparison, fetchInsightsData } = useLogStore();
@@ -2979,11 +2994,13 @@ export default function InsightsScreen() {
   const fatPct = targets.fatG > 0 ? Math.round((todayFatG / targets.fatG) * 100) : 0;
   const caloriesPct = targets.caloriesTarget > 0 ? Math.round((todayCalories / targets.caloriesTarget) * 100) : 0;
 
-  // ── Lifestyle logs ─────────────────────────────────────────────────────────
+  // ── Lifestyle logs (past 7 days) ────────────────────────────────────────────
+  const sevenDaysAgo = localDateStr(new Date(Date.now() - 7 * 86400000));
   const lifestyleLogs: LogEntry[] = [
-    ...todayFoodLogs.map(foodToEntry),
-    ...todayActivityLogs.map(activityToEntry),
-  ].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    ...foodLogs.filter(f => localDateStr(new Date(f.logged_at)) >= sevenDaysAgo).map(foodToEntry),
+    ...activityLogs.filter(a => a.date >= sevenDaysAgo).map(activityToEntry),
+    ...sideEffectLogs.filter(se => localDateStr(new Date(se.logged_at)) >= sevenDaysAgo).map(sideEffectToEntry),
+  ].sort((a, b) => b.rawDate.localeCompare(a.rawDate) || b.timestamp.localeCompare(a.timestamp));
 
   // ── Medication data ────────────────────────────────────────────────────────
   const lastInj = injectionLogs[0] ?? null;
@@ -3183,13 +3200,7 @@ export default function InsightsScreen() {
 
   return (
     <TabScreenWrapper>
-    <Pressable style={{ flex: 1, backgroundColor: colors.bg }} onLongPress={handleBackgroundLongPress} delayLongPress={600}>
-      <GradientBackground />
-      <SafeAreaView edges={['top']} style={{ zIndex: 1 }}>
-        <View style={s.heroHeader}>
-          <Text style={s.heroTitle}>Insights</Text>
-        </View>
-      </SafeAreaView>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
           contentContainerStyle={s.content}
@@ -3199,10 +3210,23 @@ export default function InsightsScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
+          <GradientBackground />
+          <View style={s.heroHeader}>
+            <Text style={s.heroTitle}>Insights</Text>
+          </View>
           <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
           {/* ── Segmented Control ── */}
-          <SegmentedControl active={activeTab} onChange={setActiveTab} colors={colors} tabs={onTreatment ? TABS : TABS.filter(t => t.key !== 'medication')} />
+          <View style={{ marginTop: 16, marginBottom: 12 }}>
+            <SlidingTabs
+              tabs={onTreatment ? TABS : TABS.filter(t => t.key !== 'medication')}
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              height={42}
+              borderRadius={28}
+              padding={5}
+            />
+          </View>
           {/* <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6, marginBottom: 4 }}>
             <Ionicons name="chatbubble-ellipses-outline" size={11} color={colors.textMuted} />
             <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System' }}>
@@ -3215,6 +3239,7 @@ export default function InsightsScreen() {
             <>
               {/* <AIInsightsCard /> */}
 
+              <Text style={s.sectionTitle}>Nutrition Trends</Text>
               {/* ── Lifestyle Trend Card ── */}
               <LifestyleTrendCard
                 foodByDate={foodByDate}
@@ -3328,7 +3353,7 @@ export default function InsightsScreen() {
                   ));
                 })()
               )}
-              <RecentLogsCard entries={lifestyleLogs} />
+              <RecentLogsCard entries={lifestyleLogs} grouped onViewAll={() => router.push('/log-history')} />
             </>
           )}
 
@@ -3347,6 +3372,7 @@ export default function InsightsScreen() {
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
                 injTimestamp={injTimestamp}
+                lastDoseMg={lastInj?.dose_mg ?? null}
               />
               <SideEffectsCard logs={sideEffectLogs} />
               {appleHealthEnabled && (hkStore.hrv != null || hkStore.restingHR != null || hkStore.sleepHours != null) && (
@@ -3390,7 +3416,7 @@ export default function InsightsScreen() {
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Delete', style: 'destructive', onPress: () => deleteInjectionLog(id) },
                 ]);
-              }} />
+              }} onViewAll={() => router.push('/log-history')} />
             </>
           )}
 
@@ -3456,7 +3482,7 @@ export default function InsightsScreen() {
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Delete', style: 'destructive', onPress: () => deleteWeightLog(id) },
                 ]);
-              }} />
+              }} onViewAll={() => router.push('/log-history')} />
               <View style={{ marginTop: 16 }}>
                 <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
                 <WeeklyCheckinCard lastLoggedAt={lastCheckinLoggedAt} />
@@ -3467,7 +3493,8 @@ export default function InsightsScreen() {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
-    </Pressable>
+      <ScrollTitle title="Insights" scrollY={scrollY} />
+    </View>
     </TabScreenWrapper>
   );
 }
@@ -3477,7 +3504,7 @@ export default function InsightsScreen() {
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+  content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
   // Hero header background
   heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
