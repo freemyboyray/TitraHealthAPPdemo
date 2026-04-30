@@ -62,42 +62,42 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fast path: read denormalized flag from profiles
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_premium, trial_ends_at')
-      .eq('id', user.id)
-      .single();
+    // Read profile + subscription together so isPremium can never disagree with status.
+    // profiles.is_premium is a denormalized flag that can drift if a webhook half-fires;
+    // subscriptions.status is the source of truth.
+    const [profileResult, subResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('trial_ends_at')
+        .eq('id', user.id)
+        .single(),
+      supabase
+        .from('subscriptions')
+        .select('status, current_period_end, trial_end')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ]);
 
-    if (profile) {
-      const isPremium = profile.is_premium ?? false;
+    const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
+    const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
 
-      // Also check if trial is still active
-      const trialEndsAt = profile.trial_ends_at;
-      const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
+    const sub = subResult.data;
+    const status = (sub?.status ?? 'none') as SubscriptionStatus;
+    const periodActive = sub?.current_period_end
+      ? new Date(sub.current_period_end) > new Date()
+      : false;
+    const subscriptionActive =
+      status === 'active' ||
+      status === 'trialing' ||
+      (status === 'canceled' && periodActive);
 
-      set({
-        isPremium: isPremium || trialActive,
-        trialEndsAt,
-        loaded: true,
-      });
-    }
-
-    // Fetch full subscription details (async, non-blocking for UI)
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('status, current_period_end, trial_end')
-      .eq('user_id', user.id)
-      .single();
-
-    if (sub) {
-      set({
-        status: sub.status as SubscriptionStatus,
-        currentPeriodEnd: sub.current_period_end,
-      });
-    } else {
-      set({ status: 'none' });
-    }
+    set({
+      isPremium: subscriptionActive || trialActive,
+      trialEndsAt,
+      status,
+      currentPeriodEnd: sub?.current_period_end ?? null,
+      loaded: true,
+    });
   },
 
   checkFeatureAccess: (feature: string): GateType => {
@@ -122,20 +122,38 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('is_premium, trial_ends_at')
-      .eq('id', user.id)
-      .single();
+    const [profileResult, subResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('trial_ends_at')
+        .eq('id', user.id)
+        .single(),
+      supabase
+        .from('subscriptions')
+        .select('status, current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ]);
 
-    if (data) {
-      const trialEndsAt = data.trial_ends_at;
-      const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
-      set({
-        isPremium: (data.is_premium ?? false) || trialActive,
-        trialEndsAt,
-      });
-    }
+    const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
+    const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
+
+    const sub = subResult.data;
+    const status = (sub?.status ?? 'none') as SubscriptionStatus;
+    const periodActive = sub?.current_period_end
+      ? new Date(sub.current_period_end) > new Date()
+      : false;
+    const subscriptionActive =
+      status === 'active' ||
+      status === 'trialing' ||
+      (status === 'canceled' && periodActive);
+
+    set({
+      isPremium: subscriptionActive || trialActive,
+      trialEndsAt,
+      status,
+      currentPeriodEnd: sub?.current_period_end ?? null,
+    });
   },
 
   setPremium: (isPremium: boolean) => set({ isPremium }),

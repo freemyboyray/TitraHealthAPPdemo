@@ -27,6 +27,28 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
+    // subscriptions.status is the source of truth for the client and the
+    // check_and_increment_usage RPC. Insert a demo row; if the user already
+    // has a subscription (real Stripe/Apple), leave it alone.
+    const { error: subError } = await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: auth.userId,
+        status: 'active',
+        plan: 'monthly',
+        provider: 'demo',
+        provider_subscription_id: `demo-${auth.userId}`,
+      });
+
+    // 23505 = unique_violation on user_id; expected when a real sub already exists
+    if (subError && subError.code !== '23505') {
+      console.error('[redeem-demo] Subscription insert error:', subError.message);
+      return new Response(JSON.stringify({ error: 'Failed to activate' }), {
+        status: 500,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({ is_premium: true })
