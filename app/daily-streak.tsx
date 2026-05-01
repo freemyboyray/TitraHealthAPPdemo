@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,17 +10,13 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
-  Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
-import { AnimatedFire } from '@/components/animated-fire';
 import type { AppColors } from '@/constants/theme';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 const FF = 'System';
 const ORANGE = '#FF742A';
 
@@ -32,6 +28,8 @@ type Milestone = {
   type: 'streak' | 'weight' | 'treatment';
   label: string;
   value: string;
+  iconName: React.ComponentProps<typeof Ionicons>['name'];
+  iconColor: string;
 };
 
 function detectMilestones(
@@ -44,8 +42,10 @@ function detectMilestones(
   if (STREAK_MILESTONES.includes(streak)) {
     milestones.push({
       type: 'streak',
-      label: `${streak}-Day Streak!`,
-      value: `You've logged ${streak} days in a row`,
+      label: `${streak}-Day Streak`,
+      value: `${streak} days in a row`,
+      iconName: 'flame',
+      iconColor: ORANGE,
     });
   }
 
@@ -54,8 +54,10 @@ function detectMilestones(
       if (weightLost >= m && weightLost < m + (WEIGHT_MILESTONES[WEIGHT_MILESTONES.indexOf(m) + 1] ?? m + 10)) {
         milestones.push({
           type: 'weight',
-          label: `${m} lbs Lost!`,
-          value: `You've lost ${weightLost.toFixed(1)} lbs total`,
+          label: `${m} lbs Lost`,
+          value: `${weightLost.toFixed(1)} lbs total`,
+          iconName: 'trending-down',
+          iconColor: '#34C759',
         });
         break;
       }
@@ -63,55 +65,27 @@ function detectMilestones(
   }
 
   if (daysOnTreatment != null) {
-    if (daysOnTreatment === 7) milestones.push({ type: 'treatment', label: 'First Week!', value: '1 week on treatment' });
-    else if (daysOnTreatment === 30) milestones.push({ type: 'treatment', label: 'One Month!', value: '30 days on treatment' });
-    else if (daysOnTreatment === 90) milestones.push({ type: 'treatment', label: 'Three Months!', value: '90 days on treatment' });
-    else if (daysOnTreatment === 180) milestones.push({ type: 'treatment', label: 'Six Months!', value: '180 days on treatment' });
-    else if (daysOnTreatment === 365) milestones.push({ type: 'treatment', label: 'One Year!', value: '365 days on treatment' });
+    const treatmentMilestones: [number, string, string][] = [
+      [7, 'First Week', '1 week on treatment'],
+      [30, 'One Month', '30 days on treatment'],
+      [90, 'Three Months', '90 days on treatment'],
+      [180, 'Six Months', '180 days on treatment'],
+      [365, 'One Year', '365 days on treatment'],
+    ];
+    for (const [threshold, label, value] of treatmentMilestones) {
+      if (daysOnTreatment === threshold) {
+        milestones.push({
+          type: 'treatment',
+          label,
+          value,
+          iconName: 'medical',
+          iconColor: '#5AC8FA',
+        });
+      }
+    }
   }
 
   return milestones;
-}
-
-// ── Confetti particle ──
-function ConfettiPiece({ delay, x }: { delay: number; x: number }) {
-  const translateY = useSharedValue(-20);
-  const translateX = useSharedValue(x);
-  const rotate = useSharedValue(0);
-  const opacity = useSharedValue(1);
-
-  useEffect(() => {
-    translateY.value = withDelay(delay, withTiming(SCREEN_W * 1.5, { duration: 2500, easing: Easing.in(Easing.quad) }));
-    translateX.value = withDelay(delay, withTiming(x + (Math.random() - 0.5) * 120, { duration: 2500 }));
-    rotate.value = withDelay(delay, withTiming(360 * (Math.random() > 0.5 ? 1 : -1), { duration: 2500 }));
-    opacity.value = withDelay(delay + 1800, withTiming(0, { duration: 700 }));
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    position: 'absolute' as const,
-    top: 0,
-    left: translateX.value,
-    transform: [
-      { translateY: translateY.value },
-      { rotate: `${rotate.value}deg` },
-    ],
-    opacity: opacity.value,
-  }));
-
-  const colors = ['#FF742A', '#FFD700', '#FF4500', '#27AE60', '#5AC8FA', '#FF69B4', '#FF8C00'];
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const size = 6 + Math.random() * 6;
-
-  return (
-    <Animated.View style={style}>
-      <View style={{
-        width: size,
-        height: size * 1.5,
-        borderRadius: 2,
-        backgroundColor: color,
-      }} />
-    </Animated.View>
-  );
 }
 
 export default function DailyStreakScreen() {
@@ -148,147 +122,97 @@ export default function DailyStreakScreen() {
   const hasMilestone = milestones.length > 0;
 
   // ── Animations ──
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [displayStreak, setDisplayStreak] = useState(0);
-  const fireScale = useSharedValue(1);
-  const fireOpacity = useSharedValue(1);
+  const iconScale = useSharedValue(0.6);
+  const numberOpacity = useSharedValue(0);
+  const labelOpacity = useSharedValue(0);
   const milestoneOpacity = useSharedValue(0);
-  const milestoneScale = useSharedValue(0.8);
+  const milestoneScale = useSharedValue(0.9);
   const buttonOpacity = useSharedValue(0);
 
-  const triggerConfetti = useCallback(() => {
-    setShowConfetti(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
-
   useEffect(() => {
-    // Mark today as shown
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setLastDailyStreakDate(today);
 
-    // Count up the streak number
-    const countDuration = Math.min(streak * 80, 1500);
-    const stepTime = streak > 0 ? countDuration / streak : 0;
-    let count = 0;
-    if (streak > 0) {
-      const interval = setInterval(() => {
-        count++;
-        setDisplayStreak(count);
-        if (count >= streak) {
-          clearInterval(interval);
-          if (hasMilestone) {
-            milestoneOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
-            milestoneScale.value = withDelay(300, withSpring(1, { damping: 10, stiffness: 120 }));
-            setTimeout(() => runOnJS(triggerConfetti)(), 400);
-          }
-        }
-      }, stepTime);
-      return () => clearInterval(interval);
+    iconScale.value = withSpring(1, { damping: 14, stiffness: 140 });
+    numberOpacity.value = withDelay(100, withTiming(1, { duration: 300 }));
+    labelOpacity.value = withDelay(200, withTiming(1, { duration: 300 }));
+
+    if (hasMilestone) {
+      milestoneOpacity.value = withDelay(400, withTiming(1, { duration: 400 }));
+      milestoneScale.value = withDelay(400, withSpring(1, { damping: 14, stiffness: 130 }));
+      setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }, 600);
     }
 
-    buttonOpacity.value = withDelay(hasMilestone ? 2000 : 1000, withTiming(1, { duration: 500 }));
+    buttonOpacity.value = withDelay(hasMilestone ? 1000 : 600, withTiming(1, { duration: 400 }));
   }, []);
 
-  useEffect(() => {
-    buttonOpacity.value = withDelay(hasMilestone ? 2500 : 1200, withTiming(1, { duration: 500 }));
-  }, []);
-
-  const fireStyle = useAnimatedStyle(() => ({
-    opacity: fireOpacity.value,
-    transform: [{ scale: fireScale.value }],
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
   }));
-
+  const numberStyle = useAnimatedStyle(() => ({ opacity: numberOpacity.value }));
+  const labelStyle = useAnimatedStyle(() => ({ opacity: labelOpacity.value }));
   const milestoneStyle = useAnimatedStyle(() => ({
     opacity: milestoneOpacity.value,
     transform: [{ scale: milestoneScale.value }],
   }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }));
+  const buttonStyle = useAnimatedStyle(() => ({ opacity: buttonOpacity.value }));
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.replace('/(tabs)');
   };
 
-  const confettiPieces = useMemo(() => {
-    return Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      delay: Math.random() * 600,
-      x: Math.random() * SCREEN_W,
-    }));
-  }, []);
-
   return (
     <View style={s.root}>
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        {showConfetti && (
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            {confettiPieces.map(p => (
-              <ConfettiPiece key={p.id} delay={p.delay} x={p.x} />
-            ))}
-          </View>
-        )}
-
         <View style={s.content}>
-          <Animated.View style={[s.fireWrap, fireStyle]}>
-            <AnimatedFire
-              size={180}
-              streak={displayStreak}
-              showNumber
-              active={streak > 0}
-            />
+          {/* Flame icon */}
+          <Animated.View style={iconStyle}>
+            <View style={s.flameCircle}>
+              <Ionicons name="flame" size={48} color={ORANGE} />
+            </View>
           </Animated.View>
 
-          <Text style={s.streakLabel}>
-            {streak === 0
-              ? 'Start your streak!'
-              : streak === 1
-                ? '1 day streak'
-                : `${streak} day streak`}
-          </Text>
-          <Text style={s.streakSub}>
-            {streak === 0
-              ? 'Log something today to begin'
-              : 'Keep it going — log daily!'}
-          </Text>
+          {/* Streak number */}
+          <Animated.View style={numberStyle}>
+            <Text style={s.streakNumber}>
+              {streak === 0 ? '0' : streak}
+            </Text>
+          </Animated.View>
 
+          {/* Label */}
+          <Animated.View style={labelStyle}>
+            <Text style={s.streakLabel}>
+              {streak === 0
+                ? 'Start your streak'
+                : streak === 1
+                  ? 'day streak'
+                  : 'day streak'}
+            </Text>
+            <Text style={s.streakSub}>
+              {streak === 0
+                ? 'Log something today to begin'
+                : 'Keep it going — log daily'}
+            </Text>
+          </Animated.View>
+
+          {/* Milestones */}
           {hasMilestone && (
             <Animated.View style={[s.milestoneCard, milestoneStyle]}>
               {milestones.map((m, i) => (
                 <View key={i} style={s.milestoneRow}>
-                  <Text style={s.milestoneEmoji}>
-                    {m.type === 'streak' ? '\uD83D\uDD25' : m.type === 'weight' ? '\uD83C\uDFC6' : '\uD83D\uDC8A'}
-                  </Text>
+                  <View style={[s.milestoneIcon, { backgroundColor: m.iconColor + '1A' }]}>
+                    <Ionicons name={m.iconName} size={20} color={m.iconColor} />
+                  </View>
                   <View style={s.milestoneText}>
                     <Text style={s.milestoneLabel}>{m.label}</Text>
                     <Text style={s.milestoneValue}>{m.value}</Text>
                   </View>
                 </View>
               ))}
-            </Animated.View>
-          )}
-
-          {milestones.some(m => m.type === 'weight') && (
-            <Animated.View style={[s.photoPromptCard, milestoneStyle]}>
-              <Ionicons name="camera-outline" size={22} color={ORANGE} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={s.photoPromptTitle}>Capture your progress</Text>
-                <Text style={s.photoPromptSub}>Take a photo to see your transformation</Text>
-              </View>
-              <Pressable
-                style={s.photoPromptBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  const weightMilestone = milestones.find(m => m.type === 'weight');
-                  const milestoneLbs = weightMilestone ? parseInt(weightMilestone.label) || 0 : 0;
-                  router.push({ pathname: '/progress-photos/capture', params: { milestone: String(milestoneLbs) } } as any);
-                }}
-              >
-                <Text style={s.photoPromptBtnText}>Photo</Text>
-              </Pressable>
             </Animated.View>
           )}
         </View>
@@ -312,64 +236,71 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  fireWrap: { marginBottom: 8 },
+  flameCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(255,116,42,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  streakNumber: {
+    fontSize: 56,
+    fontWeight: '900',
+    color: c.textPrimary,
+    fontFamily: FF,
+    letterSpacing: -1,
+    textAlign: 'center',
+  },
   streakLabel: {
-    fontSize: 28, fontWeight: '900', color: c.textPrimary,
-    letterSpacing: -0.5, fontFamily: FF, marginTop: 8,
+    fontSize: 17,
+    fontWeight: '600',
+    color: c.textSecondary,
+    fontFamily: FF,
+    textAlign: 'center',
+    marginTop: 2,
   },
   streakSub: {
-    fontSize: 16, color: c.textSecondary, fontFamily: FF,
-    marginTop: 6, textAlign: 'center',
+    fontSize: 15,
+    color: c.textMuted,
+    fontFamily: FF,
+    marginTop: 6,
+    textAlign: 'center',
   },
   milestoneCard: {
     marginTop: 32,
-    backgroundColor: c.isDark ? 'rgba(255,116,42,0.10)' : 'rgba(255,116,42,0.08)',
+    backgroundColor: c.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.05)',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.isDark ? 'rgba(255,116,42,0.25)' : 'rgba(255,116,42,0.15)',
-    padding: 20,
+    padding: 16,
     width: '100%',
   },
   milestoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 6,
+    gap: 12,
+    paddingVertical: 8,
   },
-  milestoneEmoji: { fontSize: 28 },
-  milestoneText: { flex: 1 },
-  milestoneLabel: {
-    fontSize: 20, fontWeight: '800', color: ORANGE,
-    fontFamily: FF, letterSpacing: -0.3,
-  },
-  milestoneValue: {
-    fontSize: 14, color: c.textSecondary, fontFamily: FF, marginTop: 2,
-  },
-  photoPromptCard: {
-    marginTop: 16,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-    padding: 16,
-    width: '100%',
-    flexDirection: 'row',
+  milestoneIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  photoPromptTitle: {
-    fontSize: 15, fontWeight: '700', color: c.textPrimary,
+  milestoneText: { flex: 1 },
+  milestoneLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: c.textPrimary,
     fontFamily: FF,
+    letterSpacing: -0.2,
   },
-  photoPromptSub: {
-    fontSize: 13, color: c.textSecondary, fontFamily: FF, marginTop: 2,
-  },
-  photoPromptBtn: {
-    backgroundColor: ORANGE, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 8,
-    marginLeft: 8,
-  },
-  photoPromptBtnText: {
-    fontSize: 14, fontWeight: '700', color: '#FFFFFF', fontFamily: FF,
+  milestoneValue: {
+    fontSize: 13,
+    color: c.textSecondary,
+    fontFamily: FF,
+    marginTop: 1,
   },
   buttonWrap: {
     paddingHorizontal: 32,
@@ -377,11 +308,14 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   continueBtn: {
     backgroundColor: ORANGE,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
   },
   continueBtnText: {
-    fontSize: 17, fontWeight: '700', color: '#FFF', fontFamily: FF,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFF',
+    fontFamily: FF,
   },
 });

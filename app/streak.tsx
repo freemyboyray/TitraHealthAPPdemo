@@ -1,9 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
-  Animated,
   ScrollView,
   StyleSheet,
 } from 'react-native';
@@ -14,9 +13,8 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
-import { AnimatedFire } from '@/components/animated-fire';
 import { GradientBackground } from '@/components/ui/gradient-background';
-import { ACHIEVEMENTS, type Achievement } from '@/constants/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_ACCENT, type Achievement } from '@/constants/achievements';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
@@ -130,11 +128,14 @@ export default function StreakScreen() {
           <View style={{ width: 26 }} />
         </View>
 
-          {/* ── Fire Hero ── */}
+          {/* ── Streak Hero ── */}
           <View style={s.fireHero}>
-            <AnimatedFire size={150} streak={streak} showNumber active={streak > 0} />
+            <View style={s.flameCircle}>
+              <Ionicons name="flame" size={36} color={ORANGE} />
+            </View>
+            <Text style={s.fireNumber}>{streak}</Text>
             <Text style={s.fireLabel}>
-              {streak === 0 ? 'No streak yet' : streak === 1 ? '1 day streak' : `${streak} day streak`}
+              {streak === 0 ? 'No streak yet' : streak === 1 ? 'day streak' : 'day streak'}
             </Text>
             <Text style={s.fireSubtext}>Log daily to build your streak</Text>
           </View>
@@ -238,20 +239,15 @@ export default function StreakScreen() {
                   : a.category === 'weight' ? weightLost
                   : daysOnTreatment;
                 const earned = current >= a.threshold;
-                const progress = Math.min(1, current / a.threshold);
                 const remaining = Math.max(0, a.threshold - current);
+                const accent = ACHIEVEMENT_ACCENT[a.category];
                 return (
                   <View key={a.id} style={s.achieveItem}>
-                    <View style={[s.achieveCircle, earned && s.achieveCircleEarned]}>
+                    <View style={[s.achieveCircle, earned && { backgroundColor: accent + '1F' }]}>
                       {earned ? (
-                        <Text style={s.achieveIcon}>{a.icon}</Text>
+                        <Ionicons name={a.icon as any} size={24} color={accent} />
                       ) : (
-                        <>
-                          <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
-                          {progress > 0 && (
-                            <View style={[s.achieveProgress, { height: `${progress * 100}%` as any }]} />
-                          )}
-                        </>
+                        <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
                       )}
                     </View>
                     <Text style={[s.achieveName, earned && s.achieveNameEarned]} numberOfLines={1}>{a.name}</Text>
@@ -291,14 +287,23 @@ const createStyles = (c: AppColors) => {
     },
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
-    // Fire hero
+    // Streak hero
     fireHero: { alignItems: 'center', paddingVertical: 24 },
+    flameCircle: {
+      width: 64, height: 64, borderRadius: 32,
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(255,116,42,0.08)',
+      justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+    },
+    fireNumber: {
+      fontSize: 40, fontWeight: '900', color: c.textPrimary,
+      fontFamily: FF, letterSpacing: -0.8,
+    },
     fireLabel: {
-      fontSize: 22, fontWeight: '800', color: c.textPrimary,
-      marginTop: 12, letterSpacing: -0.5, fontFamily: FF,
+      fontSize: 17, fontWeight: '600', color: c.textSecondary,
+      marginTop: 2, fontFamily: FF,
     },
     fireSubtext: {
-      fontSize: 14, color: c.textSecondary, marginTop: 4, fontFamily: FF,
+      fontSize: 14, color: c.textMuted, marginTop: 4, fontFamily: FF,
     },
 
     // Sections
@@ -383,14 +388,6 @@ const createStyles = (c: AppColors) => {
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
       alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden',
-    },
-    achieveCircleEarned: {
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)',
-    },
-    achieveIcon: { fontSize: 26 },
-    achieveProgress: {
-      position: 'absolute', bottom: 0, left: 0, right: 0,
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
     },
     achieveName: {
       fontSize: 12, fontWeight: '700', color: c.textMuted,
