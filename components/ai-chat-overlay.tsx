@@ -530,7 +530,7 @@ export function AiChatOverlay() {
                       { icon: 'school-outline', text: 'All guided courses unlocked' },
                       { icon: 'camera-outline', text: 'Unlimited photo food logging' },
                       { icon: 'mic-outline', text: 'Unlimited voice logging' },
-                      { icon: 'notifications-outline', text: 'Clinical alerts & weekly AI summaries' },
+                      { icon: 'notifications-outline', text: 'Weekly AI summaries' },
                     ].map((item, i) => (
                       <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <Ionicons name={item.icon as any} size={18} color="#FF742A" />

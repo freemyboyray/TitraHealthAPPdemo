@@ -80,7 +80,8 @@ export function WheelPicker({
     // For circular, also check wrapping distance
     const wrappedDiff = circular ? Math.min(diff, len - diff) : diff;
     if (wrappedDiff === 0) return 1;
-    if (wrappedDiff === 1) return 0.45;
+    if (wrappedDiff === 1) return 0.6;
+    if (wrappedDiff === 2) return 0.35;
     return 0.2;
   };
 
@@ -88,14 +89,14 @@ export function WheelPicker({
     const realIdx = getRealIndex(index);
     const diff = Math.abs(realIdx - selectedIndex);
     const wrappedDiff = circular ? Math.min(diff, len - diff) : diff;
-    return wrappedDiff === 0 ? 20 : 17;
+    return wrappedDiff === 0 ? 22 : 20;
   };
 
-  const getFontWeight = (index: number): '700' | '400' => {
+  const getFontWeight = (index: number): '600' | '400' => {
     const realIdx = getRealIndex(index);
     const diff = Math.abs(realIdx - selectedIndex);
     const wrappedDiff = circular ? Math.min(diff, len - diff) : diff;
-    return wrappedDiff === 0 ? '700' : '400';
+    return wrappedDiff === 0 ? '600' : '400';
   };
 
   return (
@@ -104,8 +105,6 @@ export function WheelPicker({
         pointerEvents="none"
         style={[s.selectedHighlight, { top: padding, height: itemHeight }]}
       />
-      <View pointerEvents="none" style={[s.centerLine, s.topLine, { top: padding - 0.5 }]} />
-      <View pointerEvents="none" style={[s.centerLine, s.bottomLine, { top: padding + itemHeight - 0.5 }]} />
 
       <FlatList
         ref={listRef}
@@ -154,8 +153,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255,116,42,0.10)',
-    borderRadius: 8,
+    backgroundColor: c.isDark ? 'rgba(120,120,128,0.24)' : 'rgba(120,120,128,0.12)',
+    borderRadius: 10,
     zIndex: 0,
   },
   item: {
@@ -165,14 +164,4 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   itemText: {
     color: c.textPrimary,
   },
-  centerLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,116,42,0.25)',
-    zIndex: 1,
-  },
-  topLine: {},
-  bottomLine: {},
 });

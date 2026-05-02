@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   StyleSheet,
   Text,
@@ -14,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { searchUSDA, type FoodResult } from '../../lib/usda';
+import { searchUSDA, autocompleteFatSecret, type FoodResult } from '../../lib/usda';
 import { useLogStore, MealType } from '../../stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -76,6 +77,8 @@ export default function SearchFoodScreen() {
   const [mealType, setMealType] = useState<MealType>('lunch');
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const autocompleteRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   async function doSearch(q: string) {
     if (!q.trim()) {
@@ -91,7 +94,23 @@ export default function SearchFoodScreen() {
   function handleQueryChange(text: string) {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (autocompleteRef.current) clearTimeout(autocompleteRef.current);
+    if (!text.trim()) { setResults([]); setSuggestions([]); return; }
+
+    autocompleteRef.current = setTimeout(async () => {
+      const s = await autocompleteFatSecret(text);
+      setSuggestions(s);
+    }, 150);
+
     debounceRef.current = setTimeout(() => doSearch(text), 500);
+  }
+
+  function handleSuggestionTap(suggestion: string) {
+    setQuery(suggestion);
+    setSuggestions([]);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (autocompleteRef.current) clearTimeout(autocompleteRef.current);
+    doSearch(suggestion);
   }
 
   function handleSelectItem(item: FoodResult) {
@@ -216,7 +235,9 @@ export default function SearchFoodScreen() {
             onPress={() => {
               setQuery('');
               setResults([]);
+              setSuggestions([]);
               if (debounceRef.current) clearTimeout(debounceRef.current);
+              if (autocompleteRef.current) clearTimeout(autocompleteRef.current);
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -224,6 +245,22 @@ export default function SearchFoodScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* ── Autocomplete suggestions ──────────────────────────────────────── */}
+      {suggestions.length > 0 && !!query.trim() && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: 16, marginBottom: 8, flexGrow: 0 }} contentContainerStyle={{ gap: 8 }}>
+          {suggestions.map((s, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => handleSuggestionTap(s)}
+              style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)' }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 14, color: ORANGE, fontWeight: '600' }}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* ── Results ────────────────────────────────────────────────────────── */}
       <FlatList

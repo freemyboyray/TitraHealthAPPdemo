@@ -67,15 +67,12 @@ export default function BirthdayScreen() {
 
         <View style={s.pickersRow}>
           <View style={s.pickerWrap}>
-            <Text style={s.colLabel}>Month</Text>
             <WheelPicker data={MONTHS} selectedIndex={monthIdx} onSelect={setMonthIdx} circular />
           </View>
           <View style={[s.pickerWrap, s.pickerSm]}>
-            <Text style={s.colLabel}>Day</Text>
             <WheelPicker data={DAYS} selectedIndex={dayIdx} onSelect={setDayIdx} circular />
           </View>
           <View style={[s.pickerWrap, s.pickerSm]}>
-            <Text style={s.colLabel}>Year</Text>
             <WheelPicker data={YEARS} selectedIndex={yearIdx} onSelect={setYearIdx} />
           </View>
         </View>
@@ -90,24 +87,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
   title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
-  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'System' },
+  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 16, lineHeight: 22, fontFamily: 'System' },
   pickersRow: {
-    flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 8,
   },
   pickerWrap: { flex: 2 },
   pickerSm: { flex: 1 },
-  colLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'System',
-    color: c.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
 });

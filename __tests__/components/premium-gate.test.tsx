@@ -50,7 +50,7 @@ describe('PremiumGate', () => {
 
   it('shows unlock button for locked features (soft gate)', () => {
     render(
-      <PremiumGate feature="peer_comparison" variant="soft" teaser="See how you compare">
+      <PremiumGate feature="cycle_intelligence" variant="soft" teaser="See how you compare">
         <Text>Blurred Content</Text>
       </PremiumGate>,
     );
@@ -73,7 +73,7 @@ describe('PremiumGate', () => {
     const onUpgrade = jest.fn();
 
     render(
-      <PremiumGate feature="clinical_alerts" variant="hard" onUpgrade={onUpgrade}>
+      <PremiumGate feature="cycle_intelligence" variant="hard" onUpgrade={onUpgrade}>
         <Text>Alerts</Text>
       </PremiumGate>,
     );

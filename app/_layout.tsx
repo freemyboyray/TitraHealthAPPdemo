@@ -25,6 +25,7 @@ try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
+import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
 import { useAchievementDetector } from '@/hooks/useAchievementDetector';
 
 export const unstable_settings = {
@@ -129,9 +130,30 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 // Must live inside ProfileProvider because useAchievementDetector calls useProfile
-function AchievementLayer() {
-  const { pendingAchievement, dismissAchievement } = useAchievementDetector();
-  return <AchievementCongrats achievement={pendingAchievement} onDismiss={dismissAchievement} />;
+function MilestoneLayer() {
+  const router = useRouter();
+  const { pendingEvent, dismissEvent } = useAchievementDetector();
+
+  if (!pendingEvent) return null;
+
+  if (pendingEvent.type === 'achievement') {
+    return <AchievementCongrats achievement={pendingEvent.achievement} onDismiss={dismissEvent} />;
+  }
+
+  return (
+    <PhotoMilestonePrompt
+      lbs={pendingEvent.lbs}
+      achievement={pendingEvent.achievement}
+      onTakePhoto={() => {
+        dismissEvent();
+        router.push({
+          pathname: '/progress-photos/capture',
+          params: { milestone: String(pendingEvent.lbs) },
+        });
+      }}
+      onDismiss={dismissEvent}
+    />
+  );
 }
 
 function RootLayoutInner() {
@@ -176,7 +198,7 @@ function RootLayoutInner() {
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />
               <HealthSyncToast />
-              <AchievementLayer />
+              <MilestoneLayer />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>

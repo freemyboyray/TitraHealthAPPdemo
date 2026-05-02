@@ -1,10 +1,9 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { localDateStr } from '../lib/date-utils';
-import { computePeerPercentile } from './insights-store';
-import { BRAND_TO_GLP1_TYPE, type MedicationBrand } from '../constants/user-profile';
+
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
 
@@ -23,6 +22,20 @@ export type FoodSource = Database['public']['Enums']['food_source'];
 export type ActivitySource = Database['public']['Enums']['activity_source'];
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 export type UserGoalsRow = Database['public']['Tables']['user_goals']['Row'];
+
+// ─── Body composition input (optional fields for weight logs) ────────────────
+
+export type BodyCompositionInput = {
+  body_fat_pct?: number;
+  lean_mass_lbs?: number;
+  muscle_mass_lbs?: number;
+  bone_mass_lbs?: number;
+  body_water_pct?: number;
+  visceral_fat_level?: number;
+  bmr_kcal?: number;
+  waist_inches?: number;
+  source?: 'manual' | 'healthkit';
+};
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +58,7 @@ type LogStore = {
   fetchInsightsData: () => Promise<void>;
 
   // Weight - DB stores lbs
-  addWeightLog: (weight_lbs: number, notes?: string) => Promise<void>;
+  addWeightLog: (weight_lbs: number, bodyComp?: BodyCompositionInput, notes?: string) => Promise<void>;
 
   // Side effects - effect_type is enum, severity 1–10, phase required
   addSideEffectLog: (
@@ -127,11 +140,6 @@ type LogStore = {
 
   // Apple Health weight sync — imports latest weight sample if newer than last log
   syncWeightFromHealthKit: () => Promise<void>;
-
-  // Peer comparison
-  peerComparison: PeerComparisonData | null;
-  fetchPeerComparison: () => Promise<void>;
-  updatePeerOptIn: (optIn: boolean) => Promise<void>;
 };
 
 // ─── Streak helper (computed from already-fetched logs) ──────────────────────
@@ -177,13 +185,6 @@ export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLog
   return streak;
 }
 
-export type PeerComparisonData = {
-  percentile: number;
-  cohortSize: number;
-  medicationName: string;
-  treatmentWeek: number;
-  insufficientData: boolean;
-};
 
 export const useLogStore = create<LogStore>((set, get) => ({
   loading: false,
@@ -257,10 +258,6 @@ export const useLogStore = create<LogStore>((set, get) => ({
         error:          w.error?.message ?? inj.error?.message ?? f.error?.message ?? null,
       });
 
-      // Fetch peer comparison data if opted in (non-blocking)
-      if (prof.data?.peer_comparison_opted_in) {
-        get().fetchPeerComparison();
-      }
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load data' });
     }
@@ -268,13 +265,28 @@ export const useLogStore = create<LogStore>((set, get) => ({
 
 
 
-  addWeightLog: async (weight_lbs, notes) => {
+  addWeightLog: async (weight_lbs, bodyComp, notes) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
     const { error } = await supabase
       .from('weight_logs')
-      .insert({ user_id: user.id, weight_lbs, notes: notes ?? null });
+      .insert({
+        user_id: user.id,
+        weight_lbs,
+        notes: notes ?? null,
+        ...(bodyComp && {
+          body_fat_pct: bodyComp.body_fat_pct ?? null,
+          lean_mass_lbs: bodyComp.lean_mass_lbs ?? null,
+          muscle_mass_lbs: bodyComp.muscle_mass_lbs ?? null,
+          bone_mass_lbs: bodyComp.bone_mass_lbs ?? null,
+          body_water_pct: bodyComp.body_water_pct ?? null,
+          visceral_fat_level: bodyComp.visceral_fat_level ?? null,
+          bmr_kcal: bodyComp.bmr_kcal ?? null,
+          waist_inches: bodyComp.waist_inches ?? null,
+          source: bodyComp.source ?? 'manual',
+        }),
+      });
     if (!error) {
       // Keep profile current_weight_lbs in sync with latest weigh-in
       await supabase.from('profiles').update({ current_weight_lbs: weight_lbs }).eq('id', user.id);
@@ -430,6 +442,23 @@ export const useLogStore = create<LogStore>((set, get) => ({
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+
+    // Check usage limit for free users
+    const { data: usageResult, error: usageErr } = await supabase.rpc('check_and_increment_usage', {
+      p_user_id: user.id,
+      p_feature_key: 'food_log',
+      p_limit: 5,
+    });
+    if (!usageErr && usageResult && !(usageResult as { allowed: boolean }).allowed) {
+      Alert.alert(
+        'Daily limit reached',
+        'You\'ve used all 5 free food logs for today. Upgrade to Titra Pro for unlimited logging.',
+        [{ text: 'OK' }],
+      );
+      set({ loading: false, error: 'FOOD_LOG_LIMIT' });
+      return;
+    }
+
     const { error } = await supabase
       .from('food_logs')
       .insert({
@@ -545,127 +574,4 @@ export const useLogStore = create<LogStore>((set, get) => ({
     }));
   },
 
-  // ── Peer Comparison ──────────────────────────────────────────────────────
-  peerComparison: null,
-
-  fetchPeerComparison: async () => {
-    const state = get();
-    const profile = state.profile;
-    if (!profile?.peer_comparison_opted_in) { set({ peerComparison: null }); return; }
-    if (!profile.medication_brand || !profile.dose_mg || !profile.program_start_date || !profile.start_weight_lbs) {
-      set({ peerComparison: null });
-      return;
-    }
-
-    // Compute user's cohort params
-    const medKey = BRAND_TO_GLP1_TYPE[(profile.medication_brand as MedicationBrand)] ?? 'other';
-    const treatmentWeek = Math.max(1, Math.round(
-      (Date.now() - new Date(profile.program_start_date).getTime()) / (7 * 86400000),
-    ));
-    // Bucket treatment week to match the materialized view
-    let weekBucket: number;
-    if (treatmentWeek <= 6)  weekBucket = 4;
-    else if (treatmentWeek <= 10) weekBucket = 8;
-    else if (treatmentWeek <= 16) weekBucket = 12;
-    else if (treatmentWeek <= 24) weekBucket = 20;
-    else if (treatmentWeek <= 32) weekBucket = 28;
-    else if (treatmentWeek <= 44) weekBucket = 36;
-    else weekBucket = 52;
-
-    // Bucket dose
-    const dm = profile.dose_mg;
-    let doseTier: number;
-    if (dm <= 0.375) doseTier = 0.25;
-    else if (dm <= 0.75) doseTier = 0.5;
-    else if (dm <= 1.5) doseTier = 1.0;
-    else if (dm <= 2.2) doseTier = 2.0;
-    else if (dm <= 3.5) doseTier = 2.4;
-    else if (dm <= 6.25) doseTier = 5.0;
-    else if (dm <= 8.75) doseTier = 7.5;
-    else if (dm <= 11.25) doseTier = 10.0;
-    else if (dm <= 13.75) doseTier = 12.5;
-    else doseTier = 15.0;
-
-    // User's weight loss %
-    const latestWeight = state.weightLogs[0]?.weight_lbs;
-    if (!latestWeight) { set({ peerComparison: null }); return; }
-    const userLossPct = Math.round(((profile.start_weight_lbs - latestWeight) / profile.start_weight_lbs) * 1000) / 10;
-
-    try {
-      // Try exact cohort match first (medication + dose + week)
-      let { data } = await supabase
-        .from('peer_weight_loss_summary' as any)
-        .select('*')
-        .eq('medication_name', medKey)
-        .eq('dose_tier', doseTier)
-        .eq('treatment_week_bucket', weekBucket)
-        .single();
-
-      // Fallback: wider match (medication + week only, ignoring dose)
-      if (!data || (data as any).cohort_size < 50) {
-        const wider = await supabase
-          .from('peer_weight_loss_summary' as any)
-          .select('*')
-          .eq('medication_name', medKey)
-          .eq('treatment_week_bucket', weekBucket);
-        // Aggregate across dose tiers
-        if (wider.data && wider.data.length > 0) {
-          const totalSize = wider.data.reduce((s: number, r: any) => s + r.cohort_size, 0);
-          if (totalSize >= 50) {
-            // Weighted average of percentiles
-            const wP25 = wider.data.reduce((s: number, r: any) => s + r.p25 * r.cohort_size, 0) / totalSize;
-            const wP50 = wider.data.reduce((s: number, r: any) => s + r.p50 * r.cohort_size, 0) / totalSize;
-            const wP75 = wider.data.reduce((s: number, r: any) => s + r.p75 * r.cohort_size, 0) / totalSize;
-            data = { p25: wP25, p50: wP50, p75: wP75, cohort_size: totalSize, medication_name: medKey, treatment_week_bucket: weekBucket } as any;
-          }
-        }
-      }
-
-      if (!data || (data as any).cohort_size < 50) {
-        set({
-          peerComparison: {
-            percentile: 0,
-            cohortSize: (data as any)?.cohort_size ?? 0,
-            medicationName: medKey,
-            treatmentWeek: weekBucket,
-            insufficientData: true,
-          },
-        });
-        return;
-      }
-
-      const row = data as any;
-      const percentile = computePeerPercentile(userLossPct, row.p25, row.p50, row.p75);
-
-      set({
-        peerComparison: {
-          percentile,
-          cohortSize: row.cohort_size,
-          medicationName: medKey,
-          treatmentWeek: weekBucket,
-          insufficientData: false,
-        },
-      });
-    } catch {
-      set({ peerComparison: null });
-    }
-  },
-
-  updatePeerOptIn: async (optIn: boolean) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from('profiles').update({
-      peer_comparison_opted_in: optIn,
-      peer_comparison_opted_in_at: optIn ? new Date().toISOString() : null,
-    }).eq('id', user.id);
-    if (error) {
-      console.warn('updatePeerOptIn: profiles.update failed:', error);
-      return; // bail before refresh — local state would be misleading
-    }
-    // Refresh profile
-    const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-    set({ profile: prof ?? get().profile });
-    if (optIn) await get().fetchPeerComparison();
-    else set({ peerComparison: null });
-  },
 }));

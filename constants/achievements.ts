@@ -45,6 +45,24 @@ export function getUnlockedAchievementIds(
   }).map((a) => a.id);
 }
 
+/** Every N-lb increment that triggers a progress photo prompt. */
+export const PHOTO_MILESTONE_INTERVAL = 5;
+export const PHOTO_MILESTONE_MAX = 100;
+
+/** Return all 5-lb photo milestone thresholds currently reached. */
+export function getReachedPhotoMilestones(weightLost: number): number[] {
+  const milestones: number[] = [];
+  for (let m = PHOTO_MILESTONE_INTERVAL; m <= PHOTO_MILESTONE_MAX; m += PHOTO_MILESTONE_INTERVAL) {
+    if (weightLost >= m) milestones.push(m);
+  }
+  return milestones;
+}
+
+/** Weight achievement thresholds that coincide with photo milestones. */
+export const WEIGHT_ACHIEVEMENT_THRESHOLDS = ACHIEVEMENTS
+  .filter((a) => a.category === 'weight')
+  .map((a) => a.threshold);
+
 export const CATEGORY_LABELS: Record<Achievement['category'], string> = {
   streak: 'Streak',
   weight: 'Weight Loss',

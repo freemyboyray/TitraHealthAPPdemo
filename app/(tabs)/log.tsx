@@ -3,7 +3,8 @@ import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop } 
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,7 +36,10 @@ import {
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
 import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
 import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
-import { PeerComparisonCard } from '@/components/peer-comparison-card';
+import { BodyCompositionCard } from '@/components/body-composition-card';
+import { NutrientLogSheet, type NutrientKey } from '@/components/nutrient-log-sheet';
+import { LeanMassPreservationCard } from '@/components/lean-mass-preservation-card';
+import { computeFatToLeanRatio, computeLeanPreservation, bodyCompTrendData } from '@/lib/body-composition';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { computeClinicalBenchmark } from '@/stores/insights-store';
@@ -636,10 +640,11 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
 
 // ─── Activity daily card (fits in dailyGrid, ring replaces icon) ─────────────
 
-function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, unit = '', emptyCtaLabel, onEmptyCta }: {
+function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, unit = '', emptyCtaLabel, onEmptyCta, onIncrement, onDecrement }: {
   value: string; label: string; ringColor: string;
   current?: number; target?: number; unit?: string;
   emptyCtaLabel?: string; onEmptyCta?: () => void;
+  onIncrement?: () => void; onDecrement?: () => void;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -649,6 +654,8 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
   const isEmpty = value === '-';
   const pct = target > 0 ? current / target : (isEmpty ? 0 : 1);
   const remaining = target > 0 ? Math.max(0, target - current) : 0;
+  const btnBg = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const btnTxt = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
 
   const handleAskAI = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -679,6 +686,26 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
               <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: 'System' }}>{emptyCtaLabel}</Text>
             </Pressable>
           )}
+          {(onIncrement || onDecrement) && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+              {onDecrement && (
+                <Pressable
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onDecrement(); }}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: btnBg, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: btnTxt, marginTop: -1 }}>−</Text>
+                </Pressable>
+              )}
+              {onIncrement && (
+                <Pressable
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onIncrement(); }}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: ORANGE, marginTop: -1 }}>+</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -707,9 +734,10 @@ const statusStyle: Record<Status, { bg: string; text: string }> = {
 };
 
 function DailyMetricCard({
-  icon, label, value, change, status, pct,
+  icon, label, value, change, status, pct, onIncrement, onDecrement, onPress,
 }: {
   icon: React.ReactNode; label: string; value: string; change: string; status: Status; pct: number;
+  onIncrement?: () => void; onDecrement?: () => void; onPress?: () => void;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -721,8 +749,10 @@ function DailyMetricCard({
     openAiChat({ type: 'metric', contextLabel: label, contextValue: `${value} · ${change}`, chips: JSON.stringify(['Is this on track?', 'How can I improve this?', `Why is my ${label.toLowerCase()} important on GLP-1?`]) });
   };
   const trackColor = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const btnBg = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const btnTxt = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
   return (
-    <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI}>
+    <Pressable style={[s.dailyWrap, glassShadow]} onPress={onPress} onLongPress={handleAskAI}>
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={s.dailyIconWrap}>{icon}</View>
@@ -731,6 +761,26 @@ function DailyMetricCard({
           <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, marginTop: 10, overflow: 'hidden' }}>
             <View style={{ width: `${Math.min(pct, 1) * 100}%`, height: 3, borderRadius: 2, backgroundColor: ss.text }} />
           </View>
+          {(onIncrement || onDecrement) && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+              {onDecrement && (
+                <Pressable
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onDecrement(); }}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: btnBg, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: btnTxt, marginTop: -1 }}>−</Text>
+                </Pressable>
+              )}
+              {onIncrement && (
+                <Pressable
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onIncrement(); }}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: ORANGE, marginTop: -1 }}>+</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -2906,12 +2956,14 @@ export default function InsightsScreen() {
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, deleteWeightLog, weeklyCheckins, peerComparison, fetchInsightsData } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, deleteWeightLog, weeklyCheckins, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
-  const onTreatment = isOnTreatment(fullProfile);
+  let onTreatment = isOnTreatment(fullProfile);
+  // DEV MOCK: force onTreatment so benchmark/adaptation cards render
+  if (__DEV__) onTreatment = true;
   const [activeTab, setActiveTab] = useState<Tab>(onTreatment ? 'medication' : 'lifestyle');
   const { openAiChat, insightsDefaultTab, setInsightsDefaultTab } = useUiStore();
 
@@ -2933,6 +2985,24 @@ export default function InsightsScreen() {
     openAiChat({ chips: JSON.stringify(tabChips[activeTab] ?? tabChips.medication) });
   }, [openAiChat, activeTab]);
 
+  // ── Quick-adjust state (local +/- offsets, persisted per day) ───────────────
+  type QuickAdj = { proteinG: number; fiberG: number; carbsG: number; fatG: number; calories: number; steps: number; activeCal: number };
+  const ZERO_ADJ: QuickAdj = { proteinG: 0, fiberG: 0, carbsG: 0, fatG: 0, calories: 0, steps: 0, activeCal: 0 };
+  const qaKey = `@titrahealth_quickadjust_${localDateStr()}`;
+  const [qa, setQa] = useState<QuickAdj>(ZERO_ADJ);
+  useEffect(() => {
+    AsyncStorage.getItem(qaKey).then(v => { if (v) setQa(JSON.parse(v)); });
+  }, [qaKey]);
+  const adjustMetric = useCallback((field: keyof QuickAdj, delta: number) => {
+    setQa(prev => {
+      const next = { ...prev, [field]: Math.max(0, prev[field] + delta) };
+      AsyncStorage.setItem(qaKey, JSON.stringify(next));
+      return next;
+    });
+  }, [qaKey]);
+
+  const [nutrientSheet, setNutrientSheet] = useState<NutrientKey | null>(null);
+
   // ── Today filters ──────────────────────────────────────────────────────────
   const todayStr = localDateStr();
   const todayFoodLogs = foodLogs.filter(f => localDateStr(new Date(f.logged_at)) === todayStr);
@@ -2942,6 +3012,7 @@ export default function InsightsScreen() {
   // For nutrition + activity metrics, prefer in-app logs but fall back to
   // Apple Health when nothing is logged today (e.g. user logs food in
   // MyFitnessPal, walks via iPhone). Keeps a single number per metric.
+  // Quick-adjust offsets are added on top of logged/HK values.
   const loggedProteinG = Math.round(todayFoodLogs.reduce((s, f) => s + f.protein_g, 0));
   const loggedFiberG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fiber_g, 0));
   const loggedCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
@@ -2949,13 +3020,13 @@ export default function InsightsScreen() {
   const loggedCalories = Math.round(todayFoodLogs.reduce((s, f) => s + f.calories, 0));
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
-  const todayProteinG = loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0);
-  const todayFiberG = loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0);
-  const todayCarbsG = loggedCarbsG > 0 ? loggedCarbsG : Math.round(hkStore.todayNutrition?.carbs ?? 0);
-  const todayFatG = loggedFatG > 0 ? loggedFatG : Math.round(hkStore.todayNutrition?.fat ?? 0);
-  const todayCalories = loggedCalories > 0 ? loggedCalories : Math.round(hkStore.todayNutrition?.calories ?? 0);
-  const todayActiveCalories = loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0);
-  const todaySteps = loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0);
+  const todayProteinG = (loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0)) + qa.proteinG;
+  const todayFiberG = (loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0)) + qa.fiberG;
+  const todayCarbsG = (loggedCarbsG > 0 ? loggedCarbsG : Math.round(hkStore.todayNutrition?.carbs ?? 0)) + qa.carbsG;
+  const todayFatG = (loggedFatG > 0 ? loggedFatG : Math.round(hkStore.todayNutrition?.fat ?? 0)) + qa.fatG;
+  const todayCalories = (loggedCalories > 0 ? loggedCalories : Math.round(hkStore.todayNutrition?.calories ?? 0)) + qa.calories;
+  const todayActiveCalories = (loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0)) + qa.activeCal;
+  const todaySteps = (loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0)) + qa.steps;
   // Hydration: actuals.waterMl is from in-app logs; HK waterToday is in fl oz.
   const hkWaterMl = hkStore.waterToday != null ? Math.round(hkStore.waterToday * 29.5735) : 0;
   const resolvedWaterMl = actuals.waterMl > 0 ? actuals.waterMl : hkWaterMl;
@@ -3100,7 +3171,7 @@ export default function InsightsScreen() {
   );
 
   // ── Metabolic adaptation ───────────────────────────────────────────────────
-  const metabolicAdaptationResult = useMemo(
+  let metabolicAdaptationResult = useMemo(
     () => computeMetabolicAdaptationScore(
       activityLogs,
       weightLogs,
@@ -3108,6 +3179,19 @@ export default function InsightsScreen() {
     ),
     [activityLogs, weightLogs, biometricStore.history],
   );
+
+  // ── DEV MOCK: Metabolic Adaptation ──────────────────────────────────────
+  if (__DEV__) {
+    metabolicAdaptationResult = {
+      hasEnoughData: true,
+      calPerStepTrend: [0.42, 0.40, 0.39, 0.38, 0.36, 0.37, 0.39, 0.41],
+      rhrTrend: [74, 72, 71, 70, 69, 68, 67, 66],
+      weekLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],
+      plateauRisk: 'approaching',
+      adaptationMessage: 'Your calorie efficiency has declined ~10% over the past 2 weeks. Consider mixing in strength training to counteract metabolic adaptation.',
+      rhrImprovementBpm: 8,
+    };
+  }
 
   // ── Progress data ──────────────────────────────────────────────────────────
   // Prefer Supabase-persisted profile fields; fall back to in-memory onboarding profile
@@ -3137,6 +3221,29 @@ export default function InsightsScreen() {
   const weightLostPct = weightLost != null && weightLost > 0 && startWeight
     ? Math.round((weightLost / startWeight) * 1000) / 10
     : null;
+
+  // Body composition analytics
+  const fatToLeanResult = useMemo(() => computeFatToLeanRatio(weightLogs), [weightLogs]);
+  const leanPreservationResult = useMemo(() => computeLeanPreservation(weightLogs), [weightLogs]);
+  const bodyCompTrend = useMemo(() => bodyCompTrendData(weightLogs), [weightLogs]);
+
+  // Latest body comp values for stat cards
+  const latestBodyFatLog = useMemo(() => {
+    const withBf = weightLogs.filter(l => l.body_fat_pct != null);
+    return withBf.length > 0 ? withBf[0] : null; // weightLogs are sorted newest-first
+  }, [weightLogs]);
+  const firstBodyFatLog = useMemo(() => {
+    const withBf = weightLogs.filter(l => l.body_fat_pct != null);
+    return withBf.length > 1 ? withBf[withBf.length - 1] : null;
+  }, [weightLogs]);
+  const bodyFatDelta = latestBodyFatLog && firstBodyFatLog
+    ? Math.round(((firstBodyFatLog.body_fat_pct ?? 0) - (latestBodyFatLog.body_fat_pct ?? 0)) * 10) / 10
+    : null;
+
+  const latestLeanLog = useMemo(() => {
+    const withLm = weightLogs.filter(l => l.lean_mass_lbs != null);
+    return withLm.length > 0 ? withLm[0] : null;
+  }, [weightLogs]);
 
   const weightDatasets: Record<string, WeightPoint[]> = {
     '7D':  weightDataForPeriod(weightLogs, '7D'),
@@ -3171,10 +3278,40 @@ export default function InsightsScreen() {
   }, [weightLogs, startWeight, currentWeight, goalWeight, programWeek, health.profile]);
 
   // ── Clinical trial benchmark ──────────────────────────────────────────────
-  const benchmarkResult = useMemo(
+  let benchmarkResult = useMemo(
     () => computeClinicalBenchmark(weightLogs, programStartDate, health.profile.glp1Type),
     [weightLogs, programStartDate, health.profile.glp1Type],
   );
+
+  // ── DEV MOCK: Clinical Benchmark ────────────────────────────────────────
+  if (__DEV__) {
+    benchmarkResult = {
+      hasEnoughData: true,
+      treatmentWeek: 16,
+      userLossPct: 8.2,
+      trialLossPct: 7.5,
+      trialLabel: 'Semaglutide 2.4 mg (STEP 1)',
+      trialName: 'STEP 1',
+      deltaVsTrial: 0.7,
+      status: 'ahead',
+      tooEarly: false,
+      unknownMedication: false,
+      noTrialData: false,
+      userTrajectory: [
+        { week: 4, lossPct: 2.1 }, { week: 6, lossPct: 3.0 }, { week: 8, lossPct: 4.2 },
+        { week: 10, lossPct: 5.1 }, { week: 12, lossPct: 6.3 }, { week: 14, lossPct: 7.4 },
+        { week: 16, lossPct: 8.2 },
+      ],
+      trialTrajectory: [
+        { week: 4, mean: 2.0, low: 1.2, high: 2.8 }, { week: 8, mean: 3.5, low: 2.4, high: 4.6 },
+        { week: 12, mean: 5.5, low: 4.0, high: 7.0 }, { week: 16, mean: 7.5, low: 5.8, high: 9.2 },
+        { week: 20, mean: 9.0, low: 7.0, high: 11.0 }, { week: 28, mean: 11.0, low: 8.5, high: 13.5 },
+        { week: 36, mean: 12.5, low: 9.8, high: 15.2 }, { week: 52, mean: 13.8, low: 10.5, high: 17.1 },
+        { week: 68, mean: 14.9, low: 11.2, high: 18.6 },
+      ],
+      trialMaxWeek: 68,
+    };
+  }
 
   const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
     weightToEntry(log, weightLogs[i + 1])
@@ -3199,6 +3336,7 @@ export default function InsightsScreen() {
     : '-';
 
   return (
+    <>
     <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -3257,6 +3395,9 @@ export default function InsightsScreen() {
                   change={`${proteinPct}%`}
                   status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
                   pct={proteinPct / 100}
+                  onPress={() => setNutrientSheet('protein')}
+                  onIncrement={() => adjustMetric('proteinG', 1)}
+                  onDecrement={() => adjustMetric('proteinG', -1)}
                 />
                 <DailyMetricCard
                   icon={<IconSymbol name="leaf.fill" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
@@ -3264,6 +3405,9 @@ export default function InsightsScreen() {
                   change={`${fiberPct}%`}
                   status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
                   pct={fiberPct / 100}
+                  onPress={() => setNutrientSheet('fiber')}
+                  onIncrement={() => adjustMetric('fiberG', 1)}
+                  onDecrement={() => adjustMetric('fiberG', -1)}
                 />
                 <DailyMetricCard
                   icon={<IconSymbol name="drop.fill" size={20} color={categoryColor(colors.isDark, 'hydration')} />}
@@ -3271,20 +3415,29 @@ export default function InsightsScreen() {
                   change={`${waterPct}%`}
                   status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
                   pct={waterPct / 100}
+                  onPress={() => setNutrientSheet('hydration')}
+                  onIncrement={() => health.dispatch({ type: 'LOG_WATER', ml: 30 })}
+                  onDecrement={() => { if (actuals.waterMl >= 30) health.dispatch({ type: 'LOG_WATER', ml: -30 }); }}
                 />
                 <DailyMetricCard
-                  icon={<IconSymbol name="leaf.fill" size={20} color={categoryColor(colors.isDark, 'activity')} />}
+                  icon={<IconSymbol name="bolt.fill" size={20} color={categoryColor(colors.isDark, 'activity')} />}
                   label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
                   change={`${carbsPct}%`}
                   status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
                   pct={carbsPct / 100}
+                  onPress={() => setNutrientSheet('carbs')}
+                  onIncrement={() => adjustMetric('carbsG', 1)}
+                  onDecrement={() => adjustMetric('carbsG', -1)}
                 />
                 <DailyMetricCard
-                  icon={<IconSymbol name="drop.triangle.fill" size={20} color="#F6CB45" />}
+                  icon={<IconSymbol name="circle.dotted" size={20} color="#F6CB45" />}
                   label="Fat" value={`${todayFatG}/${targets.fatG}g`}
                   change={`${fatPct}%`}
                   status={fatPct >= 80 ? 'positive' : fatPct >= 40 ? 'neutral' : 'negative'}
                   pct={fatPct / 100}
+                  onPress={() => setNutrientSheet('fat')}
+                  onIncrement={() => adjustMetric('fatG', 1)}
+                  onDecrement={() => adjustMetric('fatG', -1)}
                 />
                 <DailyMetricCard
                   icon={<IconSymbol name="flame.fill" size={20} color="#C084FC" />}
@@ -3292,6 +3445,9 @@ export default function InsightsScreen() {
                   change={`${caloriesPct}%`}
                   status={caloriesPct >= 80 ? 'positive' : caloriesPct >= 40 ? 'neutral' : 'negative'}
                   pct={caloriesPct / 100}
+                  onPress={() => setNutrientSheet('calories')}
+                  onIncrement={() => adjustMetric('calories', 1)}
+                  onDecrement={() => adjustMetric('calories', -1)}
                 />
                 <ActivityDailyCard
                   value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
@@ -3302,6 +3458,8 @@ export default function InsightsScreen() {
                   unit=" cal"
                   emptyCtaLabel="Log Activity"
                   onEmptyCta={() => router.push('/entry/log-activity')}
+                  onIncrement={() => adjustMetric('activeCal', 50)}
+                  onDecrement={() => adjustMetric('activeCal', -50)}
                 />
                 <ActivityDailyCard
                   value={todaySteps > 0 ? todaySteps.toLocaleString() : '-'}
@@ -3312,6 +3470,8 @@ export default function InsightsScreen() {
                   unit=" steps"
                   emptyCtaLabel="Log Activity"
                   onEmptyCta={() => router.push('/entry/log-activity')}
+                  onIncrement={() => adjustMetric('steps', 1000)}
+                  onDecrement={() => adjustMetric('steps', -1000)}
                 />
               </View>
 
@@ -3461,20 +3621,75 @@ export default function InsightsScreen() {
                   )}
                 </ProgressStatCard>
               </View>
+
+              {/* Body composition stat cards */}
+              {(latestBodyFatLog || latestLeanLog) && (
+                <View style={[s.dailyGrid, { marginBottom: 14 }]}>
+                  {latestBodyFatLog && (
+                    <ProgressStatCard
+                      icon={<IconSymbol name="percent" size={20} color={ORANGE} />}
+                      label="Body Fat"
+                      value={`${latestBodyFatLog.body_fat_pct}%`}
+                    >
+                      {bodyFatDelta != null && bodyFatDelta > 0 && (
+                        <View style={[s.changeBadge, { backgroundColor: statusStyle.positive.bg }]}>
+                          <Text style={[s.changeText, { color: statusStyle.positive.text }]}>↓ Down {bodyFatDelta}%</Text>
+                        </View>
+                      )}
+                    </ProgressStatCard>
+                  )}
+                  {latestLeanLog && (
+                    <ProgressStatCard
+                      icon={<IconSymbol name="figure.strengthtraining.traditional" size={20} color={ORANGE} />}
+                      label="Lean Mass"
+                      value={`${latestLeanLog.lean_mass_lbs} lbs`}
+                    />
+                  )}
+                </View>
+              )}
+
+              {/* Body composition card or prompt */}
+              {fatToLeanResult ? (
+                <BodyCompositionCard result={fatToLeanResult} trend={bodyCompTrend} />
+              ) : !latestBodyFatLog && (
+                <TouchableOpacity
+                  onPress={() => router.push('/entry/log-weight')}
+                  activeOpacity={0.7}
+                  style={{
+                    borderRadius: 24, backgroundColor: colors.surface,
+                    borderWidth: 0.5, borderColor: colors.border,
+                    padding: 20, marginBottom: 16, alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <IconSymbol name="figure.strengthtraining.traditional" size={28} color={ORANGE} />
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>
+                    Start Tracking Body Composition
+                  </Text>
+                  <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', textAlign: 'center', lineHeight: 20 }}>
+                    Log body fat %, lean mass, and more alongside your weight to see how your body composition changes over time.
+                  </Text>
+                  <View style={{
+                    marginTop: 4, backgroundColor: ORANGE, borderRadius: 14,
+                    paddingHorizontal: 16, paddingVertical: 8,
+                  }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#000' }}>Log Weight</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {onTreatment && (
                 <>
-                  <PremiumGate feature="peer_comparison" variant="hard" title="Clinical Benchmark" teaser="See how your progress compares to others on the same medication.">
+                  <PremiumGate feature="clinical_benchmark" variant="hard" title="Clinical Benchmark" teaser="See how your progress compares to others on the same medication.">
                     <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
                   </PremiumGate>
                   <PremiumGate feature="metabolic_adaptation" variant="hard" title="Metabolic Adaptation" teaser="Track how your metabolism adapts to weight loss over time.">
                     <MetabolicAdaptationCard result={metabolicAdaptationResult} />
                   </PremiumGate>
-                  <PremiumGate feature="peer_comparison" variant="hard" title="Peer Comparison" teaser="Compare your weight loss, side effects, and adherence with peers.">
-                    <PeerComparisonCard
-                      data={peerComparison}
-                      isOptedIn={!!profile?.peer_comparison_opted_in}
-                    />
-                  </PremiumGate>
+                  {leanPreservationResult && (
+                    <PremiumGate feature="lean_preservation" variant="hard" title="Lean Mass Preservation" teaser="Track how well you're preserving muscle during weight loss.">
+                      <LeanMassPreservationCard result={leanPreservationResult} medicationBrand={health.profile.medicationBrand} />
+                    </PremiumGate>
+                  )}
                 </>
               )}
               <RecentLogsCard entries={progressLogs} onDelete={(id) => {
@@ -3496,6 +3711,41 @@ export default function InsightsScreen() {
       <ScrollTitle title="Insights" scrollY={scrollY} />
     </View>
     </TabScreenWrapper>
+
+    <NutrientLogSheet
+      visible={nutrientSheet != null}
+      onClose={() => setNutrientSheet(null)}
+      nutrient={nutrientSheet ?? 'protein'}
+      currentValue={
+        nutrientSheet === 'protein' ? todayProteinG
+        : nutrientSheet === 'fiber' ? todayFiberG
+        : nutrientSheet === 'hydration' ? waterOz
+        : nutrientSheet === 'carbs' ? todayCarbsG
+        : nutrientSheet === 'fat' ? todayFatG
+        : nutrientSheet === 'calories' ? todayCalories
+        : 0
+      }
+      targetValue={
+        nutrientSheet === 'protein' ? targets.proteinG
+        : nutrientSheet === 'fiber' ? targets.fiberG
+        : nutrientSheet === 'hydration' ? waterTargetOz
+        : nutrientSheet === 'carbs' ? targets.carbsG
+        : nutrientSheet === 'fat' ? targets.fatG
+        : nutrientSheet === 'calories' ? targets.caloriesTarget
+        : 0
+      }
+      onUpdate={(delta) => {
+        if (nutrientSheet === 'hydration') {
+          health.dispatch({ type: 'LOG_WATER', ml: Math.round(delta * 29.5735) });
+        } else {
+          const fieldMap: Record<string, keyof typeof qa> = {
+            protein: 'proteinG', fiber: 'fiberG', carbs: 'carbsG', fat: 'fatG', calories: 'calories',
+          };
+          adjustMetric(fieldMap[nutrientSheet!], delta);
+        }
+      }}
+    />
+    </>
   );
 }
 

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
-import { PremiumGate } from '@/components/ui/premium-gate';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,7 +120,6 @@ export default function ComparePhotosScreen() {
       </View>
 
       {/* Comparison content */}
-      <PremiumGate feature="progress_photo_compare" variant="soft" title="Before & After">
         <View style={s.content}>
           {loading ? (
             <View style={s.loadingContainer}>
@@ -203,7 +202,6 @@ export default function ComparePhotosScreen() {
             </>
           )}
         </View>
-      </PremiumGate>
     </View>
   );
 }

@@ -13,6 +13,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { AnimatedFire } from '@/components/animated-fire';
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { ACHIEVEMENTS, ACHIEVEMENT_ACCENT, type Achievement } from '@/constants/achievements';
 import type { AppColors } from '@/constants/theme';
@@ -129,10 +130,8 @@ export default function StreakScreen() {
         </View>
 
           {/* ── Streak Hero ── */}
-          <View style={s.fireHero}>
-            <View style={s.flameCircle}>
-              <Ionicons name="flame" size={36} color={ORANGE} />
-            </View>
+          <View style={s.streakCard}>
+            <AnimatedFire size={56} streak={streak} active={streak > 0} />
             <Text style={s.fireNumber}>{streak}</Text>
             <Text style={s.fireLabel}>
               {streak === 0 ? 'No streak yet' : streak === 1 ? 'day streak' : 'day streak'}
@@ -288,11 +287,11 @@ const createStyles = (c: AppColors) => {
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
     // Streak hero
-    fireHero: { alignItems: 'center', paddingVertical: 24 },
-    flameCircle: {
-      width: 64, height: 64, borderRadius: 32,
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(255,116,42,0.08)',
-      justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+    streakCard: {
+      alignItems: 'center', paddingVertical: 24,
+      backgroundColor: c.surface, borderRadius: 20,
+      borderWidth: 0.5, borderColor: c.border,
+      marginBottom: 24,
     },
     fireNumber: {
       fontSize: 40, fontWeight: '900', color: c.textPrimary,

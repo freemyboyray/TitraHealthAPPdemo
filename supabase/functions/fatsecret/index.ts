@@ -195,6 +195,49 @@ Deno.serve(async (req: Request) => {
       data = await callFS(token, {
         method: 'food_categories.get',
       });
+    } else if (action === 'autocomplete') {
+      const q = (url.searchParams.get('q') ?? '').slice(0, MAX_QUERY_LENGTH);
+      if (!q) {
+        return new Response(JSON.stringify({ error: 'Missing search query' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'foods.autocomplete',
+        expression: q,
+        max_results: '8',
+      });
+    } else if (action === 'recipe_search') {
+      const q = (url.searchParams.get('q') ?? '').slice(0, MAX_RECIPE_QUERY_LENGTH);
+      if (!q) {
+        return new Response(JSON.stringify({ error: 'Missing recipe search query' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'recipes.search',
+        search_expression: q,
+        max_results: '10',
+        page_number: '0',
+      });
+    } else if (action === 'recipe_get') {
+      const id = (url.searchParams.get('id') ?? '').slice(0, MAX_RECIPE_ID_LENGTH);
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'Missing recipe id' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'recipe.get.v2',
+        recipe_id: id,
+      });
+    } else if (action === 'food_categories') {
+      data = await callFS(token, {
+        method: 'food_categories.get',
+      });
     }
 
     return new Response(JSON.stringify(data), {

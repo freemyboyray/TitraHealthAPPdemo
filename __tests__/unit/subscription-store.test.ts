@@ -25,8 +25,6 @@ describe('subscription-store', () => {
       const store = useSubscriptionStore.getState();
       expect(store.checkFeatureAccess('cycle_intelligence')).toBe('locked');
       expect(store.checkFeatureAccess('provider_report')).toBe('locked');
-      expect(store.checkFeatureAccess('peer_comparison')).toBe('locked');
-      expect(store.checkFeatureAccess('clinical_alerts')).toBe('locked');
       expect(store.checkFeatureAccess('weight_projection')).toBe('locked');
       expect(store.checkFeatureAccess('ai_insights')).toBe('locked');
     });

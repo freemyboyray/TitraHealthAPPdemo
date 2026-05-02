@@ -28,9 +28,9 @@ export type AppColors = {
 // ─── Dark palette (default) ────────────────────────────────────────────────────
 
 export const darkColors: AppColors = {
-  bg: '#000000',
-  surface: '#111111',
-  cardBg: '#111111',
+  bg: '#111111',
+  surface: '#000000',
+  cardBg: '#000000',
   textPrimary: '#FFFFFF',
   textSecondary: '#9A9490',
   textMuted: '#5A5754',
@@ -43,7 +43,7 @@ export const darkColors: AppColors = {
   ringTrack: 'rgba(255,255,255,0.06)',
   blurTint: 'systemThinMaterialDark',
   statusBar: 'light',
-  heroGradient: ['#5C3324', '#8B4A2B', '#C4652A', '#000000'] as const,
+  heroGradient: ['#5C3324', '#8B4A2B', '#C4652A', '#111111'] as const,
   isDark: true,
 };
 

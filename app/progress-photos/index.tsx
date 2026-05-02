@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore, type ProgressPhoto } from '@/stores/progress-photo-store';
-import { PremiumGate } from '@/components/ui/premium-gate';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -121,15 +121,6 @@ export default function ProgressPhotosScreen() {
           <Text style={[s.dateText, { color: w(0.5) }]}>{formatDate(item.takenAt)}</Text>
         </Pressable>
       );
-
-      // Gate compare navigation behind PremiumGate when 2+ photos
-      if (photos.length >= 2) {
-        return (
-          <PremiumGate feature="progress_photo_compare" variant="soft">
-            {card}
-          </PremiumGate>
-        );
-      }
 
       return card;
     },

@@ -107,7 +107,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'How should I store my medication?',
-        a: 'Unopened pens: refrigerate at 36–46°F (2–8°C), away from the freezer element. Never freeze. Frozen medication is ruined. In-use pens: can be kept at room temperature (below 77°F/25°C) for up to 56 days (Ozempic), 42 days (Wegovy), or 21 days (Zepbound). Keep away from direct heat and light.',
+        a: 'Unopened pens: refrigerate at 36–46°F (2–8°C), away from the freezer element. Never freeze. Frozen medication is ruined. In-use pens: can be kept at room temperature (below 77°F/25°C) for a limited time that varies by medication — check your pen\'s prescribing information for the exact window. Keep away from direct heat and light.',
       },
       {
         q: 'What if my pen was left out overnight?',
@@ -247,7 +247,7 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'What exactly do I do if I miss a dose?',
-        a: 'For weekly injections (semaglutide/tirzepatide): inject the missed dose ONLY if within 5 days of your scheduled day. If more than 5 days have passed, skip it entirely and resume your regular weekly schedule on the original day. Never take two doses within 48 hours. Set a recurring calendar reminder to prevent this.',
+        a: 'For weekly injections: if you remember within a few days of your scheduled dose, inject as soon as possible and resume your regular schedule. If it\'s almost time for your next scheduled dose, skip the missed one and continue on your regular day. Never take two doses within 48 hours. Check your specific medication\'s prescribing information for the exact missed-dose window, and discuss with your prescriber if you\'re unsure.',
       },
       {
         q: 'Why did my weight loss plateau?',
@@ -267,7 +267,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'Drug interactions I should know about',
-        a: 'Important interactions: (1) Oral medications (including birth control pills): GLP-1s slow absorption, potentially reducing effectiveness; take oral meds 1 hour before or 4 hours after injection. (2) Insulin/sulfonylureas: GLP-1s increase hypoglycemia risk; doses may need adjustment. (3) Warfarin: monitor INR more closely. (4) Alcohol: significantly lower tolerance. Always disclose all medications to your prescriber.',
+        a: 'Important interactions: (1) Oral medications: GLP-1s slow gastric emptying, which may affect how other oral medications are absorbed — discuss timing with your prescriber. (2) Insulin/sulfonylureas: GLP-1s increase hypoglycemia risk; doses may need adjustment. (3) Warfarin: monitor INR more closely. (4) Alcohol: significantly lower tolerance. Always disclose all medications to your prescriber so they can advise on any necessary adjustments.',
       },
     ],
   },

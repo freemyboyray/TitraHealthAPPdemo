@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
@@ -39,9 +37,6 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
         onPress={() => router.push('/entry/weekly-checkin' as any)}
         activeOpacity={0.8}
       >
-        <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-        <GlassBorder r={20} isDark={colors.isDark} />
         <View style={s.inner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
             <View style={s.iconWrap}>
@@ -70,8 +65,6 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
       onPress={() => router.push('/entry/weekly-checkin' as any)}
       activeOpacity={0.85}
     >
-      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(39,174,96,0.06)' }]} />
       <View
         pointerEvents="none"
@@ -123,7 +116,7 @@ const createStyles = (c: AppColors) => {
     wrap: {
       borderRadius: 20,
       overflow: 'hidden',
-      backgroundColor: c.surface,
+      backgroundColor: c.isDark ? c.surface : '#FFFFFF',
       ...cardElevation(c.isDark),
     },
     inner: {

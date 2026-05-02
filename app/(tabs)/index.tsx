@@ -32,8 +32,6 @@ import { AnimatedFire } from '@/components/animated-fire';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
-import { ClinicalAlertCard, getDismissedFlags } from '@/components/clinical-alert-card';
-import { buildClinicalFlags } from '@/lib/clinical-alerts';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
 import { useLogStore } from '@/stores/log-store';
@@ -958,7 +956,6 @@ export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [dismissedFlags, setDismissedFlags] = useState<string[]>([]);
   const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
   const [isLoadingDate, setIsLoadingDate] = useState(false);
   const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
@@ -985,7 +982,6 @@ export default function HomeScreen() {
     hkStore.fetchAll().then(() => logStore.syncWeightFromHealthKit()).catch(() => {});
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
-    getDismissedFlags().then(setDismissedFlags);
     fetchProgressPhotos();
 
     // Fetch dates that have logged data (last 90 days) for calendar dot indicators
@@ -1015,22 +1011,6 @@ export default function HomeScreen() {
 
   const foodNoiseLogs = (logStore.foodNoiseLogs ?? []) as { score: number; logged_at: string }[];
 
-  // Clinical flags
-  const clinicalFlags = plan
-    ? buildClinicalFlags({
-        programWeek:          plan.programWeek,
-        sideEffectLogs:       (logStore.sideEffectLogs ?? []) as any,
-        activityLevel:        (logStore.profile as any)?.activity_level ?? 'light',
-        proteinCompliancePct: plan.targets.proteinG > 0
-          ? Math.min(plan.actuals.proteinG / plan.targets.proteinG, 1)
-          : 0,
-        plateauDetected:      plan.weightProjection?.plateauRisk === 'detected',
-        hasSideEffectHairLoss: (logStore.sideEffectLogs ?? []).some(s => s.effect_type === 'hair_loss'),
-        daysSinceLastLog:     logStore.sideEffectLogs?.[0]
-          ? Math.floor((Date.now() - new Date(logStore.sideEffectLogs[0].logged_at).getTime()) / 86400000)
-          : 0,
-      }).filter(f => !dismissedFlags.includes(f.type))
-    : [];
 
 
   // Resolve signed URL for the most recent progress photo (for the card thumbnail)
@@ -1647,7 +1627,7 @@ export default function HomeScreen() {
           )}
 
           {/* ── Progress Photos Card ── */}
-          {isToday && progressPhotos.length > 0 && (
+          {isToday && (
             <Pressable
               style={[s.cardWrap, { marginBottom: 20 }]}
               onPress={() => router.push('/progress-photos' as any)}

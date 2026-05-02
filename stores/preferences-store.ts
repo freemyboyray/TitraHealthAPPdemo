@@ -44,6 +44,14 @@ type PreferencesStore = {
   markAchievementShown: (id: string) => void;
   /** Seed all currently-earned achievements as already shown (one-time on first run). */
   seedAchievements: (ids: string[]) => void;
+  /** Photo milestone lbs values whose prompt has already been shown. */
+  shownPhotoMilestones: number[];
+  /** Whether the initial baseline of already-reached photo milestones has been seeded. */
+  photoMilestonesSeeded: boolean;
+  /** Mark a photo milestone as shown so the prompt doesn't re-trigger. */
+  markPhotoMilestoneShown: (lbs: number) => void;
+  /** Seed all currently-reached photo milestones as already shown (one-time on first run). */
+  seedPhotoMilestones: (milestones: number[]) => void;
   /** Whether to use the gradient header or solid orange. */
   useGradientHeader: boolean;
   setUseGradientHeader: (v: boolean) => void;
@@ -87,9 +95,20 @@ export const usePreferencesStore = create<PreferencesStore>()(
         const merged = new Set([...s.shownAchievementIds, ...ids]);
         return { shownAchievementIds: [...merged], achievementsSeeded: true };
       }),
+      shownPhotoMilestones: [],
+      photoMilestonesSeeded: false,
+      markPhotoMilestoneShown: (lbs) => set((s) => ({
+        shownPhotoMilestones: s.shownPhotoMilestones.includes(lbs)
+          ? s.shownPhotoMilestones
+          : [...s.shownPhotoMilestones, lbs],
+      })),
+      seedPhotoMilestones: (milestones) => set((s) => {
+        const merged = new Set([...s.shownPhotoMilestones, ...milestones]);
+        return { shownPhotoMilestones: [...merged], photoMilestonesSeeded: true };
+      }),
       useGradientHeader: true,
       setUseGradientHeader: (v) => set({ useGradientHeader: v }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

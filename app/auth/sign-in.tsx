@@ -3,19 +3,17 @@ import { Ionicons } from '@expo/vector-icons';
 let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -29,202 +27,25 @@ import type { AppColors } from '@/constants/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const { height: SCREEN_H } = Dimensions.get('window');
-
 // ─── Design tokens (light card - intentionally fixed, theme-independent) ──────
 const CARD_BG    = '#FFFFFF';
-const INPUT_BG   = '#F2F2F7';
 const INPUT_TEXT = '#1C1C1E';
 const INPUT_ICON = '#8E8E93';
-const PLACEHOLDER= 'rgba(60,60,67,0.40)';
-const SEG_WRAP   = '#F2F2F7';
-const SEG_ACTIVE = '#FFFFFF';
-const TAB_ACTIVE = '#1C1C1E';
-const TAB_INACT  = '#8E8E93';
 const SOCIAL_BDR = '#E5E5EA';
 const ORANGE     = '#FF742A';
 const FONT       = 'System';
 
-// ─── AuthTabSwitcher ─────────────────────────────────────────────────────────
-function AuthTabSwitcher({
-  active,
-  onChange,
-}: {
-  active: 'login' | 'register';
-  onChange: (t: 'login' | 'register') => void;
-}) {
-  return (
-    <View style={ts.wrap}>
-      {(['login', 'register'] as const).map((tab) => {
-        const isActive = tab === active;
-        return (
-          <TouchableOpacity
-            key={tab}
-            style={[ts.pill, isActive && ts.pillActive]}
-            onPress={() => onChange(tab)}
-            activeOpacity={0.8}
-          >
-            <Text style={[ts.label, isActive ? ts.labelActive : ts.labelInactive]}>
-              {tab === 'login' ? 'Login' : 'Register'}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-const ts = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    backgroundColor: SEG_WRAP,
-    borderRadius: 36,
-    padding: 4,
-    marginBottom: 24,
-  },
-  pill: {
-    flex: 1,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 30,
-  },
-  pillActive: {
-    backgroundColor: SEG_ACTIVE,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  label:        { fontSize: 17, fontFamily: FONT },
-  labelActive:  { color: TAB_ACTIVE, fontWeight: '700' },
-  labelInactive:{ color: TAB_INACT,  fontWeight: '500' },
-});
-
-// ─── PillInput ────────────────────────────────────────────────────────────────
-function PillInput({
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  keyboardType,
-  textContentType,
-  autoComplete,
-  returnKeyType,
-  onSubmitEditing,
-  autoCapitalize,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  placeholder: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: React.ComponentProps<typeof TextInput>['keyboardType'];
-  textContentType?: React.ComponentProps<typeof TextInput>['textContentType'];
-  autoComplete?: React.ComponentProps<typeof TextInput>['autoComplete'];
-  returnKeyType?: React.ComponentProps<typeof TextInput>['returnKeyType'];
-  onSubmitEditing?: () => void;
-  autoCapitalize?: React.ComponentProps<typeof TextInput>['autoCapitalize'];
-}) {
-  return (
-    <View style={pi.wrap}>
-      <Ionicons name={icon} size={20} color={INPUT_ICON} style={pi.icon} />
-      <TextInput
-        style={pi.input}
-        placeholder={placeholder}
-        placeholderTextColor={PLACEHOLDER}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        textContentType={textContentType}
-        autoComplete={autoComplete}
-        returnKeyType={returnKeyType}
-        onSubmitEditing={onSubmitEditing}
-        autoCapitalize={autoCapitalize ?? 'none'}
-      />
-    </View>
-  );
-}
-
-const pi = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: INPUT_BG,
-    borderRadius: 26,
-    height: 52,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  icon:  { marginRight: 10 },
-  input: { flex: 1, fontSize: 17, color: INPUT_TEXT, fontFamily: FONT },
-});
-
-// ─── Auth error sanitizer ────────────────────────────────────────────────────
-/** Map Supabase auth errors to user-friendly messages without exposing internals. */
-function sanitizeAuthError(raw: string): string {
-  const lower = raw.toLowerCase();
-  if (lower.includes('invalid login credentials')) return 'Invalid email or password.';
-  if (lower.includes('email not confirmed')) return 'Please verify your email before signing in.';
-  if (lower.includes('user already registered')) return 'An account with this email already exists.';
-  if (lower.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
-  if (lower.includes('network') || lower.includes('fetch')) return 'Network error. Please check your connection and try again.';
-  if (lower.includes('invalid otp') || lower.includes('token')) return 'Invalid or expired code. Please try again.';
-  return 'Something went wrong. Please try again.';
-}
-
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
   const { setProfile, reloadProfile } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [activeTab, setActiveTab]         = useState<'login' | 'register'>(
-    tab === 'register' ? 'register' : 'login',
-  );
-  const [email, setEmail]                 = useState('');
-  const [password, setPassword]           = useState('');
-  const [username, setUsername]             = useState('');
-  const [rememberMe, setRememberMe]       = useState(false);
-  const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [otpCode, setOtpCode]             = useState('');
-  const [resetSent, setResetSent]         = useState(false);
-
-  function handleTabChange(t: 'login' | 'register') {
-    setActiveTab(t);
-    setError(null);
-    setResetSent(false);
-  }
-
-  // ── Forgot password ─────────────────────────────────────────────────────
-  async function handleForgotPassword() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setError('Enter your email address first, then tap "Forgot password?"');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    if (!(await checkRateLimit(trimmedEmail, 'reset'))) return;
-    const { error: err } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
-    setLoading(false);
-    if (err) {
-      setError(sanitizeAuthError(err.message));
-    } else {
-      setResetSent(true);
-      setError(null);
-    }
-  }
 
   // ── Demo login ──────────────────────────────────────────────────────────
   function handleDemoLogin() {
@@ -232,185 +53,6 @@ export default function SignInScreen() {
     setDemoMode(true);
     setSessionLoaded(true);
     router.replace('/(tabs)');
-  }
-
-  // ── Rate limiting helper ─────────────────────────────────────────────────
-  async function checkRateLimit(identifier: string, type: string): Promise<boolean> {
-    try {
-      const { data, error: rlErr } = await supabase.rpc('check_rate_limit', {
-        p_identifier: identifier,
-        p_attempt_type: type,
-        p_max_attempts: 5,
-        p_window_minutes: 15,
-      });
-      // Only block when the function explicitly returns false (over limit).
-      // If the RPC errors (e.g. function missing, network), allow auth to proceed.
-      if (!rlErr && data === false) {
-        setError('Too many attempts. Please wait 15 minutes before trying again.');
-        setLoading(false);
-        return false;
-      }
-    } catch {
-      // Rate limit check failed — don't block auth
-    }
-    return true;
-  }
-
-  // ── Email sign-in ───────────────────────────────────────────────────────
-  async function handleSignIn() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError('Please enter your email and password.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
-    if (!(await checkRateLimit(trimmedEmail, 'login'))) return;
-
-    const { data, error: err } = await supabase.auth.signInWithPassword({
-      email: trimmedEmail,
-      password,
-    });
-
-    if (err) {
-      setError(sanitizeAuthError(err.message));
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      setSession(data.session);
-      await loadProfile();
-      const { data: row } = await supabase.from('profiles').select('program_start_date').eq('id', data.session.user.id).single();
-      if (row?.program_start_date) {
-        router.replace('/');
-      } else {
-        router.replace('/onboarding');
-      }
-    }
-    setLoading(false);
-  }
-
-  // ── Email sign-up ───────────────────────────────────────────────────────
-  async function handleSignUp() {
-    const trimmedEmail = email.trim();
-    const trimmedUsername = username.trim();
-    if (!trimmedUsername || !trimmedEmail || !password) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmedUsername)) {
-      setError('Username must be 3-20 characters (letters, numbers, underscores).');
-      return;
-    }
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters.');
-      return;
-    }
-    if (!/[A-Z]/.test(password)) {
-      setError('Password must contain at least one uppercase letter.');
-      return;
-    }
-    if (!/[0-9]/.test(password)) {
-      setError('Password must contain at least one number.');
-      return;
-    }
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      setError('Password must contain at least one special character.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    if (!(await checkRateLimit(trimmedEmail, 'signup'))) return;
-
-    const { data, error: err } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password,
-      options: { data: { username: trimmedUsername } },
-    });
-
-    if (err) {
-      setError(sanitizeAuthError(err.message));
-      setLoading(false);
-      return;
-    }
-
-    // Supabase returns no error but empty identities when the email is already registered
-    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
-      setError('An account with this email already exists.');
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      setSession(data.session);
-      const { error: profileErr } = await supabase.from('profiles').upsert({ id: data.user!.id, username: trimmedUsername });
-      if (profileErr) {
-        setError('Account created but profile setup failed. Please log in to continue.');
-        setLoading(false);
-        return;
-      }
-      await loadProfile();
-      router.replace('/');
-    } else {
-      // No session = email confirmation required. Show OTP screen.
-      setPendingVerification(true);
-    }
-
-    setLoading(false);
-  }
-
-  // ── OTP verification ───────────────────────────────────────────────────
-  async function handleVerifyOtp() {
-    const code = otpCode.trim();
-    if (!code) {
-      setError('Please enter the code from your email.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const { data, error: err } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code,
-      type: 'signup',
-    });
-
-    if (err) {
-      setError(sanitizeAuthError(err.message));
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      setSession(data.session);
-      const trimmedUsername = username.trim();
-      if (trimmedUsername && data.user) {
-        await supabase.from('profiles').upsert({ id: data.user.id, username: trimmedUsername });
-      }
-      await loadProfile();
-      router.replace('/');
-    }
-    setLoading(false);
-  }
-
-  async function handleResendCode() {
-    setLoading(true);
-    setError(null);
-    const { error: err } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-    });
-    if (err) {
-      setError(sanitizeAuthError(err.message));
-    } else {
-      setError('A new code has been sent to your email.');
-    }
-    setLoading(false);
   }
 
   // ── Shared: credential guard + post-auth navigation ─────────────────────
@@ -441,8 +83,6 @@ export default function SignInScreen() {
         }
       }
       await loadProfile();
-      // Navigate based on server state directly — don't rely on React state
-      // which may not have committed yet due to batching
       if (existing?.program_start_date) {
         await reloadProfile();
         router.replace('/');
@@ -470,7 +110,7 @@ export default function SignInScreen() {
       });
 
       if (err || !data.url) {
-        setError(err?.message ?? 'Google sign-in failed. Enable Google in Supabase → Authentication → Providers.');
+        setError(err?.message ?? 'Google sign-in failed. Please try again.');
         return;
       }
 
@@ -489,7 +129,7 @@ export default function SignInScreen() {
       const refreshToken = params['refresh_token'];
 
       if (!accessToken) {
-        setError('Google sign-in failed: no token returned. Check Supabase redirect URL config.');
+        setError('Google sign-in failed: no token returned. Please try again.');
         return;
       }
 
@@ -539,7 +179,7 @@ export default function SignInScreen() {
       });
 
       if (signInErr) {
-        setError(sanitizeAuthError(signInErr.message));
+        setError('Apple sign-in failed. Please try again.');
         return;
       }
 
@@ -573,12 +213,6 @@ export default function SignInScreen() {
     }
   }
 
-  const isLogin = activeTab === 'login';
-  const headline = isLogin ? 'Welcome back' : 'Get started';
-  const subtitle = isLogin
-    ? 'Your GLP-1 companion, always in your corner.'
-    : 'Smarter tracking for your GLP-1 journey.';
-
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />
@@ -588,7 +222,6 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         bounces={false}
-        automaticallyAdjustKeyboardInsets
       >
         {/* ── Dark header ── */}
         <View style={s.header}>
@@ -602,201 +235,62 @@ export default function SignInScreen() {
               />
               <Text style={s.brandName}>Titra Health</Text>
             </View>
-            <Text style={s.headline}>{headline}</Text>
-            <Text style={s.subtitle}>{subtitle}</Text>
+            <Text style={s.headline}>Welcome</Text>
+            <Text style={s.subtitle}>Your GLP-1 companion, always in your corner.</Text>
           </View>
         </View>
 
         {/* ── White card ── */}
         <View style={s.card}>
+          <Text style={s.cardTitle}>Sign in to continue</Text>
 
-          {pendingVerification ? (
-            <>
-              <Text style={s.otpTitle}>Check your email</Text>
-              <Text style={s.otpSubtitle}>
-                We sent a verification code to {email.trim()}
-              </Text>
+          {/* Error */}
+          {error ? <Text style={s.errorText}>{error}</Text> : null}
 
-              <PillInput
-                icon="key-outline"
-                placeholder="Enter verification code"
-                value={otpCode}
-                onChangeText={setOtpCode}
-                keyboardType="number-pad"
-                textContentType="oneTimeCode"
-                autoComplete="one-time-code"
-                returnKeyType="go"
-                onSubmitEditing={handleVerifyOtp}
-              />
-
-              {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-              <TouchableOpacity
-                style={[s.ctaBtn, loading && s.btnDisabled]}
-                onPress={handleVerifyOtp}
-                activeOpacity={0.85}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={s.ctaBtnText}>Verify</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.resendBtn}
-                onPress={handleResendCode}
-                activeOpacity={0.7}
-                disabled={loading}
-              >
-                <Text style={s.resendText}>Didn't get a code? Resend</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.resendBtn}
-                onPress={() => { setPendingVerification(false); setOtpCode(''); setError(null); }}
-                activeOpacity={0.7}
-              >
-                <Text style={s.resendText}>Back to sign up</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-            <AuthTabSwitcher active={activeTab} onChange={handleTabChange} />
-
-            {/* Register-only: Full Name */}
-            {!isLogin && (
-              <PillInput
-                icon="person-outline"
-                placeholder="Username"
-                value={username}
-                onChangeText={setUsername}
-                textContentType="username"
-                autoComplete="username"
-                autoCapitalize="none"
-              />
+          {/* Google */}
+          <TouchableOpacity
+            style={s.socialBtn}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.85}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={INPUT_TEXT} />
+            ) : (
+              <>
+                <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                <Text style={s.socialBtnText}>Continue with Google</Text>
+              </>
             )}
+          </TouchableOpacity>
 
-            <PillInput
-              icon="mail-outline"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoComplete="email"
-            />
-
-            <PillInput
-              icon="lock-closed-outline"
-              placeholder={isLogin ? 'Password' : 'Password (12+ chars, A-Z, 0-9, special)'}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType={isLogin ? 'password' : 'newPassword'}
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              returnKeyType="go"
-              onSubmitEditing={isLogin ? handleSignIn : handleSignUp}
-            />
-
-            {/* Login-only: Remember me + Forgot */}
-            {isLogin && (
-              <View style={s.rememberRow}>
-                <TouchableOpacity
-                  style={s.rememberLeft}
-                  onPress={() => setRememberMe((v) => !v)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[s.checkbox, rememberMe && s.checkboxOn]}>
-                    {rememberMe && <Ionicons name="checkmark" size={12} color="#fff" />}
-                  </View>
-                  <Text style={s.rememberLabel}>Remember me</Text>
-                </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.7} onPress={handleForgotPassword}>
-                  <Text style={s.forgotText}>Forgot password?</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Reset confirmation */}
-            {resetSent ? <Text style={[s.errorText, { color: '#27AE60' }]}>Check your email for password reset instructions.</Text> : null}
-
-            {/* Error */}
-            {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-            {/* CTA */}
+          {/* Apple (iOS only) */}
+          {Platform.OS === 'ios' && (
             <TouchableOpacity
-              style={[s.ctaBtn, loading && s.btnDisabled]}
-              onPress={isLogin ? handleSignIn : handleSignUp}
+              style={[s.socialBtn, s.appleSocialBtn]}
+              onPress={handleAppleSignIn}
               activeOpacity={0.85}
-              disabled={loading}
+              disabled={appleLoading}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+              {appleLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={s.ctaBtnText}>{isLogin ? 'Log In' : 'Create Account'}</Text>
+                <>
+                  <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                  <Text style={[s.socialBtnText, { color: '#FFFFFF' }]}>Continue with Apple</Text>
+                </>
               )}
             </TouchableOpacity>
-
-            {/* Divider */}
-            <View style={s.dividerRow}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>Or login with</Text>
-              <View style={s.dividerLine} />
-            </View>
-
-            {/* Social buttons */}
-            <View style={[s.socialRow, Platform.OS !== 'ios' && s.socialRowCentered]}>
-              {/* Google */}
-              <TouchableOpacity
-                style={[s.socialBtn, Platform.OS !== 'ios' && s.socialBtnFull]}
-                onPress={handleGoogleSignIn}
-                activeOpacity={0.85}
-                disabled={googleLoading}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator size="small" color={INPUT_TEXT} />
-                ) : (
-                  <>
-                    <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                    <Text style={s.socialBtnText}>Google</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Apple (iOS only) */}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={[s.socialBtn, s.appleSocialBtn]}
-                  onPress={handleAppleSignIn}
-                  activeOpacity={0.85}
-                  disabled={appleLoading}
-                >
-                  {appleLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                      <Text style={[s.socialBtnText, { color: '#FFFFFF' }]}>Apple</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-            </View>
-
-            {/* Demo link */}
-            <TouchableOpacity
-              style={s.demoLink}
-              onPress={handleDemoLogin}
-              activeOpacity={0.7}
-            >
-              <Text style={s.demoLinkText}>Try demo - no account needed</Text>
-            </TouchableOpacity>
-            </>
           )}
 
+          {/* Demo link */}
+          <TouchableOpacity
+            style={s.demoLink}
+            onPress={handleDemoLogin}
+            activeOpacity={0.7}
+          >
+            <Text style={s.demoLinkText}>Try demo — no account needed</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -858,113 +352,46 @@ const createStyles = (c: AppColors) => {
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
+    paddingTop: 32,
     paddingBottom: 40,
   },
 
-  // Remember me row
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-    marginTop: -4,
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: INPUT_TEXT,
+    fontFamily: FONT,
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  rememberLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#C7C7CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxOn:    { backgroundColor: ORANGE, borderColor: ORANGE },
-  rememberLabel: { fontSize: 15, color: INPUT_ICON, fontFamily: FONT },
-  forgotText:    { fontSize: 15, color: ORANGE, fontWeight: '600', fontFamily: FONT },
 
   // Error
   errorText: {
     color: '#C0392B',
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
     fontFamily: FONT,
   },
 
-  // CTA button
-  ctaBtn: {
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: ORANGE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-    shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.30,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  btnDisabled: { opacity: 0.55 },
-  ctaBtnText:  { fontSize: 18, fontWeight: '700', color: '#fff', fontFamily: FONT },
-
-  // Divider
-  dividerRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E5EA' },
-  dividerText: { marginHorizontal: 12, fontSize: 15, color: INPUT_ICON, fontWeight: '500', fontFamily: FONT },
-
   // Social buttons
-  socialRow:        { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  socialRowCentered:{ justifyContent: 'center' },
   socialBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     height: 52,
     borderRadius: 26,
     borderWidth: 1.5,
     borderColor: SOCIAL_BDR,
     backgroundColor: CARD_BG,
+    marginBottom: 12,
   },
-  socialBtnFull: { flex: 0, width: 200 },
   appleSocialBtn: { backgroundColor: '#000000', borderColor: '#000000' },
   socialBtnText: { fontSize: 17, fontWeight: '600', color: INPUT_TEXT, fontFamily: FONT },
 
   // Demo link
-  demoLink:     { alignItems: 'center', paddingVertical: 8 },
+  demoLink:     { alignItems: 'center', paddingVertical: 16, marginTop: 8 },
   demoLinkText: { fontSize: 16, color: INPUT_ICON, fontFamily: FONT },
-
-  // OTP verification
-  otpTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: INPUT_TEXT,
-    fontFamily: FONT,
-    textAlign: 'center',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  otpSubtitle: {
-    fontSize: 17,
-    color: INPUT_ICON,
-    fontFamily: FONT,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 21,
-  },
-  resendBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  resendText: {
-    fontSize: 16,
-    color: ORANGE,
-    fontWeight: '600',
-    fontFamily: FONT,
-  },
   });
 };

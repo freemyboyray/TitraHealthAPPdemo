@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired' | 'none';
-export type FeatureKey = 'ai_chat' | 'photo_analysis' | 'voice_log';
+export type FeatureKey = 'ai_chat' | 'photo_analysis' | 'voice_log' | 'food_log';
 export type GateType = 'allowed' | 'limited' | 'locked';
 
 /** Features that require premium (hard paywall) */
@@ -13,9 +13,7 @@ const PREMIUM_FEATURES = new Set([
   'cycle_intelligence',
   'provider_report',
   'rtm_link',
-  'peer_comparison',
   'weight_projection_advanced',
-  'clinical_alerts',
   'courses_all',
   'ai_insights',
   'weekly_ai_summary',
@@ -25,12 +23,13 @@ const PREMIUM_FEATURES = new Set([
 ]);
 
 /** Features that are metered (usage-limited for free users) */
-const METERED_FEATURES = new Set<FeatureKey>(['ai_chat', 'photo_analysis', 'voice_log']);
+const METERED_FEATURES = new Set<FeatureKey>(['ai_chat', 'photo_analysis', 'voice_log', 'food_log']);
 
 const FEATURE_LIMITS: Record<FeatureKey, number> = {
   ai_chat: 5,
   photo_analysis: 3,
   voice_log: 3,
+  food_log: 5,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────

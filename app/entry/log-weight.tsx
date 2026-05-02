@@ -9,14 +9,16 @@ import {
   KeyboardAvoidingView,
   PanResponder,
   Platform,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLogStore } from '../../stores/log-store';
+import { useLogStore, type BodyCompositionInput } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useUiStore } from '../../stores/ui-store';
 import { readLatestWeightWithSource, type WeightSampleWithSource } from '../../lib/healthkit';
@@ -194,6 +196,37 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
   );
 }
 
+function BodyCompField({ label, value, onChange, suffix, placeholder }: {
+  label: string; value: number | null; onChange: (v: number | null) => void;
+  suffix: string; placeholder: string;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Text style={{ fontSize: 15, fontWeight: '500', color: colors.textPrimary, flex: 1 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TextInput
+          value={value != null ? String(value) : ''}
+          onChangeText={t => {
+            if (t === '') { onChange(null); return; }
+            const n = parseFloat(t);
+            if (!isNaN(n)) onChange(n);
+          }}
+          keyboardType="decimal-pad"
+          placeholder={placeholder}
+          placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
+          style={{
+            width: 80, textAlign: 'right', fontSize: 16, fontWeight: '600',
+            color: ORANGE, paddingVertical: 6, paddingHorizontal: 8,
+            borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+          }}
+        />
+        <Text style={{ fontSize: 13, fontWeight: '500', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', width: 32 }}>{suffix}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function LogWeightScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -210,6 +243,19 @@ export default function LogWeightScreen() {
   const [unit, setUnit] = useState<Unit>('lbs');
   const [hkSuggestion, setHkSuggestion] = useState<WeightSampleWithSource | null>(null);
 
+  // Body composition state
+  const [bodyCompOpen, setBodyCompOpen] = useState(false);
+  const [moreMetricsOpen, setMoreMetricsOpen] = useState(false);
+  const [bodyFat, setBodyFat] = useState<number | null>(null);
+  const [leanMass, setLeanMass] = useState<number | null>(null);
+  const [waistIn, setWaistIn] = useState<number | null>(null);
+  const [visceralFat, setVisceralFat] = useState<number | null>(null);
+  const [bodyWater, setBodyWater] = useState<number | null>(null);
+  const [muscleMass, setMuscleMass] = useState<number | null>(null);
+  const [boneMass, setBoneMass] = useState<number | null>(null);
+  const [bmrKcal, setBmrKcal] = useState<number | null>(null);
+  const [hkBodyCompUsed, setHkBodyCompUsed] = useState(false);
+
   // Pull the most recent scale reading from Apple Health (with source info)
   // and, if it's within the last 24h, offer it as a one-tap auto-fill.
   useFocusEffect(
@@ -222,6 +268,15 @@ export default function LogWeightScreen() {
         if (ageMs > 24 * 60 * 60 * 1000) return;
         setHkSuggestion(sample);
       })();
+      // Auto-fill body composition from HealthKit if available
+      const hk = useHealthKitStore.getState();
+      if (hk.bodyFat != null || hk.leanMass != null || hk.waist != null) {
+        if (hk.bodyFat != null) setBodyFat(hk.bodyFat);
+        if (hk.leanMass != null) setLeanMass(hk.leanMass);
+        if (hk.waist != null) setWaistIn(hk.waist);
+        setHkBodyCompUsed(true);
+        setBodyCompOpen(true);
+      }
       return () => { cancelled = true; };
     }, []),
   );
@@ -275,7 +330,21 @@ export default function LogWeightScreen() {
 
   async function doLog() {
     const weightLbs = parseFloat(lbs.toFixed(1));
-    await addWeightLog(weightLbs);
+    const hasBodyComp = bodyFat != null || leanMass != null || waistIn != null
+      || visceralFat != null || bodyWater != null || muscleMass != null
+      || boneMass != null || bmrKcal != null;
+    const bodyComp: BodyCompositionInput | undefined = hasBodyComp ? {
+      body_fat_pct: bodyFat ?? undefined,
+      lean_mass_lbs: leanMass != null ? (unit === 'kg' ? parseFloat((leanMass / LB_TO_KG).toFixed(1)) : leanMass) : undefined,
+      waist_inches: waistIn ?? undefined,
+      visceral_fat_level: visceralFat ?? undefined,
+      body_water_pct: bodyWater ?? undefined,
+      muscle_mass_lbs: muscleMass != null ? (unit === 'kg' ? parseFloat((muscleMass / LB_TO_KG).toFixed(1)) : muscleMass) : undefined,
+      bone_mass_lbs: boneMass != null ? (unit === 'kg' ? parseFloat((boneMass / LB_TO_KG).toFixed(1)) : boneMass) : undefined,
+      bmr_kcal: bmrKcal ?? undefined,
+      source: hkBodyCompUsed ? 'healthkit' : 'manual',
+    } : undefined;
+    await addWeightLog(weightLbs, bodyComp);
     const synced = await hkStore.writeWeight(weightLbs);
     if (synced) useUiStore.getState().showHealthSyncToast('Weight saved to Apple Health');
     await updateProfile({ weightLbs, currentWeightLbs: weightLbs });
@@ -420,8 +489,69 @@ export default function LogWeightScreen() {
           </Text>
         </View>
 
+        {/* Body Composition (collapsible) */}
+        <View style={{ paddingHorizontal: 20 }}>
+          <TouchableOpacity
+            onPress={() => { setBodyCompOpen(!bodyCompOpen); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              paddingVertical: 14, paddingHorizontal: 16,
+              borderRadius: 16, backgroundColor: colors.surface,
+              borderWidth: 0.5, borderColor: colors.border,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="body-outline" size={18} color={ORANGE} />
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>Body Composition</Text>
+            </View>
+            <Ionicons name={bodyCompOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+          </TouchableOpacity>
+
+          {bodyCompOpen && (
+            <View style={{
+              marginTop: 8, borderRadius: 16, backgroundColor: colors.surface,
+              borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 12,
+            }}>
+              {hkBodyCompUsed && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Ionicons name="heart" size={12} color="#FF3B30" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF3B30' }}>Auto-filled from Apple Health</Text>
+                </View>
+              )}
+
+              {/* Primary fields */}
+              <BodyCompField label="Body Fat" value={bodyFat} onChange={setBodyFat} suffix="%" placeholder="e.g. 22.5" />
+              <BodyCompField label={`Lean Mass`} value={leanMass} onChange={setLeanMass} suffix={unit} placeholder="e.g. 138" />
+              <BodyCompField label="Waist" value={waistIn} onChange={setWaistIn} suffix={unit === 'kg' ? 'cm' : 'in'} placeholder={unit === 'kg' ? 'e.g. 85' : 'e.g. 33'} />
+
+              {/* More metrics toggle */}
+              <TouchableOpacity
+                onPress={() => setMoreMetricsOpen(!moreMetricsOpen)}
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 }}
+              >
+                <Ionicons name={moreMetricsOpen ? 'remove-circle-outline' : 'add-circle-outline'} size={16} color={ORANGE} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: ORANGE }}>
+                  {moreMetricsOpen ? 'Less Metrics' : 'More Metrics'}
+                </Text>
+              </TouchableOpacity>
+
+              {moreMetricsOpen && (
+                <View style={{ gap: 12 }}>
+                  <BodyCompField label="Visceral Fat" value={visceralFat} onChange={setVisceralFat} suffix="level" placeholder="1-59" />
+                  <BodyCompField label="Body Water" value={bodyWater} onChange={setBodyWater} suffix="%" placeholder="e.g. 55" />
+                  <BodyCompField label={`Muscle Mass`} value={muscleMass} onChange={setMuscleMass} suffix={unit} placeholder="e.g. 72" />
+                  <BodyCompField label={`Bone Mass`} value={boneMass} onChange={setBoneMass} suffix={unit} placeholder="e.g. 7.2" />
+                  <BodyCompField label="BMR" value={bmrKcal} onChange={setBmrKcal} suffix="kcal" placeholder="e.g. 1650" />
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* CTA */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24 }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24, paddingTop: 16 }}>
           <TouchableOpacity
             onPress={handleLog}
             activeOpacity={0.85}

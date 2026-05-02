@@ -117,7 +117,7 @@ Three approved sites, all subcutaneous (under the skin, not into muscle):
 
 **Upper arm:** Outer area, middle third of the upper arm. Usually requires assistance or a mirror injection technique.
 
-**Site rotation is mandatory.** Injecting the same spot repeatedly causes lipohypertrophy — hardened fatty lumps that impair absorption and can reduce medication effectiveness by up to 50%.
+**Site rotation is mandatory.** Injecting the same spot repeatedly causes lipohypertrophy — hardened fatty lumps that can significantly reduce medication absorption.
 
 ## Step 4: Clean and Dry
 
@@ -127,9 +127,8 @@ Wipe the site with an alcohol swab using a circular motion. Let it **air dry com
 
 1. Pinch the skin lightly if you are lean (not necessary for most people)
 2. Insert the needle at a **90° angle** — straight in, not at an angle
-3. Press and hold the injection button for **5–10 seconds** (until the dose counter shows 0 and the flow stop indicator appears)
-4. Continue holding for 5 more seconds, then remove
-5. **Do not rub the site** after removing — rubbing can cause bruising and alter absorption
+3. Press and hold the injection button until the dose counter shows 0, then continue holding for a few more seconds before removing (the exact hold time varies by pen — follow your specific medication''s instructions for use)
+4. **Do not rub the site** after removing — rubbing can cause bruising and alter absorption
 
 ## Step 6: Disposal
 
@@ -139,8 +138,8 @@ Place the used needle directly into your sharps disposal container. Never recap 
 
 - **Injecting into scar tissue or lumps** — always inspect before injecting
 - **Skipping the prime/flow check** on a new pen (semaglutide) — you may get a partial or empty first dose
-- **Rushing the button press** — the 5-10 second hold is not optional; releasing too quickly means you don''t get the full dose
-- **Storing the in-use pen in the fridge** — most pens can and should stay at room temperature during their use period
+- **Rushing the button press** — holding the button until the dose counter reaches 0 and then keeping the needle in place is not optional; releasing too quickly means you may not get the full dose
+- **Storing the in-use pen in the fridge** — most pens can and should stay at room temperature during their use period (check your pen''s prescribing information for the exact room-temperature window)
 
 ## Tracking Your Sites
 

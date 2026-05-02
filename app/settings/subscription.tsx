@@ -313,9 +313,7 @@ const BENEFITS = [
   'Personalized weekly health summary',
   'Cycle Intelligence & appetite forecasting',
   'Provider reports for your doctor',
-  'Peer comparison benchmarks',
   'All guided courses',
-  'Clinical alerts & safety monitoring',
 ];
 
 function createStyles(c: AppColors) {

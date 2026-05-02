@@ -50,6 +50,9 @@ export function PremiumGate({
   const access = useSubscriptionStore((s) => s.checkFeatureAccess(feature));
   const handleUpgrade = onUpgrade ?? (() => router.push('/settings/subscription' as any));
 
+  // DEV MOCK: bypass all gating so mock data cards are visible
+  if (__DEV__) return <>{children}</>;
+
   // Premium users or allowed features — render children directly
   if (access === 'allowed') return <>{children}</>;
 
