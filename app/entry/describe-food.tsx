@@ -94,7 +94,7 @@ export default function DescribeFoodScreen() {
     setParseError('');
     setItems(null);
     try {
-      const raw = await callOpenAI([{ role: 'user', content: `User input: "${text}"` }], PARSE_SYSTEM);
+      const raw = await callOpenAI([{ role: 'user', content: `User input: "${text}"` }], PARSE_SYSTEM, 'food_parse');
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON array found');
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);

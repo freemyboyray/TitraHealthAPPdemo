@@ -1,12 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { CORS } from './auth.ts';
 
-export type FeatureKey = 'ai_chat' | 'photo_analysis' | 'voice_log';
+export type FeatureKey = 'ai_chat' | 'photo_analysis' | 'voice_log' | 'food_parse';
 
 const LIMITS: Record<FeatureKey, number> = {
   ai_chat: 5,
   photo_analysis: 3,
   voice_log: 3,
+  food_parse: 30,
 };
 
 export type UsageCheckResult = {

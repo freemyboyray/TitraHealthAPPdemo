@@ -51,10 +51,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Determine feature key for usage tracking based on request content
-    const featureKey: FeatureKey = hasVisionContent(body)
-      ? 'photo_analysis'
-      : 'ai_chat';
+    // Determine feature key for usage tracking. Prefer client-supplied feature
+    // (allowlisted), fall back to "image present? → photo_analysis, else ai_chat".
+    // voice_log is owned by whisper-proxy and not selectable here.
+    const CLIENT_SELECTABLE: FeatureKey[] = ['ai_chat', 'photo_analysis', 'food_parse'];
+    const requestedFeature = typeof body.feature === 'string' ? body.feature : undefined;
+    const featureKey: FeatureKey =
+      requestedFeature && CLIENT_SELECTABLE.includes(requestedFeature as FeatureKey)
+        ? (requestedFeature as FeatureKey)
+        : hasVisionContent(body)
+          ? 'photo_analysis'
+          : 'ai_chat';
+
+    // Strip our internal field before forwarding to OpenAI.
+    delete body.feature;
 
     // Check usage limit for non-premium users
     const limitResponse = await checkUsageLimit(auth.userId, featureKey);

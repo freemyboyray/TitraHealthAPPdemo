@@ -103,6 +103,63 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auth_rate_limits: {
+        Row: {
+          attempt_type: string
+          attempted_at: string
+          id: string
+          identifier: string
+        }
+        Insert: {
+          attempt_type: string
+          attempted_at?: string
+          id?: string
+          identifier: string
+        }
+        Update: {
+          attempt_type?: string
+          attempted_at?: string
+          id?: string
+          identifier?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -137,6 +194,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clinicians: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          display_name: string
+          id: string
+          npi: string | null
+          practice_name: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          display_name: string
+          id?: string
+          npi?: string | null
+          practice_name?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          npi?: string | null
+          practice_name?: string | null
+        }
+        Relationships: []
       }
       courses: {
         Row: {
@@ -218,6 +305,57 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          app_version: string | null
+          build_number: string | null
+          category: string
+          created_at: string
+          description: string
+          dev_notes: string | null
+          device_model: string | null
+          id: string
+          os_name: string | null
+          os_version: string | null
+          screenshot: string | null
+          status: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          build_number?: string | null
+          category: string
+          created_at?: string
+          description: string
+          dev_notes?: string | null
+          device_model?: string | null
+          id?: string
+          os_name?: string | null
+          os_version?: string | null
+          screenshot?: string | null
+          status?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          build_number?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          dev_notes?: string | null
+          device_model?: string | null
+          id?: string
+          os_name?: string | null
+          os_version?: string | null
+          screenshot?: string | null
+          status?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       food_entries: {
         Row: {
           calories: number
@@ -265,48 +403,72 @@ export type Database = {
       }
       food_logs: {
         Row: {
+          allergens: Json | null
           barcode: string | null
           calories: number
           carbs_g: number
+          cholesterol_mg: number | null
           fat_g: number
+          fatsecret_food_id: number | null
           fiber_g: number
           food_name: string
           id: string
+          image_url: string | null
           logged_at: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          preferences: Json | null
           protein_g: number
           raw_ai_response: Json | null
+          saturated_fat_g: number | null
+          sodium_mg: number | null
           source: Database["public"]["Enums"]["food_source"]
+          sugar_g: number | null
           user_id: string
         }
         Insert: {
+          allergens?: Json | null
           barcode?: string | null
           calories?: number
           carbs_g?: number
+          cholesterol_mg?: number | null
           fat_g?: number
+          fatsecret_food_id?: number | null
           fiber_g?: number
           food_name: string
           id?: string
+          image_url?: string | null
           logged_at?: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          preferences?: Json | null
           protein_g?: number
           raw_ai_response?: Json | null
+          saturated_fat_g?: number | null
+          sodium_mg?: number | null
           source?: Database["public"]["Enums"]["food_source"]
+          sugar_g?: number | null
           user_id: string
         }
         Update: {
+          allergens?: Json | null
           barcode?: string | null
           calories?: number
           carbs_g?: number
+          cholesterol_mg?: number | null
           fat_g?: number
+          fatsecret_food_id?: number | null
           fiber_g?: number
           food_name?: string
           id?: string
+          image_url?: string | null
           logged_at?: string
           meal_type?: Database["public"]["Enums"]["meal_type"]
+          preferences?: Json | null
           protein_g?: number
           raw_ai_response?: Json | null
+          saturated_fat_g?: number | null
+          sodium_mg?: number | null
           source?: Database["public"]["Enums"]["food_source"]
+          sugar_g?: number | null
           user_id?: string
         }
         Relationships: [
@@ -705,9 +867,12 @@ export type Database = {
           injection_day_of_week: number | null
           injection_frequency_days: number
           injection_time: string | null
+          is_premium: boolean | null
           last_injection_date: string | null
           medication_brand: string | null
           medication_custom_name: string | null
+          medication_notes: string | null
+          medication_photo_url: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           peer_comparison_opted_in: boolean
           peer_comparison_opted_in_at: string | null
@@ -723,11 +888,17 @@ export type Database = {
           privacy_version: string | null
           program_start_date: string | null
           route_of_administration: string | null
+          rtm_clinician_id: string | null
+          rtm_consent_text: string | null
+          rtm_enabled: boolean
+          rtm_linked_at: string | null
           sex: string | null
           start_weight_lbs: number | null
           target_weekly_loss_lbs: number | null
           tos_accepted_at: string | null
           tos_version: string | null
+          treatment_status: string | null
+          trial_ends_at: string | null
           unit_system: string | null
           updated_at: string
           username: string | null
@@ -753,9 +924,12 @@ export type Database = {
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          is_premium?: boolean | null
           last_injection_date?: string | null
           medication_brand?: string | null
           medication_custom_name?: string | null
+          medication_notes?: string | null
+          medication_photo_url?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
@@ -773,11 +947,17 @@ export type Database = {
           privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
+          rtm_clinician_id?: string | null
+          rtm_consent_text?: string | null
+          rtm_enabled?: boolean
+          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
           tos_accepted_at?: string | null
           tos_version?: string | null
+          treatment_status?: string | null
+          trial_ends_at?: string | null
           unit_system?: string | null
           updated_at?: string
           username?: string | null
@@ -803,9 +983,12 @@ export type Database = {
           injection_day_of_week?: number | null
           injection_frequency_days?: number
           injection_time?: string | null
+          is_premium?: boolean | null
           last_injection_date?: string | null
           medication_brand?: string | null
           medication_custom_name?: string | null
+          medication_notes?: string | null
+          medication_photo_url?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
@@ -823,16 +1006,71 @@ export type Database = {
           privacy_version?: string | null
           program_start_date?: string | null
           route_of_administration?: string | null
+          rtm_clinician_id?: string | null
+          rtm_consent_text?: string | null
+          rtm_enabled?: boolean
+          rtm_linked_at?: string | null
           sex?: string | null
           start_weight_lbs?: number | null
           target_weekly_loss_lbs?: number | null
           tos_accepted_at?: string | null
           tos_version?: string | null
+          treatment_status?: string | null
+          trial_ends_at?: string | null
           unit_system?: string | null
           updated_at?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_rtm_clinician_id_fkey"
+            columns: ["rtm_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinicians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_photos: {
+        Row: {
+          id: string
+          is_starting: boolean | null
+          milestone_lbs: number | null
+          note: string | null
+          photo_url: string
+          taken_at: string | null
+          user_id: string
+          weight_lbs: number
+        }
+        Insert: {
+          id?: string
+          is_starting?: boolean | null
+          milestone_lbs?: number | null
+          note?: string | null
+          photo_url: string
+          taken_at?: string | null
+          user_id: string
+          weight_lbs: number
+        }
+        Update: {
+          id?: string
+          is_starting?: boolean | null
+          milestone_lbs?: number | null
+          note?: string | null
+          photo_url?: string
+          taken_at?: string | null
+          user_id?: string
+          weight_lbs?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       side_effect_logs: {
         Row: {
@@ -865,6 +1103,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "side_effect_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan: string
+          provider: string
+          provider_subscription_id: string | null
+          status: string
+          trial_end: string | null
+          trial_start: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan?: string
+          provider: string
+          provider_subscription_id?: string | null
+          status?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan?: string
+          provider?: string
+          provider_subscription_id?: string | null
+          status?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_tracking: {
+        Row: {
+          count: number
+          created_at: string | null
+          date: string
+          feature_key: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string | null
+          date?: string
+          feature_key: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string | null
+          date?: string
+          feature_key?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_tracking_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1019,6 +1348,54 @@ export type Database = {
           },
         ]
       }
+      user_medications: {
+        Row: {
+          created_at: string
+          dose_mg: number
+          dose_time: string | null
+          frequency_days: number
+          glp1_type: string
+          id: string
+          is_active: boolean
+          medication_brand: string
+          medication_custom_name: string | null
+          notes: string | null
+          photo_url: string | null
+          route_of_administration: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dose_mg: number
+          dose_time?: string | null
+          frequency_days?: number
+          glp1_type: string
+          id?: string
+          is_active?: boolean
+          medication_brand: string
+          medication_custom_name?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          route_of_administration?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dose_mg?: number
+          dose_time?: string | null
+          frequency_days?: number
+          glp1_type?: string
+          id?: string
+          is_active?: boolean
+          medication_brand?: string
+          medication_custom_name?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          route_of_administration?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_saved_meal_items: {
         Row: {
           calories: number
@@ -1142,24 +1519,51 @@ export type Database = {
       }
       weight_logs: {
         Row: {
+          bmr_kcal: number | null
+          body_fat_pct: number | null
+          body_water_pct: number | null
+          bone_mass_lbs: number | null
           id: string
+          lean_mass_lbs: number | null
           logged_at: string
+          muscle_mass_lbs: number | null
           notes: string | null
+          source: string | null
           user_id: string
+          visceral_fat_level: number | null
+          waist_inches: number | null
           weight_lbs: number
         }
         Insert: {
+          bmr_kcal?: number | null
+          body_fat_pct?: number | null
+          body_water_pct?: number | null
+          bone_mass_lbs?: number | null
           id?: string
+          lean_mass_lbs?: number | null
           logged_at?: string
+          muscle_mass_lbs?: number | null
           notes?: string | null
+          source?: string | null
           user_id: string
+          visceral_fat_level?: number | null
+          waist_inches?: number | null
           weight_lbs: number
         }
         Update: {
+          bmr_kcal?: number | null
+          body_fat_pct?: number | null
+          body_water_pct?: number | null
+          bone_mass_lbs?: number | null
           id?: string
+          lean_mass_lbs?: number | null
           logged_at?: string
+          muscle_mass_lbs?: number | null
           notes?: string | null
+          source?: string | null
           user_id?: string
+          visceral_fat_level?: number | null
+          waist_inches?: number | null
           weight_lbs?: number
         }
         Relationships: [
@@ -1174,6 +1578,22 @@ export type Database = {
       }
     }
     Views: {
+      feedback_dashboard: {
+        Row: {
+          app_version: string | null
+          category: string | null
+          created_at: string | null
+          dev_notes: string | null
+          device_model: string | null
+          id: string | null
+          platform: string | null
+          preview: string | null
+          status: string | null
+          subject: string | null
+          username: string | null
+        }
+        Relationships: []
+      }
       peer_weight_loss_summary: {
         Row: {
           cohort_size: number | null
@@ -1197,7 +1617,23 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      check_and_increment_usage: {
+        Args: { p_feature_key: string; p_limit: number; p_user_id: string }
+        Returns: Json
+      }
+      check_rate_limit: {
+        Args: {
+          p_attempt_type: string
+          p_identifier: string
+          p_max_attempts?: number
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
+      rtm_engagement_days: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       activity_source: "manual" | "apple_health" | "fitbit"

@@ -263,6 +263,7 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 export async function callOpenAI(
   messages: { role: 'user' | 'assistant'; content: string }[],
   systemPrompt: string,
+  feature?: 'ai_chat' | 'photo_analysis' | 'food_parse',
 ): Promise<string> {
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
@@ -272,6 +273,7 @@ export async function callOpenAI(
     ],
     max_tokens: 400,
     temperature: 0.7,
+    ...(feature ? { feature } : {}),
   });
 
   return (data as any).choices[0].message.content as string;
@@ -287,6 +289,7 @@ export async function parseFoodDescription(
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
+    feature: 'food_parse',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: description },
@@ -337,6 +340,7 @@ export async function converseFoodLog(
 ): Promise<ConverseFoodResult> {
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
+    feature: 'food_parse',
     messages: [
       { role: 'system', content: CONVERSE_FOOD_SYSTEM },
       ...messages,
@@ -537,6 +541,7 @@ export async function generateSearchVariants(
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
+    feature: 'food_parse',
     messages: [
       { role: 'system', content: VARIANT_SYSTEM },
       { role: 'user', content: `Generate search variants for these food items:\n${input}` },
@@ -592,6 +597,7 @@ export async function selectBestFoodMatches(
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
+    feature: 'food_parse',
     messages: [
       { role: 'system', content: SELECT_SYSTEM },
       { role: 'user', content: prompt },
@@ -659,7 +665,7 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
   serving_options: { label: string; grams: number }[];
 } | null> {
   try {
-    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM);
+    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM, 'food_parse');
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const m = JSON.parse(match[0]);

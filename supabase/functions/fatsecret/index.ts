@@ -5,32 +5,46 @@ const TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
 const MAX_QUERY_LENGTH = 200;
 const MAX_ID_LENGTH = 20;
 const MAX_BARCODE_LENGTH = 30;
-const VALID_ACTIONS = ['search', 'food', 'barcode'];
+const MAX_RECIPE_QUERY_LENGTH = 200;
+const MAX_RECIPE_ID_LENGTH = 20;
+const VALID_ACTIONS = ['search', 'food', 'barcode', 'autocomplete', 'recipe_search', 'recipe_get', 'food_categories'];
 
-async function getToken(): Promise<string> {
-  const clientId = Deno.env.get('FATSECRET_CLIENT_ID')!;
-  const clientSecret = Deno.env.get('FATSECRET_CLIENT_SECRET')!;
-
+async function requestToken(scope: string, clientId: string, clientSecret: string): Promise<Response> {
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
-    scope: 'basic',
+    scope,
     client_id: clientId,
     client_secret: clientSecret,
   });
-
-  const res = await fetch(TOKEN_URL, {
+  return fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
+}
 
-  if (!res.ok) {
-    console.error(`[fatsecret] Token fetch failed: ${res.status}`);
-    throw new Error('Token fetch failed');
+async function getToken(): Promise<{ token: string; tier: 'premier' | 'basic' }> {
+  const clientId = Deno.env.get('FATSECRET_CLIENT_ID')!;
+  const clientSecret = Deno.env.get('FATSECRET_CLIENT_SECRET')!;
+
+  // Premier scope unlocks food_attributes (allergens), food_images, and richer
+  // food.get.v4 responses, plus the autocomplete/recipe endpoints. `barcode` is
+  // required for find_id_for_barcode. If Premier isn't activated yet, fall
+  // back to basic so existing flows stay alive.
+  const premierRes = await requestToken('premier basic barcode', clientId, clientSecret);
+  if (premierRes.ok) {
+    const json = await premierRes.json();
+    return { token: json.access_token as string, tier: 'premier' };
   }
 
-  const json = await res.json();
-  return json.access_token as string;
+  console.warn(`[fatsecret] Premier token request failed (${premierRes.status}); falling back to basic`);
+  const basicRes = await requestToken('basic barcode', clientId, clientSecret);
+  if (!basicRes.ok) {
+    console.error(`[fatsecret] Basic token request also failed: ${basicRes.status}`);
+    throw new Error('Token fetch failed');
+  }
+  const json = await basicRes.json();
+  return { token: json.access_token as string, tier: 'basic' };
 }
 
 async function callFS(token: string, params: Record<string, string>): Promise<unknown> {
@@ -73,7 +87,16 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const token = await getToken();
+    const { token, tier } = await getToken();
+
+    // Premier-only flags add allergen/image/default-serving data to food.get.v4
+    // responses. Omitted on basic to avoid 400s on fields the account isn't
+    // entitled to.
+    const premierFlags: Record<string, string> = tier === 'premier' ? {
+      include_food_attributes: 'true',
+      include_food_images: 'true',
+      flag_default_serving: 'true',
+    } : {};
 
     let data: unknown;
 
@@ -102,6 +125,7 @@ Deno.serve(async (req: Request) => {
       data = await callFS(token, {
         method: 'food.get.v4',
         food_id: id,
+        ...premierFlags,
       });
     } else if (action === 'barcode') {
       const code = (url.searchParams.get('code') ?? '').slice(0, MAX_BARCODE_LENGTH);
@@ -126,6 +150,50 @@ Deno.serve(async (req: Request) => {
       data = await callFS(token, {
         method: 'food.get.v4',
         food_id: foodId,
+        ...premierFlags,
+      });
+    } else if (action === 'autocomplete') {
+      const q = (url.searchParams.get('q') ?? '').slice(0, MAX_QUERY_LENGTH);
+      if (!q) {
+        return new Response(JSON.stringify({ error: 'Missing search query' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'foods.autocomplete',
+        expression: q,
+        max_results: '8',
+      });
+    } else if (action === 'recipe_search') {
+      const q = (url.searchParams.get('q') ?? '').slice(0, MAX_RECIPE_QUERY_LENGTH);
+      if (!q) {
+        return new Response(JSON.stringify({ error: 'Missing recipe search query' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'recipes.search',
+        search_expression: q,
+        max_results: '10',
+        page_number: '0',
+      });
+    } else if (action === 'recipe_get') {
+      const id = (url.searchParams.get('id') ?? '').slice(0, MAX_RECIPE_ID_LENGTH);
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'Missing recipe id' }), {
+          status: 400,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      data = await callFS(token, {
+        method: 'recipe.get.v2',
+        recipe_id: id,
+      });
+    } else if (action === 'food_categories') {
+      data = await callFS(token, {
+        method: 'food_categories.get',
       });
     }
 

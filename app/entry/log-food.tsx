@@ -514,7 +514,7 @@ export default function LogFoodScreen() {
     setDescribing(true);
     setDescribeError('');
     try {
-      const raw = await callOpenAI([{ role: 'user', content: `User input: "${describeText}"` }], PARSE_SYSTEM);
+      const raw = await callOpenAI([{ role: 'user', content: `User input: "${describeText}"` }], PARSE_SYSTEM, 'food_parse');
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON');
       const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);

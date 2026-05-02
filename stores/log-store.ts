@@ -90,6 +90,17 @@ type LogStore = {
     source: FoodSource;
     barcode?: string;
     raw_ai_response?: object;
+    // Extended nutrition fields (scaled to logged serving). All optional.
+    saturated_fat_g?: number;
+    sugar_g?: number;
+    sodium_mg?: number;
+    cholesterol_mg?: number;
+    // FatSecret Premier enrichments. Allergen/preference flags are ternary
+    // (1 = contains/yes, 0 = does not contain/no, -1 = unknown).
+    image_url?: string;
+    allergens?: Record<string, number>;
+    preferences?: Record<string, number>;
+    fatsecret_food_id?: number;
   }) => Promise<void>;
 
   // Food Noise Questionnaire (FNQ)
@@ -426,6 +437,14 @@ export const useLogStore = create<LogStore>((set, get) => ({
         user_id: user.id,
         raw_ai_response: entry.raw_ai_response ?? null,
         barcode: entry.barcode ?? null,
+        saturated_fat_g: entry.saturated_fat_g ?? null,
+        sugar_g: entry.sugar_g ?? null,
+        sodium_mg: entry.sodium_mg ?? null,
+        cholesterol_mg: entry.cholesterol_mg ?? null,
+        image_url: entry.image_url ?? null,
+        allergens: entry.allergens ?? null,
+        preferences: entry.preferences ?? null,
+        fatsecret_food_id: entry.fatsecret_food_id ?? null,
       });
     if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });

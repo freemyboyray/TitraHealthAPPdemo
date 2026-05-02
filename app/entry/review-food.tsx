@@ -54,13 +54,19 @@ export default function ReviewFoodScreen() {
   const sideEffects = healthData.profile.sideEffects ?? [];
 
   const [checkedItems, setCheckedItems] = useState<Set<number>>(
-    new Set(task?.resolvedItems.map((_, i) => i) ?? []),
+    new Set(
+      task?.resolvedItems.flatMap((it, i) => (it.results[it.selectedIdx] ? [i] : [])) ?? [],
+    ),
   );
   const [logging, setLogging] = useState(false);
 
   useEffect(() => {
     if (task?.status === 'ready') {
-      setCheckedItems(new Set(task.resolvedItems.map((_, i) => i)));
+      setCheckedItems(
+        new Set(
+          task.resolvedItems.flatMap((it, i) => (it.results[it.selectedIdx] ? [i] : [])),
+        ),
+      );
     }
   }, [task?.status]);
 
@@ -222,7 +228,32 @@ export default function ReviewFoodScreen() {
       >
         {items.map((item, idx) => {
           const food = item.results[item.selectedIdx];
-          if (!food) return null;
+
+          // Unresolved item — DB miss + AI fallback returned no data.
+          // Render a warning card so the screen isn't blank.
+          if (!food) {
+            return (
+              <View key={idx} style={[s.card, { borderColor: '#E74C3C' }]}>
+                <View style={s.unresolvedHeader}>
+                  <Ionicons name="alert-circle" size={20} color="#E74C3C" />
+                  <Text style={s.unresolvedTitle}>Couldn't find nutrition data</Text>
+                </View>
+                <Text style={s.unresolvedItemName}>{item.item}</Text>
+                <Text style={s.unresolvedHint}>
+                  Try describing this more specifically, or remove it and search manually.
+                </Text>
+                <TouchableOpacity
+                  style={s.unresolvedRetryBtn}
+                  onPress={() => retryTask(taskId!)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh" size={16} color={colors.orange} />
+                  <Text style={s.unresolvedRetryText}>Try Again</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
           const q = parseFloat(item.qty) || 1;
           const g = q * item.unitGrams;
           const isChecked = checkedItems.has(idx);
@@ -538,6 +569,29 @@ function createStyles(c: AppColors) {
     },
     promptChipText: {
       fontSize: 13, fontWeight: '600', color: c.textPrimary,
+    },
+
+    // ─── Unresolved item card ────────────────────────────────────
+    unresolvedHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8,
+    },
+    unresolvedTitle: {
+      fontSize: 14, fontWeight: '700', color: '#E74C3C', letterSpacing: 0.2,
+    },
+    unresolvedItemName: {
+      fontSize: 18, fontWeight: '700', color: c.textPrimary, marginBottom: 6,
+    },
+    unresolvedHint: {
+      fontSize: 13, color: c.textMuted, lineHeight: 18, marginBottom: 12,
+    },
+    unresolvedRetryBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: 12, borderWidth: 1, borderColor: c.orange,
+      backgroundColor: c.orangeDim,
+    },
+    unresolvedRetryText: {
+      fontSize: 14, fontWeight: '700', color: c.orange,
     },
 
     // ─── Footer ───────────────────────────────────────────────────
