@@ -115,8 +115,8 @@ export function MetabolicAdaptationCard({ result }: MetabolicAdaptationCardProps
         )}
       </View>
 
-      {/* RHR improvement */}
-      {result.rhrImprovementBpm != null && (
+      {/* RHR improvement — only when wearable data exists */}
+      {result.hasRhrData && result.rhrImprovementBpm != null && (
         <View style={s.statRow}>
           <Text style={s.statLabel}>Cardiovascular Progress</Text>
           <Text style={[
@@ -143,8 +143,8 @@ export function MetabolicAdaptationCard({ result }: MetabolicAdaptationCardProps
         </View>
       )}
 
-      {/* RHR trend chart */}
-      {result.rhrTrend.some(v => v > 0) && (
+      {/* RHR trend chart — only when wearable data exists */}
+      {result.hasRhrData && result.rhrTrend.some(v => v > 0) && (
         <View style={s.chartSection}>
           <Text style={s.chartTitle}>Resting HR Trend (bpm)</Text>
           <MiniBarChart
@@ -154,6 +154,11 @@ export function MetabolicAdaptationCard({ result }: MetabolicAdaptationCardProps
             height={56}
           />
         </View>
+      )}
+
+      {/* Wearable prompt when no RHR data */}
+      {!result.hasRhrData && (
+        <Text style={s.wearableHint}>Connect Apple Watch to unlock heart rate trends</Text>
       )}
 
       {/* Adaptation message */}
@@ -271,6 +276,13 @@ const createStyles = (c: AppColors) => {
       fontSize: 15,
       color: w(0.45),
       lineHeight: 19,
+      fontFamily: 'System',
+    },
+    wearableHint: {
+      fontSize: 13,
+      color: w(0.35),
+      textAlign: 'center',
+      marginBottom: 14,
       fontFamily: 'System',
     },
     tapHint: {

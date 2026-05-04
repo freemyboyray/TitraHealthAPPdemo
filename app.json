@@ -103,7 +103,8 @@
         }
       ],
       "react-native-iap",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -115,6 +116,7 @@
         "projectId": "976538a1-cd7e-45ef-bea0-97e59e88fc27"
       }
     },
-    "owner": "ibm7862"
+    "owner": "ibm7862",
+    "privacyPolicyUrl": "https://titrahealth.io/privacy-policy"
   }
 }

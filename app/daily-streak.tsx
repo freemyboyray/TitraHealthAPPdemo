@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AnimatedFire } from '@/components/animated-fire';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -172,7 +173,7 @@ export default function DailyStreakScreen() {
           {/* Flame icon */}
           <Animated.View style={iconStyle}>
             <View style={s.flameCircle}>
-              <Ionicons name="flame" size={48} color={ORANGE} />
+              <AnimatedFire size={56} streak={streak} active={streak > 0} />
             </View>
           </Animated.View>
 

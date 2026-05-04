@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { computePersonalizedPlan, mergeProfileData, type PersonalizedPlan, type FullUserProfileForPlan } from '@/lib/personalization';
+import { localDateStr } from '@/lib/date-utils';
 import { useLogStore } from './log-store';
 import { useHealthKitStore } from './healthkit-store';
 import type { DailyActuals, WearableData } from '@/constants/scoring';
@@ -111,11 +113,14 @@ export const usePersonalizationStore = create<PersonalizationStore>((set, get) =
         spo2Pct:      undefined,
       };
 
+      const storedWater = await AsyncStorage.getItem(`@titrahealth_water_${localDateStr()}`);
+      const waterMl = storedWater ? parseFloat(storedWater) : 0;
+
       const actuals: DailyActuals = {
         proteinG:         (freshLogState.foodLogs ?? [])
           .filter(f => f.logged_at?.startsWith(new Date().toISOString().split('T')[0]))
           .reduce((s, f) => s + (f.protein_g ?? 0), 0),
-        waterMl:          1100, // TODO: wire water log table
+        waterMl,
         fiberG:           (freshLogState.foodLogs ?? [])
           .filter(f => f.logged_at?.startsWith(new Date().toISOString().split('T')[0]))
           .reduce((s, f) => s + (f.fiber_g ?? 0), 0),

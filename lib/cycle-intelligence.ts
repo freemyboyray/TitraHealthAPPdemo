@@ -109,6 +109,7 @@ export function generateIntradayForecast(
 
 export type MetabolicAdaptationResult = {
   hasEnoughData: boolean;
+  hasRhrData: boolean;
   calPerStepTrend: number[];
   rhrTrend: number[];
   weekLabels: string[];
@@ -392,6 +393,7 @@ export function computeMetabolicAdaptationScore(
   if (sortedWeeks.length < 4) {
     return {
       hasEnoughData: false,
+      hasRhrData: false,
       calPerStepTrend: [],
       rhrTrend: [],
       weekLabels: [],
@@ -455,6 +457,7 @@ export function computeMetabolicAdaptationScore(
 
   return {
     hasEnoughData: true,
+    hasRhrData: rhrTrend.some(v => v > 0),
     calPerStepTrend,
     rhrTrend,
     weekLabels,

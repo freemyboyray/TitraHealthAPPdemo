@@ -8,9 +8,11 @@ export default function AuthLayout() {
   const { profile } = useProfile();
 
   // Once session is confirmed, redirect away from auth —
-  // but send to onboarding if they haven't completed it yet
+  // but send to onboarding if they haven't completed it yet.
+  // Wait for profile to load before deciding (avoid flash of onboarding).
   if (sessionLoaded && session) {
-    if (!profile || !profile.onboardingCompletedAt) {
+    if (!profile) return null;
+    if (!profile.onboardingCompletedAt) {
       return <Redirect href="/onboarding" />;
     }
     return <Redirect href="/(tabs)" />;

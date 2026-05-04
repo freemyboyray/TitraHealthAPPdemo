@@ -240,8 +240,12 @@ export function generatePkCurveHighRes(
   nPoints = 28,
 ): number[] {
   const intervalH = Math.max(1, injFreqDays) * 24;
+  // Start at t=0.5h instead of t=0 to avoid the early-guard zero (at t=0
+  // pkConcentrationPct returns 0, but steady-state patients still have
+  // residual drug from the previous cycle).
+  const T_START = 0.5;
   return Array.from({ length: nPoints }, (_, i) => {
-    const tHours = (i / (nPoints - 1)) * intervalH;
+    const tHours = T_START + (i / (nPoints - 1)) * (intervalH - T_START);
     return Math.round(pkConcentrationPct(tHours, glp1Type, atSteadyState, intervalH));
   });
 }

@@ -53,8 +53,8 @@ export default function Index() {
       router.replace('/auth/sign-in');
       return;
     }
-    if (isLoading) return;
-    if (!profile || !profile.onboardingCompletedAt) {
+    if (isLoading || !profile) return;
+    if (!profile.onboardingCompletedAt) {
       router.replace('/onboarding');
       return;
     }

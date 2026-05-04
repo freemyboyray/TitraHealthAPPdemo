@@ -3184,6 +3184,7 @@ export default function InsightsScreen() {
   if (__DEV__) {
     metabolicAdaptationResult = {
       hasEnoughData: true,
+      hasRhrData: true,
       calPerStepTrend: [0.42, 0.40, 0.39, 0.38, 0.36, 0.37, 0.39, 0.41],
       rhrTrend: [74, 72, 71, 70, 69, 68, 67, 66],
       weekLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],

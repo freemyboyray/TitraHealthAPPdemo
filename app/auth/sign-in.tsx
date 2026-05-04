@@ -10,8 +10,6 @@ import {
   ActivityIndicator,
   Image,
   Platform,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,39 +19,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useProfile } from '@/contexts/profile-context';
-import { MOCK_PROFILE } from '@/constants/mock-profile';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// ─── Design tokens (light card - intentionally fixed, theme-independent) ──────
-const CARD_BG    = '#FFFFFF';
-const INPUT_TEXT = '#1C1C1E';
-const INPUT_ICON = '#8E8E93';
-const SOCIAL_BDR = '#E5E5EA';
-const ORANGE     = '#FF742A';
-const FONT       = 'System';
+const FONT = 'System';
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
-  const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
-  const { setProfile, reloadProfile } = useProfile();
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
+  const { setSession, loadProfile } = useUserStore();
+  const { reloadProfile } = useProfile();
+  const { colors: c } = useAppTheme();
+  const s = useMemo(() => createStyles(c), [c]);
 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
-
-  // ── Demo login ──────────────────────────────────────────────────────────
-  function handleDemoLogin() {
-    setProfile(MOCK_PROFILE);
-    setDemoMode(true);
-    setSessionLoaded(true);
-    router.replace('/(tabs)');
-  }
 
   // ── Shared: credential guard + post-auth navigation ─────────────────────
   function checkSupabaseConfigured(): boolean {
@@ -72,7 +55,6 @@ export default function SignInScreen() {
       return;
     }
     setSession(session);
-    // For OAuth users, populate username from provider metadata if missing
     const user = session.user;
     if (user) {
       const { data: existing } = await supabase.from('profiles').select('username, program_start_date').eq('id', user.id).single();
@@ -116,12 +98,8 @@ export default function SignInScreen() {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
-      if (result.type !== 'success' || !result.url) {
-        // User cancelled or browser dismissed - not an error
-        return;
-      }
+      if (result.type !== 'success' || !result.url) return;
 
-      // Implicit flow: tokens arrive in the URL fragment (#access_token=...&refresh_token=...)
       const url = result.url;
       const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
       const params = Object.fromEntries(new URLSearchParams(fragment));
@@ -152,7 +130,6 @@ export default function SignInScreen() {
       setGoogleLoading(false);
     }
   }
-
 
   // ── Apple Sign-In (native iOS) ───────────────────────────────────────
   async function handleAppleSignIn() {
@@ -185,7 +162,6 @@ export default function SignInScreen() {
 
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Apple only sends the user's name on the FIRST sign-in; persist it now
       if (session?.user && credential.fullName) {
         const parts = [credential.fullName.givenName, credential.fullName.familyName].filter(Boolean);
         if (parts.length > 0) {
@@ -204,7 +180,6 @@ export default function SignInScreen() {
 
       await finishOAuth(session);
     } catch (e: unknown) {
-      // User cancelled — not an error
       if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return;
       const msg = e instanceof Error ? e.message : String(e);
       setError(`Apple sign-in failed: ${msg}`);
@@ -215,183 +190,189 @@ export default function SignInScreen() {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        {/* ── Top spacer ── */}
+        <View style={s.spacer} />
 
-      <ScrollView
-        contentContainerStyle={s.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        {/* ── Dark header ── */}
-        <View style={s.header}>
-          <SafeAreaView edges={['top']} />
-          <View style={s.headerContent}>
-            <View style={s.brandRow}>
-              <Image
-                source={require('@/assets/images/titra-logo.png')}
-                style={s.logoMark}
-                resizeMode="cover"
-              />
-              <Text style={s.brandName}>Titra Health</Text>
-            </View>
-            <Text style={s.headline}>Welcome</Text>
-            <Text style={s.subtitle}>Your GLP-1 companion, always in your corner.</Text>
-          </View>
+        {/* ── Title section (left-aligned) ── */}
+        <View style={s.titleSection}>
+          <Image
+            source={require('@/assets/images/titra-logo.png')}
+            style={s.titleLogo}
+            resizeMode="cover"
+          />
+          <Text style={s.title}>Sign In</Text>
+          <Text style={s.subtitle}>
+            Built to help you track more,{'\n'}so you can achieve more.
+          </Text>
         </View>
 
-        {/* ── White card ── */}
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Sign in to continue</Text>
-
-          {/* Error */}
-          {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-          {/* Google */}
-          <TouchableOpacity
-            style={s.socialBtn}
-            onPress={handleGoogleSignIn}
-            activeOpacity={0.85}
-            disabled={googleLoading}
-          >
-            {googleLoading ? (
-              <ActivityIndicator size="small" color={INPUT_TEXT} />
-            ) : (
-              <>
-                <Image source={require('@/assets/images/google-logo.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                <Text style={s.socialBtnText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Apple (iOS only) */}
+        {/* ── Provider cards (side by side) ── */}
+        <View style={s.cardRow}>
           {Platform.OS === 'ios' && (
             <TouchableOpacity
-              style={[s.socialBtn, s.appleSocialBtn]}
+              style={s.providerCard}
               onPress={handleAppleSignIn}
-              activeOpacity={0.85}
+              activeOpacity={0.7}
               disabled={appleLoading}
             >
               {appleLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={c.textPrimary} style={s.cardIcon} />
               ) : (
-                <>
-                  <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                  <Text style={[s.socialBtnText, { color: '#FFFFFF' }]}>Continue with Apple</Text>
-                </>
+                <Ionicons name="logo-apple" size={32} color={c.textPrimary} style={s.cardIcon} />
               )}
+              <Text style={s.cardWith}>with</Text>
+              <Text style={s.cardLabel}>Apple</Text>
             </TouchableOpacity>
           )}
 
-          {/* Demo link */}
           <TouchableOpacity
-            style={s.demoLink}
-            onPress={handleDemoLogin}
+            style={s.providerCard}
+            onPress={handleGoogleSignIn}
             activeOpacity={0.7}
+            disabled={googleLoading}
           >
-            <Text style={s.demoLinkText}>Try demo — no account needed</Text>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={c.textPrimary} style={s.cardIcon} />
+            ) : (
+              <Image
+                source={require('@/assets/images/google-logo.png')}
+                style={[s.googleLogo, s.cardIcon]}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={s.cardWith}>with</Text>
+            <Text style={s.cardLabel}>Google</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+
+        {error ? <Text style={s.errorText}>{error}</Text> : null}
+
+        {/* ── Footer ── */}
+        <View style={s.footer}>
+          <Text style={s.legalText}>
+            By continuing, you agree to our{' '}
+            <Text style={s.legalLink}>Terms</Text>
+            {' & '}
+            <Text style={s.legalLink}>Privacy Policy</Text>
+          </Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
-const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  return StyleSheet.create({
-  root:    { flex: 1, backgroundColor: c.bg },
+const createStyles = (c: AppColors) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+    safe: {
+      flex: 1,
+      paddingHorizontal: 28,
+    },
+    spacer: {
+      flex: 1,
+    },
 
-  // Header (dark, theme-aware)
-  header: {
-    backgroundColor: c.bg,
-    paddingHorizontal: 28,
-    paddingBottom: 28,
-  },
-  headerContent: {
-    paddingTop: 24,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: ORANGE,
-    fontFamily: FONT,
-    marginLeft: 12,
-    letterSpacing: 0.3,
-  },
-  headline: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: c.textPrimary,
-    letterSpacing: -0.5,
-    fontFamily: FONT,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: w(0.55),
-    fontWeight: '500',
-    fontFamily: FONT,
-  },
+    // ── Title ──
+    titleSection: {
+      marginBottom: 28,
+    },
+    titleLogo: {
+      width: 44,
+      height: 44,
+      borderRadius: 11,
+      marginBottom: 12,
+    },
+    title: {
+      fontSize: 34,
+      fontWeight: '800',
+      color: c.textPrimary,
+      fontFamily: FONT,
+      letterSpacing: -0.5,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 16,
+      fontWeight: '400',
+      color: c.textSecondary,
+      fontFamily: FONT,
+      lineHeight: 22,
+    },
 
-  // Card (fixed light - intentional design contrast)
-  scrollContent: { flexGrow: 1 },
-  card: {
-    flex: 1,
-    backgroundColor: CARD_BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
-  },
+    // ── Provider cards ──
+    cardRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 20,
+    },
+    providerCard: {
+      flex: 1,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+      borderRadius: 18,
+      paddingVertical: 20,
+      paddingHorizontal: 16,
+      ...(c.isDark
+        ? {
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.08)',
+          }
+        : {
+            shadowColor: 'rgba(0,0,0,0.08)',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 1,
+            shadowRadius: 12,
+            elevation: 2,
+          }),
+    },
+    cardIcon: {
+      marginBottom: 14,
+    },
+    googleLogo: {
+      width: 28,
+      height: 28,
+    },
+    cardWith: {
+      fontSize: 14,
+      fontWeight: '400',
+      color: c.textSecondary,
+      fontFamily: FONT,
+      marginBottom: 2,
+    },
+    cardLabel: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.textPrimary,
+      fontFamily: FONT,
+      letterSpacing: -0.2,
+    },
 
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: INPUT_TEXT,
-    fontFamily: FONT,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
+    // ── Error ──
+    errorText: {
+      fontSize: 14,
+      color: '#FF453A',
+      textAlign: 'center',
+      fontFamily: FONT,
+      lineHeight: 20,
+      marginBottom: 12,
+    },
 
-  // Error
-  errorText: {
-    color: '#C0392B',
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 16,
-    fontFamily: FONT,
-  },
-
-  // Social buttons
-  socialBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    borderColor: SOCIAL_BDR,
-    backgroundColor: CARD_BG,
-    marginBottom: 12,
-  },
-  appleSocialBtn: { backgroundColor: '#000000', borderColor: '#000000' },
-  socialBtnText: { fontSize: 17, fontWeight: '600', color: INPUT_TEXT, fontFamily: FONT },
-
-  // Demo link
-  demoLink:     { alignItems: 'center', paddingVertical: 16, marginTop: 8 },
-  demoLinkText: { fontSize: 16, color: INPUT_ICON, fontFamily: FONT },
+    // ── Footer ──
+    footer: {
+      paddingBottom: 8,
+      paddingTop: 12,
+    },
+    legalText: {
+      fontSize: 12,
+      color: c.textMuted,
+      textAlign: 'center',
+      fontFamily: FONT,
+      lineHeight: 18,
+    },
+    legalLink: {
+      color: c.textSecondary,
+      fontWeight: '500',
+    },
   });
-};
