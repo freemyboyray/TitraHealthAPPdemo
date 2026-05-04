@@ -19,6 +19,7 @@ const PREMIUM_FEATURES = new Set([
   'weekly_ai_summary',
   'coach_notes',
   'metabolic_adaptation',
+  'clinical_benchmark',
   'progress_photo_compare',
 ]);
 

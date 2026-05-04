@@ -66,12 +66,12 @@ export default function ProgressPhotoScreen() {
       // Fire and forget — don't block navigation
       useProgressPhotoStore.getState().uploadPhoto(photoBase64, weightLbs, { isStarting: true });
     }
-    router.replace('/onboarding/building-plan');
+    router.replace('/onboarding/reminders');
   };
 
   const handleSkip = () => {
     Haptics.selectionAsync();
-    router.replace('/onboarding/building-plan');
+    router.replace('/onboarding/reminders');
   };
 
   return (

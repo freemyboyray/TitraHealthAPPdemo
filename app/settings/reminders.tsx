@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
   Modal,
   Platform,
   Pressable,
@@ -18,11 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
+import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
-import { requestNotificationPermission, scheduleTestNotification, scheduleDoseReminder, cancelReminder } from '@/lib/notifications';
+import { requestNotificationPermission, scheduleDoseReminder, cancelReminder } from '@/lib/notifications';
 import { type ReminderSlot, useRemindersStore } from '@/stores/reminders-store';
 
-const ORANGE = '#FF742A';
+const FF = 'System';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -36,38 +39,44 @@ const BRAND_LABEL: Record<string, string> = {
 type SlotMeta = {
   slot: ReminderSlot;
   label: string;
+  subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
+  color: string;
 };
 
 type Category = {
   title: string;
+  subtitle: string;
   slots: SlotMeta[];
 };
 
 function getCategories(isOnMedication: boolean): Category[] {
   const healthSlots: SlotMeta[] = [
-    { slot: 'weight_morning', label: 'Morning weigh-in', icon: 'scale-outline' },
+    { slot: 'weight_morning', label: 'Morning Weigh-in', subtitle: 'Track daily weight trends', icon: 'scale-outline', color: '#AF52DE' },
   ];
   if (isOnMedication) {
-    healthSlots.push({ slot: 'side_effects_evening', label: 'Side effects check-in', icon: 'medkit-outline' });
+    healthSlots.push({ slot: 'side_effects_evening', label: 'Side Effects Check-in', subtitle: 'Log how you\'re feeling', icon: 'medkit-outline', color: '#FF3B30' });
   }
 
   return [
     {
-      title: 'NUTRITION',
+      title: 'Nutrition',
+      subtitle: 'Stay on top of your meals',
       slots: [
-        { slot: 'meals_morning', label: 'Breakfast reminder', icon: 'sunny-outline' },
-        { slot: 'meals_evening', label: 'Dinner reminder', icon: 'moon-outline' },
+        { slot: 'meals_morning', label: 'Breakfast', subtitle: 'Start your day right', icon: 'sunny-outline', color: '#FF9500' },
+        { slot: 'meals_evening', label: 'Dinner', subtitle: 'End the day strong', icon: 'moon-outline', color: '#5856D6' },
       ],
     },
     {
-      title: 'HEALTH TRACKING',
+      title: 'Health Tracking',
+      subtitle: 'Monitor your progress',
       slots: healthSlots,
     },
     {
-      title: 'DAILY PLANNING',
+      title: 'Daily Planning',
+      subtitle: 'Set your daily intention',
       slots: [
-        { slot: 'daily_plan_morning', label: 'Daily focus', icon: 'compass-outline' },
+        { slot: 'daily_plan_morning', label: 'Daily Focus', subtitle: 'See today\'s priorities', icon: 'compass-outline', color: '#5AC8FA' },
       ],
     },
   ];
@@ -76,7 +85,7 @@ function getCategories(isOnMedication: boolean): Category[] {
 /* ── Time helpers ── */
 function hhmmToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(':').map(Number);
-  const d = new Date(2000, 0, 1); // fixed date to avoid "today" boundary issues
+  const d = new Date(2000, 0, 1);
   d.setHours(h ?? 8, m ?? 0, 0, 0);
   return d;
 }
@@ -106,7 +115,7 @@ function computeNextDose(lastDate: string | undefined, freqDays: number | undefi
 }
 
 /* ── Component ── */
-type PickerTarget = ReminderSlot | null;
+type PickerTarget = ReminderSlot | 'dose_time' | null;
 
 export default function RemindersScreen() {
   const { colors } = useAppTheme();
@@ -117,7 +126,31 @@ export default function RemindersScreen() {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [pickerDate, setPickerDate] = useState<Date>(new Date(2000, 0, 1, 8, 0));
   const pickerDateRef = useRef<Date>(new Date(2000, 0, 1, 8, 0));
-  const [testSent, setTestSent] = useState(false);
+
+  // ─── Entrance animations ──────────────────────────────────────────────────
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslate = useRef(new Animated.Value(10)).current;
+  const masterOpacity = useRef(new Animated.Value(0)).current;
+  const masterTranslate = useRef(new Animated.Value(16)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentTranslate = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.stagger(80, [
+      Animated.parallel([
+        Animated.timing(headerOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(headerTranslate, { toValue: 0, duration: 350, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(masterOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(masterTranslate, { toValue: 0, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(contentOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(contentTranslate, { toValue: 0, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
 
   // Dose reminder state
   const doseReminderEnabled = store.doseReminderEnabled;
@@ -146,7 +179,7 @@ export default function RemindersScreen() {
     const d = hhmmToDate(doseTimeStr);
     pickerDateRef.current = d;
     setPickerDate(d);
-    setPickerTarget('dose_time' as any);
+    setPickerTarget('dose_time');
   }
 
   async function confirmDoseTime() {
@@ -195,22 +228,12 @@ export default function RemindersScreen() {
 
   function confirmPicker() {
     if (!pickerTarget) return;
-    if (pickerTarget === ('dose_time' as any)) {
+    if (pickerTarget === 'dose_time') {
       confirmDoseTime();
       return;
     }
     store.setSlotTime(pickerTarget, dateToHHMM(pickerDateRef.current));
     closePicker();
-  }
-
-  async function handleTestNotification() {
-    await scheduleTestNotification(
-      'Titra Health Reminder',
-      'This is a test - your reminders are working!',
-    );
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 4000);
-    Alert.alert('Test Sent', 'Background the app - notification fires in 5 seconds.');
   }
 
   // Medication info
@@ -227,37 +250,45 @@ export default function RemindersScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+      <Animated.View style={[s.header, { opacity: headerOpacity, transform: [{ translateY: headerTranslate }] }]}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>REMINDERS</Text>
+        <Text style={s.headerTitle}>Reminders</Text>
         <View style={{ width: 40 }} />
-      </View>
+      </Animated.View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Master toggle */}
-        <View style={s.masterCard}>
-          <View style={s.masterLeft}>
-            <Ionicons name="notifications" size={20} color={ORANGE} />
+        {/* Master toggle card */}
+        <Animated.View style={[s.masterCard, { opacity: masterOpacity, transform: [{ translateY: masterTranslate }] }]}>
+          <View style={s.masterIconWrap}>
+            <Ionicons name="notifications" size={22} color={colors.orange} />
+          </View>
+          <View style={s.masterTextWrap}>
             <Text style={s.masterLabel}>Enable Reminders</Text>
+            <Text style={s.masterSub}>
+              {store.masterEnabled ? 'Reminders are active' : 'Turn on to stay on track'}
+            </Text>
           </View>
           <Switch
             value={store.masterEnabled}
             onValueChange={handleMasterToggle}
-            trackColor={{ false: '#333', true: ORANGE }}
+            trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
             thumbColor="#FFFFFF"
-            ios_backgroundColor="#333"
+            ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
           />
-        </View>
+        </Animated.View>
 
         {store.masterEnabled && (
-          <>
+          <Animated.View style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslate }] }}>
             {/* Reminder categories */}
             {categories.map((cat) => (
-              <View key={cat.title}>
-                <Text style={s.sectionLabel}>{cat.title}</Text>
+              <View key={cat.title} style={s.section}>
+                <View style={s.sectionHeader}>
+                  <Text style={s.sectionTitle}>{cat.title}</Text>
+                  <Text style={s.sectionSub}>{cat.subtitle}</Text>
+                </View>
                 <View style={s.card}>
                   {cat.slots.map((meta, i) => {
                     const cfg = store.slots[meta.slot];
@@ -266,33 +297,35 @@ export default function RemindersScreen() {
                         {i > 0 && <View style={s.divider} />}
                         <View style={s.slotRow}>
                           <View style={s.slotLeft}>
-                            <View style={s.slotIconWrap}>
-                              <Ionicons name={meta.icon} size={16} color={ORANGE} />
+                            <View style={[s.slotIconWrap, { backgroundColor: meta.color + '18' }]}>
+                              <Ionicons name={meta.icon} size={18} color={meta.color} />
                             </View>
-                            <Text style={[s.slotLabel, !cfg.enabled && s.slotLabelDisabled]}>
-                              {meta.label}
-                            </Text>
+                            <View style={s.slotTextWrap}>
+                              <Text style={[s.slotLabel, !cfg.enabled && s.slotLabelDisabled]}>
+                                {meta.label}
+                              </Text>
+                              {cfg.enabled && (
+                                <TouchableOpacity
+                                  onPress={() => openPicker(meta.slot)}
+                                  activeOpacity={0.7}
+                                  hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                                >
+                                  <Text style={s.timeInline}>{formatTime(cfg.time)}</Text>
+                                </TouchableOpacity>
+                              )}
+                              {!cfg.enabled && (
+                                <Text style={s.slotSub}>{meta.subtitle}</Text>
+                              )}
+                            </View>
                           </View>
-                          <View style={s.slotRight}>
-                            {cfg.enabled && (
-                              <TouchableOpacity
-                                style={s.timeChip}
-                                onPress={() => openPicker(meta.slot)}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="time-outline" size={13} color={ORANGE} style={{ marginRight: 4 }} />
-                                <Text style={s.timeText}>{formatTime(cfg.time)}</Text>
-                              </TouchableOpacity>
-                            )}
-                            <Switch
-                              value={cfg.enabled}
-                              onValueChange={(v) => store.setSlotEnabled(meta.slot, v)}
-                              trackColor={{ false: '#333', true: ORANGE }}
-                              thumbColor="#FFFFFF"
-                              ios_backgroundColor="#333"
-                              style={s.slotSwitch}
-                            />
-                          </View>
+                          <Switch
+                            value={cfg.enabled}
+                            onValueChange={(v) => store.setSlotEnabled(meta.slot, v)}
+                            trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                            thumbColor="#FFFFFF"
+                            ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                            style={s.slotSwitch}
+                          />
                         </View>
                       </View>
                     );
@@ -303,61 +336,55 @@ export default function RemindersScreen() {
 
             {/* Medication section */}
             {isOnMedication && doseLabel && (
-              <View>
-                <Text style={s.sectionLabel}>MEDICATION</Text>
+              <View style={s.section}>
+                <View style={s.sectionHeader}>
+                  <Text style={s.sectionTitle}>Medication</Text>
+                  <Text style={s.sectionSub}>Never miss a dose</Text>
+                </View>
                 <View style={s.card}>
                   <View style={s.slotRow}>
                     <View style={s.slotLeft}>
-                      <View style={[s.slotIconWrap, { backgroundColor: 'rgba(10,132,255,0.12)' }]}>
-                        <Ionicons name="flask-outline" size={16} color="#0A84FF" />
+                      <View style={[s.slotIconWrap, { backgroundColor: 'rgba(10,132,255,0.14)' }]}>
+                        <Ionicons name="flask-outline" size={18} color="#0A84FF" />
                       </View>
-                      <View style={{ flex: 1 }}>
+                      <View style={[s.slotTextWrap, { flex: 1 }]}>
                         <Text style={[s.slotLabel, !doseReminderEnabled && s.slotLabelDisabled]}>
-                          Dose reminder
+                          Dose Reminder
                         </Text>
-                        <Text style={s.medSub}>{doseLabel}</Text>
+                        <Text style={s.medDetail}>{doseLabel}</Text>
                         {nextDose && (
-                          <Text style={[s.medSub, { marginTop: 1 }]}>
-                            Next dose: {nextDose}
-                          </Text>
+                          <View style={s.nextDoseRow}>
+                            <View style={[s.nextDoseDot, nextDose === 'Overdue' && s.nextDoseDotOverdue]} />
+                            <Text style={[s.medDetail, nextDose === 'Overdue' && s.overdueText]}>
+                              Next: {nextDose}
+                            </Text>
+                          </View>
+                        )}
+                        {doseReminderEnabled && (
+                          <TouchableOpacity
+                            onPress={openDoseTimePicker}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                          >
+                            <Text style={s.timeInline}>{formatTime(doseTimeStr)}</Text>
+                          </TouchableOpacity>
                         )}
                       </View>
                     </View>
-                    <View style={s.slotRight}>
-                      {doseReminderEnabled && (
-                        <TouchableOpacity
-                          style={s.timeChip}
-                          onPress={openDoseTimePicker}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="time-outline" size={13} color={ORANGE} style={{ marginRight: 4 }} />
-                          <Text style={s.timeText}>{formatTime(doseTimeStr)}</Text>
-                        </TouchableOpacity>
-                      )}
-                      <Switch
-                        value={doseReminderEnabled}
-                        onValueChange={handleDoseToggle}
-                        trackColor={{ false: '#333', true: ORANGE }}
-                        thumbColor="#FFFFFF"
-                        ios_backgroundColor="#333"
-                        style={s.slotSwitch}
-                      />
-                    </View>
+                    <Switch
+                      value={doseReminderEnabled}
+                      onValueChange={handleDoseToggle}
+                      trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                      thumbColor="#FFFFFF"
+                      ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                      style={s.slotSwitch}
+                    />
                   </View>
                 </View>
               </View>
             )}
 
-            <View style={s.separator} />
-
-            {/* Test button */}
-            <TouchableOpacity style={s.testBtn} onPress={handleTestNotification} activeOpacity={0.8}>
-              <Ionicons name="notifications-outline" size={18} color={ORANGE} style={{ marginRight: 8 }} />
-              <Text style={s.testBtnText}>{testSent ? 'Notification Sent!' : 'Send Test Notification'}</Text>
-            </TouchableOpacity>
-
-            <Text style={s.hint}>Background the app after tapping to see the notification.</Text>
-          </>
+          </Animated.View>
         )}
       </ScrollView>
 
@@ -366,12 +393,13 @@ export default function RemindersScreen() {
         <Modal transparent animationType="slide" onRequestClose={closePicker}>
           <Pressable style={s.modalBackdrop} onPress={closePicker} />
           <View style={s.pickerSheet}>
+            <View style={s.pickerHandle} />
             <View style={s.pickerHeader}>
-              <TouchableOpacity onPress={closePicker}>
+              <TouchableOpacity onPress={closePicker} activeOpacity={0.7}>
                 <Text style={s.pickerCancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={s.pickerTitle}>Set Time</Text>
-              <TouchableOpacity onPress={confirmPicker}>
+              <TouchableOpacity onPress={confirmPicker} activeOpacity={0.7}>
                 <Text style={s.pickerDone}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -411,115 +439,240 @@ export default function RemindersScreen() {
 
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const elevation = cardElevation(c.isDark);
+
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
+
+    /* ── Header ──────────────────────────────── */
     header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 16, paddingVertical: 16,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
     },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
+    backBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 20,
+    },
+    headerTitle: {
+      color: c.textPrimary,
+      fontSize: 17,
+      fontWeight: '600',
+      fontFamily: FF,
+      letterSpacing: -0.2,
+    },
 
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 40 },
+    content: { padding: 20, paddingBottom: 40 },
 
-    /* Master toggle */
+    /* ── Master toggle ───────────────────────── */
     masterCard: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: c.glassOverlay,
-      borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16,
-      borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      padding: 16,
       marginBottom: 8,
+      borderWidth: c.isDark ? 0.5 : 1,
+      borderColor: c.isDark ? w(0.1) : w(0.05),
+      ...elevation,
     },
-    masterLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    masterLabel: { color: c.textPrimary, fontSize: 18, fontWeight: '600' },
+    masterIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(232,101,42,0.08)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    masterTextWrap: {
+      flex: 1,
+      marginLeft: 14,
+    },
+    masterLabel: {
+      color: c.textPrimary,
+      fontSize: 17,
+      fontWeight: '600',
+      fontFamily: FF,
+      letterSpacing: -0.2,
+    },
+    masterSub: {
+      color: c.textSecondary,
+      fontSize: 14,
+      fontFamily: FF,
+      marginTop: 2,
+    },
 
-    /* Sections */
-    sectionLabel: {
-      color: c.textMuted, fontSize: 13, fontWeight: '700',
-      letterSpacing: 2, marginTop: 16, marginBottom: 6, marginLeft: 4,
+    /* ── Sections ────────────────────────────── */
+    section: {
+      marginTop: 24,
+    },
+    sectionHeader: {
+      marginBottom: 10,
+      marginLeft: 4,
+    },
+    sectionTitle: {
+      color: c.textPrimary,
+      fontSize: 20,
+      fontWeight: '700',
+      fontFamily: FF,
+      letterSpacing: -0.3,
+    },
+    sectionSub: {
+      color: c.textSecondary,
+      fontSize: 14,
+      fontFamily: FF,
+      marginTop: 2,
     },
 
     card: {
-      backgroundColor: c.glassOverlay,
-      borderRadius: 16, borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      borderWidth: c.isDark ? 0.5 : 1,
+      borderColor: c.isDark ? w(0.1) : w(0.05),
       overflow: 'hidden',
+      ...elevation,
     },
 
-    /* Slot rows */
+    /* ── Slot rows ───────────────────────────── */
     slotRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingLeft: 16, paddingRight: 12, paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingLeft: 16,
+      paddingRight: 14,
+      paddingVertical: 14,
     },
-    slotLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-    slotRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    slotLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
     slotIconWrap: {
-      width: 30, height: 30, borderRadius: 8,
-      backgroundColor: 'rgba(255,116,42,0.12)',
-      alignItems: 'center', justifyContent: 'center',
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    slotLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '500', flex: 1 },
-    slotLabelDisabled: { color: c.textMuted },
-    slotSwitch: { transform: [{ scale: 0.85 }] },
-
-    timeChip: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: 'rgba(255,116,42,0.10)',
-      paddingHorizontal: 10, paddingVertical: 5,
-      borderRadius: 20,
+    slotTextWrap: {
+      marginLeft: 12,
+      gap: 1,
     },
-    timeText: { color: ORANGE, fontSize: 14, fontWeight: '600' },
-
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 56 },
-
-    /* Medication section */
-    medRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingLeft: 16, paddingRight: 16, paddingTop: 14, paddingBottom: 6,
+    slotLabel: {
+      color: c.textPrimary,
+      fontSize: 16,
+      fontWeight: '500',
+      fontFamily: FF,
+      letterSpacing: -0.1,
     },
-    medSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
-    autoBadge: {
-      backgroundColor: 'rgba(10,132,255,0.12)',
-      paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+    slotLabelDisabled: {
+      color: c.textMuted,
     },
-    autoText: { color: '#0A84FF', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
-    medHintRow: {
-      flexDirection: 'row', alignItems: 'flex-start', gap: 6,
-      paddingHorizontal: 16, paddingBottom: 14, paddingTop: 4,
+    slotSub: {
+      color: c.textMuted,
+      fontSize: 13,
+      fontFamily: FF,
     },
-    medHint: { color: c.textMuted, fontSize: 14, flex: 1, lineHeight: 16 },
-
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginVertical: 16 },
-
-    testBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: 'rgba(255,116,42,0.10)',
-      borderRadius: 14, paddingVertical: 14,
-      borderWidth: 1, borderColor: 'rgba(255,116,42,0.20)',
+    slotSwitch: {
+      transform: [{ scale: 0.85 }],
+      marginLeft: 8,
     },
-    testBtnText: { color: ORANGE, fontSize: 17, fontWeight: '600' },
-    hint: { color: w(0.3), fontSize: 14, textAlign: 'center', marginTop: 8 },
 
-    /* Picker modal */
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    /* ── Time display ────────────────────────── */
+    timeInline: {
+      color: c.orange,
+      fontSize: 14,
+      fontWeight: '600',
+      fontFamily: FF,
+      marginTop: 2,
+    },
+
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.borderSubtle,
+      marginLeft: 64,
+    },
+
+    /* ── Medication ──────────────────────────── */
+    medDetail: {
+      color: c.textSecondary,
+      fontSize: 13,
+      fontFamily: FF,
+      marginTop: 2,
+    },
+    nextDoseRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 2,
+    },
+    nextDoseDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#34C759',
+    },
+    nextDoseDotOverdue: {
+      backgroundColor: '#FF3B30',
+    },
+    overdueText: {
+      color: '#FF3B30',
+      fontWeight: '600',
+    },
+
+    /* ── Picker modal ────────────────────────── */
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
     pickerSheet: {
-      backgroundColor: c.surface,
-      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      backgroundColor: c.isDark ? '#1C1C1E' : '#FFFFFF',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
       paddingBottom: 32,
     },
-    pickerHeader: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 20, paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.1),
+    pickerHandle: {
+      width: 36,
+      height: 5,
+      borderRadius: 2.5,
+      backgroundColor: w(0.15),
+      alignSelf: 'center',
+      marginTop: 8,
+      marginBottom: 4,
     },
-    pickerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '600' },
-    pickerCancel: { color: w(0.5), fontSize: 17 },
-    pickerDone: { color: ORANGE, fontSize: 17, fontWeight: '600' },
-    picker: { backgroundColor: c.surface },
+    pickerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: w(0.08),
+    },
+    pickerTitle: {
+      color: c.textPrimary,
+      fontSize: 17,
+      fontWeight: '600',
+      fontFamily: FF,
+    },
+    pickerCancel: {
+      color: c.textSecondary,
+      fontSize: 17,
+      fontFamily: FF,
+    },
+    pickerDone: {
+      color: c.orange,
+      fontSize: 17,
+      fontWeight: '600',
+      fontFamily: FF,
+    },
+    picker: {
+      backgroundColor: c.isDark ? '#1C1C1E' : '#FFFFFF',
+    },
   });
 };

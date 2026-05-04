@@ -103,8 +103,7 @@
         }
       ],
       "react-native-iap",
-      "expo-web-browser",
-      "@sentry/react-native"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

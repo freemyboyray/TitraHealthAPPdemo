@@ -1,10 +1,10 @@
 // ─── Legal Document Versions ─────────────────────────────────────────────────
 
-export const TOS_VERSION = '1.0';
-export const TOS_EFFECTIVE_DATE = 'April 15, 2026';
+export const TOS_VERSION = '1.1';
+export const TOS_EFFECTIVE_DATE = 'May 4, 2026';
 
-export const PRIVACY_VERSION = '1.0';
-export const PRIVACY_EFFECTIVE_DATE = 'April 15, 2026';
+export const PRIVACY_VERSION = '1.1';
+export const PRIVACY_EFFECTIVE_DATE = 'May 4, 2026';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,15 +23,15 @@ export const TOS_SECTIONS: LegalSection[] = [
   },
   {
     title: '3. Account & Eligibility',
-    body: `To use the App, you must create an account using an email address and a username. You are not required to provide your real name. You are responsible for maintaining the confidentiality of your account credentials.\n\nYou agree to provide accurate information during registration and to update it as necessary. Each person may only maintain one account. You are solely responsible for all activity under your account.`,
+    body: `To use the App, you must create an account using one of the following methods: email and password, Sign in with Apple, or Sign in with Google. You are not required to provide your real name. You are responsible for maintaining the confidentiality of your account credentials.\n\nYou agree to provide accurate information during registration and to update it as necessary. Each person may only maintain one account. You are solely responsible for all activity under your account.`,
   },
   {
     title: '4. AI-Powered Features',
-    body: `The App uses artificial intelligence (AI) services, including OpenAI's GPT-4o-mini, to provide personalized wellness coaching, food analysis, and health insights.\n\nWhen you use AI features, certain health context data (such as your medication type, wellness scores, nutrition logs, and activity data) is sent to OpenAI's servers for processing. This data is transmitted securely and is used solely to generate your personalized responses.\n\nImportant limitations of AI features:\n• AI-generated content is informational only and is NOT medical advice\n• AI responses may contain inaccuracies or errors\n• AI does not have access to your complete medical history\n• AI cannot diagnose conditions, prescribe medications, or replace your physician\n• You should verify any AI suggestions with your healthcare provider before acting on them`,
+    body: `The App uses artificial intelligence (AI) services, including OpenAI's GPT-4o-mini, to provide personalized wellness coaching, food analysis, and health insights. The App also uses OpenAI's Whisper model to transcribe voice-based food and health entries.\n\nWhen you use AI features, certain health context data (such as your medication type, wellness scores, nutrition logs, and activity data) is sent to OpenAI's servers for processing. When you use voice input, your audio is sent to OpenAI's Whisper API for transcription. This data is transmitted securely and is used solely to generate your personalized responses.\n\nImportant limitations of AI features:\n• AI-generated content is informational only and is NOT medical advice\n• AI responses may contain inaccuracies or errors\n• AI does not have access to your complete medical history\n• AI cannot diagnose conditions, prescribe medications, or replace your physician\n• You should verify any AI suggestions with your healthcare provider before acting on them`,
   },
   {
     title: '5. Third-Party Integrations',
-    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit — reads health metrics (steps, heart rate, sleep, etc.) with your explicit permission\n• FatSecret API — provides food and nutrition data for food logging\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
+    body: `The App may integrate with the following third-party services, each subject to their own terms:\n\n• Apple HealthKit (iOS) — reads and writes health metrics (steps, heart rate, sleep, weight, nutrition, etc.) with your explicit permission\n• Health Connect (Android) — reads health metrics (steps, heart rate, sleep, weight, etc.) with your explicit permission\n• FatSecret API — provides food and nutrition data for food logging, including search, barcode lookup, and recipe data\n\nThese integrations are optional. You can use the App without enabling any third-party connections. When you enable an integration, you authorize the App to access the specified data from that service.`,
   },
   {
     title: '6. User-Generated Health Data',
@@ -64,7 +64,7 @@ export const TOS_SECTIONS: LegalSection[] = [
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '1. What Data We Collect',
-    body: `Titra collects the following categories of data:\n\nAccount Information:\n• Email address (for authentication)\n• Username (no real name required)\n• Password (encrypted, never stored in plain text)\n\nHealth & Wellness Data (self-reported):\n• Medication details: brand, dose, frequency, injection dates and sites\n• Body metrics: height, weight, body composition\n• Food logs: meal descriptions, photos, nutritional data\n• Activity logs: exercise type, duration, steps\n• Side effects: type, severity, frequency\n• Wellness surveys: appetite, energy, mood, sleep quality, GI symptoms, food noise, mental wellness\n• Weekly check-in scores across 7 wellness domains\n\nBiometric Data (optional, with permission):\n• Apple HealthKit: heart rate, HRV, sleep duration, steps, SpO2, blood glucose, resting heart rate\n\nDemographic Data:\n• Date of birth, sex, activity level\n\nUsage Data:\n• App interaction data, feature usage patterns`,
+    body: `Titra collects the following categories of data:\n\nAccount Information:\n• Email address (for authentication)\n• Username (no real name required)\n• Apple or Google sign-in tokens (if you use social login)\n\nHealth & Wellness Data (self-reported):\n• Medication details: brand, dose, frequency, injection dates and sites\n• Body metrics: height, weight, body composition\n• Food logs: meal descriptions, photos, nutritional data\n• Activity logs: exercise type, duration, steps\n• Side effects: type, severity, frequency\n• Wellness surveys: appetite, energy, mood, sleep quality, GI symptoms, food noise, mental wellness\n• Weekly check-in scores across 7 wellness domains\n\nBiometric Data (optional, with permission):\n• Apple HealthKit (iOS): heart rate, HRV, sleep duration, steps, SpO2, blood glucose, resting heart rate, respiratory rate, VO2 max, body fat, lean mass, waist circumference, blood pressure\n• Health Connect (Android): heart rate, HRV, sleep, steps, blood glucose, resting heart rate, active calories\n\nDemographic Data:\n• Date of birth, sex, activity level\n\nUsage Data:\n• App interaction data, feature usage patterns`,
   },
   {
     title: '2. How Data Is Stored',
@@ -72,7 +72,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '3. Third-Party Data Sharing',
-    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice transcriptions\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights\n• OpenAI's data retention: subject to OpenAI's API data usage policy\n\nFatSecret:\n• What is shared: food search queries\n• Purpose: nutritional database lookups\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
+    body: `We share limited data with the following service providers solely to deliver App functionality:\n\nOpenAI (GPT-4o-mini & Whisper):\n• What is shared: wellness context (medication type, scores, nutrition/activity summaries, side effects), food photos for analysis, voice recordings for transcription\n• What is NOT shared: your email, username, or any directly identifying information\n• Purpose: AI-powered coaching, food recognition, personalized insights, voice-to-text transcription\n• OpenAI's data retention: subject to OpenAI's API data usage policy (API inputs are not used for model training)\n\nFatSecret:\n• What is shared: food search queries, barcode lookups, recipe search queries\n• Purpose: nutritional database lookups, food identification, recipe nutrition data\n\nWe do not share your data with advertisers, data brokers, or any entity not listed above.`,
   },
   {
     title: '4. How We Use Your Data',

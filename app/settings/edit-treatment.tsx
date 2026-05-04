@@ -1263,7 +1263,7 @@ export default function EditTreatmentScreen() {
 
               <View style={{ paddingHorizontal: 28, paddingBottom: 28, paddingTop: 8 }}>
                 <TouchableOpacity
-                  style={ms.btnConfirm}
+                  style={{ borderRadius: 14, paddingVertical: 16, alignItems: 'center', backgroundColor: ORANGE }}
                   onPress={() => { setPostSaveVisible(false); router.back(); }}
                   activeOpacity={0.8}
                 >

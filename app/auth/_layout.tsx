@@ -5,19 +5,18 @@ import { useProfile } from '@/contexts/profile-context';
 export default function AuthLayout() {
   const session = useUserStore((s) => s.session);
   const sessionLoaded = useUserStore((s) => s.sessionLoaded);
-  const { profile } = useProfile();
+  const { profile, isLoading } = useProfile();
 
-  // Once session is confirmed, redirect away from auth —
-  // but send to onboarding if they haven't completed it yet.
-  // Wait for profile to load before deciding (avoid flash of onboarding).
-  if (sessionLoaded && session) {
-    if (!profile) return null;
+  // Once session is confirmed and profile has finished loading,
+  // redirect away from auth screens.
+  if (sessionLoaded && session && !isLoading && profile) {
     if (!profile.onboardingCompletedAt) {
       return <Redirect href="/onboarding" />;
     }
     return <Redirect href="/(tabs)" />;
   }
 
+  // Show auth screens while session/profile are still loading
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'slide_from_bottom' }} />
   );

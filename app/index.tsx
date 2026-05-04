@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, Text, View, Image } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, View, Image } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -15,19 +15,15 @@ export default function Index() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.85)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.92)).current;
   const spinnerOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.spring(logoScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
-      ]),
-      Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(spinnerOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+    Animated.parallel([
+      Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, tension: 80, friction: 12, useNativeDriver: true }),
     ]).start();
+    Animated.timing(spinnerOpacity, { toValue: 1, duration: 400, delay: 400, useNativeDriver: true }).start();
   }, []);
 
   const { isLoading, profile } = useProfile();
@@ -37,6 +33,16 @@ export default function Index() {
   const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
   const { lastWeeklySummaryDate, lastDailyStreakDate } = usePreferencesStore();
   const router = useRouter();
+
+  // Safety timeout: if nothing resolves within 10s, go to sign-in
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!sessionLoaded || !profile) {
+        router.replace('/auth/sign-in');
+      }
+    }, 10000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Kick off data fetch as soon as we have a valid session + profile
   useEffect(() => {
@@ -93,15 +99,11 @@ export default function Index() {
 
   return (
     <View style={s.container}>
-      <Animated.View style={[s.logoContainer, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
+      <Animated.View style={[s.logoWrap, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
         <Image source={require('@/assets/images/titra-logo.png')} style={s.logo} />
       </Animated.View>
-      <Animated.View style={[s.textContainer, { opacity: textOpacity }]}>
-        <Text style={s.wordmark}>Titra Health</Text>
-        <Text style={s.tagline}>Personalized GLP-1 Management</Text>
-      </Animated.View>
-      <Animated.View style={{ opacity: spinnerOpacity, marginTop: 40 }}>
-        <ActivityIndicator size="small" color="#FF742A" />
+      <Animated.View style={[s.spinnerWrap, { opacity: spinnerOpacity }]}>
+        <ActivityIndicator size="small" color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'} />
       </Animated.View>
     </View>
   );
@@ -114,35 +116,18 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 28,
+  logoWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#FF742A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
   },
   logo: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
   },
-  textContainer: {
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  wordmark: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: c.textPrimary,
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontSize: 15,
-    color: c.textSecondary,
-    marginTop: 6,
-    letterSpacing: 0.3,
+  spinnerWrap: {
+    position: 'absolute',
+    bottom: 120,
   },
 });

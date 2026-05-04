@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -19,58 +20,52 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { supabase } from '@/lib/supabase';
-// react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let storekit: typeof import('@/lib/storekit') | undefined;
 try { storekit = require('@/lib/storekit'); } catch {}
 
 type ProductSubscription = { localizedPrice?: string; subscriptionOfferDetails?: any[] };
 
+const FF = 'System';
 const ORANGE = '#FF742A';
+
+const PRO_INCLUDES = [
+  'Unlimited AI coaching & food analysis',
+  'Personalized weekly health summary',
+  'Cycle intelligence & appetite forecasting',
+  'Provider reports for your doctor',
+];
 
 export default function SubscriptionScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const isPremium = useSubscriptionStore((s) => s.isPremium);
-  const status = useSubscriptionStore((s) => s.status);
-  const currentPeriodEnd = useSubscriptionStore((s) => s.currentPeriodEnd);
-  const trialEndsAt = useSubscriptionStore((s) => s.trialEndsAt);
-  const refreshPremiumStatus = useSubscriptionStore((s) => s.refreshPremiumStatus);
+  const isPremium = useSubscriptionStore((st) => st.isPremium);
+  const status = useSubscriptionStore((st) => st.status);
+  const currentPeriodEnd = useSubscriptionStore((st) => st.currentPeriodEnd);
+  const trialEndsAt = useSubscriptionStore((st) => st.trialEndsAt);
+  const refreshPremiumStatus = useSubscriptionStore((st) => st.refreshPremiumStatus);
+  const setPremium = useSubscriptionStore((st) => st.setPremium);
 
   const [products, setProducts] = useState<ProductSubscription[]>([]);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [demoCode, setDemoCode] = useState('');
-  const setPremium = useSubscriptionStore((s) => s.setPremium);
 
   useEffect(() => {
-    if (!storekit) {
-      console.warn('[IAP] storekit module did not load (Expo Go or missing native module).');
-      return;
-    }
-    storekit
-      .getProducts()
-      .then((p: any[]) => {
-        setProducts(p);
-        const ids = p.map((x: any) => x.productId ?? x.id ?? '?').join(', ') || 'NONE';
-        console.log('[IAP] fetchProducts returned', p.length, 'products:', ids);
-      })
-      .catch((err: any) => {
-        console.warn('[IAP] getProducts failed:', err?.code, err?.message);
-      });
+    if (!storekit) return;
+    storekit.getProducts().then((p: any[]) => setProducts(p)).catch(() => {});
     refreshPremiumStatus();
   }, []);
 
   const monthlyProduct = products.find((p: any) => p.productId?.includes('monthly'));
   const annualProduct = products.find((p: any) => p.productId?.includes('annual'));
-  const monthlyPriceLabel = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct as any) : '$4.99/mo';
-  const annualPriceLabel = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct as any) : '$49.99/yr';
+  const monthlyPrice = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct as any) : '$4.99/mo';
+  const annualPrice = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct as any) : '$49.99/yr';
 
   const periodEndDate = currentPeriodEnd
     ? new Date(currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
-
   const trialEndDate = trialEndsAt
     ? new Date(trialEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
@@ -80,7 +75,7 @@ export default function SubscriptionScreen() {
       case 'active': return 'Active';
       case 'trialing': return 'Free Trial';
       case 'past_due': return 'Past Due';
-      case 'canceled': return 'Canceled (active until period end)';
+      case 'canceled': return 'Canceled';
       case 'expired': return 'Expired';
       default: return 'Free';
     }
@@ -89,23 +84,15 @@ export default function SubscriptionScreen() {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
-      if (!storekit) {
-        console.warn('[IAP] storekit module is not loaded.');
-        return;
-      }
+      if (!storekit) return;
       if (products.length === 0) {
-        Alert.alert('Not Available', 'In-app purchases are not available right now. Please try again later.');
+        Alert.alert('Not Available', 'In-app purchases are not available right now.');
         return;
       }
-      if (selectedPlan === 'annual') {
-        await storekit.purchaseAnnual();
-      } else {
-        await storekit.purchaseMonthly();
-      }
-      // Purchase listener in storekit.ts handles the state update
+      if (selectedPlan === 'annual') await storekit.purchaseAnnual();
+      else await storekit.purchaseMonthly();
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
-        console.warn('[IAP] Purchase error:', err?.code, err?.message);
         Alert.alert('Purchase Failed', 'Something went wrong. Please try again.');
       }
     } finally {
@@ -117,13 +104,10 @@ export default function SubscriptionScreen() {
     setRestoring(true);
     try {
       const restored = await storekit?.restorePurchases() ?? false;
-      if (restored) {
-        Alert.alert('Restored', 'Your Titra Pro subscription has been restored.');
-      } else {
-        Alert.alert('No Subscription Found', 'We could not find an active subscription for this account.');
-      }
+      if (restored) Alert.alert('Restored', 'Your subscription has been restored.');
+      else Alert.alert('Not Found', 'No active subscription found for this account.');
     } catch {
-      Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+      Alert.alert('Error', 'Failed to restore. Please try again.');
     } finally {
       setRestoring(false);
     }
@@ -132,312 +116,353 @@ export default function SubscriptionScreen() {
   const handleRedeemDemo = async () => {
     const code = demoCode.trim();
     if (!code) return;
-
     try {
-      const { data, error } = await supabase.functions.invoke('redeem-demo', {
-        body: { code },
-      });
-
-      if (error || !data?.success) {
-        Alert.alert('Invalid Code', 'Please enter a valid demo code.');
-        return;
-      }
-
+      const { data, error } = await supabase.functions.invoke('redeem-demo', { body: { code } });
+      if (error || !data?.success) { Alert.alert('Invalid Code', 'Please enter a valid demo code.'); return; }
       setPremium(true);
-      Alert.alert('Demo Activated', 'Premium features are now unlocked.');
+      Alert.alert('Activated', 'Premium features are now unlocked.');
       setDemoCode('');
     } catch {
-      Alert.alert('Error', 'Could not redeem code. Please try again.');
+      Alert.alert('Error', 'Could not redeem code.');
     }
   };
 
-  const handleManageSubscription = () => {
-    if (Platform.OS === 'ios') {
-      Linking.openURL('https://apps.apple.com/account/subscriptions');
-    } else {
-      Linking.openURL('https://play.google.com/store/account/subscriptions');
-    }
+  const handleManage = () => {
+    Linking.openURL(
+      Platform.OS === 'ios'
+        ? 'https://apps.apple.com/account/subscriptions'
+        : 'https://play.google.com/store/account/subscriptions',
+    );
   };
 
   return (
-    <SafeAreaView style={s.root}>
-      <ScrollView contentContainerStyle={s.scroll}>
-        {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+    <View style={s.root}>
+      {/* Subtle warm gradient at top */}
+      <LinearGradient
+        colors={colors.isDark
+          ? ['rgba(255,116,42,0.06)', 'rgba(255,116,42,0.02)', colors.bg]
+          : ['rgba(255,116,42,0.04)', 'rgba(255,116,42,0.01)', colors.bg]}
+        style={s.topGradient}
+      />
+
+      <SafeAreaView style={s.safe}>
+        {/* Nav */}
+        <View style={s.nav}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Subscription</Text>
-          <View style={{ width: 32 }} />
+          <Text style={s.navTitle}>Subscription</Text>
+          <View style={{ width: 24 }} />
         </View>
 
-        {/* Status Card */}
-        <View style={s.statusCard}>
-          <View style={[s.statusIcon, { backgroundColor: isPremium ? 'rgba(255,116,42,0.15)' : 'rgba(150,150,150,0.15)' }]}>
-            <Ionicons
-              name={isPremium ? 'flash' : 'lock-closed'}
-              size={28}
-              color={isPremium ? ORANGE : colors.textMuted}
-            />
-          </View>
-          <Text style={s.planName}>
-            {isPremium ? 'Titra Pro' : 'Titra Free'}
-          </Text>
-          <Text style={s.statusText}>{statusLabel}</Text>
-          {status === 'trialing' && trialEndDate && (
-            <Text style={s.periodText}>Trial ends {trialEndDate}</Text>
-          )}
-          {status === 'active' && periodEndDate && (
-            <Text style={s.periodText}>Renews {periodEndDate}</Text>
-          )}
-          {status === 'canceled' && periodEndDate && (
-            <Text style={s.periodText}>Access until {periodEndDate}</Text>
-          )}
-        </View>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Plan Selector */}
-        {!isPremium && (
-          <View style={s.planToggle}>
-            <TouchableOpacity
-              style={[s.planOption, selectedPlan === 'annual' && s.planOptionActive]}
-              onPress={() => setSelectedPlan('annual')}
-              activeOpacity={0.8}
-            >
-              {selectedPlan === 'annual' && <View style={s.bestValueBadge}><Text style={s.bestValueText}>BEST VALUE</Text></View>}
-              <Text style={[s.planOptionTitle, selectedPlan === 'annual' && s.planOptionTitleActive]}>Annual</Text>
-              <Text style={[s.planOptionPrice, selectedPlan === 'annual' && s.planOptionPriceActive]}>{annualPriceLabel}</Text>
-              <Text style={[s.planOptionSub, selectedPlan === 'annual' && s.planOptionSubActive]}>$4.17/mo — save 16%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.planOption, selectedPlan === 'monthly' && s.planOptionActive]}
-              onPress={() => setSelectedPlan('monthly')}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.planOptionTitle, selectedPlan === 'monthly' && s.planOptionTitleActive]}>Monthly</Text>
-              <Text style={[s.planOptionPrice, selectedPlan === 'monthly' && s.planOptionPriceActive]}>{monthlyPriceLabel}</Text>
-              <Text style={[s.planOptionSub, selectedPlan === 'monthly' && s.planOptionSubActive]}>Billed monthly</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {isPremium ? (
+            /* ── Premium user view ── */
+            <View style={s.premiumSection}>
+              <Text style={s.premiumHeadline}>You have Titra Pro</Text>
+              <Text style={s.statusLabel}>{statusLabel}</Text>
+              {status === 'trialing' && trialEndDate && (
+                <Text style={s.statusDetail}>Trial ends {trialEndDate}</Text>
+              )}
+              {status === 'active' && periodEndDate && (
+                <Text style={s.statusDetail}>Renews {periodEndDate}</Text>
+              )}
+              {status === 'canceled' && periodEndDate && (
+                <Text style={s.statusDetail}>Access until {periodEndDate}</Text>
+              )}
 
-        {/* Pro Benefits */}
-        {!isPremium && (
-          <View style={s.benefitsCard}>
-            <Text style={s.benefitsTitle}>Titra Pro includes:</Text>
-            {BENEFITS.map((b) => (
-              <View key={b} style={s.benefitRow}>
-                <Ionicons name="checkmark-circle" size={18} color={ORANGE} />
-                <Text style={s.benefitText}>{b}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Action Buttons */}
-        {!isPremium && (
-          <TouchableOpacity
-            style={s.purchaseBtn}
-            onPress={handlePurchase}
-            activeOpacity={0.8}
-            disabled={purchasing}
-          >
-            {purchasing ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={s.purchaseBtnText}>
-                Start 7-Day Free Trial — {selectedPlan === 'annual' ? annualPriceLabel : monthlyPriceLabel}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {isPremium && (
-          <TouchableOpacity style={s.manageBtn} onPress={handleManageSubscription}>
-            <Text style={s.manageBtnText}>Manage Subscription</Text>
-            <Ionicons name="open-outline" size={16} color={ORANGE} />
-          </TouchableOpacity>
-        )}
-
-        {/* Restore */}
-        <TouchableOpacity
-          style={s.restoreBtn}
-          onPress={handleRestore}
-          disabled={restoring}
-        >
-          {restoring ? (
-            <ActivityIndicator color={colors.textMuted} size="small" />
-          ) : (
-            <Text style={s.restoreBtnText}>Restore Purchases</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Demo Code */}
-        {!isPremium && (
-          <View style={s.demoCard}>
-            <Text style={s.demoTitle}>Have a demo code?</Text>
-            <View style={s.demoRow}>
-              <TextInput
-                style={s.demoInput}
-                placeholder="Enter code"
-                placeholderTextColor={colors.textMuted}
-                value={demoCode}
-                onChangeText={setDemoCode}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={[s.demoBtn, !demoCode.trim() && { opacity: 0.5 }]}
-                onPress={handleRedeemDemo}
-                disabled={!demoCode.trim()}
-              >
-                <Text style={s.demoBtnText}>Redeem</Text>
+              <TouchableOpacity style={s.manageRow} onPress={handleManage} activeOpacity={0.7}>
+                <Text style={s.manageText}>Manage Subscription</Text>
+                <Ionicons name="open-outline" size={15} color={ORANGE} />
               </TouchableOpacity>
             </View>
-          </View>
-        )}
+          ) : (
+            /* ── Free user view ── */
+            <>
+              {/* Hero */}
+              <View style={s.hero}>
+                <Text style={s.heroWordmark}>TITRA PRO</Text>
+                <Text style={s.heroHeadline}>Your health,{'\n'}deeply understood.</Text>
+                <Text style={s.heroSub}>
+                  Unlimited AI coaching, cycle intelligence, provider reports, and every insight — all in one place.
+                </Text>
+              </View>
 
-        {/* Fine print */}
-        {!isPremium && (
-          <Text style={s.finePrint}>
-            After your 7-day free trial, you'll be charged {selectedPlan === 'annual' ? annualPriceLabel : monthlyPriceLabel}. Cancel anytime in your {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings. Payment will be charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account.
-          </Text>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+              {/* Checkmark list */}
+              <View style={s.checkList}>
+                {PRO_INCLUDES.map((item) => (
+                  <View key={item} style={s.checkRow}>
+                    <Ionicons name="checkmark" size={15} color={ORANGE} />
+                    <Text style={s.checkLabel}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Plan selector */}
+              <View style={s.planRow}>
+                <TouchableOpacity
+                  style={[s.planCard, selectedPlan === 'annual' && s.planCardActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedPlan('annual')}
+                >
+                  <Text style={[s.planLabel, selectedPlan === 'annual' && s.planLabelActive]}>Annual</Text>
+                  <Text style={[s.planPrice, selectedPlan === 'annual' && s.planPriceActive]}>{annualPrice}</Text>
+                  <Text style={[s.planSub, selectedPlan === 'annual' && s.planSubActive]}>Billed annually</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[s.planCard, selectedPlan === 'monthly' && s.planCardActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedPlan('monthly')}
+                >
+                  <Text style={[s.planLabel, selectedPlan === 'monthly' && s.planLabelActive]}>Monthly</Text>
+                  <Text style={[s.planPrice, selectedPlan === 'monthly' && s.planPriceActive]}>{monthlyPrice}</Text>
+                  <Text style={[s.planSub, selectedPlan === 'monthly' && s.planSubActive]}>Billed monthly</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* CTA */}
+              <TouchableOpacity style={s.ctaBtn} onPress={handlePurchase} activeOpacity={0.8} disabled={purchasing}>
+                {purchasing ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.ctaBtnText}>Try It Free</Text>
+                )}
+              </TouchableOpacity>
+
+              <Text style={s.finePrint}>
+                7-day free trial, then {selectedPlan === 'annual' ? annualPrice : monthlyPrice}. Cancel anytime in {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings.
+              </Text>
+            </>
+          )}
+
+          {/* Restore */}
+          <TouchableOpacity style={s.linkBtn} onPress={handleRestore} disabled={restoring}>
+            {restoring ? (
+              <ActivityIndicator color={colors.textMuted} size="small" />
+            ) : (
+              <Text style={s.linkBtnText}>Restore Purchases</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Demo code */}
+          {!isPremium && (
+            <View style={s.demoSection}>
+              <Text style={s.demoLabel}>Redeem a code</Text>
+              <View style={s.demoRow}>
+                <TextInput
+                  style={s.demoInput}
+                  placeholder="Enter code"
+                  placeholderTextColor={colors.textMuted}
+                  value={demoCode}
+                  onChangeText={setDemoCode}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={[s.demoBtn, !demoCode.trim() && { opacity: 0.4 }]}
+                  onPress={handleRedeemDemo}
+                  disabled={!demoCode.trim()}
+                >
+                  <Text style={s.demoBtnText}>Redeem</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
-
-const BENEFITS = [
-  'Unlimited AI coaching & food analysis',
-  'AI insights on every health metric',
-  'Personalized weekly health summary',
-  'Cycle Intelligence & appetite forecasting',
-  'Provider reports for your doctor',
-  'All guided courses',
-];
 
 function createStyles(c: AppColors) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    scroll: { padding: 20, paddingBottom: 60 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 },
-    backBtn: { width: 32 },
-    headerTitle: { fontSize: 19, fontWeight: '600', color: c.textPrimary },
+    safe: { flex: 1 },
+    topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 280 },
 
-    statusCard: {
-      backgroundColor: c.cardBg,
-      borderRadius: 20,
-      padding: 28,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      marginBottom: 20,
-    },
-    statusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-    planName: { fontSize: 22, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
-    statusText: { fontSize: 16, color: c.textSecondary, marginBottom: 4 },
-    periodText: { fontSize: 14, color: c.textMuted },
-
-    planToggle: {
+    // Nav
+    nav: {
       flexDirection: 'row',
-      gap: 10,
-      marginBottom: 20,
-    },
-    planOption: {
-      flex: 1,
-      backgroundColor: c.cardBg,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1.5,
-      borderColor: c.borderSubtle,
       alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
     },
-    planOptionActive: {
+    navTitle: { fontSize: 17, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+
+    scroll: { paddingHorizontal: 20, paddingBottom: 60 },
+
+    // ── Hero (free users) ──
+    hero: {
+      alignItems: 'center',
+      paddingTop: 40,
+      paddingBottom: 36,
+    },
+    heroWordmark: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: ORANGE,
+      letterSpacing: 1.5,
+      marginBottom: 16,
+      fontFamily: FF,
+    },
+    heroHeadline: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.textPrimary,
+      textAlign: 'center',
+      lineHeight: 34,
+      letterSpacing: -0.5,
+      fontFamily: FF,
+      marginBottom: 12,
+    },
+    heroSub: {
+      fontSize: 15,
+      fontWeight: '400',
+      color: c.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: 12,
+      fontFamily: FF,
+    },
+
+    // ── Checkmark list ──
+    checkList: {
+      marginBottom: 32,
+      paddingHorizontal: 4,
+    },
+    checkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 6,
+    },
+    checkLabel: {
+      fontSize: 15,
+      fontWeight: '400',
+      color: c.textPrimary,
+      fontFamily: FF,
+    },
+
+    // ── Plans ──
+    planRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
+    planCard: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
+      padding: 16,
+    },
+    planCardActive: {
       borderColor: ORANGE,
-      backgroundColor: 'rgba(255,116,42,0.08)',
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.06)' : 'rgba(255,116,42,0.03)',
     },
-    planOptionTitle: { fontSize: 16, fontWeight: '600', color: c.textSecondary, marginBottom: 4 },
-    planOptionTitleActive: { color: c.textPrimary },
-    planOptionPrice: { fontSize: 20, fontWeight: '800', color: c.textSecondary, marginBottom: 2 },
-    planOptionPriceActive: { color: c.textPrimary },
-    planOptionSub: { fontSize: 13, color: c.textMuted },
-    planOptionSubActive: { color: ORANGE },
-    bestValueBadge: {
+    planLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+    planLabelActive: { color: c.textPrimary },
+    planPrice: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: c.textSecondary,
+      fontFamily: FF,
+      marginTop: 8,
+      letterSpacing: -0.5,
+    },
+    planPriceActive: { color: c.textPrimary },
+    planSub: { fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 2 },
+    planSubActive: { color: c.textSecondary },
+
+    // ── CTA ──
+    ctaBtn: {
+      height: 54,
+      borderRadius: 14,
       backgroundColor: ORANGE,
-      borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    ctaBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      fontFamily: FF,
+      letterSpacing: -0.2,
+    },
+    finePrint: {
+      fontSize: 11,
+      color: c.textMuted,
+      textAlign: 'center',
+      lineHeight: 16,
+      fontFamily: FF,
+      marginBottom: 28,
+    },
+
+    // ── Premium user ──
+    premiumSection: {
+      alignItems: 'center',
+      paddingVertical: 40,
+    },
+    premiumHeadline: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: c.textPrimary,
+      fontFamily: FF,
+      textAlign: 'center',
       marginBottom: 6,
     },
-    bestValueText: { color: '#FFF', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-
-    benefitsCard: {
-      backgroundColor: c.cardBg,
-      borderRadius: 16,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      marginBottom: 24,
-    },
-    benefitsTitle: { fontSize: 16, fontWeight: '600', color: c.textPrimary, marginBottom: 14 },
-    benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-    benefitText: { fontSize: 15, color: c.textPrimary, flex: 1 },
-
-    purchaseBtn: {
-      backgroundColor: ORANGE,
-      borderRadius: 28,
-      paddingVertical: 16,
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    purchaseBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
-
-    manageBtn: {
+    statusLabel: { fontSize: 15, fontWeight: '500', color: c.textSecondary, fontFamily: FF },
+    statusDetail: { fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 4 },
+    manageRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
-      backgroundColor: c.cardBg,
-      borderRadius: 16,
+      gap: 6,
+      marginTop: 24,
       paddingVertical: 14,
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      marginBottom: 16,
+      paddingHorizontal: 24,
+      borderRadius: 14,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
+      ...(c.isDark
+        ? { borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }
+        : {
+            shadowColor: 'rgba(0,0,0,0.04)',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 1,
+            shadowRadius: 8,
+            elevation: 1,
+          }),
     },
-    manageBtnText: { color: ORANGE, fontSize: 17, fontWeight: '600' },
+    manageText: { fontSize: 16, fontWeight: '600', color: ORANGE, fontFamily: FF },
 
-    restoreBtn: { alignItems: 'center', paddingVertical: 14, marginBottom: 16 },
-    restoreBtnText: { color: c.textMuted, fontSize: 16 },
+    // ── Link buttons ──
+    linkBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 24 },
+    linkBtnText: { fontSize: 15, color: c.textMuted, fontFamily: FF },
 
-    demoCard: {
-      backgroundColor: c.cardBg,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      marginBottom: 20,
-    },
-    demoTitle: { fontSize: 15, fontWeight: '600', color: c.textSecondary, marginBottom: 10 },
+    // ── Demo ──
+    demoSection: { marginTop: 8, marginBottom: 16 },
+    demoLabel: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: FF, marginBottom: 8 },
     demoRow: { flexDirection: 'row', gap: 10 },
     demoInput: {
       flex: 1,
-      backgroundColor: c.bg,
-      borderRadius: 12,
+      height: 44,
+      borderRadius: 10,
       paddingHorizontal: 14,
-      paddingVertical: 10,
       fontSize: 16,
       color: c.textPrimary,
+      fontFamily: FF,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
       borderWidth: 1,
-      borderColor: c.borderSubtle,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
     },
     demoBtn: {
-      backgroundColor: ORANGE,
-      borderRadius: 12,
+      height: 44,
       paddingHorizontal: 18,
+      borderRadius: 10,
+      backgroundColor: ORANGE,
       justifyContent: 'center',
     },
-    demoBtnText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-
-    finePrint: { fontSize: 13, color: c.textMuted, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12 },
+    demoBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: FF },
   });
 }

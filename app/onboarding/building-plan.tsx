@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-native';
@@ -8,13 +7,14 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import type { AppColors } from '@/constants/theme';
 
+const FF = 'System';
 const ORANGE = '#FF742A';
 
 const STEPS = [
-  { label: 'Analyzing your profile', icon: 'person-outline' as const },
-  { label: 'Setting nutrition targets', icon: 'nutrition-outline' as const },
-  { label: 'Calibrating activity goals', icon: 'fitness-outline' as const },
-  { label: 'Finalizing your plan', icon: 'checkmark-circle-outline' as const },
+  'Analyzing your profile',
+  'Setting nutrition targets',
+  'Calibrating activity goals',
+  'Finalizing your plan',
 ];
 
 export default function BuildingPlanScreen() {
@@ -26,58 +26,44 @@ export default function BuildingPlanScreen() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const progress = useRef(new Animated.Value(0)).current;
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
-  // Spinning animation
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 1200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    ).start();
+    Animated.timing(fadeIn, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  // Step progression + actual save
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
-      // Step through the visual steps
       for (let i = 0; i < STEPS.length; i++) {
         if (cancelled) return;
         setCurrentStep(i);
         Animated.timing(progress, {
           toValue: (i + 1) / STEPS.length,
-          duration: 600,
+          duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }).start();
 
         if (i === STEPS.length - 1) {
-          // Last step — actually save
           try {
             await completeOnboarding();
             initStreak();
           } catch (e) {
-            console.warn('completeOnboarding failed:', e);
+            // Continue to home even if save fails — data is in draft
           }
         } else {
-          // Visual delay for earlier steps
-          await new Promise((r) => setTimeout(r, 800));
+          await new Promise((r) => setTimeout(r, 900));
         }
       }
 
-      // Brief pause to show completion
-      await new Promise((r) => setTimeout(r, 600));
-      if (!cancelled) router.replace('/daily-streak');
+      await new Promise((r) => setTimeout(r, 700));
+      if (!cancelled) router.replace('/onboarding/upgrade');
     }
 
     run();
@@ -91,50 +77,39 @@ export default function BuildingPlanScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <View style={s.container}>
-        <View style={s.center}>
-          {/* Spinning loader */}
-          <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sync-outline" size={48} color={ORANGE} />
-          </Animated.View>
+      <Animated.View style={[s.container, { opacity: fadeIn }]}>
+        <View style={s.top} />
 
-          <Text style={s.title}>Building your plan</Text>
-          <Text style={s.subtitle}>
-            Personalizing everything based on your goals
-          </Text>
+        <View style={s.center}>
+          {/* Current step label */}
+          <Text style={s.stepLabel}>{STEPS[currentStep]}</Text>
 
           {/* Progress bar */}
           <View style={s.progressTrack}>
             <Animated.View style={[s.progressFill, { width: progressWidth }]} />
           </View>
 
-          {/* Step list */}
-          <View style={s.steps}>
-            {STEPS.map((step, i) => {
-              const done = i < currentStep;
-              const active = i === currentStep;
-              return (
-                <View key={i} style={s.stepRow}>
-                  <Ionicons
-                    name={done ? 'checkmark-circle' : step.icon}
-                    size={20}
-                    color={done ? ORANGE : active ? colors.textPrimary : colors.textMuted}
-                  />
-                  <Text
-                    style={[
-                      s.stepLabel,
-                      done && s.stepDone,
-                      active && s.stepActive,
-                    ]}
-                  >
-                    {step.label}
-                  </Text>
-                </View>
-              );
-            })}
+          {/* Step indicators */}
+          <View style={s.dots}>
+            {STEPS.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  s.dot,
+                  i <= currentStep && s.dotActive,
+                ]}
+              />
+            ))}
           </View>
         </View>
-      </View>
+
+        <View style={s.bottom}>
+          <Text style={s.title}>Building your plan</Text>
+          <Text style={s.subtitle}>
+            Personalizing your experience based on your goals, medication, and lifestyle.
+          </Text>
+        </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -142,48 +117,68 @@ export default function BuildingPlanScreen() {
 const createStyles = (c: AppColors) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    container: { flex: 1, justifyContent: 'center', paddingHorizontal: 32 },
-    center: { alignItems: 'center' },
-    title: {
-      fontSize: 26,
-      fontWeight: '800',
-      color: c.textPrimary,
-      fontFamily: 'System',
-      marginTop: 24,
-      marginBottom: 8,
+    container: { flex: 1, paddingHorizontal: 32 },
+
+    top: { flex: 1 },
+
+    center: {
+      alignItems: 'center',
     },
-    subtitle: {
-      fontSize: 17,
+    stepLabel: {
+      fontSize: 15,
+      fontWeight: '500',
       color: c.textSecondary,
-      fontFamily: 'System',
-      textAlign: 'center',
-      marginBottom: 32,
-      lineHeight: 21,
+      fontFamily: FF,
+      marginBottom: 20,
+      letterSpacing: 0.1,
     },
     progressTrack: {
       width: '100%',
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
       overflow: 'hidden',
-      marginBottom: 32,
+      marginBottom: 16,
     },
     progressFill: {
       height: '100%',
-      borderRadius: 3,
+      borderRadius: 2,
       backgroundColor: ORANGE,
     },
-    steps: { width: '100%', gap: 16 },
-    stepRow: {
+    dots: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
+      gap: 8,
     },
-    stepLabel: {
-      fontSize: 17,
-      fontFamily: 'System',
-      color: c.textMuted,
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
     },
-    stepDone: { color: c.textSecondary },
-    stepActive: { color: c.textPrimary, fontWeight: '600' },
+    dotActive: {
+      backgroundColor: ORANGE,
+    },
+
+    bottom: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: c.textPrimary,
+      fontFamily: FF,
+      letterSpacing: -0.5,
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    subtitle: {
+      fontSize: 16,
+      fontWeight: '400',
+      color: c.textSecondary,
+      fontFamily: FF,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: 12,
+    },
   });

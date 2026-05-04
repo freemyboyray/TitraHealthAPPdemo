@@ -50,9 +50,6 @@ export function PremiumGate({
   const access = useSubscriptionStore((s) => s.checkFeatureAccess(feature));
   const handleUpgrade = onUpgrade ?? (() => router.push('/settings/subscription' as any));
 
-  // DEV MOCK: bypass all gating so mock data cards are visible
-  if (__DEV__) return <>{children}</>;
-
   // Premium users or allowed features — render children directly
   if (access === 'allowed') return <>{children}</>;
 
@@ -93,33 +90,29 @@ export function PremiumGate({
     );
   }
 
-  // Hard gate: blurred content with lock overlay
+  // Hard gate: locked card with feature explanation
   return (
-    <View style={styles.hardContainer}>
-      {title && (
-        <Text style={[styles.gateTitle, { color: colors.textPrimary }]}>{title}</Text>
-      )}
-      <View style={styles.blurWrap}>
-        {children}
-        <BlurView
-          intensity={30}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.hardOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }]}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>
-            <Ionicons name="lock-closed" size={20} color={ORANGE} />
-          </View>
-          <TouchableOpacity
-            style={styles.upgradeButton}
-            onPress={handleUpgrade}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-          </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.hardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={handleUpgrade}
+      activeOpacity={0.7}
+    >
+      <View style={styles.hardHeader}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>
+          <Ionicons name="lock-closed" size={18} color={ORANGE} />
         </View>
+        {title && (
+          <Text style={[styles.hardTitle, { color: colors.textPrimary }]}>{title}</Text>
+        )}
       </View>
-    </View>
+      {teaser && (
+        <Text style={[styles.hardTeaser, { color: colors.textSecondary }]}>{teaser}</Text>
+      )}
+      <View style={styles.upgradeRow}>
+        <Text style={styles.upgradeLink}>Unlock with Pro</Text>
+        <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -158,23 +151,47 @@ const styles = StyleSheet.create({
   },
 
   // Hard gate
-  hardContainer: {
-    borderRadius: 16,
+  hardCard: {
+    borderRadius: 24,
+    borderWidth: 0.5,
+    padding: 20,
+    marginBottom: 16,
   },
-  hardOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  hardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
     gap: 12,
+    marginBottom: 10,
+  },
+  hardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    fontFamily: 'System',
+  },
+  hardTeaser: {
+    fontSize: 15,
+    lineHeight: 21,
+    marginBottom: 14,
+    fontFamily: 'System',
+  },
+  upgradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  upgradeLink: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: ORANGE,
+    fontFamily: 'System',
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
 
   // Shared upgrade button

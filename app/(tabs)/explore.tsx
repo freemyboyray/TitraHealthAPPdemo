@@ -27,6 +27,7 @@ import { getEscalationPhase } from '@/lib/escalation-phase';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseCard } from '@/components/courses/course-card';
+import { PremiumGate } from '@/components/ui/premium-gate';
 
 type ArticleRow = {
   id: string;
@@ -40,13 +41,9 @@ type ArticleRow = {
 const ORANGE = '#FF742A';
 const FF = 'System';
 
-const glassShadow = {
-  shadowColor: '#000000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.08,
-  shadowRadius: 12,
-  elevation: 3,
-};
+const glassShadow = (isDark: boolean) => isDark
+  ? { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 3 }
+  : { shadowColor: 'rgba(0,0,0,0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 10, elevation: 2 };
 
 // ─── Education content ────────────────────────────────────────────────────────
 
@@ -426,7 +423,7 @@ function PhaseCard() {
   const focusTips = PHASE_TIPS[PHASE_KEYS[rotationIndex]];
 
   return (
-    <View style={[s.wrap, glassShadow]}>
+    <View style={[s.wrap, glassShadow(colors.isDark)]}>
       <View style={s.body}>
         <View style={s.topRow}>
           <View style={s.pill}>
@@ -449,28 +446,28 @@ function PhaseCard() {
 const createPhaseCardStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-    wrap: { borderRadius: 24, marginBottom: 16 },
+    wrap: { borderRadius: 20, marginBottom: 16 },
     body: {
-      borderRadius: 24, overflow: 'hidden',
-      backgroundColor: c.bg,
-      borderWidth: 0.5, borderColor: c.border,
+      borderRadius: 20, overflow: 'hidden',
+      backgroundColor: c.surface,
+      borderWidth: c.isDark ? 0.5 : 0,
+      borderColor: c.isDark ? c.border : 'transparent',
       padding: 18,
     },
     topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
     pill: {
-      backgroundColor: `${ORANGE}18`,
-      borderRadius: 20, borderWidth: 1,
-      borderColor: `${ORANGE}40`,
+      backgroundColor: c.isDark ? `${ORANGE}18` : `${ORANGE}0D`,
+      borderRadius: 20,
       paddingHorizontal: 10, paddingVertical: 4,
     },
-    pillText: { fontSize: 11, fontWeight: '800', color: ORANGE, letterSpacing: 1.2, fontFamily: FF },
+    pillText: { fontSize: 11, fontWeight: '700', color: ORANGE, letterSpacing: 1, fontFamily: FF },
     weekLabel: { fontSize: 14, fontWeight: '600', color: w(0.35), fontFamily: FF },
-    phaseTitle: { fontSize: 19, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: 'System' },
+    phaseTitle: { fontSize: 19, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 4, fontFamily: FF },
     phaseSub: { fontSize: 15, color: w(0.5), lineHeight: 19, marginBottom: 14, fontFamily: FF },
-    divider: { height: 1, backgroundColor: w(0.07), marginBottom: 14 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.isDark ? w(0.08) : w(0.06), marginBottom: 14 },
     tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
     tipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ORANGE, marginTop: 7, flexShrink: 0 },
-    tipText: { fontSize: 15, color: w(0.65), lineHeight: 19, flex: 1, fontFamily: FF },
+    tipText: { fontSize: 15, color: c.textSecondary, lineHeight: 20, flex: 1, fontFamily: FF },
   });
 };
 
@@ -487,7 +484,7 @@ function MythCard({ item }: { item: MythItem }) {
   };
 
   return (
-    <Pressable style={[s.wrap, glassShadow]} onPress={handlePress}>
+    <Pressable style={[s.wrap, glassShadow(colors.isDark)]} onPress={handlePress}>
       <View style={s.body}>
         <View style={s.iconWrap}>{item.icon}</View>
         <View style={s.labelRow}>
@@ -512,8 +509,9 @@ const createMythCardStyles = (c: AppColors) => {
     wrap: { borderRadius: 20, width: 220, marginRight: 12 },
     body: {
       borderRadius: 20, overflow: 'hidden',
-      backgroundColor: c.bg,
-      borderWidth: 0.5, borderColor: c.border,
+      backgroundColor: c.surface,
+      borderWidth: c.isDark ? 0.5 : 0,
+      borderColor: c.isDark ? c.border : 'transparent',
       padding: 16, minHeight: 180,
     },
     iconWrap: { marginBottom: 10 },
@@ -574,7 +572,7 @@ function SideEffectDecoder() {
   };
 
   return (
-    <View style={[s.wrap, glassShadow]}>
+    <View style={[s.wrap, glassShadow(colors.isDark)]}>
       <View style={s.body}>
         <View style={s.header}>
           <IconSymbol name="magnifyingglass" size={18} color={ORANGE} />
@@ -646,32 +644,33 @@ function SideEffectDecoder() {
 const createDecoderStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-    wrap: { borderRadius: 24, marginBottom: 16 },
+    wrap: { borderRadius: 20, marginBottom: 16 },
     body: {
-      borderRadius: 24, overflow: 'hidden',
-      backgroundColor: c.bg,
-      borderWidth: 0.5, borderColor: c.border,
+      borderRadius: 20, overflow: 'hidden',
+      backgroundColor: c.surface,
+      borderWidth: c.isDark ? 0.5 : 0,
+      borderColor: c.isDark ? c.border : 'transparent',
       padding: 18,
     },
     header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
     title: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, fontFamily: FF },
-    subtitle: { fontSize: 15, color: w(0.45), lineHeight: 18, marginBottom: 14, fontFamily: FF },
+    subtitle: { fontSize: 15, color: c.textSecondary, lineHeight: 20, marginBottom: 14, fontFamily: FF },
     filterRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
     filterChip: {
-      borderRadius: 20, borderWidth: 1, borderColor: w(0.12),
+      borderRadius: 20, borderWidth: 1, borderColor: w(0.08),
       paddingHorizontal: 12, paddingVertical: 5,
     },
-    filterText: { fontSize: 13, fontWeight: '500', color: w(0.45), fontFamily: FF },
-    divider: { height: 1, backgroundColor: w(0.07), marginBottom: 14 },
+    filterText: { fontSize: 13, fontWeight: '500', color: c.textSecondary, fontFamily: FF },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.isDark ? w(0.08) : w(0.06), marginBottom: 14 },
     chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
     symptomChip: {
-      borderRadius: 20, borderWidth: 1, borderColor: w(0.10),
+      borderRadius: 20, borderWidth: 1, borderColor: w(0.08),
       paddingHorizontal: 12, paddingVertical: 6,
     },
-    symptomText: { fontSize: 14, fontWeight: '500', color: w(0.6), fontFamily: FF },
+    symptomText: { fontSize: 14, fontWeight: '500', color: c.textSecondary, fontFamily: FF },
     detailPanel: {
       marginTop: 14, borderLeftWidth: 3, paddingLeft: 12,
-      backgroundColor: w(0.03), borderRadius: 8, padding: 12,
+      backgroundColor: c.isDark ? w(0.04) : w(0.02), borderRadius: 10, padding: 12,
     },
     detailHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
     detailBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
@@ -701,7 +700,7 @@ function SafetyCard() {
   ];
 
   return (
-    <View style={[s.wrap, glassShadow]}>
+    <View style={[s.wrap, glassShadow(colors.isDark)]}>
       <TouchableOpacity
         style={s.body}
         onPress={() => {
@@ -750,8 +749,9 @@ const createSafetyStyles = (c: AppColors) => {
     wrap: { borderRadius: 20, marginBottom: 24 },
     body: {
       borderRadius: 20, overflow: 'hidden',
-      backgroundColor: 'rgba(231,76,60,0.06)',
-      borderWidth: 1, borderColor: 'rgba(231,76,60,0.25)',
+      backgroundColor: c.isDark ? 'rgba(231,76,60,0.06)' : '#FFFFFF',
+      borderWidth: c.isDark ? 1 : 0,
+      borderColor: c.isDark ? 'rgba(231,76,60,0.25)' : 'transparent',
       padding: 16,
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -785,7 +785,7 @@ function EducationCard({ section }: { section: Section }) {
       : <MaterialIcons name={section.icon as any} size={20} color={ORANGE} />;
 
   return (
-    <View style={[c.cardWrap, glassShadow]}>
+    <View style={[c.cardWrap, glassShadow(colors.isDark)]}>
       <View style={c.cardBody}>
         {/* Card header */}
         <View style={c.cardHeader}>
@@ -839,7 +839,7 @@ function ArticleCard({ article }: { article: ArticleRow }) {
 
   return (
     <Pressable
-      style={[ac.wrap, glassShadow]}
+      style={[ac.wrap, glassShadow(colors.isDark)]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
     >
       <View style={ac.body}>
@@ -868,8 +868,9 @@ const createArticleCardStyles = (c: AppColors) => {
     wrap: { borderRadius: 20, marginBottom: 12 },
     body: {
       borderRadius: 20, overflow: 'hidden',
-      backgroundColor: c.bg,
-      borderWidth: 0.5, borderColor: c.border,
+      backgroundColor: c.surface,
+      borderWidth: c.isDark ? 0.5 : 0,
+      borderColor: c.isDark ? c.border : 'transparent',
     },
     inner: { padding: 18 },
     topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
@@ -951,7 +952,9 @@ export default function EducationScreen() {
           <PhaseCard />
 
           {/* ── Guided Courses ── */}
-          <GuidedCoursesRow />
+          <PremiumGate feature="courses_all" variant="hard" title="Guided Courses" teaser="Unlock step-by-step courses on nutrition, exercise, and medication management with Titra Pro.">
+            <GuidedCoursesRow />
+          </PremiumGate>
 
           {/* ── Side Effect Decoder ── */}
           <SideEffectDecoder />
@@ -990,16 +993,17 @@ const createScreenStyles = (c: AppColors) => {
 const createCardStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-    cardWrap: { borderRadius: 24, marginBottom: 16 },
+    cardWrap: { borderRadius: 20, marginBottom: 16 },
     cardBody: {
-      borderRadius: 24, overflow: 'hidden',
-      backgroundColor: c.bg,
-      borderWidth: 0.5, borderColor: c.border,
+      borderRadius: 20, overflow: 'hidden',
+      backgroundColor: c.surface,
+      borderWidth: c.isDark ? 0.5 : 0,
+      borderColor: c.isDark ? c.border : 'transparent',
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
     iconWrap: { marginRight: 12 },
-    cardTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: 'System' },
-    divider: { height: 1, backgroundColor: c.borderSubtle, marginHorizontal: 18 },
+    cardTitle: { fontSize: 18, fontWeight: '800', color: c.textPrimary, flex: 1, letterSpacing: -0.3, fontFamily: FF },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.isDark ? w(0.08) : w(0.06), marginHorizontal: 18 },
     itemHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1009,7 +1013,7 @@ const createCardStyles = (c: AppColors) => {
     },
     itemQ: { fontSize: 16, fontWeight: '600', color: c.textPrimary, flex: 1, lineHeight: 20, fontFamily: FF },
     itemBody: { paddingHorizontal: 18, paddingBottom: 14 },
-    itemA: { fontSize: 16, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
-    itemDivider: { height: 1, backgroundColor: w(0.06), marginHorizontal: 18 },
+    itemA: { fontSize: 16, color: c.textSecondary, lineHeight: 22, fontWeight: '400', fontFamily: FF },
+    itemDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.isDark ? w(0.08) : w(0.06), marginHorizontal: 18 },
   });
 };

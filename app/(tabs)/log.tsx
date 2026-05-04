@@ -1503,7 +1503,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   {PK_TIER_GUIDE.slice().reverse().map((tier) => {
                     const isActive = tier.label === tierInfo.label;
                     return (
-                      <Text key={tier.label} style={{ fontSize: 11, color: isActive ? tier.color : `${tier.color}55`, fontWeight: isActive ? '800' : '600', fontFamily: 'System' }}>{tier.label}</Text>
+                      <Text key={tier.label} style={{ fontSize: 11, color: isActive ? colors.textPrimary : colors.textSecondary, fontWeight: isActive ? '800' : '500', fontFamily: 'System' }}>{tier.label}</Text>
                     );
                   })}
                 </View>
@@ -2961,9 +2961,7 @@ export default function InsightsScreen() {
   const { appleHealthEnabled } = usePreferencesStore();
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
-  let onTreatment = isOnTreatment(fullProfile);
-  // DEV MOCK: force onTreatment so benchmark/adaptation cards render
-  if (__DEV__) onTreatment = true;
+  const onTreatment = isOnTreatment(fullProfile);
   const [activeTab, setActiveTab] = useState<Tab>(onTreatment ? 'medication' : 'lifestyle');
   const { openAiChat, insightsDefaultTab, setInsightsDefaultTab } = useUiStore();
 
@@ -3180,19 +3178,6 @@ export default function InsightsScreen() {
     [activityLogs, weightLogs, biometricStore.history],
   );
 
-  // ── DEV MOCK: Metabolic Adaptation ──────────────────────────────────────
-  if (__DEV__) {
-    metabolicAdaptationResult = {
-      hasEnoughData: true,
-      hasRhrData: true,
-      calPerStepTrend: [0.42, 0.40, 0.39, 0.38, 0.36, 0.37, 0.39, 0.41],
-      rhrTrend: [74, 72, 71, 70, 69, 68, 67, 66],
-      weekLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],
-      plateauRisk: 'approaching',
-      adaptationMessage: 'Your calorie efficiency has declined ~10% over the past 2 weeks. Consider mixing in strength training to counteract metabolic adaptation.',
-      rhrImprovementBpm: 8,
-    };
-  }
 
   // ── Progress data ──────────────────────────────────────────────────────────
   // Prefer Supabase-persisted profile fields; fall back to in-memory onboarding profile
@@ -3284,35 +3269,6 @@ export default function InsightsScreen() {
     [weightLogs, programStartDate, health.profile.glp1Type],
   );
 
-  // ── DEV MOCK: Clinical Benchmark ────────────────────────────────────────
-  if (__DEV__) {
-    benchmarkResult = {
-      hasEnoughData: true,
-      treatmentWeek: 16,
-      userLossPct: 8.2,
-      trialLossPct: 7.5,
-      trialLabel: 'Semaglutide 2.4 mg (STEP 1)',
-      trialName: 'STEP 1',
-      deltaVsTrial: 0.7,
-      status: 'ahead',
-      tooEarly: false,
-      unknownMedication: false,
-      noTrialData: false,
-      userTrajectory: [
-        { week: 4, lossPct: 2.1 }, { week: 6, lossPct: 3.0 }, { week: 8, lossPct: 4.2 },
-        { week: 10, lossPct: 5.1 }, { week: 12, lossPct: 6.3 }, { week: 14, lossPct: 7.4 },
-        { week: 16, lossPct: 8.2 },
-      ],
-      trialTrajectory: [
-        { week: 4, mean: 2.0, low: 1.2, high: 2.8 }, { week: 8, mean: 3.5, low: 2.4, high: 4.6 },
-        { week: 12, mean: 5.5, low: 4.0, high: 7.0 }, { week: 16, mean: 7.5, low: 5.8, high: 9.2 },
-        { week: 20, mean: 9.0, low: 7.0, high: 11.0 }, { week: 28, mean: 11.0, low: 8.5, high: 13.5 },
-        { week: 36, mean: 12.5, low: 9.8, high: 15.2 }, { week: 52, mean: 13.8, low: 10.5, high: 17.1 },
-        { week: 68, mean: 14.9, low: 11.2, high: 18.6 },
-      ],
-      trialMaxWeek: 68,
-    };
-  }
 
   const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
     weightToEntry(log, weightLogs[i + 1])
