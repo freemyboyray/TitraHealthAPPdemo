@@ -29,23 +29,14 @@ const FONT = 'System';
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
-  const { setSession, loadProfile, setDemoMode, setSessionLoaded } = useUserStore();
-  const { reloadProfile, setProfile } = useProfile();
+  const { setSession, loadProfile } = useUserStore();
+  const { reloadProfile } = useProfile();
   const { colors: c } = useAppTheme();
   const s = useMemo(() => createStyles(c), [c]);
 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
-
-  // ── Demo login (for screenshots) ──
-  function handleDemoLogin() {
-    const MOCK = require('@/constants/mock-profile').MOCK_PROFILE;
-    setProfile(MOCK);
-    setDemoMode(true);
-    setSessionLoaded(true);
-    router.replace('/(tabs)');
-  }
 
   // ── Shared: credential guard + post-auth navigation ─────────────────────
   function checkSupabaseConfigured(): boolean {
@@ -256,11 +247,6 @@ export default function SignInScreen() {
         </View>
 
         {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-        {/* ── Demo (for screenshots) ── */}
-        <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.7} style={{ alignItems: 'center', paddingVertical: 12 }}>
-          <Text style={{ fontSize: 14, color: c.textMuted, fontFamily: 'System' }}>Try Demo</Text>
-        </TouchableOpacity>
 
         {/* ── Footer ── */}
         <View style={s.footer}>

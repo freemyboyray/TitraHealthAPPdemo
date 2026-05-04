@@ -29,6 +29,27 @@ function localDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+const WEEK_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function getWeekDays(today: Date, logDates: Set<string>) {
+  const todayDay = today.getDay(); // 0=Sun
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + (todayDay === 0 ? -6 : 1 - todayDay));
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = localDateStr(d);
+    return {
+      date: d.getDate(),
+      label: WEEK_LABELS[i],
+      isToday: sameDay(d, today),
+      isFuture: d > today,
+      hasLog: logDates.has(dateStr),
+    };
+  });
+}
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
@@ -132,11 +153,42 @@ export default function StreakScreen() {
           {/* ── Streak Hero ── */}
           <View style={s.streakCard}>
             <AnimatedFire size={56} streak={streak} active={streak > 0} />
-            <Text style={s.fireNumber}>{streak}</Text>
-            <Text style={s.fireLabel}>
-              {streak === 0 ? 'No streak yet' : streak === 1 ? 'day streak' : 'day streak'}
+            <Text style={s.streakTitle}>
+              {streak === 0 ? 'No Streak Yet' : `${streak} Day Streak`}
             </Text>
             <Text style={s.fireSubtext}>Log daily to build your streak</Text>
+
+            {/* Weekly day tracker */}
+            <View style={s.weekTracker}>
+              {getWeekDays(today, logDates).map((day) => (
+                <View key={day.label} style={s.weekDayCol}>
+                  <View
+                    style={[
+                      s.weekDayCircle,
+                      day.isToday && s.weekDayCircleToday,
+                      !day.isToday && day.hasLog && !day.isFuture && s.weekDayCircleLogged,
+                    ]}
+                  >
+                    {!day.isToday && day.hasLog && !day.isFuture ? (
+                      <Ionicons name="calendar-outline" size={16} color={ORANGE} />
+                    ) : (
+                      <Text
+                        style={[
+                          s.weekDayNum,
+                          day.isToday && s.weekDayNumToday,
+                          day.isFuture && !day.isToday && s.weekDayNumFuture,
+                        ]}
+                      >
+                        {day.date}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={[s.weekDayLabel, day.isToday && s.weekDayLabelToday]}>
+                    {day.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           {/* ── Calendar ── */}
@@ -293,16 +345,48 @@ const createStyles = (c: AppColors) => {
       borderWidth: 0.5, borderColor: c.border,
       marginBottom: 24,
     },
-    fireNumber: {
-      fontSize: 40, fontWeight: '900', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: -0.8,
-    },
-    fireLabel: {
-      fontSize: 17, fontWeight: '600', color: c.textSecondary,
-      marginTop: 2, fontFamily: FF,
+    streakTitle: {
+      fontSize: 22, fontWeight: '800', color: c.textPrimary,
+      fontFamily: FF, letterSpacing: -0.3, marginTop: 8,
     },
     fireSubtext: {
       fontSize: 14, color: c.textMuted, marginTop: 4, fontFamily: FF,
+    },
+
+    // Weekly day tracker
+    weekTracker: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      alignItems: 'center', marginTop: 16,
+      paddingHorizontal: 12, width: '100%',
+    },
+    weekDayCol: {
+      alignItems: 'center', gap: 4,
+    },
+    weekDayCircle: {
+      width: 36, height: 36, borderRadius: 18,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    weekDayCircleToday: {
+      backgroundColor: ORANGE,
+    },
+    weekDayCircleLogged: {
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)',
+    },
+    weekDayNum: {
+      fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF,
+    },
+    weekDayNumToday: {
+      fontWeight: '800', color: '#FFFFFF',
+    },
+    weekDayNumFuture: {
+      opacity: 0.4,
+    },
+    weekDayLabel: {
+      fontSize: 11, fontWeight: '500', color: c.textMuted, fontFamily: FF,
+    },
+    weekDayLabelToday: {
+      fontWeight: '700', color: ORANGE,
     },
 
     // Sections
