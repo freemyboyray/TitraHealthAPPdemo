@@ -123,6 +123,7 @@ type LogStore = {
     allergens?: Record<string, number>;
     preferences?: Record<string, number>;
     fatsecret_food_id?: number;
+    fatsecret_category_name?: string;
   }) => Promise<void>;
 
   // Food Noise Questionnaire (FNQ)
@@ -483,6 +484,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         allergens: entry.allergens ?? null,
         preferences: entry.preferences ?? null,
         fatsecret_food_id: entry.fatsecret_food_id ?? null,
+        fatsecret_category_name: entry.fatsecret_category_name ?? null,
       });
     if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });

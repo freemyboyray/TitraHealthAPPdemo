@@ -4,6 +4,7 @@ import type {
   InjectionLog,
   ProfileRow,
   SideEffectLog,
+  SideEffectType,
   UserGoalsRow,
   WeightLog,
 } from './log-store';
@@ -129,6 +130,213 @@ export function computeScore(
     activity: activityScore,
     sideEffect: sideEffectScore,
   };
+}
+
+// ─── Nutrition × side-effect correlation patterns ────────────────────────────
+
+export type NutritionPattern = {
+  triggerKey: string;
+  triggerLabel: string;
+  effectType: SideEffectType;
+  effectLabel: string;
+  daysWith: number;
+  daysWithEffect: number;     // numerator on the with-trigger ring
+  daysWithout: number;
+  daysWithoutEffect: number;  // numerator on the without-trigger ring
+  pctWith: number;
+  pctWithout: number;
+  delta: number;              // pctWith − pctWithout (signed)
+};
+
+export type PatternsResult = {
+  hasEnoughData: boolean;     // ≥3 food-log days AND ≥3 side-effect-log days in window
+  daysLogged: number;         // food-log days in window (for empty-state copy)
+  patterns: NutritionPattern[];
+};
+
+const SIDE_EFFECT_LABELS: Record<string, string> = {
+  nausea: 'Nausea', vomiting: 'Vomiting', fatigue: 'Fatigue',
+  constipation: 'Constipation', diarrhea: 'Diarrhea', headache: 'Headache',
+  injection_site: 'Injection Site', appetite_loss: 'Appetite Loss', other: 'Other',
+  hair_loss: 'Hair Loss', dehydration: 'Dehydration', dizziness: 'Dizziness',
+  muscle_loss: 'Muscle Loss', heartburn: 'Heartburn', food_noise: 'Food Noise',
+  sulfur_burps: 'Sulfur Burps', bloating: 'Bloating',
+};
+
+const PATTERN_TRIGGERS: { key: string; label: string }[] = [
+  { key: 'milk',       label: 'Milk' },
+  { key: 'lactose',    label: 'Lactose' },
+  { key: 'egg',        label: 'Egg' },
+  { key: 'fish',       label: 'Fish' },
+  { key: 'gluten',     label: 'Gluten' },
+  { key: 'nuts',       label: 'Tree Nuts' },
+  { key: 'peanuts',    label: 'Peanuts' },
+  { key: 'shellfish',  label: 'Shellfish' },
+  { key: 'soy',        label: 'Soy' },
+  { key: 'sesame',     label: 'Sesame' },
+  { key: 'highFat',    label: 'High-Fat Day' },
+  { key: 'highSodium', label: 'High Sodium' },
+  { key: 'highSugar',  label: 'High Sugar' },
+  { key: 'lowProtein', label: 'Low Protein' },
+];
+
+function patternsLocalDate(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Minimum days each side of the partition before a pattern can surface.
+// Conservative to avoid spurious correlations from small samples.
+const PATTERNS_MIN_SAMPLE = 5;
+// Minimum |delta| (pct difference between with and without). Filters multiple-
+// comparison noise when scanning ~14 triggers × ~17 effects.
+const PATTERNS_MIN_DELTA = 0.25;
+// Side effects that are known to be driven by GLP-1 dose cycle, not by food.
+// Logs of these effects within SHOT_WINDOW_HOURS of an injection are excluded
+// from the trigger-vs-effect comparison so titration-induced symptoms don't
+// get attributed to whatever the user happened to eat that day.
+const SHOT_WINDOW_HOURS = 24;
+const DOSE_DRIVEN_EFFECTS: Set<string> = new Set(['nausea', 'vomiting', 'appetite_loss']);
+
+/**
+ * Bucket the last 30 days of food + side-effect logs by date, then for each
+ * trigger (10 allergens + 4 macro thresholds) × side-effect type, compare the
+ * effect's incidence rate on days with vs without the trigger.
+ *
+ * Filters:
+ *   - ≥5 days each side of the partition (PATTERNS_MIN_SAMPLE)
+ *   - |delta| ≥ 25% (PATTERNS_MIN_DELTA)
+ *   - Drops post-shot logs of dose-driven effects (nausea/vomiting/appetite_loss
+ *     within 24h of an injection) so titration symptoms don't pollute the food
+ *     correlation.
+ *
+ * Returns the top 3 patterns ranked by absolute delta. The result is descriptive
+ * — UI must frame as "Y was more frequent on X days," NOT a causal claim.
+ */
+export function computeNutritionPatterns(
+  foodLogs: FoodLog[],
+  sideEffectLogs: SideEffectLog[],
+  injectionLogs: InjectionLog[] = [],
+): PatternsResult {
+  const cutoff = Date.now() - 30 * 86400000;
+  const recentFoods = foodLogs.filter(f => f.logged_at && new Date(f.logged_at).getTime() > cutoff);
+  const recentSE    = sideEffectLogs.filter(s => s.logged_at && new Date(s.logged_at).getTime() > cutoff);
+
+  // Pre-compute injection timestamps so we can filter post-shot symptoms.
+  const shotTimes = injectionLogs
+    .map(i => {
+      const time = i.injection_time ?? '00:00:00';
+      const ms = new Date(`${i.injection_date}T${time}`).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    })
+    .filter((t): t is number => t !== null);
+  const isPostShot = (logIso: string) => {
+    const t = new Date(logIso).getTime();
+    if (!Number.isFinite(t)) return false;
+    return shotTimes.some(s => t >= s && t - s <= SHOT_WINDOW_HOURS * 3600 * 1000);
+  };
+
+  type DayMacros = { fat_g: number; calories: number; protein_g: number; sodium_mg: number; sugar_g: number };
+  const dailyMacros = new Map<string, DayMacros>();
+  const dailyAllergens = new Map<string, Record<string, boolean>>();
+
+  for (const f of recentFoods) {
+    const date = patternsLocalDate(f.logged_at);
+    const m = dailyMacros.get(date) ?? { fat_g: 0, calories: 0, protein_g: 0, sodium_mg: 0, sugar_g: 0 };
+    m.fat_g    += f.fat_g ?? 0;
+    m.calories += f.calories ?? 0;
+    m.protein_g += f.protein_g ?? 0;
+    m.sodium_mg += f.sodium_mg ?? 0;
+    m.sugar_g  += f.sugar_g ?? 0;
+    dailyMacros.set(date, m);
+
+    const a = dailyAllergens.get(date) ?? {};
+    const allergens = f.allergens as Record<string, number> | null;
+    if (allergens) {
+      for (const [key, value] of Object.entries(allergens)) {
+        if (value === 1) a[key] = true;
+      }
+    }
+    dailyAllergens.set(date, a);
+  }
+
+  type DayBucket = { triggers: Record<string, boolean>; sideEffects: Set<string> };
+  const days = new Map<string, DayBucket>();
+
+  for (const [date, m] of dailyMacros) {
+    const triggers: Record<string, boolean> = { ...(dailyAllergens.get(date) ?? {}) };
+    if (m.calories > 0 && (m.fat_g * 9) / m.calories > 0.35) triggers.highFat = true;
+    if (m.sodium_mg > 2300) triggers.highSodium = true;
+    if (m.sugar_g > 50)     triggers.highSugar = true;
+    if (m.protein_g > 0 && m.protein_g < 50) triggers.lowProtein = true;
+    days.set(date, { triggers, sideEffects: new Set() });
+  }
+
+  let seDaysCount = 0;
+  const seDates = new Set<string>();
+  for (const se of recentSE) {
+    // Drop dose-driven symptoms logged in the post-shot window — they're
+    // attributable to the medication, not to anything the user ate.
+    if (DOSE_DRIVEN_EFFECTS.has(se.effect_type) && isPostShot(se.logged_at)) continue;
+    const date = patternsLocalDate(se.logged_at);
+    seDates.add(date);
+    let bucket = days.get(date);
+    if (!bucket) {
+      bucket = { triggers: {}, sideEffects: new Set() };
+      days.set(date, bucket);
+    }
+    bucket.sideEffects.add(se.effect_type);
+  }
+  seDaysCount = seDates.size;
+
+  const foodDays = dailyMacros.size;
+  const hasEnoughData = foodDays >= PATTERNS_MIN_SAMPLE && seDaysCount >= 3;
+
+  if (!hasEnoughData) {
+    return { hasEnoughData: false, daysLogged: foodDays, patterns: [] };
+  }
+
+  const patterns: NutritionPattern[] = [];
+  const allBuckets = Array.from(days.values());
+
+  // Effects observed in the window (no point comparing against an effect the user never logs)
+  const observedEffects = new Set<string>();
+  for (const b of allBuckets) for (const e of b.sideEffects) observedEffects.add(e);
+
+  for (const trigger of PATTERN_TRIGGERS) {
+    const withDays = allBuckets.filter(b => b.triggers[trigger.key]);
+    const withoutDays = allBuckets.filter(b => !b.triggers[trigger.key]);
+    if (withDays.length < PATTERNS_MIN_SAMPLE || withoutDays.length < PATTERNS_MIN_SAMPLE) continue;
+
+    for (const effect of observedEffects) {
+      const cWith = withDays.filter(b => b.sideEffects.has(effect)).length;
+      const cWithout = withoutDays.filter(b => b.sideEffects.has(effect)).length;
+      const pctWith = cWith / withDays.length;
+      const pctWithout = cWithout / withoutDays.length;
+      const delta = pctWith - pctWithout;
+      if (Math.abs(delta) < PATTERNS_MIN_DELTA) continue;
+
+      patterns.push({
+        triggerKey: trigger.key,
+        triggerLabel: trigger.label,
+        effectType: effect as SideEffectType,
+        effectLabel: SIDE_EFFECT_LABELS[effect] ?? effect,
+        daysWith: withDays.length,
+        daysWithEffect: cWith,
+        daysWithout: withoutDays.length,
+        daysWithoutEffect: cWithout,
+        pctWith,
+        pctWithout,
+        delta,
+      });
+    }
+  }
+
+  patterns.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return { hasEnoughData: true, daysLogged: foodDays, patterns: patterns.slice(0, 3) };
 }
 
 // ─── Injection phase ──────────────────────────────────────────────────────────

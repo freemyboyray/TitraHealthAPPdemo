@@ -49,43 +49,57 @@ const SUBSCRIPTION_SKUS = [PRODUCT_IDS.MONTHLY, PRODUCT_IDS.ANNUAL];
 let purchaseUpdateSubscription: { remove: () => void } | null = null;
 let purchaseErrorSubscription: { remove: () => void } | null = null;
 let isInitialized = false;
+let initPromise: Promise<void> | null = null;
+let lastInitError: string | null = null;
+let lastFetchError: string | null = null;
+
+export function getIAPDiagnostics(): { initialized: boolean; initError: string | null; fetchError: string | null } {
+  return { initialized: isInitialized, initError: lastInitError, fetchError: lastFetchError };
+}
 
 // ─── Initialize IAP Connection ───────────────────────────────────────────────
 
-export async function initIAP(): Promise<void> {
-  if (isInitialized) return;
+export function initIAP(): Promise<void> {
+  if (isInitialized) return Promise.resolve();
+  if (initPromise) return initPromise;
 
-  try {
-    await initConnection();
-    isInitialized = true;
+  initPromise = (async () => {
+    try {
+      await initConnection();
+      isInitialized = true;
+      lastInitError = null;
 
-    // Listen for purchase updates (renewals, initial purchases)
-    purchaseUpdateSubscription = purchaseUpdatedListener(
-      async (purchase: Purchase) => {
-        console.log('[IAP] Purchase updated:', purchase.productId);
+      // Listen for purchase updates (renewals, initial purchases)
+      purchaseUpdateSubscription = purchaseUpdatedListener(
+        async (purchase: Purchase) => {
+          console.log('[IAP] Purchase updated:', purchase.productId);
 
-        // Finish the transaction (acknowledge receipt)
-        await finishTransaction({ purchase, isConsumable: false });
+          // Finish the transaction (acknowledge receipt)
+          await finishTransaction({ purchase, isConsumable: false });
 
-        // Update local state optimistically for instant UI feedback
-        useSubscriptionStore.getState().setPremium(true);
+          // Update local state optimistically for instant UI feedback
+          useSubscriptionStore.getState().setPremium(true);
 
-        // Give the webhook a moment to process, then confirm from DB
-        setTimeout(() => {
-          useSubscriptionStore.getState().refreshPremiumStatus();
-        }, 3000);
-      },
-    );
+          // Give the webhook a moment to process, then confirm from DB
+          setTimeout(() => {
+            useSubscriptionStore.getState().refreshPremiumStatus();
+          }, 3000);
+        },
+      );
 
-    // Listen for purchase errors
-    purchaseErrorSubscription = purchaseErrorListener(
-      (error: PurchaseError) => {
-        console.warn('[IAP] Purchase error:', error.code, error.message);
-      },
-    );
-  } catch (err) {
-    console.error('[IAP] Init connection failed:', err);
-  }
+      // Listen for purchase errors
+      purchaseErrorSubscription = purchaseErrorListener(
+        (error: PurchaseError) => {
+          console.warn('[IAP] Purchase error:', error.code, error.message);
+        },
+      );
+    } catch (err) {
+      lastInitError = (err as Error)?.message ?? String(err);
+      console.error('[IAP] Init connection failed:', err);
+    }
+  })();
+
+  return initPromise;
 }
 
 // ─── Teardown ────────────────────────────────────────────────────────────────
@@ -102,13 +116,21 @@ export function teardownIAP(): void {
 // ─── Fetch Product Details ───────────────────────────────────────────────────
 
 export async function getProducts(): Promise<ProductSubscription[]> {
+  // Make sure StoreKit is connected before asking for products — otherwise
+  // fetchProducts can return an empty list silently on a cold start.
+  await initIAP();
+  if (!isInitialized) return [];
+
   try {
     const products = await fetchProducts({
       skus: SUBSCRIPTION_SKUS,
       type: 'subs',
     });
-    return products as ProductSubscription[];
+    const list = (products ?? []) as ProductSubscription[];
+    lastFetchError = list.length === 0 ? 'StoreKit returned 0 products' : null;
+    return list;
   } catch (err) {
+    lastFetchError = (err as Error)?.message ?? String(err);
     console.error('[IAP] Failed to get products:', err);
     return [];
   }

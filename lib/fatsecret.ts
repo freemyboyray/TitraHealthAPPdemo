@@ -43,6 +43,10 @@ export type FoodResult = {
   image_url?: string;
   allergens?: AllergenFlags;
   preferences?: PreferenceFlags;
+  // FatSecret food sub-category (e.g., Poultry, Dairy). Used for Top
+  // Contributors taxonomy rollup. Picked as the first entry in
+  // food.food_sub_categories.food_sub_category[].
+  category_name?: string;
   // Serving metadata
   serving_description?: string;
   serving_size_g?: number;
@@ -167,6 +171,18 @@ function parsePreferences(food_attributes: any): PreferenceFlags | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+function parseCategoryName(food: any): string | undefined {
+  // food.get.v4 with include_sub_categories=true returns:
+  //   food.food_sub_categories.food_sub_category: string[] | string
+  // We pick the first entry as the canonical category for grouping.
+  const list = asArray(food?.food_sub_categories?.food_sub_category);
+  if (list.length === 0) return undefined;
+  const first = list[0];
+  if (typeof first === 'string') return first;
+  // Some responses wrap each sub-category as { food_sub_category_name: ... }
+  return typeof first?.food_sub_category_name === 'string' ? first.food_sub_category_name : undefined;
+}
+
 function parseImageUrl(food: any): string | undefined {
   // food.get.v4 returns food_images.food_image as object or array of objects
   // each with { image_url, image_type? } where image_type is "Standard" or "Isolated".
@@ -287,6 +303,7 @@ function buildFoodResult(food: any): FoodResult | null {
     image_url: parseImageUrl(food),
     allergens: parseAllergens(food.food_attributes),
     preferences: parsePreferences(food.food_attributes),
+    category_name: parseCategoryName(food),
     serving_options: options.length > 0 ? options : undefined,
   };
 }

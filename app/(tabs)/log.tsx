@@ -39,6 +39,8 @@ import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
 import { NutrientLogSheet, type NutrientKey } from '@/components/nutrient-log-sheet';
 import { LeanMassPreservationCard } from '@/components/lean-mass-preservation-card';
+import { PatternsCard } from '@/components/patterns-card';
+import { TopContributorsRow } from '@/components/top-contributors-row';
 import { computeFatToLeanRatio, computeLeanPreservation, bodyCompTrendData } from '@/lib/body-composition';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { useSubscriptionStore } from '@/stores/subscription-store';
@@ -339,7 +341,10 @@ function xAxisLabels(_data: WeightPoint[], period: string, plotW: number, tStart
 
 // ─── Lifestyle Trend helpers ──────────────────────────────────────────────────
 
-type FoodByDate = Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }>;
+type FoodByDate = Record<string, {
+  protein: number; carbs: number; fat: number; calories: number; fiber: number;
+  sodium_mg: number; sugar_g: number; saturated_fat_g: number; cholesterol_mg: number;
+}>;
 type ActivityByDate = Record<string, { steps: number; calories: number }>;
 
 type MetricConfig = {
@@ -349,16 +354,30 @@ type MetricConfig = {
   color: string;
   getTarget: (t: DailyTargets) => number;
   getValue: (f: FoodByDate, a: ActivityByDate, d: string) => number | null;
+  /** When true, "on target" means staying UNDER the target (sodium, sugar, etc.) */
+  inverseGoal?: boolean;
 };
 
+// Phase 2 default targets for Premier metrics; Phase 3 wires these to user_goals.
+// Sodium 2300mg = FDA daily limit. Sugar 50g = FDA added-sugar daily value.
+// Sat fat 22g ≈ 10% of 2000 kcal (AHA). Cholesterol 300mg = general guidance.
+const DEFAULT_SODIUM_MG = 2300;
+const DEFAULT_SUGAR_G = 50;
+const DEFAULT_SAT_FAT_G = 22;
+const DEFAULT_CHOLESTEROL_MG = 300;
+
 const LIFESTYLE_METRICS: MetricConfig[] = [
-  { id: 'protein',    label: 'Protein',    unit: 'g',     color: '#FF742A', getTarget: t => t.proteinG,             getValue: (f, _, d) => f[d]?.protein ?? null },
-  { id: 'carbs',      label: 'Carbs',      unit: 'g',     color: '#5B8BF5', getTarget: t => t.carbsG,               getValue: (f, _, d) => f[d]?.carbs ?? null },
-  { id: 'fat',        label: 'Fat',        unit: 'g',     color: '#F6CB45', getTarget: t => t.fatG,                 getValue: (f, _, d) => f[d]?.fat ?? null },
-  { id: 'fiber',      label: 'Fiber',      unit: 'g',     color: '#27AE60', getTarget: t => t.fiberG,               getValue: (f, _, d) => f[d]?.fiber ?? null },
-  { id: 'calories',   label: 'Calories',   unit: 'cal',   color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
-  { id: 'steps',      label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
-  { id: 'active_cal', label: 'Active Cal', unit: 'cal',   color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
+  { id: 'protein',     label: 'Protein',    unit: 'g',     color: '#FF742A', getTarget: t => t.proteinG,             getValue: (f, _, d) => f[d]?.protein ?? null },
+  { id: 'carbs',       label: 'Carbs',      unit: 'g',     color: '#5B8BF5', getTarget: t => t.carbsG,               getValue: (f, _, d) => f[d]?.carbs ?? null },
+  { id: 'fat',         label: 'Fat',        unit: 'g',     color: '#F6CB45', getTarget: t => t.fatG,                 getValue: (f, _, d) => f[d]?.fat ?? null },
+  { id: 'fiber',       label: 'Fiber',      unit: 'g',     color: '#27AE60', getTarget: t => t.fiberG,               getValue: (f, _, d) => f[d]?.fiber ?? null },
+  { id: 'calories',    label: 'Calories',   unit: 'cal',   color: '#C084FC', getTarget: t => t.caloriesTarget,       getValue: (f, _, d) => f[d]?.calories ?? null },
+  { id: 'sodium',      label: 'Sodium',     unit: 'mg',    color: '#FF6B6B', getTarget: _t => DEFAULT_SODIUM_MG,      getValue: (f, _, d) => f[d]?.sodium_mg ?? null,        inverseGoal: true },
+  { id: 'sugar',       label: 'Sugar',      unit: 'g',     color: '#E879F9', getTarget: _t => DEFAULT_SUGAR_G,        getValue: (f, _, d) => f[d]?.sugar_g ?? null,          inverseGoal: true },
+  { id: 'sat_fat',     label: 'Sat Fat',    unit: 'g',     color: '#F59E0B', getTarget: _t => DEFAULT_SAT_FAT_G,      getValue: (f, _, d) => f[d]?.saturated_fat_g ?? null,  inverseGoal: true },
+  { id: 'cholesterol', label: 'Cholesterol',unit: 'mg',    color: '#A78BFA', getTarget: _t => DEFAULT_CHOLESTEROL_MG, getValue: (f, _, d) => f[d]?.cholesterol_mg ?? null,   inverseGoal: true },
+  { id: 'steps',       label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
+  { id: 'active_cal',  label: 'Active Cal', unit: 'cal',   color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
 ];
 
 const LT_TML = 44, LT_TMR = 12, LT_TMT = 10, LT_TMB = 24;
@@ -752,12 +771,12 @@ function DailyMetricCard({
   const btnBg = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
   const btnTxt = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
   return (
-    <Pressable style={[s.dailyWrap, glassShadow]} onPress={onPress} onLongPress={handleAskAI}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={s.dailyInner}>
+    <Pressable style={[s.dailyWrap, glassShadow, { minHeight: 184 }]} onPress={onPress} onLongPress={handleAskAI}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, flex: 1 }]}>
+        <View style={[s.dailyInner, { flex: 1 }]}>
           <View style={s.dailyIconWrap}>{icon}</View>
           <Text style={s.dailyLabel}>{label}</Text>
-          <Text style={s.dailyValue}>{value}</Text>
+          <Text style={s.dailyValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
           <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, marginTop: 10, overflow: 'hidden' }}>
             <View style={{ width: `${Math.min(pct, 1) * 100}%`, height: 3, borderRadius: 2, backgroundColor: ss.text }} />
           </View>
@@ -1639,7 +1658,7 @@ function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: s
       onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleAskAI(); }}
       delayLongPress={400}
     >
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+      <View style={[s.cardBody, { flex: 1, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
@@ -2522,14 +2541,15 @@ function LifestyleTrendCard({
     const tgtRaw = metric.getTarget(targets);
     const tgt = Math.round(tgtRaw);
     const withData = vs.filter(v => v !== null) as number[];
-    const hr = withData.length ? withData.filter(v => Math.round(v) >= tgt).length / withData.length : 0;
+    const onTarget = (v: number) => metric.inverseGoal ? Math.round(v) <= tgt : Math.round(v) >= tgt;
+    const hr = withData.length ? withData.filter(onTarget).length / withData.length : 0;
     const avg = withData.length ? withData.reduce((s, v) => s + v, 0) / withData.length : 0;
     const mid = Math.floor(withData.length / 2);
     const firstHalf = mid > 0 ? withData.slice(0, mid).reduce((s, v) => s + v, 0) / mid : 0;
     const secondHalf = mid > 0 ? withData.slice(mid).reduce((s, v) => s + v, 0) / (withData.length - mid) : 0;
     const tp = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
     let cur = 0, best = 0;
-    vs.forEach(v => { if (v !== null && Math.round(v) >= tgt) { cur++; best = Math.max(best, cur); } else cur = 0; });
+    vs.forEach(v => { if (v !== null && onTarget(v)) { cur++; best = Math.max(best, cur); } else cur = 0; });
     return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best };
   }, [effectiveDays, todayStr, metric, foodByDate, activityByDate, targets]);
 
@@ -2573,12 +2593,14 @@ function LifestyleTrendCard({
     const formatted = metric.unit === 'cal' || metric.unit === 'steps'
       ? Math.round(v).toLocaleString()
       : v.toFixed(0);
+    const onTarget = metric.inverseGoal ? v <= target : v >= target;
+    const overUnder = metric.inverseGoal ? 'over' : 'below';
     return {
       title: `${formatted} ${metric.unit}`,
       subtitle: d,
-      badge: v >= target
+      badge: onTarget
         ? { text: 'On target', color: '#27AE60' }
-        : { text: `${Math.abs(((v - target) / target) * 100).toFixed(0)}% below`, color: '#E74C3C' },
+        : { text: `${Math.abs(((v - target) / target) * 100).toFixed(0)}% ${overUnder}`, color: '#E74C3C' },
     };
   }, [values, dates, metric, target]);
 
@@ -2888,14 +2910,20 @@ function LifestyleTrendCard({
                   <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginTop: 2 }}>
                     {fmtVal(selValue)} {metric.unit}
                   </Text>
-                  <Text style={{
-                    fontSize: 14, fontWeight: '600', fontFamily: 'System', marginTop: 2,
-                    color: Math.round(selValue) >= target ? '#27AE60' : '#E74C3C',
-                  }}>
-                    {Math.round(selValue) >= target
-                      ? 'On target ✓'
-                      : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% below target`}
-                  </Text>
+                  {(() => {
+                    const onTarget = metric.inverseGoal ? Math.round(selValue) <= target : Math.round(selValue) >= target;
+                    const overUnder = metric.inverseGoal ? 'over' : 'below';
+                    return (
+                      <Text style={{
+                        fontSize: 14, fontWeight: '600', fontFamily: 'System', marginTop: 2,
+                        color: onTarget ? '#27AE60' : '#E74C3C',
+                      }}>
+                        {onTarget
+                          ? 'On target ✓'
+                          : `${Math.abs(((selValue - target) / target) * 100).toFixed(0)}% ${overUnder} target`}
+                      </Text>
+                    );
+                  })()}
                 </View>
               )}
 
@@ -2916,7 +2944,7 @@ function LifestyleTrendCard({
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     {[
                       { value: fmtVal(average), sub: `avg ${metric.unit}/day`, color: colors.textPrimary },
-                      { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: trendPct >= 0 ? '#27AE60' : '#E74C3C' },
+                      { value: `${trendSign}${trendPct.toFixed(0)}%`, sub: 'trend vs prior', color: (metric.inverseGoal ? trendPct <= 0 : trendPct >= 0) ? '#27AE60' : '#E74C3C' },
                       { value: `${bestStreak}d`, sub: 'best streak', color: colors.textPrimary },
                     ].map((chip, i) => (
                       <View key={i} style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: tc(0.06), alignItems: 'center' }}>
@@ -2933,7 +2961,9 @@ function LifestyleTrendCard({
                         ? `You're consistently hitting your ${metric.label.toLowerCase()} target. Keep it up!`
                         : hitRatePct >= 40
                         ? `You're hitting your ${metric.label.toLowerCase()} target ${hitRatePct}% of the time. Small improvements can add up.`
-                        : `Your ${metric.label.toLowerCase()} is below target most days. Focus here to maximize your GLP-1 results.`}
+                        : metric.inverseGoal
+                          ? `You've been over your ${metric.label.toLowerCase()} target most days. Try cutting back.`
+                          : `Your ${metric.label.toLowerCase()} is below target most days. Focus here to maximize your GLP-1 results.`}
                     </Text>
                   </View>
                 </View>
@@ -2956,9 +2986,26 @@ export default function InsightsScreen() {
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
   const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, deleteWeightLog, weeklyCheckins, fetchInsightsData } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, userGoals, deleteInjectionLog, deleteWeightLog, weeklyCheckins, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
   const { appleHealthEnabled } = usePreferencesStore();
+  const isPremiumUser = useSubscriptionStore(s => s.isPremium);
+  // Route Apple Health metric groups by domain so they render under
+  // Activity Metrics / Vitals / (Progress tab) Body Composition instead of
+  // a single grab-bag "Health Data" block.
+  const routedHealthGroups = useMemo(() => {
+    if (!appleHealthEnabled) return { activity: [], vitals: [], bodyComp: [] };
+    const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'glucose', 'bp', 'respRate', 'vo2max']);
+    const rawGroups = buildHealthMetrics(hkStore);
+    const filtered = isPremiumUser
+      ? rawGroups
+      : rawGroups.map(g => ({ ...g, metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)) })).filter(g => g.metrics.length > 0);
+    return {
+      activity: filtered.filter(g => g.category === 'Activity' || g.category === 'Workouts'),
+      vitals:   filtered.filter(g => g.category === 'Vitals' || g.category === 'Mindfulness' || g.category === 'Glucose (24h)'),
+      bodyComp: filtered.filter(g => g.category === 'Body Composition'),
+    };
+  }, [appleHealthEnabled, hkStore, isPremiumUser]);
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
   const onTreatment = isOnTreatment(fullProfile);
@@ -3020,6 +3067,11 @@ export default function InsightsScreen() {
   const loggedCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
   const loggedFatG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fat_g, 0));
   const loggedCalories = Math.round(todayFoodLogs.reduce((s, f) => s + f.calories, 0));
+  // Premier nutrition metrics (only populated when food was logged via FatSecret with Premier flags)
+  const todaySodiumMg       = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sodium_mg ?? 0), 0));
+  const todaySugarG         = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sugar_g ?? 0), 0));
+  const todaySaturatedFatG  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.saturated_fat_g ?? 0), 0));
+  const todayCholesterolMg  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.cholesterol_mg ?? 0), 0));
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
   const todayProteinG = (loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0)) + qa.proteinG;
@@ -3034,16 +3086,23 @@ export default function InsightsScreen() {
   const resolvedWaterMl = actuals.waterMl > 0 ? actuals.waterMl : hkWaterMl;
 
   // ── Historical aggregations ────────────────────────────────────────────────
-  const foodByDate = useMemo(() => {
-    const map: Record<string, { protein: number; carbs: number; fat: number; calories: number; fiber: number }> = {};
+  const foodByDate: FoodByDate = useMemo(() => {
+    const map: FoodByDate = {};
     foodLogs.forEach(log => {
       const date = localDateStr(new Date(log.logged_at));
-      if (!map[date]) map[date] = { protein: 0, carbs: 0, fat: 0, calories: 0, fiber: 0 };
-      map[date].protein  += log.protein_g;
-      map[date].carbs    += log.carbs_g;
-      map[date].fat      += log.fat_g;
-      map[date].calories += log.calories;
-      map[date].fiber    += log.fiber_g;
+      if (!map[date]) map[date] = {
+        protein: 0, carbs: 0, fat: 0, calories: 0, fiber: 0,
+        sodium_mg: 0, sugar_g: 0, saturated_fat_g: 0, cholesterol_mg: 0,
+      };
+      map[date].protein         += log.protein_g;
+      map[date].carbs           += log.carbs_g;
+      map[date].fat             += log.fat_g;
+      map[date].calories        += log.calories;
+      map[date].fiber           += log.fiber_g;
+      map[date].sodium_mg       += log.sodium_mg ?? 0;
+      map[date].sugar_g         += log.sugar_g ?? 0;
+      map[date].saturated_fat_g += log.saturated_fat_g ?? 0;
+      map[date].cholesterol_mg  += log.cholesterol_mg ?? 0;
     });
     return map;
   }, [foodLogs]);
@@ -3066,6 +3125,20 @@ export default function InsightsScreen() {
   const carbsPct = targets.carbsG > 0 ? Math.round((todayCarbsG / targets.carbsG) * 100) : 0;
   const fatPct = targets.fatG > 0 ? Math.round((todayFatG / targets.fatG) * 100) : 0;
   const caloriesPct = targets.caloriesTarget > 0 ? Math.round((todayCalories / targets.caloriesTarget) * 100) : 0;
+
+  // Premier nutrition target ceilings (read from user_goals; sensible defaults when null)
+  const sodiumTargetMg = userGoals?.daily_sodium_mg_target ?? DEFAULT_SODIUM_MG;
+  const sugarTargetG = userGoals?.daily_sugar_g_target ?? DEFAULT_SUGAR_G;
+  const satFatTargetG = userGoals?.daily_saturated_fat_g_target ?? DEFAULT_SAT_FAT_G;
+  const cholesterolTargetMg = userGoals?.daily_cholesterol_mg_target ?? DEFAULT_CHOLESTEROL_MG;
+  const sodiumPct = sodiumTargetMg > 0 ? Math.round((todaySodiumMg / sodiumTargetMg) * 100) : 0;
+  const sugarPct = sugarTargetG > 0 ? Math.round((todaySugarG / sugarTargetG) * 100) : 0;
+  const satFatPct = satFatTargetG > 0 ? Math.round((todaySaturatedFatG / satFatTargetG) * 100) : 0;
+  const cholesterolPct = cholesterolTargetMg > 0 ? Math.round((todayCholesterolMg / cholesterolTargetMg) * 100) : 0;
+  // Inverse-goal status: green when under 80%, neutral 80-100%, red over 100%
+  const inverseStatus = (pct: number): 'positive' | 'neutral' | 'negative' =>
+    pct <= 80 ? 'positive' : pct <= 100 ? 'neutral' : 'negative';
+  const inversePct = (pct: number) => Math.min(pct / 100, 1);
 
   // ── Lifestyle logs (past 7 days) ────────────────────────────────────────────
   const sevenDaysAgo = localDateStr(new Date(Date.now() - 7 * 86400000));
@@ -3338,7 +3411,7 @@ export default function InsightsScreen() {
             <>
               {/* <AIInsightsCard /> */}
 
-              <Text style={s.sectionTitle}>Nutrition Trends</Text>
+              <Text style={s.sectionTitle}>Nutrition Facts</Text>
               {/* ── Lifestyle Trend Card ── */}
               <LifestyleTrendCard
                 foodByDate={foodByDate}
@@ -3348,7 +3421,10 @@ export default function InsightsScreen() {
                 profile={profile}
               />
 
-              <Text style={s.sectionTitle}>Daily Metrics</Text>
+              {/* ── Patterns: side-effect ↔ nutrition correlation ── */}
+              <PatternsCard />
+
+              <Text style={s.sectionTitle}>Nutrition Metrics</Text>
               <View style={s.dailyGrid}>
                 <DailyMetricCard
                   icon={<IconSymbol name="fork.knife" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
@@ -3410,6 +3486,43 @@ export default function InsightsScreen() {
                   onIncrement={() => adjustMetric('calories', 1)}
                   onDecrement={() => adjustMetric('calories', -1)}
                 />
+                {/* Premier nutrition metrics — sodium / sugar / sat fat / cholesterol.
+                    Inverse goal: target is a ceiling, status = positive when under. */}
+                <DailyMetricCard
+                  icon={<IconSymbol name="circle.fill" size={20} color="#FF6B6B" />}
+                  label="Sodium" value={`${todaySodiumMg}/${sodiumTargetMg}mg`}
+                  change={`${sodiumPct}%`}
+                  status={inverseStatus(sodiumPct)}
+                  pct={inversePct(sodiumPct)}
+                />
+                <DailyMetricCard
+                  icon={<IconSymbol name="circle.fill" size={20} color="#E879F9" />}
+                  label="Sugar" value={`${todaySugarG}/${sugarTargetG}g`}
+                  change={`${sugarPct}%`}
+                  status={inverseStatus(sugarPct)}
+                  pct={inversePct(sugarPct)}
+                />
+                <DailyMetricCard
+                  icon={<IconSymbol name="circle.fill" size={20} color="#F59E0B" />}
+                  label="Sat Fat" value={`${todaySaturatedFatG}/${satFatTargetG}g`}
+                  change={`${satFatPct}%`}
+                  status={inverseStatus(satFatPct)}
+                  pct={inversePct(satFatPct)}
+                />
+                <DailyMetricCard
+                  icon={<IconSymbol name="circle.fill" size={20} color="#A78BFA" />}
+                  label="Cholesterol" value={`${todayCholesterolMg}/${cholesterolTargetMg}mg`}
+                  change={`${cholesterolPct}%`}
+                  status={inverseStatus(cholesterolPct)}
+                  pct={inversePct(cholesterolPct)}
+                />
+              </View>
+
+              {/* ── Top Contributors row → full page ── */}
+              <TopContributorsRow />
+
+              <Text style={[s.sectionTitle, { marginTop: 24 }]}>Activity Metrics</Text>
+              <View style={s.dailyGrid}>
                 <ActivityDailyCard
                   value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
                   label="Calories Burned"
@@ -3436,43 +3549,53 @@ export default function InsightsScreen() {
                 />
               </View>
 
-              {/* ── Health Data ── */}
-              <Text style={[s.sectionTitle, { marginTop: 8 }]}>Health Data</Text>
+              {/* ── Activity HK groups (Activity, Workouts) appended to Activity Metrics ── */}
+              {appleHealthEnabled && routedHealthGroups.activity.map((group) => (
+                <View key={group.category} style={{ marginTop: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
+                      {group.category}
+                    </Text>
+                  </View>
+                  <View style={s.hmGrid}>
+                    {(() => {
+                      const isOdd = group.metrics.length % 2 !== 0;
+                      return group.metrics.map((m, i) => (
+                        <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
+                      ));
+                    })()}
+                  </View>
+                </View>
+              ))}
+
+              {/* ── Vitals (HRV / sleep / glucose / mindfulness) ── */}
+              <Text style={[s.sectionTitle, { marginTop: 24 }]}>Vitals</Text>
               {!appleHealthEnabled ? (
                 <HealthDataConnectPrompt />
+              ) : routedHealthGroups.vitals.length === 0 ? (
+                <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', fontFamily: 'System', paddingVertical: 8 }}>
+                  No vitals data yet. Apple Health will populate this as it collects readings.
+                </Text>
               ) : (
-                (() => {
-                  const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'glucose', 'bp', 'respRate', 'vo2max']);
-                  const rawGroups = buildHealthMetrics(hkStore);
-                  const isPremiumUser = useSubscriptionStore.getState().isPremium;
-                  const healthGroups = isPremiumUser
-                    ? rawGroups
-                    : rawGroups.map(g => ({
-                        ...g,
-                        metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)),
-                      })).filter(g => g.metrics.length > 0);
-                  if (healthGroups.length === 0) return (
-                    <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.4)', fontFamily: 'System', paddingVertical: 8 }}>
-                      No health data available yet. Data will appear here as Apple Health collects it.
-                    </Text>
-                  );
-                  return healthGroups.map((group) => (
-                    <View key={group.category} style={{ marginBottom: 16 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>{group.category}</Text>
-                      </View>
-                      <View style={s.hmGrid}>
-                        {(() => {
-                          const isOdd = group.metrics.length % 2 !== 0;
-                          return group.metrics.map((m, i) => (
-                            <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
-                          ));
-                        })()}
-                      </View>
+                routedHealthGroups.vitals.map((group) => (
+                  <View key={group.category} style={{ marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
+                        {group.category}
+                      </Text>
                     </View>
-                  ));
-                })()
+                    <View style={s.hmGrid}>
+                      {(() => {
+                        const isOdd = group.metrics.length % 2 !== 0;
+                        return group.metrics.map((m, i) => (
+                          <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
+                        ));
+                      })()}
+                    </View>
+                  </View>
+                ))
               )}
               <RecentLogsCard entries={lifestyleLogs} grouped onViewAll={() => router.push('/log-history')} />
             </>
@@ -3608,6 +3731,26 @@ export default function InsightsScreen() {
                   )}
                 </View>
               )}
+
+              {/* Apple Health Body Composition group (moved here from Lifestyle tab) */}
+              {appleHealthEnabled && routedHealthGroups.bodyComp.map((group) => (
+                <View key={group.category} style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
+                      {group.category}
+                    </Text>
+                  </View>
+                  <View style={s.hmGrid}>
+                    {(() => {
+                      const isOdd = group.metrics.length % 2 !== 0;
+                      return group.metrics.map((m, i) => (
+                        <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
+                      ));
+                    })()}
+                  </View>
+                </View>
+              ))}
 
               {/* Body composition card or prompt */}
               {fatToLeanResult ? (

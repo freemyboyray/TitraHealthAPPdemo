@@ -21,6 +21,7 @@ const PREMIUM_FEATURES = new Set([
   'metabolic_adaptation',
   'clinical_benchmark',
   'progress_photo_compare',
+  'patterns',
 ]);
 
 /** Features that are metered (usage-limited for free users) */

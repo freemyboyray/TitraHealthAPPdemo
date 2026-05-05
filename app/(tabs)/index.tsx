@@ -1282,8 +1282,8 @@ export default function HomeScreen() {
     ? daysOnTreatment >= 14 ? `${Math.floor(daysOnTreatment / 7)}` : `${daysOnTreatment}`
     : null;
   const treatmentDisplayLbl = daysOnTreatment != null && daysOnTreatment >= 14
-    ? 'weeks on\ntreatment'
-    : 'days on\ntreatment';
+    ? 'weeks on\nmedication'
+    : 'days on\nmedication';
 
   // Latest weight: use profile.currentWeightLbs (synced on every weigh-in)
   // as primary source — it's always the most recent actual weight logged.

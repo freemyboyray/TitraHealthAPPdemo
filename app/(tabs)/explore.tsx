@@ -28,6 +28,7 @@ import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseCard } from '@/components/courses/course-card';
 import { PremiumGate } from '@/components/ui/premium-gate';
+import { RecipesCard } from '@/components/recipes-card';
 
 type ArticleRow = {
   id: string;
@@ -958,6 +959,9 @@ export default function EducationScreen() {
 
           {/* ── Side Effect Decoder ── */}
           <SideEffectDecoder />
+
+          {/* ── Recipes for You ── */}
+          <RecipesCard />
 
           <Text style={s.disclaimer}>
             This content is for informational purposes only and does not constitute medical advice. Always consult your healthcare provider before making any changes to your treatment plan.

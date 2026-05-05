@@ -409,6 +409,7 @@ export type Database = {
           carbs_g: number
           cholesterol_mg: number | null
           fat_g: number
+          fatsecret_category_name: string | null
           fatsecret_food_id: number | null
           fiber_g: number
           food_name: string
@@ -432,6 +433,7 @@ export type Database = {
           carbs_g?: number
           cholesterol_mg?: number | null
           fat_g?: number
+          fatsecret_category_name?: string | null
           fatsecret_food_id?: number | null
           fiber_g?: number
           food_name: string
@@ -455,6 +457,7 @@ export type Database = {
           carbs_g?: number
           cholesterol_mg?: number | null
           fat_g?: number
+          fatsecret_category_name?: string | null
           fatsecret_food_id?: number | null
           fiber_g?: number
           food_name?: string
@@ -1311,9 +1314,13 @@ export type Database = {
         Row: {
           active_calories_target: number
           daily_calories_target: number
+          daily_cholesterol_mg_target: number | null
           daily_fiber_g_target: number
           daily_protein_g_target: number
+          daily_saturated_fat_g_target: number | null
+          daily_sodium_mg_target: number | null
           daily_steps_target: number
+          daily_sugar_g_target: number | null
           id: string
           updated_at: string
           user_id: string
@@ -1321,9 +1328,13 @@ export type Database = {
         Insert: {
           active_calories_target?: number
           daily_calories_target?: number
+          daily_cholesterol_mg_target?: number | null
           daily_fiber_g_target?: number
           daily_protein_g_target?: number
+          daily_saturated_fat_g_target?: number | null
+          daily_sodium_mg_target?: number | null
           daily_steps_target?: number
+          daily_sugar_g_target?: number | null
           id?: string
           updated_at?: string
           user_id: string
@@ -1331,9 +1342,13 @@ export type Database = {
         Update: {
           active_calories_target?: number
           daily_calories_target?: number
+          daily_cholesterol_mg_target?: number | null
           daily_fiber_g_target?: number
           daily_protein_g_target?: number
+          daily_saturated_fat_g_target?: number | null
+          daily_sodium_mg_target?: number | null
           daily_steps_target?: number
+          daily_sugar_g_target?: number | null
           id?: string
           updated_at?: string
           user_id?: string

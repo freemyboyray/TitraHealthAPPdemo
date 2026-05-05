@@ -51,6 +51,16 @@ type OFFProduct = {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  // Premier extras (only set when populated via FatSecret fallback, not OFF itself)
+  saturated_fat_g?: number;
+  sugar_g?: number;
+  sodium_mg?: number;
+  cholesterol_mg?: number;
+  image_url?: string;
+  allergens?: Record<string, number>;
+  preferences?: Record<string, number>;
+  fatsecret_food_id?: number;
+  fatsecret_category_name?: string;
 };
 
 type DescribeItem = {
@@ -76,6 +86,17 @@ type PendingFood = {
   fiber_per_100g: number;
   source: 'search_db' | 'manual' | 'barcode';
   serving_options?: ServingOption[];
+  // Premier extras (per-100g for the macros, raw for everything else). Only
+  // populated when the source carries FatSecret Premier data.
+  saturated_fat_per_100g?: number;
+  sugar_per_100g?: number;
+  sodium_per_100g?: number;
+  cholesterol_per_100g?: number;
+  image_url?: string;
+  allergens?: Record<string, number>;
+  preferences?: Record<string, number>;
+  fatsecret_food_id?: number;
+  fatsecret_category_name?: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -354,6 +375,15 @@ export default function LogFoodScreen() {
       fiber_per_100g: item.fiber_g,
       source: 'search_db',
       serving_options: item.serving_options,
+      saturated_fat_per_100g: item.saturated_fat_g,
+      sugar_per_100g: item.sugar_g,
+      sodium_per_100g: item.sodium_mg,
+      cholesterol_per_100g: item.cholesterol_mg,
+      image_url: item.image_url,
+      allergens: item.allergens,
+      preferences: item.preferences,
+      fatsecret_food_id: Number.isFinite(item.fdcId) && item.fdcId > 0 ? item.fdcId : undefined,
+      fatsecret_category_name: item.category_name,
     });
     setSelectedServingIdx(0);
     setServingG(String(Math.round(item.serving_options?.[0]?.grams ?? 100)));
@@ -372,6 +402,15 @@ export default function LogFoodScreen() {
         fat_per_100g: detail.fat_g,
         fiber_per_100g: detail.fiber_g,
         serving_options: detail.serving_options,
+        // Detail fetch typically has the richest Premier data — overwrite.
+        saturated_fat_per_100g: detail.saturated_fat_g ?? prev.saturated_fat_per_100g,
+        sugar_per_100g: detail.sugar_g ?? prev.sugar_per_100g,
+        sodium_per_100g: detail.sodium_mg ?? prev.sodium_per_100g,
+        cholesterol_per_100g: detail.cholesterol_mg ?? prev.cholesterol_per_100g,
+        image_url: detail.image_url ?? prev.image_url,
+        allergens: detail.allergens ?? prev.allergens,
+        preferences: detail.preferences ?? prev.preferences,
+        fatsecret_category_name: detail.category_name ?? prev.fatsecret_category_name,
       } : prev);
       const firstG = detail.serving_options?.[0]?.grams ?? 100;
       setServingG(String(Math.round(firstG)));
@@ -414,16 +453,28 @@ export default function LogFoodScreen() {
   function handleAddPendingToTray() {
     if (!pendingFood) return;
     const g = parseFloat(servingG) || 100;
+    const scale = g / 100;
+    const scaled1 = (v: number | undefined) => v == null ? undefined : parseFloat((v * scale).toFixed(1));
+    const scaledInt = (v: number | undefined) => v == null ? undefined : Math.round(v * scale);
     addToTray({
       food_name: pendingFood.food_name,
-      calories: Math.round(pendingFood.calories_per_100g * g / 100),
-      protein_g: parseFloat((pendingFood.protein_per_100g * g / 100).toFixed(1)),
-      carbs_g: parseFloat((pendingFood.carbs_per_100g * g / 100).toFixed(1)),
-      fat_g: parseFloat((pendingFood.fat_per_100g * g / 100).toFixed(1)),
-      fiber_g: parseFloat((pendingFood.fiber_per_100g * g / 100).toFixed(1)),
+      calories: Math.round(pendingFood.calories_per_100g * scale),
+      protein_g: parseFloat((pendingFood.protein_per_100g * scale).toFixed(1)),
+      carbs_g: parseFloat((pendingFood.carbs_per_100g * scale).toFixed(1)),
+      fat_g: parseFloat((pendingFood.fat_per_100g * scale).toFixed(1)),
+      fiber_g: parseFloat((pendingFood.fiber_per_100g * scale).toFixed(1)),
       serving_g: g,
       serving_description: pendingFood.serving_options?.[selectedServingIdx]?.label,
       source: pendingFood.source,
+      saturated_fat_g: scaled1(pendingFood.saturated_fat_per_100g),
+      sugar_g: scaled1(pendingFood.sugar_per_100g),
+      sodium_mg: scaledInt(pendingFood.sodium_per_100g),
+      cholesterol_mg: scaledInt(pendingFood.cholesterol_per_100g),
+      image_url: pendingFood.image_url,
+      allergens: pendingFood.allergens,
+      preferences: pendingFood.preferences,
+      fatsecret_food_id: pendingFood.fatsecret_food_id,
+      fatsecret_category_name: pendingFood.fatsecret_category_name,
     });
     setPendingFood(null);
     setShowNutritionInfo(false);
@@ -460,6 +511,15 @@ export default function LogFoodScreen() {
           carbs_g: fsResult.carbs_g,
           fat_g: fsResult.fat_g,
           fiber_g: fsResult.fiber_g,
+          saturated_fat_g: fsResult.saturated_fat_g,
+          sugar_g: fsResult.sugar_g,
+          sodium_mg: fsResult.sodium_mg,
+          cholesterol_mg: fsResult.cholesterol_mg,
+          image_url: fsResult.image_url,
+          allergens: fsResult.allergens,
+          preferences: fsResult.preferences,
+          fatsecret_food_id: Number.isFinite(fsResult.fdcId) && fsResult.fdcId > 0 ? fsResult.fdcId : undefined,
+          fatsecret_category_name: fsResult.category_name,
         });
         setScanServingG('100');
       } else {
@@ -481,15 +541,27 @@ export default function LogFoodScreen() {
   function handleAddScanProduct() {
     if (!scanProduct) return;
     const g = parseFloat(scanServingG) || 100;
+    const scale = g / 100;
+    const scaled1 = (v: number | undefined) => v == null ? undefined : parseFloat((v * scale).toFixed(1));
+    const scaledInt = (v: number | undefined) => v == null ? undefined : Math.round(v * scale);
     addToTray({
       food_name: scanProduct.name + (scanProduct.brand ? ` (${scanProduct.brand})` : ''),
-      calories: Math.round(scanProduct.calories * g / 100),
-      protein_g: parseFloat((scanProduct.protein_g * g / 100).toFixed(1)),
-      carbs_g: parseFloat((scanProduct.carbs_g * g / 100).toFixed(1)),
-      fat_g: parseFloat((scanProduct.fat_g * g / 100).toFixed(1)),
-      fiber_g: parseFloat((scanProduct.fiber_g * g / 100).toFixed(1)),
+      calories: Math.round(scanProduct.calories * scale),
+      protein_g: parseFloat((scanProduct.protein_g * scale).toFixed(1)),
+      carbs_g: parseFloat((scanProduct.carbs_g * scale).toFixed(1)),
+      fat_g: parseFloat((scanProduct.fat_g * scale).toFixed(1)),
+      fiber_g: parseFloat((scanProduct.fiber_g * scale).toFixed(1)),
       serving_g: g,
       source: 'barcode',
+      saturated_fat_g: scaled1(scanProduct.saturated_fat_g),
+      sugar_g: scaled1(scanProduct.sugar_g),
+      sodium_mg: scaledInt(scanProduct.sodium_mg),
+      cholesterol_mg: scaledInt(scanProduct.cholesterol_mg),
+      image_url: scanProduct.image_url,
+      allergens: scanProduct.allergens,
+      preferences: scanProduct.preferences,
+      fatsecret_food_id: scanProduct.fatsecret_food_id,
+      fatsecret_category_name: scanProduct.fatsecret_category_name,
     });
     handleScanAgain();
   }
@@ -599,16 +671,28 @@ export default function LogFoodScreen() {
       if (!food) continue;
       const q = parseFloat(item.qty) || 1;
       const g = q * item.unitGrams;
+      const scale = g / 100;
+      const scaled1 = (v: number | undefined) => v == null ? undefined : parseFloat((v * scale).toFixed(1));
+      const scaledInt = (v: number | undefined) => v == null ? undefined : Math.round(v * scale);
       addToTray({
         food_name: food.name + (food.brand ? ` (${food.brand})` : ''),
-        calories: Math.round(food.calories * g / 100),
-        protein_g: parseFloat((food.protein_g * g / 100).toFixed(1)),
-        carbs_g: parseFloat((food.carbs_g * g / 100).toFixed(1)),
-        fat_g: parseFloat((food.fat_g * g / 100).toFixed(1)),
-        fiber_g: parseFloat((food.fiber_g * g / 100).toFixed(1)),
+        calories: Math.round(food.calories * scale),
+        protein_g: parseFloat((food.protein_g * scale).toFixed(1)),
+        carbs_g: parseFloat((food.carbs_g * scale).toFixed(1)),
+        fat_g: parseFloat((food.fat_g * scale).toFixed(1)),
+        fiber_g: parseFloat((food.fiber_g * scale).toFixed(1)),
         serving_g: g,
         source: 'manual',
         serving_description: item.unitLabel !== 'g' ? `${item.qty} ${item.unitLabel}` : undefined,
+        saturated_fat_g: scaled1(food.saturated_fat_g),
+        sugar_g: scaled1(food.sugar_g),
+        sodium_mg: scaledInt(food.sodium_mg),
+        cholesterol_mg: scaledInt(food.cholesterol_mg),
+        image_url: food.image_url,
+        allergens: food.allergens,
+        preferences: food.preferences,
+        fatsecret_food_id: Number.isFinite(food.fdcId) && food.fdcId > 0 ? food.fdcId : undefined,
+        fatsecret_category_name: food.category_name,
       });
     }
     setDescribeItems(null);

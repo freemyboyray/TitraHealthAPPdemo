@@ -18,6 +18,18 @@ export type TrayItem = {
   serving_description?: string;
   barcode?: string;
   raw_ai_response?: object;
+  // Extended nutrition fields (scaled to logged serving). All optional.
+  saturated_fat_g?: number;
+  sugar_g?: number;
+  sodium_mg?: number;
+  cholesterol_mg?: number;
+  // FatSecret Premier enrichments. Allergen/preference flags are ternary
+  // (1 = contains/yes, 0 = does not contain/no, -1 = unknown).
+  image_url?: string;
+  allergens?: Record<string, number>;
+  preferences?: Record<string, number>;
+  fatsecret_food_id?: number;
+  fatsecret_category_name?: string;
 };
 
 export type SavedMealItem = {
@@ -166,6 +178,17 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
           source: item.source,
           barcode: item.barcode,
           raw_ai_response: item.raw_ai_response,
+          // Premier nutrition + metadata so Trends, Top Contributors, and
+          // Nutrition Metrics actually have data once a user logs through the tray.
+          saturated_fat_g: item.saturated_fat_g,
+          sugar_g: item.sugar_g,
+          sodium_mg: item.sodium_mg,
+          cholesterol_mg: item.cholesterol_mg,
+          image_url: item.image_url,
+          allergens: item.allergens,
+          preferences: item.preferences,
+          fatsecret_food_id: item.fatsecret_food_id,
+          fatsecret_category_name: item.fatsecret_category_name,
         });
         await upsertFoodPreference(item);
       }

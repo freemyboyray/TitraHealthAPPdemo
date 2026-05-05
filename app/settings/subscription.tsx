@@ -89,14 +89,24 @@ export default function SubscriptionScreen() {
     try {
       if (!storekit) return;
       if (products.length === 0) {
-        Alert.alert('Not Available', 'In-app purchases are not available right now.');
+        const d = storekit.getIAPDiagnostics?.() ?? { initialized: false, initError: null, fetchError: null };
+        const Constants = require('expo-constants').default;
+        const bundle = Constants?.expoConfig?.ios?.bundleIdentifier ?? Constants?.easConfig?.ios?.bundleIdentifier ?? 'unknown';
+        const detail = [
+          `init: ${d.initialized ? 'ok' : 'failed'}`,
+          d.initError ? `initErr: ${d.initError}` : null,
+          d.fetchError ? `fetchErr: ${d.fetchError}` : null,
+          `bundle: ${bundle}`,
+          `skus: ${storekit.PRODUCT_IDS.MONTHLY}, ${storekit.PRODUCT_IDS.ANNUAL}`,
+        ].filter(Boolean).join('\n');
+        Alert.alert('Not Available', `In-app purchases are not available right now.\n\n${detail}`);
         return;
       }
       if (selectedPlan === 'annual') await storekit.purchaseAnnual();
       else await storekit.purchaseMonthly();
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Purchase Failed', 'Something went wrong. Please try again.');
+        Alert.alert('Purchase Failed', err?.message ?? 'Something went wrong. Please try again.');
       }
     } finally {
       setPurchasing(false);
