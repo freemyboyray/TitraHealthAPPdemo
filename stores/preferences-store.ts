@@ -55,6 +55,15 @@ type PreferencesStore = {
   /** Whether to use the gradient header or solid orange. */
   useGradientHeader: boolean;
   setUseGradientHeader: (v: boolean) => void;
+  /** App store review prompt tracking */
+  hasReviewedApp: boolean;
+  reviewPromptLastShown: string | null;
+  reviewPromptDismissCount: number;
+  appOpenCount: number;
+  firstOpenDate: string | null;
+  markReviewed: () => void;
+  markReviewPromptShown: () => void;
+  incrementAppOpen: () => void;
   reset: () => void;
 };
 
@@ -108,7 +117,21 @@ export const usePreferencesStore = create<PreferencesStore>()(
       }),
       useGradientHeader: true,
       setUseGradientHeader: (v) => set({ useGradientHeader: v }),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true }),
+      hasReviewedApp: false,
+      reviewPromptLastShown: null,
+      reviewPromptDismissCount: 0,
+      appOpenCount: 0,
+      firstOpenDate: null,
+      markReviewed: () => set({ hasReviewedApp: true }),
+      markReviewPromptShown: () => set((s) => ({
+        reviewPromptLastShown: todayKey(),
+        reviewPromptDismissCount: s.reviewPromptDismissCount + 1,
+      })),
+      incrementAppOpen: () => set((s) => ({
+        appOpenCount: s.appOpenCount + 1,
+        firstOpenDate: s.firstOpenDate ?? todayKey(),
+      })),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

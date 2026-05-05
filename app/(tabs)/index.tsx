@@ -42,6 +42,7 @@ import { focusCategoryColor } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
 import { useBiometricStore } from '@/stores/biometric-store';
+import { WaterLogSheet } from '@/components/water-log-sheet';
 import { syncNotifications } from '@/stores/reminders-store';
 // ── Appetite forecast imports — commented out (section removed from home screen)
 // import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
@@ -961,6 +962,7 @@ export default function HomeScreen() {
   const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
   const [datesWithInjections, setDatesWithInjections] = useState<Set<string>>(new Set());
   const [missedShotVisible, setMissedShotVisible] = useState(false);
+  const [waterLogVisible, setWaterLogVisible] = useState(false);
   const missedShotShownRef = useRef(false);
 
   const streak = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
@@ -1661,17 +1663,32 @@ export default function HomeScreen() {
           <View style={s.focusCard}>
             <View style={s.focusCardInner}>
 
-              {/* Coaching cards - long-press any to open AI chat */}
+              {/* Coaching cards - tap to navigate, long-press to open AI chat */}
               {(displayFocuses ?? []).map((item, index) => {
                 const focusColor = focusCategoryColor(colors.isDark, item.id);
                 const isLast = index === (displayFocuses ?? []).length - 1;
-                const handleFocusPress = () => {
+                const handleFocusLongPress = () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   openAiChat({ type: 'focus', contextLabel: item.label, contextValue: item.subtitle, seedMessage: `I'm working on: ${item.label}. ${item.subtitle}. What's the most important thing I should know?`, chips: JSON.stringify(['What should I eat now?', 'Give me a specific plan', 'How close am I to my goal?', 'What has the biggest impact?']) });
                 };
+                const handleFocusTap = () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (item.id === 'hydration') {
+                    setWaterLogVisible(true);
+                    return;
+                  }
+                  const routes: Record<string, string> = {
+                    injection: '/entry/log-dose',
+                    protein: '/entry/log-food',
+                    fiber: '/entry/log-food',
+                    activity: '/entry/log-activity',
+                  };
+                  const route = routes[item.id];
+                  if (route) router.push(route as any);
+                };
                 return (
                   <React.Fragment key={item.id}>
-                    <Pressable style={s.focusRow} onLongPress={handleFocusPress} delayLongPress={400}>
+                    <Pressable style={s.focusRow} onPress={handleFocusTap} onLongPress={handleFocusLongPress} delayLongPress={400}>
                       {/* Icon */}
                       <View style={[s.focusIconWrap, { backgroundColor: focusColor + '1F' }, item.status === 'completed' && s.focusIconDone]}>
                         {item.iconSet === 'MaterialIcons'
@@ -1816,6 +1833,8 @@ export default function HomeScreen() {
           }}
           isOral={oral}
         />
+
+        <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
 
       </SafeAreaView>
       <ScrollTitle title="Home" scrollY={scrollY} />

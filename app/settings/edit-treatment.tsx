@@ -147,6 +147,7 @@ export default function EditTreatmentScreen() {
   const [confirmFirstDoseDate, setConfirmFirstDoseDate] = useState<Date>(new Date());
   const [confirmDoseTimeValue, setConfirmDoseTimeValue] = useState<Date>(doseTime);
   const [confirmSite, setConfirmSite] = useState<string | null>(null);
+  const [confirmCustomSite, setConfirmCustomSite] = useState('');
   const [confirmStartWeight, setConfirmStartWeight] = useState<string>(
     () => String(profile?.currentWeightLbs ?? profile?.weightLbs ?? ''),
   );
@@ -402,7 +403,7 @@ export default function EditTreatmentScreen() {
             doseMg as number,
             firstDoseStr,
             formattedDoseTime || undefined,
-            confirmSite ?? undefined,
+            (confirmSite === 'Other' ? confirmCustomSite.trim() : confirmSite) ?? undefined,
             undefined,
             brandDisplay,
           );
@@ -720,7 +721,42 @@ export default function EditTreatmentScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={[
+              ms.sitePill,
+              confirmSite === 'Other' && ms.sitePillActive,
+            ]}
+            onPress={() => setConfirmSite('Other')}
+            activeOpacity={0.7}
+          >
+            <Text style={[
+              ms.sitePillText,
+              confirmSite === 'Other' && ms.sitePillTextActive,
+            ]}>
+              Other
+            </Text>
+          </TouchableOpacity>
         </View>
+        {confirmSite === 'Other' && (
+          <TextInput
+            style={{
+              marginTop: 12,
+              height: 48,
+              borderWidth: 1.5,
+              borderColor: ORANGE,
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              fontSize: 16,
+              color: '#FFFFFF',
+              backgroundColor: 'rgba(255,255,255,0.05)',
+            }}
+            placeholder="Type injection site..."
+            placeholderTextColor="rgba(255,255,255,0.4)"
+            value={confirmCustomSite}
+            onChangeText={setConfirmCustomSite}
+            autoFocus
+          />
+        )}
       </>
     );
   }

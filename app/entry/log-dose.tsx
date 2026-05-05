@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
+import { usePostHog } from '@/lib/posthog';
 import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
@@ -118,6 +119,7 @@ export default function LogDoseScreen() {
   const { profile: fullProfile, updateProfile } = useProfile();
   const { dispatch } = useHealthData();
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // Medication & dose from ProfileContext (always in sync with latest settings)
@@ -137,6 +139,7 @@ export default function LogDoseScreen() {
   const isFirstInjection = !lastInjectionSite;
 
   const [site, setSite] = useState(recommendedSite ?? 'Left Abdomen');
+  const [customSite, setCustomSite] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null); // oral sema fasting window
@@ -174,7 +177,7 @@ export default function LogDoseScreen() {
       doseMg,
       date,
       undefined,
-      isOral ? undefined : site,
+      isOral ? undefined : (site === 'Other' ? customSite.trim() : site),
       combinedNotes || undefined,
       medication,
       isOral ? undefined : (batchNumber.trim() || undefined),
@@ -185,6 +188,7 @@ export default function LogDoseScreen() {
     }
     // Immediately mark injection as logged in the health data context so
     // daily focuses update without waiting for a full data refresh.
+    posthog?.capture('dose_logged', { route: isOral ? 'oral' : 'injection' });
     dispatch({ type: 'LOG_INJECTION' });
     // Keep ProfileContext in sync so cycle-intelligence reads the correct date immediately
     await updateProfile({ lastInjectionDate: date });
@@ -296,7 +300,44 @@ export default function LogDoseScreen() {
                   </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite('Other'); }}
+                activeOpacity={0.75}
+                style={[
+                  siteStyles.siteBtn,
+                  site === 'Other' ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    siteStyles.siteBtnText,
+                    site === 'Other' ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive,
+                  ]}
+                >
+                  Other
+                </Text>
+              </TouchableOpacity>
             </View>
+            {site === 'Other' && (
+              <TextInput
+                style={{
+                  marginTop: 12,
+                  height: 48,
+                  borderWidth: 1.5,
+                  borderColor: ORANGE,
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  fontSize: 16,
+                  color: colors.textPrimary,
+                  backgroundColor: colors.cardBg,
+                }}
+                placeholder="Type injection site..."
+                placeholderTextColor={colors.textMuted}
+                value={customSite}
+                onChangeText={setCustomSite}
+                autoFocus
+              />
+            )}
           </GlassCard>
         )}
 

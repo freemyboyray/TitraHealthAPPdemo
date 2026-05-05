@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePostHog } from '@/lib/posthog';
 import { useLogStore, type BodyCompositionInput } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useUiStore } from '../../stores/ui-store';
@@ -233,6 +234,7 @@ export default function LogWeightScreen() {
   const { loading, addWeightLog } = useLogStore();
   const hkStore = useHealthKitStore();
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const { profile, updateProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -345,6 +347,7 @@ export default function LogWeightScreen() {
       source: hkBodyCompUsed ? 'healthkit' : 'manual',
     } : undefined;
     await addWeightLog(weightLbs, bodyComp);
+    posthog?.capture('weight_logged', { has_body_comp: hasBodyComp, source: hkBodyCompUsed ? 'healthkit' : 'manual' });
     const synced = await hkStore.writeWeight(weightLbs);
     if (synced) useUiStore.getState().showHealthSyncToast('Weight saved to Apple Health');
     await updateProfile({ weightLbs, currentWeightLbs: weightLbs });

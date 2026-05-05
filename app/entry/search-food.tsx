@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchUSDA, autocompleteFatSecret, type FoodResult } from '../../lib/usda';
 import { useLogStore, MealType } from '../../stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export default function SearchFoodScreen() {
   const insets = useSafeAreaInsets();
   const { loading, addFoodLog } = useLogStore();
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [query, setQuery] = useState('');
@@ -131,6 +133,7 @@ export default function SearchFoodScreen() {
       meal_type: mealType,
       source: 'search_db',
     });
+    posthog?.capture('food_logged', { meal_type: mealType, source: 'search_db' });
     setSelected(null);
     router.back();
   }

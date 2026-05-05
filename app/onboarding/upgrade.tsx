@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 // Guard IAP for Expo Go
@@ -37,6 +38,7 @@ export default function UpgradeScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const refreshPremiumStatus = useSubscriptionStore((st) => st.refreshPremiumStatus);
 
+  const posthog = usePostHog();
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [purchasing, setPurchasing] = useState(false);
   const [monthlyPrice, setMonthlyPrice] = useState('$4.99/mo');
@@ -53,6 +55,7 @@ export default function UpgradeScreen() {
   }, []);
 
   const handlePurchase = async () => {
+    posthog?.capture('purchase_tapped', { plan: selectedPlan, source: 'onboarding' });
     if (!storekit) {
       router.replace('/daily-streak');
       return;
@@ -65,12 +68,14 @@ export default function UpgradeScreen() {
         await storekit.purchaseMonthly();
       }
       await refreshPremiumStatus();
+      posthog?.capture('purchase_completed', { plan: selectedPlan, source: 'onboarding' });
     } catch {}
     setPurchasing(false);
     router.replace('/daily-streak');
   };
 
   const handleSkip = () => {
+    posthog?.capture('upgrade_skipped', { source: 'onboarding' });
     router.replace('/daily-streak');
   };
 

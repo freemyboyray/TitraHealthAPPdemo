@@ -20,23 +20,23 @@ const INJECTABLE_FREQUENCIES = [
 type Props = {
   isOral: boolean;
   isDaily: boolean;
-  wasOffTreatment: boolean;
+  wasOffTreatment?: boolean;
   freq: number | 'custom';
   customFreq: string;
   doseTime: Date;
-  lastInjDate: Date;
-  doseStartDate: Date;
+  lastInjDate?: Date;
+  doseStartDate?: Date;
   onFreqChange: (freq: number | 'custom') => void;
   onCustomFreqChange: (value: string) => void;
   onDoseTimeChange: (date: Date) => void;
-  onLastInjDateChange: (date: Date) => void;
-  onDoseStartDateChange: (date: Date) => void;
+  onLastInjDateChange?: (date: Date) => void;
+  onDoseStartDateChange?: (date: Date) => void;
 };
 
 export function ScheduleSelector({
-  isOral, isDaily, wasOffTreatment,
-  freq, customFreq, doseTime, lastInjDate, doseStartDate,
-  onFreqChange, onCustomFreqChange, onDoseTimeChange, onLastInjDateChange, onDoseStartDateChange,
+  isOral, isDaily,
+  freq, customFreq, doseTime,
+  onFreqChange, onCustomFreqChange, onDoseTimeChange,
 }: Props) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -117,40 +117,7 @@ export function ScheduleSelector({
         </View>
       )}
 
-      {/* Last dose + dose start — only for on-treatment users */}
-      {!wasOffTreatment && (
-        <>
-          <View style={{ marginTop: 24 }}>
-            <Text style={s.sectionTitle}>
-              {isOral ? 'When did you last take your pill?' : 'When was your last injection?'}
-            </Text>
-            <View style={s.datePickerWrap}>
-              <DateTimePicker
-                value={lastInjDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                maximumDate={new Date()}
-                onChange={(_, date) => { if (date) onLastInjDateChange(date); }}
-                style={s.datePicker}
-              />
-            </View>
-          </View>
-
-          <View style={{ marginTop: 24 }}>
-            <Text style={s.sectionTitle}>When did you start this dose?</Text>
-            <View style={s.datePickerWrap}>
-              <DateTimePicker
-                value={doseStartDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                maximumDate={new Date()}
-                onChange={(_, date) => { if (date) onDoseStartDateChange(date); }}
-                style={s.datePicker}
-              />
-            </View>
-          </View>
-        </>
-      )}
+      {/* Last dose + dose start removed — confirmation modal handles these */}
     </View>
   );
 }

@@ -246,27 +246,36 @@ export default function MedicationDetailScreen() {
     }, [fetchMedications]),
   );
 
-  // Sync: if the profile's active medication isn't in the library, add it
+  // Sync: if the profile's active medication isn't in the library, add it.
+  // Queries the DB directly to avoid stale-state race with fetchMedications.
   useFocusEffect(
     useCallback(() => {
       if (!profile || loading) return;
       if (profile.treatmentStatus !== 'on' || !profile.medicationBrand) return;
       (async () => {
-        // Check if the current active profile medication already exists in library
-        const alreadyExists = medications.some(
-          m => m.medication_brand === profile.medicationBrand
-            && m.dose_mg === profile.doseMg
-            && m.glp1_type === profile.glp1Type,
-        );
-        if (alreadyExists) return;
-
         const { data: userData } = await supabase.auth.getUser();
         if (!userData?.user) return;
 
-        // Deactivate all existing entries
-        if (medications.length > 0) {
-          await supabase.from('user_medications').update({ is_active: false }).eq('user_id', userData.user.id);
+        // Check the DB for an existing matching medication (not local state, which can be stale)
+        const { data: existing } = await supabase
+          .from('user_medications')
+          .select('id')
+          .eq('user_id', userData.user.id)
+          .eq('medication_brand', profile.medicationBrand)
+          .eq('dose_mg', profile.doseMg)
+          .eq('glp1_type', profile.glp1Type)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          // Already exists — just make sure it's the active one
+          await supabase.from('user_medications').update({ is_active: false }).eq('user_id', userData.user.id).neq('id', existing[0].id);
+          await supabase.from('user_medications').update({ is_active: true }).eq('id', existing[0].id);
+          await fetchMedications();
+          return;
         }
+
+        // Deactivate all existing entries
+        await supabase.from('user_medications').update({ is_active: false }).eq('user_id', userData.user.id);
 
         // Insert the new active medication
         await supabase.from('user_medications').insert({

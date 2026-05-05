@@ -23,6 +23,7 @@ import { computeScore } from '../../stores/insights-store';
 import { useLogStore } from '../../stores/log-store';
 import { useUserStore } from '../../stores/user-store';
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export default function AskAIScreen() {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList>(null);
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   // Store data for context
@@ -162,6 +164,7 @@ export default function AskAIScreen() {
 
     setMessages((prev) => [...prev, userMsg]);
     setTyping(true);
+    posthog?.capture('ai_chat_message_sent');
 
     if (userId) {
       supabase.from('chat_messages').insert({ user_id: userId, role: 'user', content: text }).then(() => {});

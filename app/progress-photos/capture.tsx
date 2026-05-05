@@ -10,6 +10,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
+import { usePostHog } from '@/lib/posthog';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ export default function CaptureProgressPhotoScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { profile } = useProfile();
+  const posthog = usePostHog();
 
   const [phase, setPhase] = useState<Phase>('camera');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export default function CaptureProgressPhotoScreen() {
         milestone: milestone ? parseInt(milestone, 10) : undefined,
         isStarting: isStarting === 'true',
       });
+      posthog?.capture('progress_photo_saved', { is_starting: isStarting === 'true' });
       router.back();
     } catch {
       setSaving(false);

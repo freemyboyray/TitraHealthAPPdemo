@@ -5,6 +5,7 @@ import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-na
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
@@ -22,6 +23,7 @@ export default function BuildingPlanScreen() {
   const { completeOnboarding } = useProfile();
   const { initStreak } = usePreferencesStore();
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -54,6 +56,7 @@ export default function BuildingPlanScreen() {
           try {
             await completeOnboarding();
             initStreak();
+            posthog?.capture('onboarding_completed');
           } catch (e) {
             // Continue to home even if save fails — data is in draft
           }

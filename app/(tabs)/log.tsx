@@ -2997,7 +2997,11 @@ export default function InsightsScreen() {
       AsyncStorage.setItem(qaKey, JSON.stringify(next));
       return next;
     });
-  }, [qaKey]);
+    // Sync to health context so daily focuses update in real time
+    if (field === 'proteinG') health.dispatch({ type: 'LOG_PROTEIN', grams: delta });
+    else if (field === 'fiberG') health.dispatch({ type: 'FETCH_ACTUALS', actuals: { ...health.actuals, fiberG: health.actuals.fiberG + delta } });
+    else if (field === 'steps') health.dispatch({ type: 'LOG_STEPS', steps: delta });
+  }, [qaKey, health]);
 
   const [nutrientSheet, setNutrientSheet] = useState<NutrientKey | null>(null);
 

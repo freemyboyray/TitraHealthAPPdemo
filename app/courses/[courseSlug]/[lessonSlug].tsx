@@ -9,6 +9,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { LessonContentRenderer } from '@/components/courses/lesson-content-renderer';
+import { usePostHog } from '@/lib/posthog';
 
 const FF = 'System';
 const ORANGE = '#FF742A';
@@ -16,6 +17,7 @@ const ORANGE = '#FF742A';
 export default function LessonScreen() {
   const { courseSlug, lessonSlug } = useLocalSearchParams<{ courseSlug: string; lessonSlug: string }>();
   const { colors } = useAppTheme();
+  const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const courses = useCoursesStore((s) => s.courses);
@@ -43,6 +45,7 @@ export default function LessonScreen() {
     if (!course || !lesson || isCompleted) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await completeLesson(lesson.id, course.id);
+    posthog?.capture('lesson_completed', { course_slug: courseSlug, lesson_slug: lessonSlug });
   };
 
   const handleNext = () => {

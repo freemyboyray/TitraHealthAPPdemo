@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +46,7 @@ export default function SubscriptionScreen() {
   const trialEndsAt = useSubscriptionStore((st) => st.trialEndsAt);
   const refreshPremiumStatus = useSubscriptionStore((st) => st.refreshPremiumStatus);
   const setPremium = useSubscriptionStore((st) => st.setPremium);
+  const posthog = usePostHog();
 
   const [products, setProducts] = useState<ProductSubscription[]>([]);
   const [purchasing, setPurchasing] = useState(false);
@@ -82,6 +84,7 @@ export default function SubscriptionScreen() {
   })();
 
   const handlePurchase = async () => {
+    posthog?.capture('purchase_tapped', { plan: selectedPlan, source: 'settings' });
     setPurchasing(true);
     try {
       if (!storekit) return;

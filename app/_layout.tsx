@@ -3,12 +3,13 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 let Notifications: typeof import('expo-notifications') | undefined;
 try { Notifications = require('expo-notifications'); } catch {}
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PostHogProvider, usePostHog, posthogConfig } from '@/lib/posthog';
 
 import { MOCK_PROFILE } from '@/constants/mock-profile';
 import { cancelAllReminders } from '@/lib/notifications';
@@ -19,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 // react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
@@ -26,7 +28,9 @@ import { AiChatOverlay } from '@/components/ai-chat-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
+import { ReviewPrompt } from '@/components/review-prompt';
 import { useAchievementDetector } from '@/hooks/useAchievementDetector';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -55,6 +59,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { resetProfile, reloadProfile } = useProfile();
   const loadSubscription = useSubscriptionStore((s) => s.loadSubscription);
   const router = useRouter();
+  const posthog = usePostHog();
+
+  // Track app opens for review prompt eligibility (once per session)
+  useEffect(() => {
+    usePreferencesStore.getState().incrementAppOpen();
+  }, []);
 
   // Initialize IAP connection on mount (no-op in Expo Go — native module unavailable)
   useEffect(() => {
@@ -70,10 +80,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         loadProfile();
         reloadProfile();
         loadSubscription();
+        // Identify user for analytics — no PHI, only account-level metadata
+        if (posthog && session.user) {
+          posthog.identify(session.user.id, {
+            ...(session.user.email && { email: session.user.email }),
+          });
+        }
       } else if (_event === 'SIGNED_OUT') {
         cancelAllReminders().catch(() => {});
         AsyncStorage.clear().catch(() => {});
         resetProfile();
+        posthog?.reset();
         router.replace('/auth/sign-in');
       }
     });
@@ -106,6 +123,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             loadProfile();
             reloadProfile();
             loadSubscription();
+            if (posthog && user) {
+              posthog.identify(user.id, {
+                ...(user.email && { email: user.email }),
+              });
+            }
           }
         }
         setSessionLoaded(true);
@@ -156,6 +178,30 @@ function MilestoneLayer() {
   );
 }
 
+function ReviewPromptLayer() {
+  const { pendingEvent } = useAchievementDetector();
+  const { shouldShowReview, onReview, onDismiss } = useReviewPrompt();
+
+  // Don't show review prompt while a milestone modal is active
+  if (pendingEvent) return null;
+  if (!shouldShowReview) return null;
+
+  return <ReviewPrompt onReview={onReview} onDismiss={onDismiss} />;
+}
+
+function ScreenTracker() {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    if (posthog && pathname) {
+      posthog.screen(pathname);
+    }
+  }, [pathname]);
+
+  return null;
+}
+
 function RootLayoutInner() {
   const { colors } = useAppTheme();
   const router = useRouter();
@@ -199,6 +245,7 @@ function RootLayoutInner() {
               <AiChatOverlay />
               <HealthSyncToast />
               <MilestoneLayer />
+              <ReviewPromptLayer />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>
@@ -209,8 +256,11 @@ function RootLayoutInner() {
 
 export default function RootLayout() {
   return (
-    <AppThemeProvider>
-      <RootLayoutInner />
-    </AppThemeProvider>
+    <PostHogProvider {...posthogConfig}>
+      <AppThemeProvider>
+        <ScreenTracker />
+        <RootLayoutInner />
+      </AppThemeProvider>
+    </PostHogProvider>
   );
 }

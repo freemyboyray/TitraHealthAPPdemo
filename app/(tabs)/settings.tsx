@@ -1,6 +1,7 @@
 import { ScrollTitle } from '@/components/ui/scroll-title';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Alert, Animated, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -236,7 +237,7 @@ export default function SettingsScreen() {
 
         <View style={s.card}>
           {/* Treatment Plan */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-treatment')}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
@@ -379,14 +380,14 @@ export default function SettingsScreen() {
         <Text style={s.sectionLabel}>SUPPORT</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/feedback' as any)}>
+          <Pressable style={s.cardRow} onPress={() => WebBrowser.openBrowserAsync('https://embed-245422884.sleekplan.app/?hide_elements[]=footer#/feedback/')}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
                 <IconSymbol name="exclamationmark.bubble.fill" size={18} color="#32ADE6" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Send Feedback</Text>
-                <Text style={s.rowSub}>Report a bug or suggest a feature</Text>
+                <Text style={s.rowSub}>Report bugs or request new features</Text>
               </View>
             </View>
             <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />

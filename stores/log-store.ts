@@ -81,6 +81,15 @@ type LogStore = {
 
   deleteInjectionLog: (id: string) => Promise<void>;
   deleteWeightLog: (id: string) => Promise<void>;
+  deleteFoodLog: (id: string) => Promise<void>;
+  deleteActivityLog: (id: string) => Promise<void>;
+  deleteSideEffectLog: (id: string) => Promise<void>;
+
+  updateInjectionLog: (id: string, fields: { dose_mg?: number; injection_date?: string; site?: string | null; notes?: string | null; medication_name?: string; batch_number?: string | null }) => Promise<void>;
+  updateWeightLog: (id: string, fields: { weight_lbs?: number; notes?: string | null }) => Promise<void>;
+  updateFoodLog: (id: string, fields: { food_name?: string; calories?: number; protein_g?: number; carbs_g?: number; fat_g?: number; fiber_g?: number; meal_type?: MealType }) => Promise<void>;
+  updateActivityLog: (id: string, fields: { exercise_type?: string; duration_min?: number; intensity?: 'low' | 'moderate' | 'high' | null; steps?: number; active_calories?: number }) => Promise<void>;
+  updateSideEffectLog: (id: string, fields: { severity?: number; notes?: string | null }) => Promise<void>;
 
   // Activity - manual workout fields
   addActivityLog: (
@@ -557,6 +566,62 @@ export const useLogStore = create<LogStore>((set, get) => ({
         return { weeklyCheckins: updated };
       });
     }
+  },
+
+  deleteFoodLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('food_logs').delete().eq('id', id).eq('user_id', user.id);
+    if (!error) set({ foodLogs: get().foodLogs.filter(l => l.id !== id) });
+  },
+
+  deleteActivityLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('activity_logs').delete().eq('id', id).eq('user_id', user.id);
+    if (!error) set({ activityLogs: get().activityLogs.filter(l => l.id !== id) });
+  },
+
+  deleteSideEffectLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('side_effect_logs').delete().eq('id', id).eq('user_id', user.id);
+    if (!error) set({ sideEffectLogs: get().sideEffectLogs.filter(l => l.id !== id) });
+  },
+
+  updateInjectionLog: async (id, fields) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('injection_logs').update(fields).eq('id', id).eq('user_id', user.id);
+    if (!error) await get().fetchInsightsData();
+  },
+
+  updateWeightLog: async (id, fields) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('weight_logs').update(fields).eq('id', id).eq('user_id', user.id);
+    if (!error) await get().fetchInsightsData();
+  },
+
+  updateFoodLog: async (id, fields) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('food_logs').update(fields).eq('id', id).eq('user_id', user.id);
+    if (!error) await get().fetchInsightsData();
+  },
+
+  updateActivityLog: async (id, fields) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('activity_logs').update(fields).eq('id', id).eq('user_id', user.id);
+    if (!error) await get().fetchInsightsData();
+  },
+
+  updateSideEffectLog: async (id, fields) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('side_effect_logs').update(fields).eq('id', id).eq('user_id', user.id);
+    if (!error) await get().fetchInsightsData();
   },
 
   fetchWeeklyCheckins: async (type) => {

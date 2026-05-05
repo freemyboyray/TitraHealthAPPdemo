@@ -7,6 +7,7 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { requestNotificationPermission } from '@/lib/notifications';
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
@@ -23,12 +24,16 @@ export default function RemindersScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
+  const posthog = usePostHog();
+
   const handleEnable = async () => {
     await requestNotificationPermission();
+    posthog?.capture('reminders_enabled');
     router.replace('/onboarding/building-plan');
   };
 
   const handleSkip = () => {
+    posthog?.capture('reminders_skipped');
     router.replace('/onboarding/building-plan');
   };
 

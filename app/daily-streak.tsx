@@ -16,6 +16,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
@@ -97,6 +98,7 @@ export default function DailyStreakScreen() {
   const { setLastDailyStreakDate, updateStreakOnOpen } = usePreferencesStore();
   const s = useMemo(() => createStyles(colors), [colors]);
 
+  const posthog = usePostHog();
   const streak = useMemo(() => updateStreakOnOpen(), []);
 
   const weightLost = useMemo(() => {
@@ -162,6 +164,7 @@ export default function DailyStreakScreen() {
   const buttonStyle = useAnimatedStyle(() => ({ opacity: buttonOpacity.value }));
 
   const handleContinue = () => {
+    posthog?.capture('streak_viewed', { streak_count: streak });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.replace('/(tabs)');
   };
