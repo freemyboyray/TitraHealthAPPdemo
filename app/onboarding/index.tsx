@@ -24,7 +24,7 @@ export default function ResearchScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={1} total={17} />
+        <OnboardingHeader step={1} total={16} />
 
         <View style={s.center}>
           {/* Hero text */}

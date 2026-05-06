@@ -5,9 +5,7 @@ const TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
 const MAX_QUERY_LENGTH = 200;
 const MAX_ID_LENGTH = 20;
 const MAX_BARCODE_LENGTH = 30;
-const MAX_RECIPE_QUERY_LENGTH = 200;
-const MAX_RECIPE_ID_LENGTH = 20;
-const VALID_ACTIONS = ['search', 'food', 'barcode', 'autocomplete', 'recipe_search', 'recipe_get', 'food_categories'];
+const VALID_ACTIONS = ['search', 'food', 'barcode', 'autocomplete', 'food_categories'];
 
 async function requestToken(scope: string, clientId: string, clientSecret: string): Promise<Response> {
   const body = new URLSearchParams({
@@ -164,32 +162,6 @@ Deno.serve(async (req: Request) => {
         method: 'foods.autocomplete',
         expression: q,
         max_results: '8',
-      });
-    } else if (action === 'recipe_search') {
-      const q = (url.searchParams.get('q') ?? '').slice(0, MAX_RECIPE_QUERY_LENGTH);
-      if (!q) {
-        return new Response(JSON.stringify({ error: 'Missing recipe search query' }), {
-          status: 400,
-          headers: { ...CORS, 'Content-Type': 'application/json' },
-        });
-      }
-      data = await callFS(token, {
-        method: 'recipes.search',
-        search_expression: q,
-        max_results: '10',
-        page_number: '0',
-      });
-    } else if (action === 'recipe_get') {
-      const id = (url.searchParams.get('id') ?? '').slice(0, MAX_RECIPE_ID_LENGTH);
-      if (!id) {
-        return new Response(JSON.stringify({ error: 'Missing recipe id' }), {
-          status: 400,
-          headers: { ...CORS, 'Content-Type': 'application/json' },
-        });
-      }
-      data = await callFS(token, {
-        method: 'recipe.get.v2',
-        recipe_id: id,
       });
     } else if (action === 'food_categories') {
       data = await callFS(token, {

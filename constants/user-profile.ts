@@ -93,6 +93,8 @@ export type FullUserProfile = {
   tosVersion?: string;              // e.g. '1.0'
   privacyAcceptedAt?: string;       // ISO 8601 timestamp
   privacyVersion?: string;          // e.g. '1.0'
+  aiAcceptedAt?: string;            // ISO 8601 timestamp — Apple Guideline 5.1.2(i) explicit AI consent
+  aiVersion?: string;               // e.g. '1.0'
 
   // Medication detail page
   medicationNotes?: string | null;

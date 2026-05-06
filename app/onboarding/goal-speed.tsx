@@ -40,8 +40,8 @@ export default function GoalSpeedScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
-  const stepNum = isStarting ? 9 : 15;
+  const total = isStarting ? 10 : 15;
+  const stepNum = isStarting ? 9 : 14;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [speedIdx, setSpeedIdx] = useState(2);

@@ -6,6 +6,9 @@ export const TOS_EFFECTIVE_DATE = 'May 4, 2026';
 export const PRIVACY_VERSION = '1.1';
 export const PRIVACY_EFFECTIVE_DATE = 'May 4, 2026';
 
+export const AI_VERSION = '1.0';
+export const AI_EFFECTIVE_DATE = 'May 6, 2026';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type LegalSection = { title: string; body: string };
@@ -93,5 +96,38 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '8. Contact Information',
     body: `For questions about this Privacy Policy, to exercise your data rights, or to report a concern:\n\nEmail: titrahealth@gmail.com\n\nWe will respond to all data rights requests within 30 days.`,
+  },
+];
+
+// ─── AI Disclosure ───────────────────────────────────────────────────────────
+
+export const AI_SECTIONS: LegalSection[] = [
+  {
+    title: '1. AI in TitraHealth',
+    body: `TitraHealth uses third-party artificial intelligence (AI) services to power several features of the App. This disclosure explains exactly which AI providers receive your data, what data is sent, and what those providers do with it.\n\nBy accepting this disclosure during onboarding, you give us your explicit permission to send the data described below to the AI providers named here, solely to deliver the features you use.`,
+  },
+  {
+    title: '2. AI Provider — OpenAI',
+    body: `TitraHealth uses OpenAI's models exclusively for AI features. We do not use any other AI provider.\n\nModels we use:\n• GPT-4o-mini — for the Ask AI assistant, weekly summaries, food description parsing, and personalized insights\n• GPT-4o (vision) — for analyzing food photos when you use the Capture Food feature\n• Whisper — for transcribing voice recordings into text when you use voice logging\n\nAll OpenAI calls go through our own server-side proxy. Your data is sent over TLS-encrypted connections.`,
+  },
+  {
+    title: '3. AI Features and What Each One Sends',
+    body: `Each AI-powered feature sends only the data required to perform that specific task:\n\nAsk AI (chat assistant):\n• Your message text\n• A snapshot of your wellness context — medication type, current dose phase, recent score, today's protein and activity progress, recent side effects\n\nDescribe Food (text):\n• The text description of the food you typed\n\nCapture Food (photo):\n• The photo you took of the meal\n\nVoice Logging (Whisper):\n• The audio clip you recorded\n• The type of entry you're logging (food / weight / injection / side effect / activity) so the model knows how to structure the result\n\nWeekly Summary & Insights:\n• Aggregated summary of the past week's logs (no individual messages or raw photos)`,
+  },
+  {
+    title: '4. What Is Never Sent to OpenAI',
+    body: `The following are never sent to OpenAI under any circumstance:\n\n• Your email address\n• Your username\n• Your real name (if you provided one)\n• Your account ID\n• Your authentication tokens\n• Any directly identifying information\n\nThe data OpenAI sees is wellness data tied only to an opaque request — they have no way to associate it with you personally.`,
+  },
+  {
+    title: '5. OpenAI Data Retention & Training',
+    body: `Per OpenAI's API data usage policy, API inputs (the data we send to perform AI features) are NOT used to train OpenAI's models.\n\nOpenAI may retain API inputs and outputs for up to 30 days for abuse and misuse monitoring, after which they are deleted. Some enterprise agreements have a zero-retention option; we use OpenAI's standard API tier.\n\nFor full details, see OpenAI's API data usage policy: https://openai.com/policies/api-data-usage-policies`,
+  },
+  {
+    title: '6. AI Limitations — Not Medical Advice',
+    body: `AI-generated content in TitraHealth is informational only and is NOT medical advice.\n\n• AI responses may contain inaccuracies, hallucinations, or errors\n• AI does not have access to your complete medical history\n• AI cannot diagnose conditions, prescribe medications, or replace your physician\n• AI does not know about drug interactions specific to your situation\n• AI suggestions about dose timing, side effects, or symptoms should always be verified with your healthcare provider before acting on them\n\nIn a medical emergency, call 911 or your local emergency number — do not consult the App.`,
+  },
+  {
+    title: '7. Your Rights & Controls',
+    body: `You have the following rights and controls regarding AI use in TitraHealth:\n\n• Opt out by avoiding AI features — every AI feature is optional. The App is fully functional without using Ask AI, Capture Food, Describe Food, or voice logging.\n• Delete AI history — your Ask AI conversation history is part of your account data and is permanently deleted within 30 days when you delete your account.\n• Export — you can export your health data at any time via the App's PDF export feature.\n• Updates — if we change AI providers or what data is sent to them, we will notify you and request your acceptance of an updated AI Disclosure before the changes take effect.\n\nFor questions, contact us at titrahealth@gmail.com.`,
   },
 ];

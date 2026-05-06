@@ -18,7 +18,7 @@ export default function HeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
+  const total = isStarting ? 10 : 15;
   const step = isStarting ? 5 : 10;
   const [unit, setUnit] = useState<UnitSystem>(draft.unitSystem ?? 'imperial');
   const [ftIdx, setFtIdx] = useState(2);

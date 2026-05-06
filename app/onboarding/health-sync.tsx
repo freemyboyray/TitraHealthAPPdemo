@@ -24,7 +24,7 @@ export default function HealthSyncScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.treatmentStatus !== 'on';
-  const total = isStarting ? 10 : 16;
+  const total = isStarting ? 10 : 15;
   const step = isStarting ? 7 : 12;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -33,9 +33,9 @@ export default function HealthSyncScreen() {
   const [connecting, setConnecting] = useState(false);
 
   const navigateNext = () => {
-    if (!draft.startWeightLbs) {
+    // startWeightLbs is set in weight.tsx — only need to backfill startDate here.
+    if (!draft.startDate) {
       updateDraft({
-        startWeightLbs: draft.weightLbs,
         startDate: draft.doseStartDate ?? new Date().toISOString().slice(0, 10),
       });
     }

@@ -64,7 +64,7 @@ export default function ScheduleScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={5} total={16} onBack={() => router.back()} />
+        <OnboardingHeader step={5} total={15} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
           {!isDaily ? (

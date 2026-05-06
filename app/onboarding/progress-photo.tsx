@@ -22,7 +22,7 @@ export default function ProgressPhotoScreen() {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 11 : 17;
+  const total = isStarting ? 11 : 16;
   const step = total;
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);

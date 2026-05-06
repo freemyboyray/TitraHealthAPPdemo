@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callOpenAI, estimateMacrosWithAI } from '../../lib/openai';
-import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, autocompleteFatSecret, searchFatSecretRecipes, type FoodResult, type ServingOption, type RecipeResult } from '../../lib/usda';
+import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, autocompleteFatSecret, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useFoodTaskStore } from '../../stores/food-task-store';
@@ -183,8 +183,6 @@ export default function LogFoodScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const autocompleteRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [recipeResults, setRecipeResults] = useState<RecipeResult[]>([]);
-  const [recipesLoading, setRecipesLoading] = useState(false);
 
   // ── Scan state ────────────────────────────────────────────────────────────
   const [scanned, setScanned] = useState(false);
@@ -313,7 +311,7 @@ export default function LogFoodScreen() {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (autocompleteRef.current) clearTimeout(autocompleteRef.current);
-    if (!text.trim()) { setSearchResults([]); setSuggestions([]); setRecipeResults([]); return; }
+    if (!text.trim()) { setSearchResults([]); setSuggestions([]); return; }
 
     // Fast autocomplete (150ms debounce)
     autocompleteRef.current = setTimeout(async () => {
@@ -321,23 +319,17 @@ export default function LogFoodScreen() {
       setSuggestions(s);
     }, 150);
 
-    // Full search + recipe search (400ms debounce)
+    // Full search (400ms debounce)
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      setRecipesLoading(true);
-      const [foodResults, recipes] = await Promise.all([
-        searchUSDA(text),
-        searchFatSecretRecipes(text),
-      ]);
+      const foodResults = await searchUSDA(text);
       let r = foodResults;
       if (r.length === 0) {
         const aiResult = await estimateMacrosWithAI(text);
         if (aiResult) r = [aiResult];
       }
       setSearchResults(r);
-      setRecipeResults(recipes);
       setSearching(false);
-      setRecipesLoading(false);
     }, 400);
   }
 
@@ -347,20 +339,14 @@ export default function LogFoodScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (autocompleteRef.current) clearTimeout(autocompleteRef.current);
     setSearching(true);
-    setRecipesLoading(true);
-    Promise.all([
-      searchUSDA(suggestion),
-      searchFatSecretRecipes(suggestion),
-    ]).then(async ([foodResults, recipes]) => {
+    searchUSDA(suggestion).then(async (foodResults) => {
       let r = foodResults;
       if (r.length === 0) {
         const aiResult = await estimateMacrosWithAI(suggestion);
         if (aiResult) r = [aiResult];
       }
       setSearchResults(r);
-      setRecipeResults(recipes);
       setSearching(false);
-      setRecipesLoading(false);
     });
   }
 
@@ -1002,7 +988,7 @@ export default function LogFoodScreen() {
                   autoCapitalize="none"
                 />
                 {!!query && (
-                  <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); setSuggestions([]); setRecipeResults([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); setSuggestions([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="close-circle" size={17} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
@@ -1057,10 +1043,10 @@ export default function LogFoodScreen() {
                 </>
               )}
 
-              {/* Custom Recipes */}
+              {/* Custom Foods */}
               {!query.trim() && customFoods.length > 0 && (
                 <>
-                  <SectionLabel>CUSTOM RECIPES</SectionLabel>
+                  <SectionLabel>CUSTOM FOODS</SectionLabel>
                   {customFoods.slice(0, 5).map((cf) => (
                     <TouchableOpacity
                       key={cf.id}
@@ -1196,46 +1182,6 @@ export default function LogFoodScreen() {
                 ) : null
               )}
 
-              {/* Recipe results */}
-              {!!query.trim() && !searching && recipeResults.length > 0 && (
-                <>
-                  <SectionLabel>RECIPES</SectionLabel>
-                  {recipeResults.slice(0, 5).map((recipe) => (
-                    <TouchableOpacity
-                      key={recipe.recipe_id}
-                      style={s.resultRow}
-                      onPress={() => {
-                        addToTray({
-                          food_name: recipe.recipe_name,
-                          calories: Math.round(recipe.calories_per_serving),
-                          protein_g: parseFloat(recipe.protein_per_serving.toFixed(1)),
-                          carbs_g: parseFloat(recipe.carbs_per_serving.toFixed(1)),
-                          fat_g: parseFloat(recipe.fat_per_serving.toFixed(1)),
-                          fiber_g: parseFloat(recipe.fiber_per_serving.toFixed(1)),
-                          serving_g: 0,
-                          source: 'manual',
-                          serving_description: '1 serving',
-                        });
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <View style={s.resultLeft}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={[s.customBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                            <Text style={s.customBadgeText}>Recipe</Text>
-                          </View>
-                          <Text style={s.resultName} numberOfLines={1}>{recipe.recipe_name}</Text>
-                        </View>
-                        <Text style={s.resultSub} numberOfLines={1}>{recipe.recipe_description}</Text>
-                      </View>
-                      <View style={s.resultRight}>
-                        <Text style={s.resultCal}>{Math.round(recipe.calories_per_serving)} cal</Text>
-                        <Text style={s.resultPer}>/ serving</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </>
-              )}
             </>
           )}
 
@@ -1545,12 +1491,12 @@ export default function LogFoodScreen() {
               <Text style={s.trayTotalText}>{trayTotal.fiber_g}g fiber</Text>
             </View>
 
-            {/* Save as Recipe input */}
+            {/* Save as Meal input */}
             {showSaveInput && (
               <View style={s.saveInputRow}>
                 <TextInput
                   style={s.saveInput}
-                  placeholder="Recipe name…"
+                  placeholder="Meal name…"
                   placeholderTextColor={colors.textSecondary}
                   value={saveMealName}
                   onChangeText={setSaveMealName}
@@ -1571,7 +1517,7 @@ export default function LogFoodScreen() {
             <View style={s.trayActions}>
               {trayItems.length >= 2 && !showSaveInput && (
                 <TouchableOpacity style={s.traySaveBtn} onPress={() => setShowSaveInput(true)} activeOpacity={0.8}>
-                  <Text style={s.traySaveBtnText}>Save as Recipe</Text>
+                  <Text style={s.traySaveBtnText}>Save as Meal</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity

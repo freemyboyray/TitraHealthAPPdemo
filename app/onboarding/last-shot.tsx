@@ -42,7 +42,7 @@ export default function LastShotScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={6} total={16} onBack={() => router.back()} />
+        <OnboardingHeader step={6} total={15} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>
             {isOral ? `When did you last take your ${doseNoun}?` : `When was your last ${doseNoun}?`}

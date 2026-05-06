@@ -25,7 +25,7 @@ export default function BirthdayScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
+  const total = isStarting ? 10 : 15;
   const step = isStarting ? 4 : 9;
   const [monthIdx, setMonthIdx] = useState(0);
   const [dayIdx, setDayIdx] = useState(0);

@@ -10,6 +10,11 @@ import { computeBaseTargets } from '@/lib/targets';
 import { scheduleDoseReminder } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
+import { usePreferencesStore } from '@/stores/preferences-store';
+import {
+  getReachedPhotoMilestones,
+  getUnlockedAchievementIds,
+} from '@/constants/achievements';
 
 // Strict-typed UPDATE shape for profiles. Prevents the Glp1Type/medication_type
 // drift bug from recurring: any column name typo or unknown column becomes a
@@ -97,6 +102,8 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     tosVersion: row.tos_version ?? undefined,
     privacyAcceptedAt: row.privacy_accepted_at ?? undefined,
     privacyVersion: row.privacy_version ?? undefined,
+    aiAcceptedAt: row.ai_accepted_at ?? undefined,
+    aiVersion: row.ai_version ?? undefined,
 
     // Medication detail
     medicationNotes: row.medication_notes ?? null,
@@ -272,11 +279,38 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       onboardingCompletedAt: new Date().toISOString(),
     } as FullUserProfile;
 
+    // Force startWeightLbs == currentWeightLbs. Onboarding only collects ONE
+    // weight; the chart anchors at "today." If a stale draft slipped in a
+    // larger startWeightLbs, this prevents the achievement detector from
+    // celebrating "weight loss" the user never actually had.
+    const baselineWeight =
+      complete.currentWeightLbs ?? complete.weightLbs ?? complete.startWeightLbs ?? 0;
+    if (baselineWeight > 0) {
+      complete.startWeightLbs = baselineWeight;
+      complete.weightLbs = baselineWeight;
+      complete.currentWeightLbs = baselineWeight;
+    }
+
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(complete));
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (currentUser) await AsyncStorage.setItem(STORAGE_KEY + '_uid', currentUser.id);
     await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(complete);
+
+    // Establish the milestone baseline. Any weight delta reported during
+    // onboarding is historical, not earned in-app — silence the popups for it
+    // so users don't get a "you've lost 10 lbs!" overlay seconds after typing
+    // their starting weight. Subsequent real losses will still celebrate.
+    const startWeight = complete.startWeightLbs ?? 0;
+    const currentWeight = complete.currentWeightLbs ?? complete.weightLbs ?? 0;
+    const initialWeightLost =
+      startWeight > 0 && currentWeight > 0 && startWeight > currentWeight
+        ? startWeight - currentWeight
+        : 0;
+    usePreferencesStore.getState().resetMilestoneTracking(
+      getUnlockedAchievementIds(0, initialWeightLost, 0),
+      getReachedPhotoMilestones(initialWeightLost),
+    );
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -315,6 +349,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         tos_version:              complete.tosVersion || null,
         privacy_accepted_at:      complete.privacyAcceptedAt || null,
         privacy_version:          complete.privacyVersion || null,
+        ai_accepted_at:           complete.aiAcceptedAt || null,
+        ai_version:               complete.aiVersion || null,
       });
       if (profileErr) {
         console.warn('completeOnboarding: profiles.upsert failed:', profileErr);
@@ -429,6 +465,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.tosVersion              !== undefined) row.tos_version               = fields.tosVersion;
       if (fields.privacyAcceptedAt       !== undefined) row.privacy_accepted_at       = fields.privacyAcceptedAt;
       if (fields.privacyVersion          !== undefined) row.privacy_version           = fields.privacyVersion;
+      if (fields.aiAcceptedAt            !== undefined) row.ai_accepted_at            = fields.aiAcceptedAt;
+      if (fields.aiVersion               !== undefined) row.ai_version                = fields.aiVersion;
       if (fields.sex                     !== undefined) row.sex                       = fields.sex;
       if (fields.birthday                !== undefined) row.dob                       = fields.birthday;
       if (fields.unitSystem              !== undefined) row.unit_system               = fields.unitSystem;

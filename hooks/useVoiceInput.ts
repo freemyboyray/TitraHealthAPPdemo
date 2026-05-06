@@ -58,7 +58,9 @@ export function useVoiceInput() {
     } catch (e) {
       if (e instanceof UsageLimitError) {
         setError(
-          `You've reached your ${e.limit} voice transcriptions for today. Upgrade to Titra Pro for unlimited voice logging.`,
+          e.isPremium
+            ? `You've hit today's daily limit (${e.limit} voice transcriptions). Please try again tomorrow.`
+            : `You've reached your ${e.limit} voice transcriptions for today. Upgrade to Titra Pro for unlimited voice logging.`,
         );
       } else {
         setError('Transcription failed');

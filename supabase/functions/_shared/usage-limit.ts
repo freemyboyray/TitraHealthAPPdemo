@@ -58,7 +58,7 @@ export async function checkUsageLimit(
         limit: result.limit,
         used: result.used,
         remaining: 0,
-        is_premium: false,
+        is_premium: result.is_premium,
       }),
       {
         status: 429,

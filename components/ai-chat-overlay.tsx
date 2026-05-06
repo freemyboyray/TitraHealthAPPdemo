@@ -26,6 +26,7 @@ import { useHealthData } from '@/contexts/health-data';
 import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 const ORANGE = '#FF742A';
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 min gap = new conversation
@@ -188,6 +189,16 @@ export function AiChatOverlay() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
+
+  // Auto-dismiss the upgrade card the moment the user becomes premium
+  // (e.g. they tapped Subscribe and the StoreKit purchaseUpdated listener
+  // flipped isPremium to true). Without this, the card lingers until the
+  // user manually dismisses it.
+  useEffect(() => {
+    if (isPremium) setShowUpgradeCard(false);
+  }, [isPremium]);
+
   const [pillVisible, setPillVisible] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ uri: string; base64: string } | null>(null);
@@ -346,8 +357,10 @@ export function AiChatOverlay() {
     } catch (err: unknown) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
       const isUsageLimit = err instanceof UsageLimitError;
-      if (isUsageLimit) {
+      if (isUsageLimit && !err.isPremium) {
         setShowUpgradeCard(true);
+      } else if (isUsageLimit && err.isPremium) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.` } as Message]);
       } else if (isAuth) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Your session has expired. Please sign out and sign back in to continue.', isError: false } as Message]);
       } else if (err instanceof Error && err.message.includes('not set')) {
@@ -501,7 +514,7 @@ export function AiChatOverlay() {
               )}
 
               {/* Upgrade card when usage limit hit */}
-              {showUpgradeCard && (
+              {showUpgradeCard && !isPremium && (
                 <View style={{
                   marginTop: 16, marginHorizontal: 4, borderRadius: 24, overflow: 'hidden',
                   backgroundColor: colors.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
@@ -546,7 +559,11 @@ export function AiChatOverlay() {
                       shadowColor: '#FF742A', shadowOffset: { width: 0, height: 6 },
                       shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
                     }}
-                    onPress={() => router.push('/settings/subscription' as any)}
+                    onPress={() => {
+                      setShowUpgradeCard(false);
+                      closeAiChat();
+                      router.push('/settings/subscription' as any);
+                    }}
                     activeOpacity={0.85}
                   >
                     <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 }}>

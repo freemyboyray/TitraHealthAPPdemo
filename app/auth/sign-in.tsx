@@ -17,8 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
-import { useUserStore } from '@/stores/user-store';
-import { useProfile } from '@/contexts/profile-context';
+import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
@@ -29,8 +28,7 @@ const FONT = 'System';
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
-  const { setSession, loadProfile } = useUserStore();
-  const { reloadProfile } = useProfile();
+  const finishAuth = useFinishAuth();
   const { colors: c } = useAppTheme();
   const s = useMemo(() => createStyles(c), [c]);
 
@@ -49,32 +47,12 @@ export default function SignInScreen() {
     return true;
   }
 
-  async function finishOAuth(session: import('@supabase/supabase-js').Session | null) {
+  async function completeSession(session: import('@supabase/supabase-js').Session | null) {
     if (!session) {
       setError('Sign-in completed but no session was returned. Please try again.');
       return;
     }
-    setSession(session);
-    const user = session.user;
-    if (user) {
-      const { data: existing } = await supabase.from('profiles').select('username, program_start_date').eq('id', user.id).single();
-      if (!existing?.username) {
-        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0];
-        if (name) {
-          await supabase.from('profiles').upsert({ id: user.id, username: name }, { onConflict: 'id' });
-        }
-      }
-      await loadProfile();
-      if (existing?.program_start_date) {
-        await reloadProfile();
-        router.replace('/');
-      } else {
-        router.replace('/onboarding');
-      }
-    } else {
-      await loadProfile();
-      router.replace('/');
-    }
+    await finishAuth(session);
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────
@@ -117,7 +95,7 @@ export default function SignInScreen() {
       });
       if (sessionErr) { setError(sessionErr.message); return; }
       const { data: { session } } = await supabase.auth.getSession();
-      await finishOAuth(session);
+      await completeSession(session);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {
@@ -178,7 +156,7 @@ export default function SignInScreen() {
         }
       }
 
-      await finishOAuth(session);
+      await completeSession(session);
     } catch (e: unknown) {
       if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return;
       const msg = e instanceof Error ? e.message : String(e);
@@ -245,6 +223,23 @@ export default function SignInScreen() {
             <Text style={s.cardLabel}>Google</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ── Divider ── */}
+        <View style={s.divider}>
+          <View style={s.dividerLine} />
+          <Text style={s.dividerText}>or</Text>
+          <View style={s.dividerLine} />
+        </View>
+
+        {/* ── Email link ── */}
+        <TouchableOpacity
+          style={s.emailLink}
+          onPress={() => router.push('/auth/email-sign-in')}
+          activeOpacity={0.7}
+        >
+          <Text style={s.emailLinkText}>Continue with email</Text>
+          <Ionicons name="chevron-forward" size={18} color={c.textSecondary} />
+        </TouchableOpacity>
 
         {error ? <Text style={s.errorText}>{error}</Text> : null}
 
@@ -347,6 +342,44 @@ const createStyles = (c: AppColors) =>
       color: c.textPrimary,
       fontFamily: FONT,
       letterSpacing: -0.2,
+    },
+
+    // ── Divider ──
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+      gap: 12,
+    },
+    dividerLine: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.borderSubtle,
+    },
+    dividerText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: c.textMuted,
+      fontFamily: FONT,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+
+    // ── Email link ──
+    emailLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      gap: 6,
+      marginBottom: 8,
+    },
+    emailLinkText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textSecondary,
+      fontFamily: FONT,
+      letterSpacing: -0.1,
     },
 
     // ── Error ──

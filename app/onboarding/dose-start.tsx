@@ -26,7 +26,7 @@ export default function DoseStartScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={7} total={16} onBack={() => router.back()} />
+        <OnboardingHeader step={7} total={15} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>When did you start your current dose?</Text>
           <Text style={s.subtitle}>

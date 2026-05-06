@@ -14,15 +14,13 @@ export default function Index() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.92)).current;
+  // Logo starts fully opaque at full scale so the JS layer is visually
+  // identical to the native iOS launch storyboard — no fade flash.
+  const logoOpacity = useRef(new Animated.Value(1)).current;
+  const logoScale = useRef(new Animated.Value(1)).current;
   const spinnerOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(logoScale, { toValue: 1, tension: 80, friction: 12, useNativeDriver: true }),
-    ]).start();
     Animated.timing(spinnerOpacity, { toValue: 1, duration: 400, delay: 400, useNativeDriver: true }).start();
   }, []);
 

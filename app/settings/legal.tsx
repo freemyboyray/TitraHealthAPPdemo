@@ -21,12 +21,15 @@ import {
   PRIVACY_VERSION,
   PRIVACY_EFFECTIVE_DATE,
   PRIVACY_SECTIONS,
+  AI_VERSION,
+  AI_EFFECTIVE_DATE,
+  AI_SECTIONS,
   type LegalSection,
 } from '@/constants/legal';
 
 const ORANGE = '#FF742A';
 
-type Tab = 'tos' | 'privacy';
+type Tab = 'tos' | 'privacy' | 'ai';
 
 export default function LegalScreen() {
   const router = useRouter();
@@ -34,9 +37,18 @@ export default function LegalScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const [activeTab, setActiveTab] = useState<Tab>('tos');
 
-  const sections = activeTab === 'tos' ? TOS_SECTIONS : PRIVACY_SECTIONS;
-  const effectiveDate = activeTab === 'tos' ? TOS_EFFECTIVE_DATE : PRIVACY_EFFECTIVE_DATE;
-  const version = activeTab === 'tos' ? TOS_VERSION : PRIVACY_VERSION;
+  const sections =
+    activeTab === 'tos' ? TOS_SECTIONS
+    : activeTab === 'privacy' ? PRIVACY_SECTIONS
+    : AI_SECTIONS;
+  const effectiveDate =
+    activeTab === 'tos' ? TOS_EFFECTIVE_DATE
+    : activeTab === 'privacy' ? PRIVACY_EFFECTIVE_DATE
+    : AI_EFFECTIVE_DATE;
+  const version =
+    activeTab === 'tos' ? TOS_VERSION
+    : activeTab === 'privacy' ? PRIVACY_VERSION
+    : AI_VERSION;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -52,7 +64,11 @@ export default function LegalScreen() {
       <View style={s.container}>
         {/* Tab switcher */}
         <SlidingTabs
-          tabs={[{ key: 'tos' as Tab, label: 'Terms of Service' }, { key: 'privacy' as Tab, label: 'Privacy Policy' }]}
+          tabs={[
+            { key: 'tos' as Tab, label: 'Terms' },
+            { key: 'privacy' as Tab, label: 'Privacy' },
+            { key: 'ai' as Tab, label: 'AI Disclosure' },
+          ]}
           activeKey={activeTab}
           onChange={setActiveTab}
           height={38}

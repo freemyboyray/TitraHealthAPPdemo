@@ -241,7 +241,6 @@ function RootLayoutInner() {
                 <Stack.Screen name="progress-photos" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="top-contributors" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="recipe" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />

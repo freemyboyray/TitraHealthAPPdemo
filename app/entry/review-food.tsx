@@ -20,8 +20,6 @@ import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { GlassBorder } from '@/components/ui/glass-border';
-import { computeMealScore } from '@/constants/meal-score';
-import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
 
 // ─── Macro icon colors (semantic, theme-independent) ────────────────────────
 const MACRO_COLORS = {
@@ -49,9 +47,6 @@ export default function ReviewFoodScreen() {
   const healthData = useHealthData();
   const { refreshActuals } = healthData;
   const setInsightsDefaultTab = useUiStore((s) => s.setInsightsDefaultTab);
-
-  const shotPhase = getShotPhase(daysSinceInjection(healthData.profile.lastInjectionDate));
-  const sideEffects = healthData.profile.sideEffects ?? [];
 
   const [checkedItems, setCheckedItems] = useState<Set<number>>(
     new Set(
@@ -265,19 +260,11 @@ export default function ReviewFoodScreen() {
           const fat = parseFloat((food.fat_g * g / 100).toFixed(1));
           const fiber = parseFloat((food.fiber_g * g / 100).toFixed(1));
 
-          // Score
-          const mealMacros = { calories: cal, protein_g: pro, carbs_g: carbs, fat_g: fat, fiber_g: fiber };
-          const mealScore = computeMealScore(mealMacros, shotPhase, sideEffects);
-
           // Serving label
           const servingLabel = item.unitLabel !== 'g' ? item.unitLabel : `${Math.round(g)}g`;
 
-          // Build contextual prompt chips based on score
           const macroSummary = `${cal} cal, ${pro}g protein, ${carbs}g carbs, ${fat}g fat, ${fiber}g fiber`;
-          const contextLabel = `${food.name} — ${macroSummary}`;
-          const promptChips = mealScore.score < 5
-            ? ['How can I boost this meal?', 'Suggest a healthier swap', "What should I eat next?"]
-            : ['What should I eat next?', 'Suggest a swap', "How's my day going?"];
+          const promptChips = ['What should I eat next?', 'Suggest a swap', "How's my day going?"];
 
           const openChat = (seedMessage: string) => {
             router.push({
@@ -391,20 +378,6 @@ export default function ReviewFoodScreen() {
                   <Text style={s.macroCellLabel}>Fiber</Text>
                   <Text style={s.macroCellValue}>{fiber}g</Text>
                 </View>
-              </View>
-
-              {/* Fit Score — bar + number only, no label text */}
-              <View style={[s.scoreRow, { backgroundColor: `${mealScore.color}10` }]}>
-                <View style={[s.scoreIcon, { backgroundColor: `${mealScore.color}20` }]}>
-                  <Ionicons name="heart-outline" size={18} color={mealScore.color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.scoreTitle}>Fit Score</Text>
-                  <View style={s.scoreBarTrack}>
-                    <View style={[s.scoreBarFill, { width: `${mealScore.score * 10}%`, backgroundColor: mealScore.color }]} />
-                  </View>
-                </View>
-                <Text style={[s.scoreValue, { color: mealScore.color }]}>{mealScore.score}/10</Text>
               </View>
 
               {/* Contextual AI prompt chips */}
@@ -535,24 +508,6 @@ function createStyles(c: AppColors) {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       backgroundColor: w(0.03), borderRadius: 14, padding: 12, marginBottom: 10,
     },
-
-    // ─── Fit Score ────────────────────────────────────────────────
-    scoreRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      borderRadius: 14, padding: 12, marginBottom: 4,
-    },
-    scoreIcon: {
-      width: 36, height: 36, borderRadius: 12,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    scoreTitle: {
-      fontSize: 13, fontWeight: '600', color: c.textPrimary, marginBottom: 4,
-    },
-    scoreBarTrack: {
-      height: 5, borderRadius: 3, backgroundColor: w(0.08), overflow: 'hidden',
-    },
-    scoreBarFill: { height: 5, borderRadius: 3 },
-    scoreValue: { fontSize: 16, fontWeight: '800' },
 
     // ─── Prompt Chips ───────────────────────────────────────────
     promptChipScroll: {

@@ -19,7 +19,7 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
         const parsed = JSON.parse(errJson);
         const ctx = parsed.context ?? parsed;
         if (ctx.error === 'USAGE_LIMIT') {
-          throw new UsageLimitError(ctx.feature ?? 'voice_log', ctx.limit ?? 0, ctx.used ?? 0);
+          throw new UsageLimitError(ctx.feature ?? 'voice_log', ctx.limit ?? 0, ctx.used ?? 0, !!ctx.is_premium);
         }
       } catch (e) {
         if (e instanceof UsageLimitError) throw e;
@@ -31,8 +31,8 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
   }
 
   if (data && (data as { error?: string }).error === 'USAGE_LIMIT') {
-    const d = data as { error: string; feature?: string; limit?: number; used?: number };
-    throw new UsageLimitError(d.feature ?? 'voice_log', d.limit ?? 0, d.used ?? 0);
+    const d = data as { error: string; feature?: string; limit?: number; used?: number; is_premium?: boolean };
+    throw new UsageLimitError(d.feature ?? 'voice_log', d.limit ?? 0, d.used ?? 0, !!d.is_premium);
   }
 
   return (data as { text: string }).text;

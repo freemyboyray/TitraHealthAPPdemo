@@ -18,7 +18,7 @@ export default function WeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
+  const total = isStarting ? 10 : 15;
   const step = isStarting ? 6 : 11;
   const [unit, setUnit] = useState<UnitSystem>(draft.unitSystem ?? 'imperial');
   const [lbsIdx, setLbsIdx] = useState(100);
@@ -28,6 +28,9 @@ export default function WeightScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const handleContinue = () => {
+    // We only collect ONE weight in onboarding now — startWeightLbs is set
+    // to the same value here so the chart anchors at "today" and any
+    // historical draft state from prior onboarding attempts is overwritten.
     if (unit === 'imperial') {
       const lbs = lbsIdx + 80 + (halfIdx === 1 ? 0.5 : 0);
       updateDraft({
@@ -36,15 +39,18 @@ export default function WeightScreen() {
         weightKg: Math.round(lbs * 0.453592 * 10) / 10,
         currentWeightLbs: lbs,
         currentWeightKg: Math.round(lbs * 0.453592 * 10) / 10,
+        startWeightLbs: lbs,
       });
     } else {
       const kg = kgIdx + 40;
+      const lbs = Math.round(kg * 2.20462 * 10) / 10;
       updateDraft({
         unitSystem: 'metric',
         weightKg: kg,
-        weightLbs: Math.round(kg * 2.20462 * 10) / 10,
-        currentWeightLbs: Math.round(kg * 2.20462 * 10) / 10,
+        weightLbs: lbs,
+        currentWeightLbs: lbs,
         currentWeightKg: kg,
+        startWeightLbs: lbs,
       });
     }
     router.push('/onboarding/health-sync');

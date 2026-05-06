@@ -53,24 +53,6 @@ export type FoodResult = {
   serving_options?: ServingOption[];
 };
 
-export type RecipeResult = {
-  recipe_id: number;
-  recipe_name: string;
-  recipe_description: string;
-  recipe_image?: string;
-  calories_per_serving: number;
-  protein_per_serving: number;
-  carbs_per_serving: number;
-  fat_per_serving: number;
-  fiber_per_serving: number;
-  serving_size?: string;
-  number_of_servings?: number;
-  ingredients?: string[];
-  directions?: string[];
-  prep_time_min?: number;
-  cook_time_min?: number;
-};
-
 // ─── Supabase edge function proxy ────────────────────────────────────────────
 
 async function callEdge(params: Record<string, string>): Promise<unknown> {
@@ -359,78 +341,6 @@ export async function autocompleteFatSecret(query: string): Promise<string[]> {
   } catch (e) {
     __DEV__ && console.warn('[FatSecret] autocomplete failed:', e);
     return [];
-  }
-}
-
-// ─── Recipe Search ────────────────────────────────────────────────────────────
-
-export async function searchFatSecretRecipes(query: string): Promise<RecipeResult[]> {
-  if (!query.trim()) return [];
-  try {
-    const data = await callEdge({ action: 'recipe_search', q: query }) as any;
-    const recipes = data?.recipes?.recipe;
-    if (!recipes) return [];
-    const list = Array.isArray(recipes) ? recipes : [recipes];
-    return list.map((r: any) => ({
-      recipe_id: parseInt(r.recipe_id, 10),
-      recipe_name: r.recipe_name ?? '',
-      recipe_description: r.recipe_description ?? '',
-      recipe_image: r.recipe_image ?? undefined,
-      calories_per_serving: parseFloat(r.recipe_nutrition?.calories ?? '0'),
-      protein_per_serving: parseFloat(r.recipe_nutrition?.protein ?? '0'),
-      carbs_per_serving: parseFloat(r.recipe_nutrition?.carbohydrate ?? '0'),
-      fat_per_serving: parseFloat(r.recipe_nutrition?.fat ?? '0'),
-      fiber_per_serving: parseFloat(r.recipe_nutrition?.fiber ?? '0'),
-    }));
-  } catch (e) {
-    __DEV__ && console.warn('[FatSecret] recipe search failed:', e);
-    return [];
-  }
-}
-
-// ─── Recipe Detail ────────────────────────────────────────────────────────────
-
-export async function getFatSecretRecipe(recipeId: number): Promise<RecipeResult | null> {
-  try {
-    const data = await callEdge({ action: 'recipe_get', id: String(recipeId) }) as any;
-    const r = data?.recipe;
-    if (!r) return null;
-
-    const servings = r.serving_sizes?.serving;
-    const serving = Array.isArray(servings) ? servings[0] : servings;
-
-    const ingredients = r.ingredients?.ingredient;
-    const ingredientList = ingredients
-      ? (Array.isArray(ingredients) ? ingredients : [ingredients]).map((i: any) => i.ingredient_description ?? i.food_name ?? '')
-      : undefined;
-
-    const directions = r.directions?.direction;
-    const directionList = directions
-      ? (Array.isArray(directions) ? directions : [directions])
-          .sort((a: any, b: any) => (a.direction_number ?? 0) - (b.direction_number ?? 0))
-          .map((d: any) => d.direction_description ?? '')
-      : undefined;
-
-    return {
-      recipe_id: parseInt(r.recipe_id, 10),
-      recipe_name: r.recipe_name ?? '',
-      recipe_description: r.recipe_description ?? '',
-      recipe_image: r.recipe_images?.recipe_image?.[0] ?? r.recipe_image ?? undefined,
-      calories_per_serving: parseFloat(serving?.calories ?? r.recipe_nutrition?.calories ?? '0'),
-      protein_per_serving: parseFloat(serving?.protein ?? r.recipe_nutrition?.protein ?? '0'),
-      carbs_per_serving: parseFloat(serving?.carbohydrate ?? r.recipe_nutrition?.carbohydrate ?? '0'),
-      fat_per_serving: parseFloat(serving?.fat ?? r.recipe_nutrition?.fat ?? '0'),
-      fiber_per_serving: parseFloat(serving?.fiber ?? r.recipe_nutrition?.fiber ?? '0'),
-      serving_size: serving?.serving_size ?? undefined,
-      number_of_servings: r.number_of_servings ? parseInt(r.number_of_servings, 10) : undefined,
-      ingredients: ingredientList,
-      directions: directionList,
-      prep_time_min: r.preparation_time_min ? parseInt(r.preparation_time_min, 10) : undefined,
-      cook_time_min: r.cooking_time_min ? parseInt(r.cooking_time_min, 10) : undefined,
-    };
-  } catch (e) {
-    __DEV__ && console.warn('[FatSecret] recipe detail failed:', e);
-    return null;
   }
 }
 

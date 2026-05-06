@@ -23,8 +23,8 @@ export default function ActivityScreen() {
   const router = useRouter();
   const { draft, updateDraft, completeOnboarding } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
-  const step = isStarting ? 10 : 16;
+  const total = isStarting ? 10 : 15;
+  const step = isStarting ? 10 : 15;
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
   const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();

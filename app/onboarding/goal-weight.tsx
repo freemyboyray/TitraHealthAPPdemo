@@ -28,8 +28,8 @@ export default function GoalWeightScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useProfile();
   const isStarting = draft.glp1Status !== 'active';
-  const total = isStarting ? 10 : 16;
-  const stepNum = isStarting ? 8 : 14;
+  const total = isStarting ? 10 : 15;
+  const stepNum = isStarting ? 8 : 13;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const unit = draft.unitSystem ?? 'imperial';

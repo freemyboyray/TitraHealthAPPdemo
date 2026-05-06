@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Modal,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,7 +17,13 @@ import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { TOS_VERSION, PRIVACY_VERSION } from '@/constants/legal';
+import {
+  TOS_VERSION,
+  PRIVACY_VERSION,
+  AI_VERSION,
+  AI_EFFECTIVE_DATE,
+  AI_SECTIONS,
+} from '@/constants/legal';
 
 const FF = 'System';
 const TERMS_URL = 'https://titrahealth.io/terms-conditions';
@@ -26,6 +34,7 @@ export default function TermsScreen() {
   const { draft, updateDraft } = useProfile();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const handleContinue = () => {
     const now = new Date().toISOString();
@@ -34,6 +43,8 @@ export default function TermsScreen() {
       tosVersion: TOS_VERSION,
       privacyAcceptedAt: now,
       privacyVersion: PRIVACY_VERSION,
+      aiAcceptedAt: now,
+      aiVersion: AI_VERSION,
     });
     router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
   };
@@ -41,11 +52,11 @@ export default function TermsScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={3} total={17} onBack={() => router.back()} />
+        <OnboardingHeader step={3} total={16} onBack={() => router.back()} />
 
         <Text style={s.title}>We respect{'\n'}your data</Text>
         <Text style={s.subtitle}>
-          Please review our terms and privacy policy before continuing.
+          Please review our terms, privacy policy, and AI disclosure before continuing.
         </Text>
 
         <View style={s.center}>
@@ -68,15 +79,56 @@ export default function TermsScreen() {
             <Text style={s.linkText}>Privacy Policy</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.linkRow}
+            activeOpacity={0.7}
+            onPress={() => setAiOpen(true)}
+          >
+            <Ionicons name="sparkles-outline" size={22} color={colors.textSecondary} />
+            <Text style={s.linkText}>AI Disclosure</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
         <View style={s.bottom}>
           <ContinueButton onPress={handleContinue} label="Accept and Continue" />
           <Text style={s.footerText}>
-            By continuing, you acknowledge that you have read and agree to our Terms of Service and Privacy Policy.
+            By continuing, you acknowledge that you have read and agree to our Terms of Service, Privacy Policy, and AI Disclosure — and you give your explicit permission for the data described in the AI Disclosure to be sent to OpenAI.
           </Text>
         </View>
       </View>
+
+      <Modal
+        visible={aiOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAiOpen(false)}
+      >
+        <SafeAreaView style={s.safe}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>AI Disclosure</Text>
+            <TouchableOpacity onPress={() => setAiOpen(false)} style={s.modalClose} hitSlop={12}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            style={s.modalScroll}
+            contentContainerStyle={s.modalScrollContent}
+            showsVerticalScrollIndicator
+          >
+            <Text style={s.modalVersion}>
+              Version {AI_VERSION} · Effective {AI_EFFECTIVE_DATE}
+            </Text>
+            {AI_SECTIONS.map((section, i) => (
+              <View key={i} style={s.modalSection}>
+                <Text style={s.modalSectionTitle}>{section.title}</Text>
+                <Text style={s.modalSectionBody}>{section.body}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -138,5 +190,54 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     lineHeight: 18,
     marginTop: 12,
     paddingHorizontal: 8,
+  },
+
+  // ── AI Disclosure modal ──
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.borderSubtle,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: c.textPrimary,
+    fontFamily: FF,
+  },
+  modalClose: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalScroll: { flex: 1 },
+  modalScrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  modalVersion: {
+    fontSize: 13,
+    color: c.textMuted,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  modalSection: { marginBottom: 24 },
+  modalSectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: c.textPrimary,
+    marginBottom: 8,
+    fontFamily: FF,
+  },
+  modalSectionBody: {
+    fontSize: 15,
+    color: c.textSecondary,
+    lineHeight: 22,
+    fontFamily: FF,
   },
 });

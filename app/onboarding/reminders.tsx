@@ -40,7 +40,7 @@ export default function RemindersScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={16} total={17} onBack={() => router.back()} />
+        <OnboardingHeader step={15} total={16} onBack={() => router.back()} />
 
         <View style={s.content}>
           {/* Bell icon */}

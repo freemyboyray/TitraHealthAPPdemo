@@ -851,6 +851,8 @@ export type Database = {
       profiles: {
         Row: {
           activity_level: string | null
+          ai_accepted_at: string | null
+          ai_version: string | null
           apple_health_enabled: boolean | null
           avatar_url: string | null
           craving_days: Json | null
@@ -908,6 +910,8 @@ export type Database = {
         }
         Insert: {
           activity_level?: string | null
+          ai_accepted_at?: string | null
+          ai_version?: string | null
           apple_health_enabled?: boolean | null
           avatar_url?: string | null
           craving_days?: Json | null
@@ -967,6 +971,8 @@ export type Database = {
         }
         Update: {
           activity_level?: string | null
+          ai_accepted_at?: string | null
+          ai_version?: string | null
           apple_health_enabled?: boolean | null
           avatar_url?: string | null
           craving_days?: Json | null

@@ -9,13 +9,15 @@ export class UsageLimitError extends Error {
   feature: string;
   limit: number;
   used: number;
+  isPremium: boolean;
 
-  constructor(feature: string, limit: number, used: number) {
+  constructor(feature: string, limit: number, used: number, isPremium = false) {
     super(`Daily ${feature} limit reached (${used}/${limit})`);
     this.name = 'UsageLimitError';
     this.feature = feature;
     this.limit = limit;
     this.used = used;
+    this.isPremium = isPremium;
   }
 }
 
@@ -226,7 +228,7 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
       // Check if the response is a usage limit error (edge function returned 429)
       if (data?.error === 'USAGE_LIMIT') {
         __DEV__ && console.log('[OpenAI] usage limit hit:', data.feature, data.used, '/', data.limit);
-        throw new UsageLimitError(data.feature ?? 'ai', data.limit ?? 0, data.used ?? 0);
+        throw new UsageLimitError(data.feature ?? 'ai', data.limit ?? 0, data.used ?? 0, !!data.is_premium);
       }
 
       // Check if the proxy wrapped an upstream OpenAI error

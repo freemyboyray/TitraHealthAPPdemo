@@ -52,6 +52,12 @@ type PreferencesStore = {
   markPhotoMilestoneShown: (lbs: number) => void;
   /** Seed all currently-reached photo milestones as already shown (one-time on first run). */
   seedPhotoMilestones: (milestones: number[]) => void;
+  /**
+   * Reset milestone & achievement tracking to a fresh baseline. Called at the
+   * end of onboarding so any weight loss the user reported as historical does
+   * not trigger celebration popups.
+   */
+  resetMilestoneTracking: (achievementIds: string[], photoMilestones: number[]) => void;
   /** Whether to use the gradient header or solid orange. */
   useGradientHeader: boolean;
   setUseGradientHeader: (v: boolean) => void;
@@ -114,6 +120,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
       seedPhotoMilestones: (milestones) => set((s) => {
         const merged = new Set([...s.shownPhotoMilestones, ...milestones]);
         return { shownPhotoMilestones: [...merged], photoMilestonesSeeded: true };
+      }),
+      resetMilestoneTracking: (achievementIds, photoMilestones) => set({
+        shownAchievementIds: achievementIds,
+        achievementsSeeded: true,
+        shownPhotoMilestones: photoMilestones,
+        photoMilestonesSeeded: true,
       }),
       useGradientHeader: true,
       setUseGradientHeader: (v) => set({ useGradientHeader: v }),

@@ -196,7 +196,9 @@ export default function AskAIScreen() {
         content: isAuth
           ? "Your session has expired. Please sign out and sign back in to continue."
           : isUsageLimit
-            ? `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`
+            ? (err.isPremium
+                ? `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.`
+                : `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`)
             : "I'm having trouble connecting right now. Please try again in a moment.",
         created_at: new Date().toISOString(),
       }]);
@@ -233,7 +235,9 @@ export default function AskAIScreen() {
           content: isAuth
             ? "Your session has expired. Please sign out and sign back in to continue."
             : isUsageLimit
-              ? `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`
+              ? (err.isPremium
+                  ? `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.`
+                  : `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`)
               : "I'm having trouble connecting. Please try again.",
           created_at: new Date().toISOString(),
         }]);
