@@ -16,11 +16,17 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_so7LtcAVK63NMTf4zTDqEoMBSPaNY99K55FV56gZCKFL"
       }
     },
     "production": {
       "ios": {
         "autoIncrement": "buildNumber"
+      },
+      "env": {
+        "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_so7LtcAVK63NMTf4zTDqEoMBSPaNY99K55FV56gZCKFL"
       }
     }
   },
