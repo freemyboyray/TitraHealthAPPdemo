@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
-  Modal,
+  Dimensions,
+  KeyboardAvoidingView,
   PanResponder,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,19 +18,41 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 
-import { GlassBorder } from '@/components/ui/glass-border';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { cardElevation } from '@/constants/theme';
+import { VoiceButton } from '@/components/ui/voice-button';
+import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
-const SHADOW = { shadowColor: '#000', shadowOffset: { width: 0, height: 8 } as const, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 };
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const USE_THREE_COLUMNS = SCREEN_WIDTH >= 375;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
 
-const WORKOUT_TYPES = ['Walking', 'Running', 'Cycling', 'Strength', 'HIIT', 'Yoga', 'Pilates', 'Swimming', 'Other'];
+const WORKOUT_TYPE_DATA = [
+  { key: 'Walking',  label: 'Walking',  icon: 'walk-outline' },
+  { key: 'Running',  label: 'Running',  icon: 'fitness-outline' },
+  { key: 'Cycling',  label: 'Cycling',  icon: 'bicycle-outline' },
+  { key: 'Strength', label: 'Strength', icon: 'barbell-outline' },
+  { key: 'HIIT',     label: 'HIIT',     icon: 'flash-outline' },
+  { key: 'Yoga',     label: 'Yoga',     icon: 'body-outline' },
+  { key: 'Pilates',  label: 'Pilates',  icon: 'fitness-outline' },
+  { key: 'Swimming', label: 'Swimming', icon: 'water-outline' },
+  { key: 'Other',    label: 'Other',    icon: 'ellipsis-horizontal-outline' },
+] as const;
 
 const STEPS_PER_MIN: Record<string, number> = {
   Walking:  100,
@@ -42,7 +66,6 @@ const STEPS_PER_MIN: Record<string, number> = {
   Other:     30,
 };
 
-// MET values from Compendium of Physical Activities (moderate effort baseline)
 const MET_VALUES: Record<string, number> = {
   Walking:  3.8,
   Running:  9.8,
@@ -54,63 +77,6 @@ const MET_VALUES: Record<string, number> = {
   Swimming: 7.0,
   Other:    4.0,
 };
-
-// ─── InfoRow ──────────────────────────────────────────────────────────────────
-
-function InfoRow({
-  icon,
-  label,
-  value,
-  onPress,
-  last = false,
-  colors,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  onPress?: () => void;
-  last?: boolean;
-  colors: AppColors;
-}) {
-  const s = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <>
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={onPress ? 0.7 : 1}
-        disabled={!onPress}
-        style={s.infoRow}
-      >
-        <Ionicons name={icon as any} size={20} color={colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'} style={{ width: 26 }} />
-        <Text style={s.infoLabel}>{label}</Text>
-        <Text style={s.infoValue} numberOfLines={1}>{value}</Text>
-        {onPress && <Ionicons name="chevron-forward" size={16} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />}
-      </TouchableOpacity>
-      {!last && <View style={s.divider} />}
-    </>
-  );
-}
-
-// ─── SummaryCard ──────────────────────────────────────────────────────────────
-
-function SummaryCard({ icon, label, value, unit, colors }: { icon: string; label: string; value: string | number; unit: string; colors: AppColors }) {
-  const sc = useMemo(() => createSummaryCardStyles(colors), [colors]);
-  return (
-    <View style={[sc.card, SHADOW]}>
-      <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-      <GlassBorder r={20} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <Ionicons name={icon as any} size={18} color={ORANGE} />
-        <Text style={sc.label}>{label}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-        <Text style={sc.value}>{value}</Text>
-        <Text style={sc.unit}>{unit}</Text>
-      </View>
-    </View>
-  );
-}
 
 // ─── LinearSlider ─────────────────────────────────────────────────────────────
 
@@ -147,7 +113,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > Math.abs(gs.dy),
       onPanResponderGrant: (evt) => {
-        // Tap-to-position: jump to the tapped location on the track
         const tw = trackWidthRef.current;
         if (tw > 0) {
           const tapPct = evt.nativeEvent.locationX / tw;
@@ -193,7 +158,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
 
   return (
     <View style={{ paddingVertical: 20, paddingHorizontal: 4 }}>
-      {/* Value display — tap to type */}
       <TouchableOpacity
         onPress={startEditing}
         activeOpacity={0.7}
@@ -206,7 +170,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
               fontWeight: '900',
               color: colors.textPrimary,
               lineHeight: 56,
-              fontFamily: 'System',
               letterSpacing: -2,
               minWidth: 60,
               borderBottomWidth: 2,
@@ -229,7 +192,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
             fontWeight: '900',
             color: colors.textPrimary,
             lineHeight: 56,
-            fontFamily: 'System',
             letterSpacing: -2,
           }}>
             {value}
@@ -241,7 +203,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
             fontWeight: '700',
             color: ORANGE,
             marginBottom: 8,
-            fontFamily: 'System',
           }}>
             {unit}
           </Text>
@@ -252,7 +213,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           color: colors.textMuted,
           letterSpacing: 1.2,
           textTransform: 'uppercase',
-          fontFamily: 'System',
           marginBottom: 10,
           marginLeft: 4,
         }}>
@@ -260,19 +220,16 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
         </Text>
       </TouchableOpacity>
 
-      {/* Track — tap to position or drag */}
       <View
         style={{ height: 36, justifyContent: 'center' }}
         onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width; }}
         {...pan.panHandlers}
       >
-        {/* Background track */}
         <View style={{
           height: 6,
           borderRadius: 3,
           backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
         }} />
-        {/* Filled portion */}
         <View style={{
           position: 'absolute',
           left: 0,
@@ -281,7 +238,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           borderRadius: 3,
           backgroundColor: ORANGE,
         }} />
-        {/* Thumb */}
         <View style={{
           position: 'absolute',
           left: `${progress * 100}%`,
@@ -300,7 +256,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
         }} />
       </View>
 
-      {/* Labels */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
         {labels.map((l, i) => (
           <Text key={i} style={{
@@ -309,7 +264,6 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
             color: colors.textMuted,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fontFamily: 'System',
           }}>
             {l}
           </Text>
@@ -319,64 +273,15 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
   );
 }
 
-// ─── Workout Type Picker Sheet ────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function TypePickerSheet({
-  visible,
-  current,
-  onSave,
-  onClose,
-  colors,
-}: {
-  visible: boolean;
-  current: string;
-  onSave: (t: string) => void;
-  onClose: () => void;
-  colors: AppColors;
-}) {
-  const insets = useSafeAreaInsets();
-  const [temp, setTemp] = useState(current);
-  const tp = useMemo(() => createTypePickerStyles(colors), [colors]);
-
-  function handleDone() {
-    onSave(temp);
-    onClose();
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={tp.overlay}>
-        <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
-        <View style={[tp.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={28} />
-
-          <View style={tp.handle} />
-
-          <View style={tp.header}>
-            <Text style={tp.title}>Workout Type</Text>
-            <TouchableOpacity onPress={handleDone} activeOpacity={0.7} style={tp.doneBtn}>
-              <Text style={tp.doneBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={tp.pillRow}>
-            {WORKOUT_TYPES.map(t => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setTemp(t)}
-                activeOpacity={0.7}
-                style={[tp.pill, temp === t && tp.pillSelected]}
-              >
-                <Text style={[tp.pillText, temp === t && tp.pillTextSelected]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+function todayLabel(): string {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -392,11 +297,69 @@ export default function LogActivityScreen() {
   const [workoutType, setWorkoutType]       = useState('Walking');
   const [durationMin, setDurationMin]       = useState(30);
   const [intensity, setIntensity]           = useState(5);
-  const [showTypePicker, setShowTypePicker] = useState(false);
   const [stepsInput, setStepsInput]         = useState('');
   const [stepsEdited, setStepsEdited]       = useState(false);
+  const [editingSteps, setEditingSteps]     = useState(false);
+  const [notes, setNotes]                   = useState('');
   const [isSubmitting, setIsSubmitting]     = useState(false);
 
+  // ── Entrance animations ──────────────────────────────────────────────────
+  const headerOpacity = useSharedValue(0);
+  const headerY = useSharedValue(12);
+  const typeOpacity = useSharedValue(0);
+  const typeY = useSharedValue(16);
+  const summaryOpacity = useSharedValue(0);
+  const summaryY = useSharedValue(12);
+  const slidersOpacity = useSharedValue(0);
+  const slidersY = useSharedValue(24);
+  const fieldsOpacity = useSharedValue(0);
+  const fieldsY = useSharedValue(16);
+  const ctaOpacity = useSharedValue(0);
+  const ctaY = useSharedValue(40);
+
+  useEffect(() => {
+    const ease = { duration: 400, easing: Easing.out(Easing.quad) };
+    headerOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+    headerY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    typeOpacity.value = withDelay(100, withTiming(1, ease));
+    typeY.value = withDelay(100, withTiming(0, ease));
+    summaryOpacity.value = withDelay(200, withTiming(1, ease));
+    summaryY.value = withDelay(200, withTiming(0, ease));
+    slidersOpacity.value = withDelay(300, withTiming(1, ease));
+    slidersY.value = withDelay(300, withTiming(0, ease));
+    fieldsOpacity.value = withDelay(400, withTiming(1, ease));
+    fieldsY.value = withDelay(400, withTiming(0, ease));
+    ctaOpacity.value = withDelay(500, withTiming(1, ease));
+    ctaY.value = withDelay(500, withTiming(0, ease));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const headerAnim = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerY.value }],
+  }));
+  const typeAnim = useAnimatedStyle(() => ({
+    opacity: typeOpacity.value,
+    transform: [{ translateY: typeY.value }],
+  }));
+  const summaryAnim = useAnimatedStyle(() => ({
+    opacity: summaryOpacity.value,
+    transform: [{ translateY: summaryY.value }],
+  }));
+  const slidersAnim = useAnimatedStyle(() => ({
+    opacity: slidersOpacity.value,
+    transform: [{ translateY: slidersY.value }],
+  }));
+  const fieldsAnim = useAnimatedStyle(() => ({
+    opacity: fieldsOpacity.value,
+    transform: [{ translateY: fieldsY.value }],
+  }));
+  const ctaAnim = useAnimatedStyle(() => ({
+    opacity: ctaOpacity.value,
+    transform: [{ translateY: ctaY.value }],
+  }));
+
+  // ── Steps auto-calculation ──────────────────────────────────────────────
   useEffect(() => {
     if (stepsEdited) return;
     const rate = STEPS_PER_MIN[workoutType] ?? 30;
@@ -415,12 +378,32 @@ export default function LogActivityScreen() {
   const intensityMultiplier = 0.75 + (intensity - 1) * (0.60 / 9);
   const estCalories = Math.round(met * intensityMultiplier * weightKg * (durationMin / 60));
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
+  // ── Voice transcription ─────────────────────────────────────────────────
+  async function handleVoiceTranscription(text: string) {
+    try {
+      const result = await parseVoiceLog('activity', text) as VoiceActivityResult;
+      if (result.exercise_type) {
+        const typeLower = result.exercise_type.toLowerCase();
+        const matched = WORKOUT_TYPE_DATA.find(t =>
+          t.key.toLowerCase() === typeLower ||
+          t.label.toLowerCase().includes(typeLower)
+        );
+        if (matched) setWorkoutType(matched.key);
+      }
+      if (result.duration_min && result.duration_min > 0) {
+        setDurationMin(clamp(result.duration_min, 0, 120));
+      }
+      if (result.intensity) {
+        const map: Record<string, number> = { low: 3, moderate: 5, high: 8 };
+        setIntensity(map[result.intensity] ?? 5);
+      }
+      if (result.notes) setNotes(result.notes);
+    } catch {
+      Alert.alert('Voice Input', 'Could not parse your activity details. Try saying the workout type, duration, and intensity.');
+    }
+  }
 
+  // ── Save handler ────────────────────────────────────────────────────────
   async function handleLog() {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -432,75 +415,143 @@ export default function LogActivityScreen() {
         Alert.alert('Could not save activity', error);
         return;
       }
+      // TODO: persist notes once activity_logs.notes column is added
       dispatch({ type: 'LOG_STEPS', steps: stepsValue });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ height: insets.top, backgroundColor: colors.bg }} />
+  const cols = USE_THREE_COLUMNS ? 3 : 2;
+  const gridGap = 10;
+  const gridItemWidth = (SCREEN_WIDTH - 40 - gridGap * (cols - 1)) / cols;
 
-      {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={s.back}>
-          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.borderSubtle }]} />
-          <GlassBorder r={22} />
-          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+  return (
+    <KeyboardAvoidingView
+      style={[s.root, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      {/* ── Header ── */}
+      <Animated.View style={[s.header, headerAnim]}>
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }}
+          activeOpacity={0.7}
+          style={s.backBtn}
+          hitSlop={12}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
-        <Text style={s.title}>Log Activity</Text>
-        <View style={{ width: 44 }} />
-      </View>
+
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>Log Activity</Text>
+          <Text style={s.dateLabel}>{todayLabel()}</Text>
+        </View>
+
+        <View style={s.headerSpacer} />
+      </Animated.View>
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 110 }}
+        style={s.scroll}
+        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Summary cards row */}
-        <View style={s.cardsRow}>
-          <SummaryCard icon="flame-outline" label="Est. Calories" value={estCalories} unit="cal" colors={colors} />
-          <SummaryCard icon="time-outline" label="Duration" value={durationMin} unit="min" colors={colors} />
-        </View>
-
-        {/* Workout Info */}
-        <Text style={s.sectionLabel}>WORKOUT INFO</Text>
-        <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={28} />
-          <InfoRow icon="calendar-outline" label="DATE" value={dateStr} colors={colors} />
-          <InfoRow icon="barbell-outline" label="WORKOUT TYPE" value={workoutType} onPress={() => setShowTypePicker(true)} last colors={colors} />
-        </View>
-
-        {/* Intensity gauge */}
-        <Text style={s.sectionLabel}>INTENSITY</Text>
-        <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={28} />
-          <View style={{ paddingHorizontal: 16 }}>
-            <LinearSlider
-              value={intensity}
-              min={1}
-              max={10}
-              labels={['Recovery', 'Moderate', 'Max Effort']}
-              onChange={setIntensity}
-              colors={colors}
-            />
+        {/* ── Workout Type Grid ── */}
+        <Animated.View style={typeAnim}>
+          <Text style={s.sectionLabel}>WORKOUT TYPE</Text>
+          <View style={s.typeCard}>
+            <View style={s.typeGrid}>
+              {WORKOUT_TYPE_DATA.map((t) => {
+                const active = t.key === workoutType;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setWorkoutType(t.key); }}
+                    activeOpacity={0.75}
+                    style={[
+                      s.typeBtn,
+                      { width: gridItemWidth },
+                      active ? s.typeBtnActive : s.typeBtnInactive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={t.icon as any}
+                      size={20}
+                      color={active ? '#FFFFFF' : colors.textSecondary}
+                      style={{ marginBottom: 4 }}
+                    />
+                    <Text style={[s.typeBtnText, active ? s.typeBtnTextActive : s.typeBtnTextInactive]}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Duration gauge */}
-        <Text style={s.sectionLabel}>DURATION</Text>
-        <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={28} />
-          <View style={{ paddingHorizontal: 16 }}>
+        {/* ── Live Summary Row ── */}
+        <Animated.View style={summaryAnim}>
+          <View style={s.summaryRow}>
+            <View style={s.summaryItem}>
+              <Ionicons name="flame-outline" size={13} color={colors.textMuted} />
+              <Text style={s.summaryText}>{estCalories} cal</Text>
+            </View>
+            <Text style={s.summaryDot}>·</Text>
+            <View style={s.summaryItem}>
+              <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+              <Text style={s.summaryText}>{durationMin} min</Text>
+            </View>
+            <Text style={s.summaryDot}>·</Text>
+            <TouchableOpacity
+              style={s.summaryItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setEditingSteps(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="footsteps-outline" size={13} color={colors.textMuted} />
+              {editingSteps ? (
+                <TextInput
+                  style={s.stepsInlineInput}
+                  value={stepsInput}
+                  onChangeText={handleStepsChange}
+                  keyboardType="number-pad"
+                  autoFocus
+                  selectTextOnFocus
+                  returnKeyType="done"
+                  onSubmitEditing={() => setEditingSteps(false)}
+                  onBlur={() => setEditingSteps(false)}
+                  maxLength={6}
+                />
+              ) : (
+                <Text style={s.summaryText}>{stepsValue} steps</Text>
+              )}
+              {!stepsEdited && !editingSteps && (
+                <View style={s.autoBadge}>
+                  <Text style={s.autoBadgeText}>auto</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {stepsEdited && !editingSteps && (
+              <TouchableOpacity
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setStepsEdited(false); }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.resetLink}>reset</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* ── Duration & Intensity ── */}
+        <Animated.View style={slidersAnim}>
+          <Text style={s.sectionLabel}>DURATION & INTENSITY</Text>
+          <View style={s.slidersCard}>
             <LinearSlider
               value={durationMin}
               min={0}
@@ -510,272 +561,303 @@ export default function LogActivityScreen() {
               onChange={setDurationMin}
               colors={colors}
             />
-          </View>
-        </View>
-
-        {/* Steps */}
-        <Text style={s.sectionLabel}>STEPS</Text>
-        <View style={[s.card, SHADOW]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 28, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={28} />
-          <View style={s.infoRow}>
-            <Ionicons name="footsteps-outline" size={20}
-              color={colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'}
-              style={{ width: 26 }} />
-            <Text style={s.infoLabel}>STEPS</Text>
-            <TextInput
-              style={s.stepsInput}
-              value={stepsInput}
-              onChangeText={handleStepsChange}
-              keyboardType="number-pad"
-              placeholder="-"
-              placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
-              returnKeyType="done"
-              maxLength={6}
+            <View style={s.sliderDivider} />
+            <LinearSlider
+              value={intensity}
+              min={1}
+              max={10}
+              labels={['Recovery', 'Moderate', 'Max Effort']}
+              onChange={setIntensity}
+              colors={colors}
             />
           </View>
-        </View>
+        </Animated.View>
+
+        {/* ── Notes + Voice ── */}
+        <Animated.View style={fieldsAnim}>
+          <View style={s.notesRow}>
+            <TextInput
+              style={[s.inlineInput, s.notesInput]}
+              placeholder="Add a note..."
+              placeholderTextColor={colors.textMuted}
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={200}
+              multiline
+              textAlignVertical="top"
+            />
+            <VoiceButton onTranscription={handleVoiceTranscription} size="sm" style={{ marginTop: 6 }} />
+          </View>
+        </Animated.View>
       </ScrollView>
 
-      {/* CTA */}
-      <View style={[s.ctaWrap, { paddingBottom: insets.bottom + 20 }]}>
-        <TouchableOpacity
-          onPress={handleLog}
-          activeOpacity={0.85}
-          disabled={isSubmitting}
-          style={[s.logBtn, isSubmitting && { opacity: 0.75 }]}
-        >
-          {isSubmitting
-            ? <ActivityIndicator color={colors.bg} size="small" />
-            : <Text style={s.logBtnText}>Log Activity</Text>
-          }
-        </TouchableOpacity>
+      {/* ── CTA with gradient fade ── */}
+      <View style={[s.saveWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]} pointerEvents="box-none">
+        <LinearGradient
+          colors={['transparent', colors.bg + 'CC', colors.bg]}
+          locations={[0, 0.35, 1]}
+          style={s.saveFade}
+          pointerEvents="none"
+        />
+        <Animated.View style={ctaAnim}>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLog(); }}
+            activeOpacity={0.85}
+            disabled={isSubmitting}
+            style={[s.saveBtn, isSubmitting && s.saveBtnDisabled]}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <View style={s.saveBtnInner}>
+                <Ionicons name="fitness-outline" size={16} color="#FFF" />
+                <Text style={s.saveBtnText}>Log Activity</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
-
-      <TypePickerSheet
-        visible={showTypePicker}
-        current={workoutType}
-        onSave={setWorkoutType}
-        onClose={() => setShowTypePicker(false)}
-        colors={colors}
-      />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createStyles = (c: AppColors) => StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  back: {
-    width: 44, height: 44, borderRadius: 22,
-    overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
-    ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
-  },
-  title: { fontSize: 20, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
-  cardsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.textMuted,
-    letterSpacing: 1.2,
-    marginTop: 24,
-    marginBottom: 12,
-    marginLeft: 4,
-    fontFamily: 'System',
-  },
-  card: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: c.surface,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 10,
-  },
-  infoLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: c.textSecondary,
-    letterSpacing: 0.8,
-    fontFamily: 'System',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: c.textPrimary,
-    maxWidth: 180,
-    fontFamily: 'System',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: c.borderSubtle,
-    marginHorizontal: 16,
-  },
-  stepsInput: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: c.textPrimary,
-    textAlign: 'right',
-    minWidth: 80,
-    fontFamily: 'System',
-  },
-  ctaWrap: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    backgroundColor: c.bg,
-  },
-  logBtn: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: ORANGE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  logBtnText: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#000000',
-    letterSpacing: 0.5,
-    fontFamily: 'System',
-  },
-});
+const createStyles = (c: AppColors) => {
+  const elevation = cardElevation(c.isDark);
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
 
-// ─── Summary card styles ──────────────────────────────────────────────────────
+    // ── Header ──
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    backBtn: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.4,
+    },
+    dateLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.textMuted,
+      letterSpacing: 0.3,
+      marginTop: 2,
+    },
+    headerSpacer: {
+      width: 44,
+    },
 
-const createSummaryCardStyles = (c: AppColors) => StyleSheet.create({
-  card: {
-    flex: 1,
-    minWidth: 140,
-    borderRadius: 20,
-    overflow: 'hidden',
-    padding: 20,
-    backgroundColor: c.surface,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: c.textSecondary,
-    letterSpacing: 0.3,
-    fontFamily: 'System',
-  },
-  value: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: c.textPrimary,
-    letterSpacing: -1,
-    fontFamily: 'System',
-  },
-  unit: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: c.textSecondary,
-    marginBottom: 4,
-    fontFamily: 'System',
-  },
-});
+    // ── Scroll ──
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
 
-// ─── Type picker sheet styles ─────────────────────────────────────────────────
+    // ── Section label ──
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: ORANGE,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+      marginBottom: 14,
+    },
 
-const createTypePickerStyles = (c: AppColors) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: c.surface,
-    paddingHorizontal: 20,
-    paddingTop: 0,
-  },
-  handle: {
-    width: 44,
-    height: 4,
-    backgroundColor: c.border,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: c.textPrimary,
-    fontFamily: 'System',
-  },
-  doneBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,116,42,0.15)',
-  },
-  doneBtnText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: ORANGE,
-    fontFamily: 'System',
-  },
-  pillRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  pill: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: c.borderSubtle,
-    borderWidth: 1,
-    borderColor: c.border,
-  },
-  pillSelected: {
-    backgroundColor: 'rgba(255,116,42,0.2)',
-    borderColor: ORANGE,
-  },
-  pillText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: c.textSecondary,
-    fontFamily: 'System',
-  },
-  pillTextSelected: {
-    color: ORANGE,
-    fontWeight: '700',
-  },
-});
+    // ── Workout type card + grid ──
+    typeCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 20,
+      padding: 20,
+      ...elevation,
+    },
+    typeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    typeBtn: {
+      height: 72,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+    },
+    typeBtnActive: {
+      backgroundColor: ORANGE,
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      elevation: 5,
+    },
+    typeBtnInactive: {
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    typeBtnText: {
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    typeBtnTextActive: {
+      color: '#FFFFFF',
+    },
+    typeBtnTextInactive: {
+      color: c.textSecondary,
+    },
+
+    // ── Live summary row ──
+    summaryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.borderSubtle,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      marginTop: 16,
+      marginBottom: 8,
+      gap: 8,
+    },
+    summaryItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    summaryText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
+    summaryDot: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+    stepsInlineInput: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textPrimary,
+      minWidth: 50,
+      borderBottomWidth: 1,
+      borderBottomColor: ORANGE,
+      paddingVertical: 0,
+      paddingHorizontal: 2,
+    },
+    autoBadge: {
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 4,
+    },
+    autoBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: c.textMuted,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+    },
+    resetLink: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: ORANGE,
+    },
+
+    // ── Duration & Intensity card ──
+    slidersCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 20,
+      ...elevation,
+    },
+    sliderDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.borderSubtle,
+      marginVertical: 4,
+    },
+
+    // ── Notes (inline, no card) ──
+    inlineInput: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: c.textPrimary,
+      height: 44,
+      paddingHorizontal: 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+    },
+    notesRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 4,
+    },
+    notesInput: {
+      flex: 1,
+      minHeight: 44,
+      height: undefined,
+      paddingTop: 12,
+    },
+
+    // ── Save button ──
+    saveWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: 20,
+    },
+    saveFade: {
+      position: 'absolute',
+      top: -40,
+      left: 0,
+      right: 0,
+      height: 40,
+    },
+    saveBtn: {
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: ORANGE,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    saveBtnDisabled: {
+      opacity: 0.6,
+    },
+    saveBtnInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    saveBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      letterSpacing: -0.2,
+    },
+  });
+};

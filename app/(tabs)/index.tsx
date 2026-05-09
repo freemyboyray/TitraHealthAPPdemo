@@ -52,6 +52,7 @@ import { syncNotifications } from '@/stores/reminders-store';
 import { MissedShotModal } from '@/components/missed-shot-modal';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
+import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 
 const ORANGE = '#FF742A';
 
@@ -936,7 +937,8 @@ function DailyLogSummaryCard({
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
+  const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
+  const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
@@ -944,7 +946,7 @@ export default function HomeScreen() {
   const { lastLogAction, actuals, targets, profile, focuses } = healthData;
   const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
-  const { appleHealthEnabled, updateStreakOnOpen } = usePreferencesStore();
+  const { appleHealthEnabled, updateStreakOnOpen, headerStyle } = usePreferencesStore();
   const { updateProfile, applyPendingTransition, profile: fullUserProfile } = useProfile();
   const onTreatment = isOnTreatment(fullUserProfile);
 
@@ -1813,6 +1815,13 @@ export default function HomeScreen() {
             }}
           />
 
+          {/* ── Medical Disclaimer & Sources ── */}
+          <Text style={s.medDisclaimer}>{MEDICAL_DISCLAIMER}</Text>
+          <Pressable style={s.sourcesLink} onPress={() => router.push('/settings/medical-sources' as any)}>
+            <Ionicons name="document-text-outline" size={14} color={ORANGE} />
+            <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
+          </Pressable>
+
           </Pressable>
         </ScrollView>
 
@@ -1845,7 +1854,9 @@ export default function HomeScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createStyles = (c: AppColors) => {
+const createStyles = (c: AppColors, minimalHeader = false) => {
+  const headerText = minimalHeader && !c.isDark ? '#000000' : '#FFFFFF';
+  const headerTextMuted = minimalHeader && !c.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)';
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
@@ -1861,14 +1872,14 @@ const createStyles = (c: AppColors) => {
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   fireWrap: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.35)',
+    backgroundColor: minimalHeader && !c.isDark ? 'rgba(0,0,0,0.08)' : c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
   dateTitleRow: { alignItems: 'flex-end' },
-  dateTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2, fontFamily: 'System', textAlign: 'right' },
-  weekday: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.7)', marginTop: 2, fontFamily: 'System', textAlign: 'right' },
-  greetingLabel: { fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.7)', fontFamily: 'System', marginBottom: 2 },
-  greetingName: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, fontFamily: 'System' },
+  dateTitle: { fontSize: 18, fontWeight: '700', color: headerText, letterSpacing: -0.2, fontFamily: 'System', textAlign: 'right' },
+  weekday: { fontSize: 14, fontWeight: '500', color: headerTextMuted, marginTop: 2, fontFamily: 'System', textAlign: 'right' },
+  greetingLabel: { fontSize: 15, fontWeight: '500', color: headerTextMuted, fontFamily: 'System', marginBottom: 2 },
+  greetingName: { fontSize: 26, fontWeight: '800', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
@@ -2076,6 +2087,10 @@ const createStyles = (c: AppColors) => {
   phaseFocus: {
     fontSize: 14, color: w(0.55), lineHeight: 17, fontFamily: 'System',
   },
+
+  medDisclaimer: { fontSize: 12, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 20, paddingHorizontal: 8, fontFamily: 'System' },
+  sourcesLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, marginBottom: 8 },
+  sourcesLinkText: { fontSize: 13, fontWeight: '600', color: '#FF742A', fontFamily: 'System' },
 
   });
 };

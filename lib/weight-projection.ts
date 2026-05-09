@@ -43,6 +43,9 @@ export function bmiClass(bmi: number): BmiClass {
 }
 
 // ─── Expected total loss benchmarks (clinical trial data) ─────────────────────
+// Sources:
+//   Semaglutide: Wilding JPH, et al. N Engl J Med. 2021;384(11):989-1002 (STEP 1)
+//   Tirzepatide: Jastreboff AM, et al. N Engl J Med. 2022;387(3):205-216 (SURMOUNT-1)
 
 function expectedLossPct(medicationType: Glp1Type, doseMg: number): number {
   if (medicationType === 'tirzepatide') {

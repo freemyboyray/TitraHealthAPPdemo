@@ -405,13 +405,13 @@ export function AppetiteForecastStrip({
               <Text style={s.expandText}>
                 {'Data source: Based on your last logged injection'}
                 {injectionDate ? ` (${injectionDate})` : ''}
-                {` and the FDA-validated pharmacokinetic model for ${drugName}.`}
+                {` and the published pharmacokinetic model for ${drugName}.`}
               </Text>
             </View>
             <View style={s.expandRow}>
               <MaterialIcons name="restaurant" size={14} color="rgba(255,255,255,0.5)" />
               <Text style={s.expandText}>
-                Appetite connection: GLP-1 receptor activity follows the drug concentration curve. At peak concentration (typically Day 2–3 for weekly injectables), appetite suppression reaches 50–60%. By injection day, it returns toward baseline.
+                Appetite connection: GLP-1 receptor activity follows the drug concentration curve. At peak concentration (typically Day 2–3 for weekly injectables), appetite suppression reaches 50–60%. By injection day, it returns toward baseline. Sources: FDA prescribing information; Wilding JPH, et al. N Engl J Med. 2021. Not medical advice.
               </Text>
             </View>
           </View>

@@ -6,8 +6,8 @@ export const TOS_EFFECTIVE_DATE = 'May 4, 2026';
 export const PRIVACY_VERSION = '1.1';
 export const PRIVACY_EFFECTIVE_DATE = 'May 4, 2026';
 
-export const AI_VERSION = '1.0';
-export const AI_EFFECTIVE_DATE = 'May 6, 2026';
+export const AI_VERSION = '1.2';
+export const AI_EFFECTIVE_DATE = 'May 9, 2026';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -104,23 +104,23 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
 export const AI_SECTIONS: LegalSection[] = [
   {
     title: '1. AI in TitraHealth',
-    body: `TitraHealth uses third-party artificial intelligence (AI) services to power several features of the App. This disclosure explains exactly which AI providers receive your data, what data is sent, and what those providers do with it.\n\nBy accepting this disclosure during onboarding, you give us your explicit permission to send the data described below to the AI providers named here, solely to deliver the features you use.`,
+    body: `TitraHealth uses third-party artificial intelligence (AI) services to power several features of the App. This disclosure explains exactly which AI providers receive your data, what data is sent, and what those providers do with it.\n\nBy accepting this disclosure during onboarding, you give us your explicit permission to send the data described below to the providers named here (OpenAI and FatSecret), solely to deliver the features you use.`,
   },
   {
-    title: '2. AI Provider — OpenAI',
-    body: `TitraHealth uses OpenAI's models exclusively for AI features. We do not use any other AI provider.\n\nModels we use:\n• GPT-4o-mini — for the Ask AI assistant, weekly summaries, food description parsing, and personalized insights\n• GPT-4o (vision) — for analyzing food photos when you use the Capture Food feature\n• Whisper — for transcribing voice recordings into text when you use voice logging\n\nAll OpenAI calls go through our own server-side proxy. Your data is sent over TLS-encrypted connections.`,
+    title: '2. AI & Data Providers',
+    body: `TitraHealth uses the following third-party providers to power AI and nutrition features:\n\nOpenAI (AI features):\n• GPT-4o-mini — for the Ask AI assistant, weekly summaries, food description parsing, and personalized insights\n• GPT-4o (vision) — for analyzing food photos when you use the Capture Food feature\n• Whisper — for transcribing voice recordings into text when you use voice logging\n\nFatSecret (nutrition database):\n• FatSecret Platform API — for food search, barcode lookup, autocomplete, and nutritional data retrieval when you log meals\n\nAll calls to both providers go through our own server-side proxy. Your data is sent over TLS-encrypted connections.`,
   },
   {
-    title: '3. AI Features and What Each One Sends',
-    body: `Each AI-powered feature sends only the data required to perform that specific task:\n\nAsk AI (chat assistant):\n• Your message text\n• A snapshot of your wellness context — medication type, current dose phase, recent score, today's protein and activity progress, recent side effects\n\nDescribe Food (text):\n• The text description of the food you typed\n\nCapture Food (photo):\n• The photo you took of the meal\n\nVoice Logging (Whisper):\n• The audio clip you recorded\n• The type of entry you're logging (food / weight / injection / side effect / activity) so the model knows how to structure the result\n\nWeekly Summary & Insights:\n• Aggregated summary of the past week's logs (no individual messages or raw photos)`,
+    title: '3. Features and What Each One Sends',
+    body: `Each feature sends only the data required to perform that specific task:\n\nAsk AI (chat assistant) — via OpenAI:\n• Your message text\n• A snapshot of your wellness context — medication type, current dose phase, recent score, today's protein and activity progress, recent side effects\n\nDescribe Food (text) — via OpenAI:\n• The text description of the food you typed\n\nCapture Food (photo) — via OpenAI:\n• The photo you took of the meal\n\nVoice Logging (Whisper) — via OpenAI:\n• The audio clip you recorded\n• The type of entry you're logging (food / weight / injection / side effect / activity) so the model knows how to structure the result\n\nWeekly Summary & Insights — via OpenAI:\n• Aggregated summary of the past week's logs (no individual messages or raw photos)\n\nFood Search, Barcode Scan & Autocomplete — via FatSecret:\n• The food name or search query you typed\n• The barcode number you scanned\n• Partial text as you type (for autocomplete suggestions)\n• No health data, medication data, or personal information is sent to FatSecret`,
   },
   {
-    title: '4. What Is Never Sent to OpenAI',
-    body: `The following are never sent to OpenAI under any circumstance:\n\n• Your email address\n• Your username\n• Your real name (if you provided one)\n• Your account ID\n• Your authentication tokens\n• Any directly identifying information\n\nThe data OpenAI sees is wellness data tied only to an opaque request — they have no way to associate it with you personally.`,
+    title: '4. What Is Never Sent to Third Parties',
+    body: `The following are never sent to OpenAI or FatSecret under any circumstance:\n\n• Your email address\n• Your username\n• Your real name (if you provided one)\n• Your account ID\n• Your authentication tokens\n• Any directly identifying information\n\nThe data these providers see is tied only to an opaque request — they have no way to associate it with you personally.\n\nAdditionally, FatSecret never receives any of your health or medication data. FatSecret only processes food search queries and barcode numbers to return nutritional information.`,
   },
   {
-    title: '5. OpenAI Data Retention & Training',
-    body: `Per OpenAI's API data usage policy, API inputs (the data we send to perform AI features) are NOT used to train OpenAI's models.\n\nOpenAI may retain API inputs and outputs for up to 30 days for abuse and misuse monitoring, after which they are deleted. Some enterprise agreements have a zero-retention option; we use OpenAI's standard API tier.\n\nFor full details, see OpenAI's API data usage policy: https://openai.com/policies/api-data-usage-policies`,
+    title: '5. Data Retention & Training',
+    body: `OpenAI:\nPer OpenAI's API data usage policy, API inputs (the data we send to perform AI features) are NOT used to train OpenAI's models. OpenAI may retain API inputs and outputs for up to 30 days for abuse and misuse monitoring, after which they are deleted. We use OpenAI's standard API tier. For full details, see OpenAI's API data usage policy: https://openai.com/policies/api-data-usage-policies\n\nFatSecret:\nFatSecret receives only food search queries and barcode numbers. FatSecret's data usage is governed by the FatSecret Platform API Terms of Service. Your search queries are not used to build a profile of you and are not shared with advertisers. For full details, see FatSecret's privacy policy: https://www.fatsecret.com/Default.aspx?pa=privacy`,
   },
   {
     title: '6. AI Limitations — Not Medical Advice',
@@ -128,6 +128,6 @@ export const AI_SECTIONS: LegalSection[] = [
   },
   {
     title: '7. Your Rights & Controls',
-    body: `You have the following rights and controls regarding AI use in TitraHealth:\n\n• Opt out by avoiding AI features — every AI feature is optional. The App is fully functional without using Ask AI, Capture Food, Describe Food, or voice logging.\n• Delete AI history — your Ask AI conversation history is part of your account data and is permanently deleted within 30 days when you delete your account.\n• Export — you can export your health data at any time via the App's PDF export feature.\n• Updates — if we change AI providers or what data is sent to them, we will notify you and request your acceptance of an updated AI Disclosure before the changes take effect.\n\nFor questions, contact us at titrahealth@gmail.com.`,
+    body: `You have the following rights and controls regarding AI use in TitraHealth:\n\n• Granular consent toggles — you can enable or disable AI Data Processing (OpenAI) and Food Database (FatSecret) independently at any time in Settings > Privacy & Data. Disabling a toggle immediately stops all data from being sent to that provider.\n• Revoke consent at any time — toggling off a service does not delete data already processed, but prevents any future data from being sent.\n• The App is fully functional without AI features — disabling AI Data Processing only affects Ask AI, Capture Food, Describe Food, voice logging, and AI-generated insights. Core tracking features (logging, scoring, charts) continue to work without any third-party data sharing.\n• Delete AI history — your Ask AI conversation history is part of your account data and is permanently deleted within 30 days when you delete your account.\n• Export — you can export your health data at any time via the App's PDF export feature.\n• Updates — if we change AI providers or what data is sent to them, we will notify you and request your acceptance of an updated AI Disclosure before the changes take effect.\n\nFor questions, contact us at titrahealth@gmail.com.`,
   },
 ];

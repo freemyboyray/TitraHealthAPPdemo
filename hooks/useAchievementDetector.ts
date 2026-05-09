@@ -41,9 +41,13 @@ export function useAchievementDetector() {
   const seedPhotoMilestones = usePreferencesStore((s: { seedPhotoMilestones: (milestones: number[]) => void }) => s.seedPhotoMilestones);
 
   const weightLost = useMemo(() => {
-    const startWeight = profile?.startWeightLbs ?? 0;
     const latestLog = weightLogs[0];
-    const currentWeight = latestLog?.weight_lbs ?? profile?.currentWeightLbs ?? 0;
+    // Only calculate weight loss from actual weight log entries — never fall
+    // back to profile.currentWeightLbs alone, which can drift from
+    // startWeightLbs (e.g. via HealthKit sync) and trigger false achievements.
+    if (!latestLog) return 0;
+    const startWeight = profile?.startWeightLbs ?? 0;
+    const currentWeight = latestLog.weight_lbs;
     if (startWeight > 0 && currentWeight > 0 && startWeight > currentWeight) {
       return startWeight - currentWeight;
     }
@@ -52,9 +56,10 @@ export function useAchievementDetector() {
 
   const daysOnTreatment = useMemo(() => {
     if (!profile?.startDate) return 0;
-    const start = new Date(profile.startDate + 'T00:00:00');
+    // Use noon to avoid off-by-one from DST spring-forward (23-hour day).
+    const start = new Date(profile.startDate + 'T12:00:00');
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    now.setHours(12, 0, 0, 0);
     return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86400000));
   }, [profile?.startDate]);
 
@@ -91,25 +96,30 @@ export function useAchievementDetector() {
       (m) => !shownPhotoMilestones.includes(m),
     );
 
-    // New non-weight achievements (streak, treatment)
+    // New achievements not yet shown
     const newAchievementIds = allUnlockedIds.filter((id) => !shownIds.includes(id));
     const newAchievements = newAchievementIds
       .map((id) => ACHIEVEMENTS.find((a) => a.id === id)!)
       .filter(Boolean);
 
-    // Non-weight achievements first
-    for (const a of newAchievements) {
-      if (a.category !== 'weight') {
-        events.push({ type: 'achievement', achievement: a });
-      }
-    }
+    // Track which weight achievements get attached to a photo milestone
+    const attachedWeightIds = new Set<string>();
 
     // Photo milestones — attach weight achievement if one coincides
     for (const lbs of newPhotoMilestones) {
       const matchingAchievement = WEIGHT_ACHIEVEMENT_THRESHOLDS.includes(lbs)
         ? newAchievements.find((a) => a.category === 'weight' && a.threshold === lbs) ?? null
         : null;
+      if (matchingAchievement) attachedWeightIds.add(matchingAchievement.id);
       events.push({ type: 'photo-milestone', lbs, achievement: matchingAchievement });
+    }
+
+    // Non-weight achievements + any weight achievements whose photo milestone
+    // was already shown (prevents them from being silently dropped).
+    for (const a of newAchievements) {
+      if (a.category !== 'weight' || !attachedWeightIds.has(a.id)) {
+        events.push({ type: 'achievement', achievement: a });
+      }
     }
 
     return events;

@@ -57,7 +57,7 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const { profile } = useProfile();
   const { masterEnabled } = useRemindersStore();
-  const { themeMode, setThemeMode, appleHealthEnabled, useGradientHeader, setUseGradientHeader } = usePreferencesStore();
+  const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle, aiDataConsent, setAiDataConsent, foodDbConsent, setFoodDbConsent } = usePreferencesStore();
   const { lastRefreshed, liveCategories } = useHealthKitStore();
   const { colors } = useAppTheme();
   const isPremium = useSubscriptionStore((s) => s.isPremium);
@@ -322,19 +322,33 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
 
-          {/* Gradient Header */}
+          {/* Header Style */}
           <View style={s.cardRow}>
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="paintbrush.fill" size={18} color={ORANGE} />
               </View>
-              <Text style={s.rowLabel}>Gradient Header</Text>
+              <Text style={s.rowLabel}>Header Style</Text>
             </View>
-            <Switch
-              value={useGradientHeader}
-              onValueChange={setUseGradientHeader}
-              trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: ORANGE }}
-            />
+          </View>
+          <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+            {(['gradient', 'solid', 'minimal'] as const).map((style) => (
+              <Pressable
+                key={style}
+                onPress={() => setHeaderStyle(style)}
+                style={{
+                  flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
+                  backgroundColor: (headerStyle ?? 'gradient') === style ? ORANGE : 'transparent',
+                }}
+              >
+                <Text style={{
+                  fontSize: 13, fontWeight: '600',
+                  color: (headerStyle ?? 'gradient') === style ? '#FFF' : colors.textSecondary,
+                }}>
+                  {style === 'gradient' ? 'Gradient' : style === 'solid' ? 'Solid' : 'Minimal'}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
           <View style={s.divider} />
@@ -394,6 +408,51 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* PRIVACY & DATA section */}
+        <Text style={s.sectionLabel}>PRIVACY & DATA</Text>
+
+        <View style={s.card}>
+          <View style={s.cardRow}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <IconSymbol name="sparkles" size={18} color={ORANGE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>AI Data Processing</Text>
+                <Text style={s.rowSub}>Send health context to OpenAI for coaching, food analysis, and insights</Text>
+              </View>
+            </View>
+            <Switch
+              value={aiDataConsent}
+              onValueChange={setAiDataConsent}
+              trackColor={{ true: ORANGE }}
+            />
+          </View>
+
+          <View style={s.divider} />
+
+          <View style={s.cardRow}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                <IconSymbol name="fork.knife" size={18} color="#34C759" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Food Database</Text>
+                <Text style={s.rowSub}>Send food search queries to FatSecret for nutritional data</Text>
+              </View>
+            </View>
+            <Switch
+              value={foodDbConsent}
+              onValueChange={setFoodDbConsent}
+              trackColor={{ true: ORANGE }}
+            />
+          </View>
+        </View>
+
+        <Text style={[s.rowSub, { paddingHorizontal: 4, marginTop: -4, marginBottom: 16 }]}>
+          These features are optional. Disabling them will prevent the app from sending data to the respective third-party services. You can re-enable them at any time.
+        </Text>
+
         {/* LEGAL & ACCOUNT section */}
         <Text style={s.sectionLabel}>LEGAL & ACCOUNT</Text>
 
@@ -404,6 +463,21 @@ export default function SettingsScreen() {
                 <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
               </View>
               <Text style={s.rowLabel}>Terms & Privacy</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+          </Pressable>
+
+          <View style={s.divider} />
+
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/medical-sources' as any)}>
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                <IconSymbol name="book.fill" size={18} color="#34C759" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowLabel}>Medical Sources</Text>
+                <Text style={s.rowSub}>Published studies & citations</Text>
+              </View>
             </View>
             <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>

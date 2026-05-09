@@ -1,6 +1,7 @@
 // Routes FatSecret calls through the Supabase edge function which handles
 // authentication and credential management server-side.
 import { supabase } from './supabase';
+import { usePreferencesStore } from '@/stores/preferences-store';
 
 export type ServingOption = { label: string; grams: number; isDefault?: boolean };
 
@@ -56,6 +57,9 @@ export type FoodResult = {
 // ─── Supabase edge function proxy ────────────────────────────────────────────
 
 async function callEdge(params: Record<string, string>): Promise<unknown> {
+  if (!usePreferencesStore.getState().foodDbConsent) {
+    throw new Error('Food database access requires your consent. Enable "Food Database" in Settings > Privacy & Data.');
+  }
   __DEV__ && console.log('[FatSecret] callEdge →', params);
 
   const query = new URLSearchParams(params).toString();

@@ -2,6 +2,23 @@ import { FullUserProfile } from '@/constants/user-profile';
 import { daysSinceInjection, getShotPhase } from '@/constants/scoring';
 import type { WeeklySummaryData } from '@/lib/weekly-summary';
 import { supabase } from '@/lib/supabase';
+import { usePreferencesStore } from '@/stores/preferences-store';
+
+// ─── Data Consent Error ──────────────────────────────────────────────────────
+
+export class DataConsentError extends Error {
+  constructor() {
+    super('AI data processing requires your consent. Enable "AI Data Processing" in Settings > Privacy & Data.');
+    this.name = 'DataConsentError';
+  }
+}
+
+/** Throws DataConsentError if the user has not granted AI data consent. */
+export function requireAiConsent(): void {
+  if (!usePreferencesStore.getState().aiDataConsent) {
+    throw new DataConsentError();
+  }
+}
 
 // ─── Usage Limit Error ────────────────────────────────────────────────────────
 
@@ -177,7 +194,9 @@ RESPONSE GUIDELINES:
 - Reference the user's specific numbers directly
 - Do NOT make medical diagnoses; recommend consulting their HCP for clinical decisions
 - Keep responses to 1–2 sentences unless the user explicitly asks for more
-- Plain text only - no markdown, no bullet lists`;
+- Plain text only - no markdown, no bullet lists
+
+IMPORTANT: All health information you provide is for educational purposes only and is NOT medical advice. When citing nutrition targets, pharmacokinetic data, or clinical benchmarks, note they are based on published clinical guidelines and prescribing information. Always recommend the user consult their prescribing physician for personalized medical decisions.`;
 }
 
 // ─── Edge Function Proxy ─────────────────────────────────────────────────────
@@ -185,6 +204,7 @@ RESPONSE GUIDELINES:
 const MAX_RETRIES = 2;    // up to 3 total attempts
 
 async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  requireAiConsent();
   let lastError: Error = new Error('Request failed');
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {

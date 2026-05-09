@@ -23,7 +23,7 @@ import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
-import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision, UsageLimitError } from '@/lib/openai';
+import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision, UsageLimitError, DataConsentError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
@@ -356,8 +356,11 @@ export function AiChatOverlay() {
       }
     } catch (err: unknown) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
+      const isConsent = err instanceof DataConsentError;
       const isUsageLimit = err instanceof UsageLimitError;
-      if (isUsageLimit && !err.isPremium) {
+      if (isConsent) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'AI features require your consent to process data. Go to Settings > Privacy & Data to enable "AI Data Processing".' } as Message]);
+      } else if (isUsageLimit && !err.isPremium) {
         setShowUpgradeCard(true);
       } else if (isUsageLimit && err.isPremium) {
         setMessages(prev => [...prev, { role: 'assistant', content: `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.` } as Message]);

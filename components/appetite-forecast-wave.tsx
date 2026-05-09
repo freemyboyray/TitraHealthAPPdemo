@@ -220,7 +220,7 @@ export function AppetiteForecastWave({
         )}
 
         <Text style={s.disclaimer}>
-          Estimates based on {drugName}'s pharmacokinetic profile. Individual experience may vary.
+          Estimates based on {drugName}'s published pharmacokinetic profile. Individual experience may vary. Not medical advice.
         </Text>
       </View>
     );
@@ -238,7 +238,7 @@ export function AppetiteForecastWave({
           Log your first injection to see your estimated appetite curve.
         </Text>
         <Text style={s.disclaimer}>
-          Based on {drugName}'s pharmacokinetic profile. Individual experience may vary.
+          Based on {drugName}'s published pharmacokinetic profile. Individual experience may vary. Not medical advice.
         </Text>
       </View>
     );
@@ -381,7 +381,7 @@ export function AppetiteForecastWave({
       )}
 
       <Text style={s.disclaimer}>
-        Estimates based on {drugName}'s pharmacokinetic profile. Individual experience may vary.
+        Estimates based on {drugName}'s published pharmacokinetic profile. Individual experience may vary. Not medical advice.
       </Text>
     </View>
   );

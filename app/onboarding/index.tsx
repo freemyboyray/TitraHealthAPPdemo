@@ -50,7 +50,7 @@ export default function ResearchScreen() {
           <Text style={s.body}>
             Every recommendation is grounded in{' '}
             <Text style={s.bodyBold}>peer-reviewed research</Text>,{' '}
-            <Text style={s.bodyBold}>FDA-approved pharmacokinetics</Text>, and data from major clinical trials.
+            <Text style={s.bodyBold}>published pharmacokinetics</Text>, and data from major clinical trials.
           </Text>
 
           {/* Trial names */}

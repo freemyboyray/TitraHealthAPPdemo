@@ -5,9 +5,10 @@ try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Platform,
   StyleSheet,
@@ -16,6 +17,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -24,6 +36,7 @@ import type { AppColors } from '@/constants/theme';
 WebBrowser.maybeCompleteAuthSession();
 
 const FONT = 'System';
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
@@ -35,6 +48,59 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading]   = useState(false);
   const [error, setError]                 = useState<string | null>(null);
+  const anyLoading = googleLoading || appleLoading;
+
+  // ── Entrance animations ──────────────────────────────────────────────────
+  const logoScale = useSharedValue(0.8);
+  const logoOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(16);
+  const btn1Opacity = useSharedValue(0);
+  const btn1TranslateY = useSharedValue(20);
+  const btn2Opacity = useSharedValue(0);
+  const btn2TranslateY = useSharedValue(20);
+  const dividerOpacity = useSharedValue(0);
+  const btn3Opacity = useSharedValue(0);
+  const btn3TranslateY = useSharedValue(20);
+
+  useEffect(() => {
+    logoScale.value = withSpring(1, { damping: 14, stiffness: 150 });
+    logoOpacity.value = withTiming(1, { duration: 400 });
+    titleOpacity.value = withDelay(150, withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) }));
+    titleTranslateY.value = withDelay(150, withTiming(0, { duration: 400, easing: Easing.out(Easing.quad) }));
+    btn1Opacity.value = withDelay(300, withTiming(1, { duration: 350 }));
+    btn1TranslateY.value = withDelay(300, withTiming(0, { duration: 350, easing: Easing.out(Easing.quad) }));
+    btn2Opacity.value = withDelay(400, withTiming(1, { duration: 350 }));
+    btn2TranslateY.value = withDelay(400, withTiming(0, { duration: 350, easing: Easing.out(Easing.quad) }));
+    dividerOpacity.value = withDelay(450, withTiming(1, { duration: 250 }));
+    btn3Opacity.value = withDelay(500, withTiming(1, { duration: 350 }));
+    btn3TranslateY.value = withDelay(500, withTiming(0, { duration: 350, easing: Easing.out(Easing.quad) }));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const logoAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+    opacity: logoOpacity.value,
+  }));
+  const titleAnim = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+  const btn1Anim = useAnimatedStyle(() => ({
+    opacity: btn1Opacity.value,
+    transform: [{ translateY: btn1TranslateY.value }],
+  }));
+  const btn2Anim = useAnimatedStyle(() => ({
+    opacity: btn2Opacity.value,
+    transform: [{ translateY: btn2TranslateY.value }],
+  }));
+  const dividerAnim = useAnimatedStyle(() => ({
+    opacity: dividerOpacity.value,
+  }));
+  const btn3Anim = useAnimatedStyle(() => ({
+    opacity: btn3Opacity.value,
+    transform: [{ translateY: btn3TranslateY.value }],
+  }));
 
   // ── Shared: credential guard + post-auth navigation ─────────────────────
   function checkSupabaseConfigured(): boolean {
@@ -168,89 +234,109 @@ export default function SignInScreen() {
 
   return (
     <View style={s.root}>
-      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        {/* ── Top spacer ── */}
-        <View style={s.spacer} />
+      <StatusBar style="light" />
 
-        {/* ── Title section (left-aligned) ── */}
-        <View style={s.titleSection}>
-          <Image
-            source={require('@/assets/images/titra-logo.png')}
-            style={s.titleLogo}
-            resizeMode="cover"
-          />
-          <Text style={s.title}>Sign In</Text>
-          <Text style={s.subtitle}>
-            Built to help you track more,{'\n'}so you can achieve more.
-          </Text>
+      {/* ── Hero gradient background ── */}
+      <LinearGradient
+        colors={c.heroGradient as unknown as [string, string, ...string[]]}
+        locations={[0, 0.35, 0.65, 1.0]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={s.gradient}
+        pointerEvents="none"
+      />
+
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        {/* ── Brand section (centered on gradient) ── */}
+        <View style={s.brandSection}>
+          <Animated.View style={logoAnim}>
+            <Image
+              source={require('@/assets/images/titra-logo.png')}
+              style={s.logo}
+              resizeMode="cover"
+            />
+          </Animated.View>
+          <Animated.View style={titleAnim}>
+            <Text style={s.brandName}>TitraHealth</Text>
+            <Text style={s.tagline}>Track more. Achieve more.</Text>
+          </Animated.View>
         </View>
 
-        {/* ── Provider cards (side by side) ── */}
-        <View style={s.cardRow}>
+        {/* ── Auth buttons section ── */}
+        <View style={s.buttonsSection}>
           {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={s.providerCard}
-              onPress={handleAppleSignIn}
-              activeOpacity={0.7}
-              disabled={appleLoading}
-            >
-              {appleLoading ? (
-                <ActivityIndicator size="small" color={c.textPrimary} style={s.cardIcon} />
-              ) : (
-                <Ionicons name="logo-apple" size={32} color={c.textPrimary} style={s.cardIcon} />
-              )}
-              <Text style={s.cardWith}>with</Text>
-              <Text style={s.cardLabel}>Apple</Text>
-            </TouchableOpacity>
+            <Animated.View style={btn1Anim}>
+              <TouchableOpacity
+                style={[s.appleBtn, anyLoading && !appleLoading && s.btnDisabled]}
+                onPress={handleAppleSignIn}
+                activeOpacity={0.85}
+                disabled={anyLoading}
+              >
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color={c.isDark ? '#000' : '#FFF'} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-apple" size={22} color={c.isDark ? '#000' : '#FFF'} />
+                    <Text style={s.appleBtnText}>Continue with Apple</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
           )}
 
-          <TouchableOpacity
-            style={s.providerCard}
-            onPress={handleGoogleSignIn}
-            activeOpacity={0.7}
-            disabled={googleLoading}
-          >
-            {googleLoading ? (
-              <ActivityIndicator size="small" color={c.textPrimary} style={s.cardIcon} />
-            ) : (
-              <Image
-                source={require('@/assets/images/google-logo.png')}
-                style={[s.googleLogo, s.cardIcon]}
-                resizeMode="contain"
-              />
-            )}
-            <Text style={s.cardWith}>with</Text>
-            <Text style={s.cardLabel}>Google</Text>
-          </TouchableOpacity>
-        </View>
+          <Animated.View style={btn2Anim}>
+            <TouchableOpacity
+              style={[s.googleBtn, anyLoading && !googleLoading && s.btnDisabled]}
+              onPress={handleGoogleSignIn}
+              activeOpacity={0.85}
+              disabled={anyLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={c.textPrimary} />
+              ) : (
+                <>
+                  <Image
+                    source={require('@/assets/images/google-logo.png')}
+                    style={s.googleLogo}
+                    resizeMode="contain"
+                  />
+                  <Text style={s.googleBtnText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
 
-        {/* ── Divider ── */}
-        <View style={s.divider}>
-          <View style={s.dividerLine} />
-          <Text style={s.dividerText}>or</Text>
-          <View style={s.dividerLine} />
-        </View>
+          {/* ── Divider ── */}
+          <Animated.View style={[s.divider, dividerAnim]}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>or</Text>
+            <View style={s.dividerLine} />
+          </Animated.View>
 
-        {/* ── Email link ── */}
-        <TouchableOpacity
-          style={s.emailLink}
-          onPress={() => router.push('/auth/email-sign-in')}
-          activeOpacity={0.7}
-        >
-          <Text style={s.emailLinkText}>Continue with email</Text>
-          <Ionicons name="chevron-forward" size={18} color={c.textSecondary} />
-        </TouchableOpacity>
+          {/* ── Email CTA ── */}
+          <Animated.View style={btn3Anim}>
+            <TouchableOpacity
+              style={[s.emailBtn, anyLoading && s.btnDisabled]}
+              onPress={() => router.push('/auth/email-sign-in')}
+              activeOpacity={0.85}
+              disabled={anyLoading}
+            >
+              <Ionicons name="mail-outline" size={20} color="#FFF" />
+              <Text style={s.emailBtnText}>Continue with Email</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-        {error ? <Text style={s.errorText}>{error}</Text> : null}
+          {error ? <Text style={s.errorText}>{error}</Text> : null}
 
-        {/* ── Footer ── */}
-        <View style={s.footer}>
-          <Text style={s.legalText}>
-            By continuing, you agree to our{' '}
-            <Text style={s.legalLink}>Terms</Text>
-            {' & '}
-            <Text style={s.legalLink}>Privacy Policy</Text>
-          </Text>
+          {/* ── Footer ── */}
+          <View style={s.footer}>
+            <Text style={s.legalText}>
+              By continuing, you agree to our{' '}
+              <Text style={s.legalLink}>Terms</Text>
+              {' & '}
+              <Text style={s.legalLink}>Privacy Policy</Text>
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -263,57 +349,80 @@ const createStyles = (c: AppColors) =>
       flex: 1,
       backgroundColor: c.bg,
     },
+    gradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: SCREEN_HEIGHT * 0.52,
+    },
     safe: {
       flex: 1,
       paddingHorizontal: 28,
     },
-    spacer: {
+
+    // ── Brand ──
+    brandSection: {
       flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingBottom: 40,
     },
-
-    // ── Title ──
-    titleSection: {
-      marginBottom: 28,
-    },
-    titleLogo: {
-      width: 44,
-      height: 44,
-      borderRadius: 11,
-      marginBottom: 12,
-    },
-    title: {
-      fontSize: 34,
-      fontWeight: '800',
-      color: c.textPrimary,
-      fontFamily: FONT,
-      letterSpacing: -0.5,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      fontWeight: '400',
-      color: c.textSecondary,
-      fontFamily: FONT,
-      lineHeight: 22,
-    },
-
-    // ── Provider cards ──
-    cardRow: {
-      flexDirection: 'row',
-      gap: 12,
+    logo: {
+      width: 72,
+      height: 72,
+      borderRadius: 18,
       marginBottom: 20,
     },
-    providerCard: {
-      flex: 1,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+    brandName: {
+      fontSize: 38,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      fontFamily: FONT,
+      letterSpacing: -1.0,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    tagline: {
+      fontSize: 17,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.75)',
+      fontFamily: FONT,
+      letterSpacing: -0.2,
+      textAlign: 'center',
+    },
+
+    // ── Auth buttons ──
+    buttonsSection: {
+      paddingBottom: 8,
+    },
+    appleBtn: {
+      height: 56,
       borderRadius: 18,
-      paddingVertical: 20,
-      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      backgroundColor: c.isDark ? '#FFFFFF' : '#000000',
+      marginBottom: 12,
+    },
+    appleBtnText: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: c.isDark ? '#000000' : '#FFFFFF',
+      fontFamily: FONT,
+      letterSpacing: -0.2,
+    },
+    googleBtn: {
+      height: 56,
+      borderRadius: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
       ...(c.isDark
-        ? {
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)',
-          }
+        ? { borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }
         : {
             shadowColor: 'rgba(0,0,0,0.08)',
             shadowOffset: { width: 0, height: 2 },
@@ -322,33 +431,42 @@ const createStyles = (c: AppColors) =>
             elevation: 2,
           }),
     },
-    cardIcon: {
-      marginBottom: 14,
-    },
     googleLogo: {
-      width: 28,
-      height: 28,
+      width: 22,
+      height: 22,
     },
-    cardWith: {
-      fontSize: 14,
-      fontWeight: '400',
-      color: c.textSecondary,
-      fontFamily: FONT,
-      marginBottom: 2,
-    },
-    cardLabel: {
-      fontSize: 18,
-      fontWeight: '700',
+    googleBtnText: {
+      fontSize: 17,
+      fontWeight: '600',
       color: c.textPrimary,
       fontFamily: FONT,
       letterSpacing: -0.2,
+    },
+    emailBtn: {
+      height: 56,
+      borderRadius: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: c.orange,
+    },
+    emailBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      fontFamily: FONT,
+      letterSpacing: -0.2,
+    },
+    btnDisabled: {
+      opacity: 0.5,
     },
 
     // ── Divider ──
     divider: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 16,
+      marginVertical: 20,
       gap: 12,
     },
     dividerLine: {
@@ -365,23 +483,6 @@ const createStyles = (c: AppColors) =>
       textTransform: 'uppercase',
     },
 
-    // ── Email link ──
-    emailLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 14,
-      gap: 6,
-      marginBottom: 8,
-    },
-    emailLinkText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: c.textSecondary,
-      fontFamily: FONT,
-      letterSpacing: -0.1,
-    },
-
     // ── Error ──
     errorText: {
       fontSize: 14,
@@ -389,13 +490,13 @@ const createStyles = (c: AppColors) =>
       textAlign: 'center',
       fontFamily: FONT,
       lineHeight: 20,
-      marginBottom: 12,
+      marginTop: 16,
     },
 
     // ── Footer ──
     footer: {
+      paddingTop: 16,
       paddingBottom: 8,
-      paddingTop: 12,
     },
     legalText: {
       fontSize: 12,

@@ -28,6 +28,7 @@ import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseCard } from '@/components/courses/course-card';
 import { PremiumGate } from '@/components/ui/premium-gate';
+import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 
 type ArticleRow = {
   id: string;
@@ -307,7 +308,7 @@ const MYTHS: MythItem[] = [
   {
     icon: <IconSymbol name="cross.case.fill" size={26} color="#FF742A" />,
     myth: '"GLP-1s are only for people with type 2 diabetes."',
-    fact: 'Semaglutide (Wegovy) and tirzepatide (Zepbound) are FDA-approved for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition, regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
+    fact: 'Semaglutide and tirzepatide are prescribed for chronic weight management in adults with BMI ≥30, or ≥27 with a weight-related condition, regardless of diabetes status. The majority of GLP-1 prescriptions for obesity are written for non-diabetic patients.',
   },
   {
     icon: <IconSymbol name="cross.case.fill" size={26} color="#FF742A" />,
@@ -959,9 +960,11 @@ export default function EducationScreen() {
           {/* ── Side Effect Decoder ── */}
           <SideEffectDecoder />
 
-          <Text style={s.disclaimer}>
-            This content is for informational purposes only and does not constitute medical advice. Always consult your healthcare provider before making any changes to your treatment plan.
-          </Text>
+          <Text style={s.disclaimer}>{MEDICAL_DISCLAIMER}</Text>
+          <Pressable style={s.sourcesLink} onPress={() => router.push('/settings/medical-sources' as any)}>
+            <Ionicons name="document-text-outline" size={14} color={ORANGE} />
+            <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
       <ScrollTitle title="Education" scrollY={scrollY} />
@@ -987,6 +990,8 @@ const createScreenStyles = (c: AppColors) => {
     headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
     headerSub: { fontSize: 16, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
     disclaimer: { fontSize: 13, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
+    sourcesLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, marginBottom: 8 },
+    sourcesLinkText: { fontSize: 13, fontWeight: '600', color: '#FF742A', fontFamily: FF },
   });
 };
 

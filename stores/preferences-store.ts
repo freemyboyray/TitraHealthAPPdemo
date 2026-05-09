@@ -15,6 +15,7 @@ function yesterdayKey(): string {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type HeaderStyle = 'gradient' | 'solid' | 'minimal';
 
 type PreferencesStore = {
   isLightMode: boolean;
@@ -58,9 +59,17 @@ type PreferencesStore = {
    * not trigger celebration popups.
    */
   resetMilestoneTracking: (achievementIds: string[], photoMilestones: number[]) => void;
-  /** Whether to use the gradient header or solid orange. */
-  useGradientHeader: boolean;
-  setUseGradientHeader: (v: boolean) => void;
+  /** Header appearance: gradient, solid orange, or minimal (plain bg). */
+  headerStyle: HeaderStyle;
+  setHeaderStyle: (v: HeaderStyle) => void;
+  /** @deprecated Use headerStyle instead. Kept for migration. */
+  useGradientHeader?: boolean;
+  /** Whether the user has granted consent for AI data processing (OpenAI). */
+  aiDataConsent: boolean;
+  setAiDataConsent: (v: boolean) => void;
+  /** Whether the user has granted consent for third-party food database (FatSecret). */
+  foodDbConsent: boolean;
+  setFoodDbConsent: (v: boolean) => void;
   /** App store review prompt tracking */
   hasReviewedApp: boolean;
   reviewPromptLastShown: string | null;
@@ -127,8 +136,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
         shownPhotoMilestones: photoMilestones,
         photoMilestonesSeeded: true,
       }),
-      useGradientHeader: true,
-      setUseGradientHeader: (v) => set({ useGradientHeader: v }),
+      headerStyle: 'gradient' as HeaderStyle,
+      setHeaderStyle: (v) => set({ headerStyle: v }),
+      aiDataConsent: false,
+      setAiDataConsent: (v) => set({ aiDataConsent: v }),
+      foodDbConsent: false,
+      setFoodDbConsent: (v) => set({ foodDbConsent: v }),
       hasReviewedApp: false,
       reviewPromptLastShown: null,
       reviewPromptDismissCount: 0,
@@ -143,7 +156,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         appOpenCount: s.appOpenCount + 1,
         firstOpenDate: s.firstOpenDate ?? todayKey(),
       })),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, useGradientHeader: true, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

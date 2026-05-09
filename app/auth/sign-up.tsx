@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -39,6 +44,26 @@ export default function SignUpScreen() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
+
+  // Focus tracking
+  const [nameFocused, setNameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [codeFocused, setCodeFocused] = useState(false);
+
+  // ── Entrance animation ──
+  const contentOpacity = useSharedValue(0);
+  const contentTranslateY = useSharedValue(12);
+
+  useEffect(() => {
+    contentOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+    contentTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+  }, []);
+
+  const contentAnim = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
+  }));
 
   async function handleSignUp() {
     const trimmedEmail = email.trim();
@@ -151,7 +176,7 @@ export default function SignUpScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {/* ── Back button ── */}
+              {/* ── Glass back button ── */}
               <TouchableOpacity
                 style={s.backButton}
                 onPress={() => {
@@ -162,83 +187,83 @@ export default function SignUpScreen() {
                 }}
                 hitSlop={12}
               >
-                <Ionicons name="chevron-back" size={28} color={c.textPrimary} />
+                <Ionicons name="chevron-back" size={22} color={c.textPrimary} />
               </TouchableOpacity>
 
               <View style={s.spacer} />
 
-              {/* ── Title ── */}
-              <View style={s.titleSection}>
-                <Image
-                  source={require('@/assets/images/titra-logo.png')}
-                  style={s.titleLogo}
-                  resizeMode="cover"
-                />
-                <Text style={s.title}>Check your email</Text>
-                <Text style={s.subtitle}>
-                  Enter the 6-digit code we sent to{'\n'}
-                  <Text style={s.subtitleEmail}>{email.trim()}</Text>
-                </Text>
-              </View>
-
-              {/* ── Code input ── */}
-              <View style={s.fields}>
-                <View style={s.field}>
-                  <Text style={s.label}>Verification Code</Text>
-                  <TextInput
-                    style={[s.input, s.codeInput]}
-                    value={code}
-                    onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    placeholderTextColor={c.textMuted}
-                    keyboardType="number-pad"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="one-time-code"
-                    textContentType="oneTimeCode"
-                    maxLength={6}
-                    editable={!verifying}
-                    onSubmitEditing={handleVerifyOtp}
-                  />
-                </View>
-              </View>
-
-              {verifyError ? <Text style={s.errorText}>{verifyError}</Text> : null}
-              {resendNotice && !verifyError ? (
-                <Text style={s.resendNotice}>{resendNotice}</Text>
-              ) : null}
-
-              {/* ── Primary CTA ── */}
-              <TouchableOpacity
-                style={[
-                  s.primaryBtn,
-                  (verifying || code.length < 6) && s.primaryBtnDisabled,
-                ]}
-                onPress={handleVerifyOtp}
-                disabled={verifying || code.length < 6}
-                activeOpacity={0.85}
-              >
-                {verifying ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={s.primaryBtnText}>Verify & Continue</Text>
-                )}
-              </TouchableOpacity>
-
-              {/* ── Resend link ── */}
-              <TouchableOpacity
-                style={s.switchRow}
-                onPress={handleResendCode}
-                disabled={verifying || resending}
-                activeOpacity={0.7}
-              >
-                <Text style={s.switchText}>
-                  Didn't get a code?{' '}
-                  <Text style={s.switchTextAccent}>
-                    {resending ? 'Sending…' : 'Resend'}
+              <Animated.View style={contentAnim}>
+                {/* ── Title with mail icon ── */}
+                <View style={s.titleSection}>
+                  <Ionicons name="mail-outline" size={48} color={c.orange} style={s.otpIcon} />
+                  <Text style={s.title}>Verify your email</Text>
+                  <Text style={s.subtitle}>
+                    Enter the 6-digit code we sent to{'\n'}
+                    <Text style={s.subtitleEmail}>{email.trim()}</Text>
                   </Text>
-                </Text>
-              </TouchableOpacity>
+                </View>
+
+                {/* ── Code input ── */}
+                <View style={s.fields}>
+                  <View style={s.field}>
+                    <Text style={s.label}>Verification Code</Text>
+                    <TextInput
+                      style={[s.input, s.codeInput, codeFocused && s.inputFocused]}
+                      value={code}
+                      onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      placeholderTextColor={c.textMuted}
+                      keyboardType="number-pad"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="one-time-code"
+                      textContentType="oneTimeCode"
+                      maxLength={6}
+                      editable={!verifying}
+                      onSubmitEditing={handleVerifyOtp}
+                      onFocus={() => setCodeFocused(true)}
+                      onBlur={() => setCodeFocused(false)}
+                    />
+                  </View>
+                </View>
+
+                {verifyError ? <Text style={s.errorText}>{verifyError}</Text> : null}
+                {resendNotice && !verifyError ? (
+                  <Text style={s.resendNotice}>{resendNotice}</Text>
+                ) : null}
+
+                {/* ── Primary CTA ── */}
+                <TouchableOpacity
+                  style={[
+                    s.primaryBtn,
+                    (verifying || code.length < 6) && s.primaryBtnDisabled,
+                  ]}
+                  onPress={handleVerifyOtp}
+                  disabled={verifying || code.length < 6}
+                  activeOpacity={0.85}
+                >
+                  {verifying ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={s.primaryBtnText}>Verify & Continue</Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* ── Resend link ── */}
+                <TouchableOpacity
+                  style={s.switchRow}
+                  onPress={handleResendCode}
+                  disabled={verifying || resending}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.switchText}>
+                    Didn't get a code?{' '}
+                    <Text style={s.switchTextAccent}>
+                      {resending ? 'Sending...' : 'Resend'}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
             </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -258,120 +283,121 @@ export default function SignUpScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* ── Back button ── */}
+            {/* ── Glass back button ── */}
             <TouchableOpacity
               style={s.backButton}
               onPress={() => router.back()}
               hitSlop={12}
             >
-              <Ionicons name="chevron-back" size={28} color={c.textPrimary} />
+              <Ionicons name="chevron-back" size={22} color={c.textPrimary} />
             </TouchableOpacity>
 
             <View style={s.spacer} />
 
-            {/* ── Title ── */}
-            <View style={s.titleSection}>
-              <Image
-                source={require('@/assets/images/titra-logo.png')}
-                style={s.titleLogo}
-                resizeMode="cover"
-              />
-              <Text style={s.title}>Create Account</Text>
-              <Text style={s.subtitle}>
-                Built to help you track more,{'\n'}so you can achieve more.
+            <Animated.View style={contentAnim}>
+              {/* ── Title ── */}
+              <View style={s.titleSection}>
+                <Text style={s.title}>Create your account</Text>
+                <Text style={s.subtitle}>Start your GLP-1 journey</Text>
+              </View>
+
+              {/* ── Inputs ── */}
+              <View style={s.fields}>
+                <View style={s.field}>
+                  <Text style={s.label}>Name (optional)</Text>
+                  <TextInput
+                    style={[s.input, nameFocused && s.inputFocused]}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Your name"
+                    placeholderTextColor={c.textMuted}
+                    autoCapitalize="sentences"
+                    autoCorrect={false}
+                    autoComplete="name"
+                    textContentType="name"
+                    editable={!loading}
+                    onFocus={() => setNameFocused(true)}
+                    onBlur={() => setNameFocused(false)}
+                  />
+                </View>
+
+                <View style={s.field}>
+                  <Text style={s.label}>Email</Text>
+                  <TextInput
+                    style={[s.input, emailFocused && s.inputFocused]}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    placeholderTextColor={c.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    editable={!loading}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                  />
+                </View>
+
+                <View style={s.field}>
+                  <Text style={s.label}>Password</Text>
+                  <TextInput
+                    style={[s.input, passwordFocused && s.inputFocused]}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                    placeholderTextColor={c.textMuted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                    editable={!loading}
+                    onSubmitEditing={handleSignUp}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                  />
+                </View>
+              </View>
+
+              {error ? <Text style={s.errorText}>{error}</Text> : null}
+
+              {/* ── Primary CTA ── */}
+              <TouchableOpacity
+                style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
+                onPress={handleSignUp}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={s.primaryBtnText}>Create Account</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* ── Switch to sign in ── */}
+              <TouchableOpacity
+                style={s.switchRow}
+                onPress={() => router.replace('/auth/email-sign-in')}
+                activeOpacity={0.7}
+                disabled={loading}
+              >
+                <Text style={s.switchText}>
+                  Already have an account?{' '}
+                  <Text style={s.switchTextAccent}>Sign in</Text>
+                </Text>
+              </TouchableOpacity>
+
+              {/* ── Legal ── */}
+              <Text style={s.legalText}>
+                By creating an account, you agree to our{' '}
+                <Text style={s.legalLink}>Terms</Text>
+                {' & '}
+                <Text style={s.legalLink}>Privacy Policy</Text>
               </Text>
-            </View>
-
-            {/* ── Inputs ── */}
-            <View style={s.fields}>
-              <View style={s.field}>
-                <Text style={s.label}>Name (optional)</Text>
-                <TextInput
-                  style={s.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Your name"
-                  placeholderTextColor={c.textMuted}
-                  autoCapitalize="sentences"
-                  autoCorrect={false}
-                  autoComplete="name"
-                  textContentType="name"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={s.field}>
-                <Text style={s.label}>Email</Text>
-                <TextInput
-                  style={s.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  placeholderTextColor={c.textMuted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={s.field}>
-                <Text style={s.label}>Password</Text>
-                <TextInput
-                  style={s.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                  placeholderTextColor={c.textMuted}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="password-new"
-                  textContentType="newPassword"
-                  editable={!loading}
-                  onSubmitEditing={handleSignUp}
-                />
-              </View>
-            </View>
-
-            {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-            {/* ── Primary CTA ── */}
-            <TouchableOpacity
-              style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
-              onPress={handleSignUp}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={s.primaryBtnText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* ── Switch to sign in ── */}
-            <TouchableOpacity
-              style={s.switchRow}
-              onPress={() => router.replace('/auth/email-sign-in')}
-              activeOpacity={0.7}
-              disabled={loading}
-            >
-              <Text style={s.switchText}>
-                Already have an account?{' '}
-                <Text style={s.switchTextAccent}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
-
-            {/* ── Legal ── */}
-            <Text style={s.legalText}>
-              By creating an account, you agree to our{' '}
-              <Text style={s.legalLink}>Terms</Text>
-              {' & '}
-              <Text style={s.legalLink}>Privacy Policy</Text>
-            </Text>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -390,12 +416,14 @@ const createStyles = (c: AppColors) =>
       paddingBottom: 24,
     },
 
-    // ── Back ──
+    // ── Glass back button ──
     backButton: {
-      width: 44,
-      height: 44,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+      alignItems: 'center',
       justifyContent: 'center',
-      marginLeft: -8,
       marginTop: 4,
     },
 
@@ -405,14 +433,11 @@ const createStyles = (c: AppColors) =>
     titleSection: {
       marginBottom: 32,
     },
-    titleLogo: {
-      width: 44,
-      height: 44,
-      borderRadius: 11,
-      marginBottom: 12,
+    otpIcon: {
+      marginBottom: 16,
     },
     title: {
-      fontSize: 34,
+      fontSize: 30,
       fontWeight: '800',
       color: c.textPrimary,
       fontFamily: FONT,
@@ -455,11 +480,10 @@ const createStyles = (c: AppColors) =>
       color: c.textPrimary,
       fontFamily: FONT,
       letterSpacing: 0,
+      borderWidth: 1.5,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'transparent',
       ...(c.isDark
-        ? {
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)',
-          }
+        ? {}
         : {
             shadowColor: 'rgba(0,0,0,0.08)',
             shadowOffset: { width: 0, height: 2 },
@@ -467,6 +491,9 @@ const createStyles = (c: AppColors) =>
             shadowRadius: 12,
             elevation: 2,
           }),
+    },
+    inputFocused: {
+      borderColor: c.orange,
     },
     codeInput: {
       textAlign: 'center',
@@ -542,5 +569,4 @@ const createStyles = (c: AppColors) =>
       color: c.textSecondary,
       fontWeight: '500',
     },
-
   });

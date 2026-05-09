@@ -66,6 +66,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     usePreferencesStore.getState().incrementAppOpen();
   }, []);
 
+  // One-time migration: auto-grant data consent for existing users who already
+  // accepted the AI disclosure during onboarding but don't have the new consent
+  // flags set yet (introduced for App Store Guideline 5.1.1(i) compliance).
+  useEffect(() => {
+    async function migrateConsent() {
+      const prefs = usePreferencesStore.getState();
+      if (prefs.aiDataConsent && prefs.foodDbConsent) return; // already migrated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('ai_accepted_at')
+        .eq('id', user.id)
+        .single();
+      if (data?.ai_accepted_at) {
+        prefs.setAiDataConsent(true);
+        prefs.setFoodDbConsent(true);
+      }
+    }
+    migrateConsent().catch(() => {});
+  }, []);
+
   // Initialize IAP connection on mount (no-op in Expo Go — native module unavailable)
   useEffect(() => {
     if (!iapModule) return;

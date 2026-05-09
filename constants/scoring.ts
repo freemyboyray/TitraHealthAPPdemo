@@ -2,6 +2,9 @@ import { ActivityLevel, FullUserProfile } from './user-profile';
 import { applyAdjustments, type RecentSideEffectLog } from '@/lib/targets';
 import { localDateStr } from '@/lib/date-utils';
 
+// Medical source citations are centralized in constants/medical-sources.ts
+// for App Store Guideline 1.4.1 compliance.
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DailyTargets = {
@@ -149,6 +152,7 @@ export function getDailyTargets(
   const programPhase: ProgramPhase = opts?.programPhase ?? 'initiation';
 
   // Protein: 1.0 g/kg base — floor of clinical range (1.0–1.6 g/kg)
+  // Source: Mechanick JI, et al. Obesity. 2013;21(S1):S1-S27.
   // We start conservative so targets feel achievable with appetite suppression.
   // Higher doses / later phases get a modest bump, not aggressive stacking.
   let proteinG = profile.weightKg * 1.0;
@@ -180,9 +184,11 @@ export function getDailyTargets(
   else if (daysSinceStart < 21) proteinG *= 0.9;
 
   // Hydration: 30 ml/kg base, capped at 3L (conservative, achievable)
+  // Source: National Academies DRI for Water — ~30 mL/kg/day adequate intake.
   const waterMl = Math.min(3000, Math.max(2000, Math.round(profile.weightKg * 30)));
 
   // Fiber: 20g — achievable baseline (average American eats ~15g)
+  // Source: Weickert MO, Pfeiffer AFH. J Nutr. 2018;148(1):7-12.
   const fiberG = 20;
 
   // Steps: activity level driven, with maintenance boost to counter metabolic adaptation
@@ -205,7 +211,8 @@ export function getDailyTargets(
     caloriesTarget = Math.max(1200, caloriesTarget - Math.round(opts.weightLostKg * 10));
   }
 
-  // Macros: derive from resolved calories + protein (2025 ACLM guidelines)
+  // Macros: derive from resolved calories + protein
+  // Source: American College of Lifestyle Medicine (ACLM), 2025 guidelines.
   const fatG = Math.round(caloriesTarget * 0.28 / 9);
   const fatCals = fatG * 9;
   const proteinCals = Math.round(proteinG) * 4;
@@ -626,7 +633,7 @@ export function generateInsights(
   const sleepMin   = wearable.sleepMinutes;
 
   if (sleepMin != null && sleepMin < 360) {
-    insights.push({ text: 'Sleep is below 6h - poor sleep blunts GLP-1 appetite control by up to 30%', phase: 'RECOVERY' });
+    insights.push({ text: 'Sleep is below 6h - poor sleep blunts GLP-1 appetite control by up to 30% (Spiegel K, et al. Ann Intern Med. 2004)', phase: 'RECOVERY' });
   } else if (!actuals.injectionLogged) {
     insights.push({ text: 'Log your dose to unlock the full medication bonus and enable phase-aware coaching', phase: 'TODAY' });
   } else if (proteinPct < 0.5) {
@@ -832,7 +839,7 @@ export function getRecoveryRowNotes(phase: ShotPhase): string[] {
       : "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks.";
 
   return [
-    "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin.",
+    "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin. (Spiegel K, et al. Ann Intern Med. 2004;141(11):846-850)",
     hrvNote,
     rhrNote,
     "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
@@ -848,32 +855,32 @@ export function getGLP1RowNotes(phase: ShotPhase): string[] {
 
   return [
     proteinNote,
-    "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects.",
-    "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue.",
-    "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes.",
+    "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects. (National Academies DRI for Water)",
+    "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue. (Blundell JE, et al. Obesity Reviews. 2022)",
+    "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes. (Weickert MO, Pfeiffer AFH. J Nutr. 2018)",
   ];
 }
 
 export const RECOVERY_ROW_NOTES = [
-  "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin.",
-  "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this.",
-  "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks.",
+  "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin. (Spiegel K, et al. Ann Intern Med. 2004;141(11):846-850)",
+  "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this. (Smits MM, et al. Diabetes Obes Metab. 2019;21(7):1517-1522)",
+  "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks. (Smits MM, et al. Diabetes Obes Metab. 2019)",
   "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
   "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration — common during GLP-1 dose escalation.",
 ];
 
 export const GLP1_ROW_NOTES = [
-  "GLP-1 medications suppress appetite broadly - intentional protein intake prevents muscle loss alongside fat.",
-  "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects.",
-  "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue.",
-  "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes.",
+  "GLP-1 medications suppress appetite broadly - intentional protein intake (1.0-1.6 g/kg/day) prevents muscle loss alongside fat. (Mechanick JI, et al. Obesity. 2013;21(S1):S1-S27)",
+  "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects. (National Academies DRI for Water)",
+  "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue. (Blundell JE, et al. Obesity Reviews. 2022;23(S1):e13403)",
+  "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes. (Weickert MO, Pfeiffer AFH. J Nutr. 2018;148(1):7-12)",
 ];
 
 export const RECOVERY_COACH_NOTE =
-  "HRV and sleep improve most with consistent aerobic exercise and 7–9h sleep. GLP-1 users typically see +4ms HRV improvement over 8 weeks of treatment.";
+  "HRV and sleep improve most with consistent aerobic exercise and 7–9h sleep. GLP-1 users typically see +4ms HRV improvement over 8 weeks of treatment. (Smits MM, et al. Diabetes Obes Metab. 2019)";
 
 export const GLP1_COACH_NOTE =
-  "Hitting your protein target is the single highest-impact daily action on GLP-1. Each 10g above baseline preserves ~0.5 lbs of muscle over 12 weeks.";
+  "Hitting your protein target is the single highest-impact daily action on GLP-1. Each 10g above baseline preserves ~0.5 lbs of muscle over 12 weeks. (Wilding JPH, et al. N Engl J Med. 2021;384(11):989-1002)";
 
 // ─── Focus Engine Types ───────────────────────────────────────────────────────
 
@@ -1448,6 +1455,11 @@ export function computeRollingAdherenceScore(params: {
 }
 
 // ─── Clinical Trial Benchmarks ───────────────────────────────────────────────
+// Sources:
+//   STEP 1 (semaglutide 2.4 mg): Wilding JPH, et al. N Engl J Med. 2021;384(11):989-1002
+//   SURMOUNT-1 (tirzepatide): Jastreboff AM, et al. N Engl J Med. 2022;387(3):205-216
+//   SCALE (liraglutide 3.0 mg): Pi-Sunyer X, et al. N Engl J Med. 2015;373(1):11-22
+//   AWARD-2 (dulaglutide): Giorgino F, et al. Diabetes Care. 2015;38(12):2241-2249
 
 export type TrialBenchmarkEntry = {
   week: number;

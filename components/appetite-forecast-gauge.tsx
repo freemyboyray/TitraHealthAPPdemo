@@ -200,7 +200,7 @@ export function AppetiteForecastGauge({
           Log your first injection to see your estimated appetite gauge.
         </Text>
         <Text style={s.disclaimer}>
-          Based on {drugName}'s pharmacokinetic profile. Individual experience may vary.
+          Based on {drugName}'s published pharmacokinetic profile. Individual experience may vary. Not medical advice.
         </Text>
       </View>
     );
@@ -277,7 +277,7 @@ export function AppetiteForecastGauge({
       )}
 
       <Text style={s.disclaimer}>
-        Estimates based on {drugName}'s pharmacokinetic profile. Individual experience may vary.
+        Estimates based on {drugName}'s published pharmacokinetic profile. Individual experience may vary. Not medical advice.
       </Text>
     </View>
   );

@@ -1,11 +1,11 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +16,15 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { useLogStore } from '../../stores/log-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { usePostHog } from '@/lib/posthog';
@@ -23,14 +32,16 @@ import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
+import { cardElevation } from '@/constants/theme';
 import { isOralDrug } from '@/constants/drug-pk';
 import type { Glp1Type } from '@/constants/user-profile';
 import { useHealthData } from '@/contexts/health-data';
 
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ORANGE = '#FF742A';
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const USE_THREE_COLUMNS = SCREEN_WIDTH >= 375;
 
 const SITES = [
   'Left Abdomen',
@@ -41,7 +52,6 @@ const SITES = [
   'Right Upper Arm',
 ];
 
-/** Given a previous injection site, return the next recommended rotation site. */
 function getRecommendedSite(lastSite: string): string {
   const idx = SITES.indexOf(lastSite);
   if (idx === -1) return SITES[0];
@@ -52,10 +62,7 @@ function getRecommendedSite(lastSite: string): string {
 
 function todayString(): string {
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function todayLabel(): string {
@@ -65,49 +72,6 @@ function todayLabel(): string {
     month: 'long',
     day: 'numeric',
   });
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function GlassBorder({ r = 20 }: { r?: number }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFillObject,
-        {
-          borderRadius: r,
-          borderWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.13)',
-          borderLeftColor: 'rgba(255,255,255,0.08)',
-          borderRightColor: 'rgba(255,255,255,0.03)',
-          borderBottomColor: 'rgba(255,255,255,0.02)',
-        },
-      ]}
-    />
-  );
-}
-
-function SectionLabel({ text }: { text: string }) {
-  return (
-    <View style={{ alignSelf: 'flex-start', marginBottom: 14 }}>
-      <Text style={{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 2 }}>{text}</Text>
-    </View>
-  );
-}
-
-function GlassCard({ children, colors }: { children: React.ReactNode; colors: AppColors }) {
-  const s = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <View style={s.cardShadow}>
-      <View style={s.cardClip}>
-        <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-        <View style={[StyleSheet.absoluteFillObject, s.cardOverlay]} />
-        <GlassBorder r={20} />
-        <View style={s.cardContent}>{children}</View>
-      </View>
-    </View>
-  );
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -122,7 +86,6 @@ export default function LogDoseScreen() {
   const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  // Medication & dose from ProfileContext (always in sync with latest settings)
   const medication = fullProfile?.medicationBrand
     ? fullProfile.medicationBrand.charAt(0).toUpperCase() + fullProfile.medicationBrand.slice(1)
     : 'Not set';
@@ -133,7 +96,6 @@ export default function LogDoseScreen() {
     isOralDrug(fullProfile?.glp1Type) ||
     fullProfile?.routeOfAdministration === 'oral';
 
-  // Injection site: derive from last injection log
   const lastInjectionSite = injectionLogs[0]?.site ?? null;
   const recommendedSite = lastInjectionSite ? getRecommendedSite(lastInjectionSite) : null;
   const isFirstInjection = !lastInjectionSite;
@@ -142,8 +104,57 @@ export default function LogDoseScreen() {
   const [customSite, setCustomSite] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
-  const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null); // oral sema fasting window
+  const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null);
 
+  // ── Entrance animations ──────────────────────────────────────────────────
+  const headerOpacity = useSharedValue(0);
+  const headerY = useSharedValue(12);
+  const medRowOpacity = useSharedValue(0);
+  const medRowY = useSharedValue(16);
+  const cardOpacity = useSharedValue(0);
+  const cardY = useSharedValue(24);
+  const fieldsOpacity = useSharedValue(0);
+  const fieldsY = useSharedValue(16);
+  const saveBtnOpacity = useSharedValue(0);
+  const saveBtnY = useSharedValue(40);
+
+  useEffect(() => {
+    const ease = { duration: 400, easing: Easing.out(Easing.quad) };
+    headerOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+    headerY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    medRowOpacity.value = withDelay(100, withTiming(1, ease));
+    medRowY.value = withDelay(100, withTiming(0, ease));
+    cardOpacity.value = withDelay(200, withTiming(1, ease));
+    cardY.value = withDelay(200, withTiming(0, ease));
+    fieldsOpacity.value = withDelay(350, withTiming(1, ease));
+    fieldsY.value = withDelay(350, withTiming(0, ease));
+    saveBtnOpacity.value = withDelay(400, withTiming(1, ease));
+    saveBtnY.value = withDelay(400, withTiming(0, ease));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const headerAnim = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerY.value }],
+  }));
+  const medRowAnim = useAnimatedStyle(() => ({
+    opacity: medRowOpacity.value,
+    transform: [{ translateY: medRowY.value }],
+  }));
+  const cardAnim = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+    transform: [{ translateY: cardY.value }],
+  }));
+  const fieldsAnim = useAnimatedStyle(() => ({
+    opacity: fieldsOpacity.value,
+    transform: [{ translateY: fieldsY.value }],
+  }));
+  const saveBtnAnim = useAnimatedStyle(() => ({
+    opacity: saveBtnOpacity.value,
+    transform: [{ translateY: saveBtnY.value }],
+  }));
+
+  // ── Voice transcription ──────────────────────────────────────────────────
   async function handleVoiceTranscription(text: string) {
     try {
       const result = await parseVoiceLog('injection', text) as VoiceInjectionResult;
@@ -162,13 +173,13 @@ export default function LogDoseScreen() {
     }
   }
 
+  // ── Save handler ─────────────────────────────────────────────────────────
   async function handleSave() {
     if (doseMg == null) {
       Alert.alert('Dose not set', 'Please set your medication and dose in Settings before logging.');
       return;
     }
     const date = todayString();
-    // For oral drugs: encode empty-stomach response in notes if no other note given
     const emptyStomachNote = isOral && emptyStomach !== null
       ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water — absorption may be reduced)')
       : '';
@@ -186,16 +197,16 @@ export default function LogDoseScreen() {
       Alert.alert('Save Failed', 'Could not save your dose. Please check your connection and try again.');
       return;
     }
-    // Immediately mark injection as logged in the health data context so
-    // daily focuses update without waiting for a full data refresh.
     posthog?.capture('dose_logged', { route: isOral ? 'oral' : 'injection' });
     dispatch({ type: 'LOG_INJECTION' });
-    // Keep ProfileContext in sync so cycle-intelligence reads the correct date immediately
     await updateProfile({ lastInjectionDate: date });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   }
 
-  const siteStyles = useMemo(() => createSiteStyles(colors), [colors]);
+  const cols = USE_THREE_COLUMNS ? 3 : 2;
+  const gridGap = 10;
+  const gridItemWidth = (SCREEN_WIDTH - 40 - gridGap * (cols - 1)) / cols;
 
   return (
     <KeyboardAvoidingView
@@ -204,23 +215,23 @@ export default function LogDoseScreen() {
       keyboardVerticalOffset={0}
     >
       {/* ── Header ── */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} activeOpacity={0.75} style={s.backShadow}>
-          <View style={s.backClip}>
-            <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
-            <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
-          </View>
+      <Animated.View style={[s.header, headerAnim]}>
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }}
+          activeOpacity={0.7}
+          style={s.backBtn}
+          hitSlop={12}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <Text style={s.headerTitle}>{isOral ? 'Log Dose' : 'Log Injection'}</Text>
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>{isOral ? 'Log Dose' : 'Log Injection'}</Text>
+          <Text style={s.dateLabel}>{todayLabel()}</Text>
+        </View>
 
         <View style={s.headerSpacer} />
-      </View>
-
-      {/* ── Date label ── */}
-      <Text style={s.dateLabel}>{todayLabel().toUpperCase()}</Text>
+      </Animated.View>
 
       <ScrollView
         style={s.scroll}
@@ -228,109 +239,76 @@ export default function LogDoseScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Medication & Dose Card (read-only from profile) ── */}
-        <GlassCard colors={colors}>
-          <SectionLabel text="MEDICATION & DOSE" />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={[s.chip, s.chipActive]}>
-              <Text style={[s.chipText, s.chipTextActive]}>{medication}</Text>
-            </View>
-            <View style={[s.chip, s.chipActive]}>
-              <Text style={[s.chipText, s.chipTextActive]}>{doseLabel}</Text>
-            </View>
-          </View>
+        {/* ── Medication Context Row ── */}
+        <Animated.View style={medRowAnim}>
           <TouchableOpacity
+            style={s.medRow}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings/edit-treatment'); }}
             activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ marginTop: 12 }}
           >
-            <Text style={{ fontSize: 14, color: colors.textMuted, textDecorationLine: 'underline' }}>
-              Doesn't match? Update in Settings
+            <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={13} color={colors.textMuted} />
+            <Text style={s.medRowText} numberOfLines={1}>
+              {medication} · {doseLabel}
             </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
           </TouchableOpacity>
-        </GlassCard>
+        </Animated.View>
 
         {/* ── Injection Site Card (injectable only) ── */}
         {!isOral && (
-          <GlassCard colors={colors}>
-            <SectionLabel text="INJECTION SITE" />
+          <Animated.View style={[s.siteCard, cardAnim]}>
+            <Text style={s.sectionLabel}>INJECTION SITE</Text>
 
-            {/* Rotation recommendation based on last injection */}
-            {lastInjectionSite && (
+            {recommendedSite && (
               <View style={s.rotateRow}>
-                <Ionicons name="sync-outline" size={14} color={ORANGE} style={s.rotateIcon} />
-                <Text style={{ fontSize: 15, color: colors.textSecondary, lineHeight: 19, flex: 1 }}>
-                  Last site: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{lastInjectionSite}</Text>
-                  {'\n'}
-                  <Text style={{ color: ORANGE, fontWeight: '700' }}>
-                    We recommend rotating to {recommendedSite}
-                  </Text>
+                <Ionicons name="sync-outline" size={13} color={ORANGE} />
+                <Text style={s.rotateText}>
+                  Rotate to <Text style={s.rotateBold}>{recommendedSite}</Text>
                 </Text>
               </View>
             )}
 
             {isFirstInjection && (
-              <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: 12, lineHeight: 19 }}>
-                Select your injection site. We'll track rotation for you going forward.
-              </Text>
+              <Text style={s.rotateText}>Select your first injection site</Text>
             )}
 
-            <View style={[s.siteGrid, { marginTop: lastInjectionSite ? 14 : 0 }]}>
+            <View style={[s.siteGrid, { marginTop: 14 }]}>
               {SITES.map((siteName) => {
                 const active = siteName === site;
+                const isRecommended = siteName === recommendedSite && !active;
                 return (
                   <TouchableOpacity
                     key={siteName}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite(siteName); }}
                     activeOpacity={0.75}
                     style={[
-                      siteStyles.siteBtn,
-                      active ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
+                      s.siteBtn,
+                      { width: gridItemWidth },
+                      active ? s.siteBtnActive : s.siteBtnInactive,
                     ]}
                   >
-                    <Text
-                      style={[
-                        siteStyles.siteBtnText,
-                        active ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive,
-                      ]}
-                    >
+                    {isRecommended && <View style={s.recommendedDot} />}
+                    <Text style={[s.siteBtnText, active ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
                       {siteName}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-              <TouchableOpacity
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite('Other'); }}
-                activeOpacity={0.75}
-                style={[
-                  siteStyles.siteBtn,
-                  site === 'Other' ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    siteStyles.siteBtnText,
-                    site === 'Other' ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive,
-                  ]}
-                >
-                  Other
-                </Text>
-              </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite('Other'); }}
+              activeOpacity={0.75}
+              style={[s.otherBtn, site === 'Other' ? s.siteBtnActive : s.siteBtnInactive]}
+            >
+              <Text style={[s.siteBtnText, site === 'Other' ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
+                Other
+              </Text>
+            </TouchableOpacity>
+
             {site === 'Other' && (
               <TextInput
-                style={{
-                  marginTop: 12,
-                  height: 48,
-                  borderWidth: 1.5,
-                  borderColor: ORANGE,
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  fontSize: 16,
-                  color: colors.textPrimary,
-                  backgroundColor: colors.cardBg,
-                }}
+                style={s.customSiteInput}
                 placeholder="Type injection site..."
                 placeholderTextColor={colors.textMuted}
                 value={customSite}
@@ -338,60 +316,51 @@ export default function LogDoseScreen() {
                 autoFocus
               />
             )}
-          </GlassCard>
+          </Animated.View>
         )}
 
-        {/* ── Empty Stomach Toggle (oral drugs only) ── */}
+        {/* ── Fasting Window (oral only) ── */}
         {isOral && (
-          <GlassCard colors={colors}>
-            <SectionLabel text="FASTING WINDOW" />
-            <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: 14, lineHeight: 19 }}>
-              Did you take your dose on an empty stomach?{'\n'}
-              <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-                Oral semaglutide must be taken 30 min before food or water for proper absorption.
-              </Text>
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Animated.View style={[s.siteCard, cardAnim]}>
+            <Text style={s.sectionLabel}>FASTING WINDOW</Text>
+            <Text style={s.fastingQuestion}>Did you take your dose on an empty stomach?</Text>
+            <View style={s.fastingOptions}>
               {([true, false] as const).map((val) => (
                 <TouchableOpacity
                   key={String(val)}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEmptyStomach(val); }}
                   activeOpacity={0.75}
-                  style={[
-                    siteStyles.siteBtn,
-                    { flex: 1 },
-                    emptyStomach === val ? siteStyles.siteBtnActive : siteStyles.siteBtnInactive,
-                  ]}
+                  style={[s.fastingBtn, emptyStomach === val ? s.siteBtnActive : s.siteBtnInactive]}
                 >
-                  <Text style={[siteStyles.siteBtnText, emptyStomach === val ? siteStyles.siteBtnTextActive : siteStyles.siteBtnTextInactive]}>
+                  <Text style={[s.siteBtnText, emptyStomach === val ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
                     {val ? 'Yes — empty stomach' : 'No — had food/water'}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </GlassCard>
+            <Text style={s.fastingFootnote}>
+              Oral semaglutide should be taken 30 min before food or water for proper absorption.
+            </Text>
+          </Animated.View>
         )}
 
-        {/* ── Batch & Notes Card ── */}
-        <GlassCard colors={colors}>
+        {/* ── Batch & Notes (inline, no card) ── */}
+        <Animated.View style={fieldsAnim}>
           {!isOral && (
-            <>
-              <TextInput
-                style={s.textInput}
-                placeholder="Batch # (optional)"
-                placeholderTextColor={colors.textMuted}
-                value={batchNumber}
-                onChangeText={setBatchNumber}
-                maxLength={30}
-                returnKeyType="next"
-              />
-              <View style={s.inputDivider} />
-            </>
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
             <TextInput
-              style={[s.textInput, s.notesInput, { flex: 1 }]}
-              placeholder="Add a note or speak to auto-fill…"
+              style={s.inlineInput}
+              placeholder="Batch # (optional)"
+              placeholderTextColor={colors.textMuted}
+              value={batchNumber}
+              onChangeText={setBatchNumber}
+              maxLength={30}
+              returnKeyType="next"
+            />
+          )}
+          <View style={s.notesRow}>
+            <TextInput
+              style={[s.inlineInput, s.notesInput]}
+              placeholder="Add a note..."
               placeholderTextColor={colors.textMuted}
               value={notes}
               onChangeText={setNotes}
@@ -401,26 +370,34 @@ export default function LogDoseScreen() {
             />
             <VoiceButton onTranscription={handleVoiceTranscription} size="sm" style={{ marginTop: 6 }} />
           </View>
-        </GlassCard>
+        </Animated.View>
       </ScrollView>
 
-      {/* ── Save Button ── */}
-      <View style={[s.saveWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-        <TouchableOpacity
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSave(); }}
-          activeOpacity={0.82}
-          disabled={loading}
-          style={[s.saveBtn, loading && s.saveBtnDisabled]}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <View style={s.saveBtnInner}>
-              <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={16} color="#FFF" style={s.saveIcon} />
-              <Text style={s.saveBtnText}>{isOral ? 'Save Dose' : 'Save Injection'}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+      {/* ── Save Button with gradient fade ── */}
+      <View style={[s.saveWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]} pointerEvents="box-none">
+        <LinearGradient
+          colors={['transparent', colors.bg + 'CC', colors.bg]}
+          locations={[0, 0.35, 1]}
+          style={s.saveFade}
+          pointerEvents="none"
+        />
+        <Animated.View style={saveBtnAnim}>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSave(); }}
+            activeOpacity={0.85}
+            disabled={loading}
+            style={[s.saveBtn, loading && s.saveBtnDisabled]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <View style={s.saveBtnInner}>
+                <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={16} color="#FFF" />
+                <Text style={s.saveBtnText}>{isOral ? 'Save Dose' : 'Save Injection'}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -428,240 +405,261 @@ export default function LogDoseScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createSiteStyles = (c: AppColors) => StyleSheet.create({
-  siteBtn: {
-    width: '48%',
-    marginBottom: 10,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  siteBtnActive: {
-    backgroundColor: ORANGE,
-    shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.38,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  siteBtnInactive: {
-    backgroundColor: c.borderSubtle,
-  },
-  siteBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  siteBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  siteBtnTextInactive: {
-    color: c.textSecondary,
-  },
-});
-
 const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const elevation = cardElevation(c.isDark);
   return StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: c.bg,
-  },
+    root: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  backShadow: {
-    shadowColor: c.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  backClip: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backOverlay: {
-    borderRadius: 20,
-    backgroundColor: w(0.12),
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '800',
-    color: c.textPrimary,
-    letterSpacing: -0.3,
-  },
-  headerSpacer: {
-    width: 40,
-  },
+    // ── Header ──
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    backBtn: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.4,
+    },
+    dateLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.textMuted,
+      letterSpacing: 0.3,
+      marginTop: 2,
+    },
+    headerSpacer: {
+      width: 44,
+    },
 
-  // Date label
-  dateLabel: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.textMuted,
-    letterSpacing: 3.5,
-    marginTop: 6,
-    marginBottom: 18,
-  },
+    // ── Scroll ──
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
 
-  // Scroll
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 14,
-  },
+    // ── Medication context row ──
+    medRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: c.borderSubtle,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      marginBottom: 16,
+    },
+    medRowText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
 
-  // Glass card
-  cardShadow: {
-    borderRadius: 20,
-    shadowColor: c.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  cardClip: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: c.surface,
-  },
-  cardOverlay: {
-    borderRadius: 20,
-    backgroundColor: c.borderSubtle,
-  },
-  cardContent: {
-    padding: 18,
-  },
+    // ── Section label ──
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: ORANGE,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+      marginBottom: 14,
+    },
 
-  // Chips
-  chipRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingRight: 4,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  chipActive: {
-    backgroundColor: ORANGE,
-  },
-  chipInactive: {
-    backgroundColor: c.borderSubtle,
-  },
-  chipText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  chipTextInactive: {
-    color: c.textSecondary,
-  },
+    // ── Site card ──
+    siteCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 20,
+      ...elevation,
+    },
 
-  // Site grid
-  siteGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
+    // ── Rotation recommendation ──
+    rotateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    rotateText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.textMuted,
+    },
+    rotateBold: {
+      fontWeight: '700',
+      color: ORANGE,
+    },
 
-  // Rotate row
-  rotateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  rotateIcon: {
-    marginRight: 4,
-  },
-  rotateLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.textMuted,
-    letterSpacing: 1.5,
-  },
-  rotateValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: ORANGE,
-    letterSpacing: 1,
-  },
+    // ── Site grid ──
+    siteGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    siteBtn: {
+      height: 64,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+    },
+    siteBtnActive: {
+      backgroundColor: ORANGE,
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      elevation: 5,
+    },
+    siteBtnInactive: {
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    siteBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    siteBtnTextActive: {
+      color: '#FFFFFF',
+    },
+    siteBtnTextInactive: {
+      color: c.textSecondary,
+    },
+    recommendedDot: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: ORANGE,
+      opacity: 0.6,
+    },
+    otherBtn: {
+      height: 52,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+    },
+    customSiteInput: {
+      marginTop: 10,
+      height: 48,
+      borderWidth: 1.5,
+      borderColor: ORANGE,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      fontSize: 16,
+      color: c.textPrimary,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+    },
 
-  // Text inputs
-  textInput: {
-    fontSize: 17,
-    color: c.textPrimary,
-    fontWeight: '500',
-    paddingVertical: 6,
-    minHeight: 36,
-  },
-  notesInput: {
-    minHeight: 72,
-    paddingTop: 10,
-  },
-  inputDivider: {
-    height: 1,
-    backgroundColor: c.borderSubtle,
-    marginVertical: 10,
-  },
+    // ── Fasting (oral) ──
+    fastingQuestion: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: c.textPrimary,
+      marginBottom: 14,
+      lineHeight: 20,
+    },
+    fastingOptions: {
+      gap: 8,
+    },
+    fastingBtn: {
+      height: 56,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fastingFootnote: {
+      fontSize: 13,
+      fontWeight: '400',
+      color: c.textMuted,
+      marginTop: 12,
+      lineHeight: 18,
+    },
 
-  // Save button
-  saveWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    backgroundColor: 'transparent',
-  },
-  saveBtn: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: ORANGE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: ORANGE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  saveBtnDisabled: {
-    opacity: 0.6,
-  },
-  saveBtnInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  saveIcon: {
-    marginTop: 1,
-  },
-  saveBtnText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
+    // ── Inline fields (no card) ──
+    inlineInput: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: c.textPrimary,
+      height: 44,
+      paddingHorizontal: 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+    },
+    notesRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 4,
+    },
+    notesInput: {
+      flex: 1,
+      minHeight: 44,
+      height: undefined,
+      paddingTop: 12,
+    },
+
+    // ── Save button ──
+    saveWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: 20,
+    },
+    saveFade: {
+      position: 'absolute',
+      top: -40,
+      left: 0,
+      right: 0,
+      height: 40,
+    },
+    saveBtn: {
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: ORANGE,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    saveBtnDisabled: {
+      opacity: 0.6,
+    },
+    saveBtnInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    saveBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      letterSpacing: -0.2,
+    },
   });
 };

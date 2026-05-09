@@ -24,6 +24,7 @@ import {
   AI_EFFECTIVE_DATE,
   AI_SECTIONS,
 } from '@/constants/legal';
+import { usePreferencesStore } from '@/stores/preferences-store';
 
 const FF = 'System';
 const TERMS_URL = 'https://titrahealth.io/terms-conditions';
@@ -36,6 +37,8 @@ export default function TermsScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const [aiOpen, setAiOpen] = useState(false);
 
+  const { setAiDataConsent, setFoodDbConsent } = usePreferencesStore();
+
   const handleContinue = () => {
     const now = new Date().toISOString();
     updateDraft({
@@ -46,6 +49,9 @@ export default function TermsScreen() {
       aiAcceptedAt: now,
       aiVersion: AI_VERSION,
     });
+    // Grant data consent for AI and food database when user accepts terms
+    setAiDataConsent(true);
+    setFoodDbConsent(true);
     router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
   };
 
@@ -94,7 +100,7 @@ export default function TermsScreen() {
         <View style={s.bottom}>
           <ContinueButton onPress={handleContinue} label="Accept and Continue" />
           <Text style={s.footerText}>
-            By continuing, you acknowledge that you have read and agree to our Terms of Service, Privacy Policy, and AI Disclosure — and you give your explicit permission for the data described in the AI Disclosure to be sent to OpenAI.
+            By continuing, you acknowledge that you have read and agree to our Terms of Service, Privacy Policy, and AI Disclosure — and you give your explicit permission for the data described in the AI Disclosure to be sent to OpenAI and FatSecret.
           </Text>
         </View>
       </View>

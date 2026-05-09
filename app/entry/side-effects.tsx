@@ -1,12 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -17,6 +15,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 
 import {
   ACTIVE_EFFECTS_KEY,
@@ -36,22 +42,6 @@ const ORANGE = '#FF742A';
 const GREEN = '#5DB87B';
 const THUMB_R = 11;
 
-function GB({ r = 24 }: { r?: number }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        borderRadius: r, borderWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.13)',
-        borderLeftColor: 'rgba(255,255,255,0.08)',
-        borderRightColor: 'rgba(255,255,255,0.03)',
-        borderBottomColor: 'rgba(255,255,255,0.02)',
-      }}
-    />
-  );
-}
-
 // ─── Slider ───────────────────────────────────────────────────────────────────
 
 function EffectSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -70,7 +60,6 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        // Tap: jump thumb to tapped position
         const tw = trackRef.current;
         if (tw <= 0) return;
         const next = Math.max(0, Math.min(10, Math.round((evt.nativeEvent.locationX / tw) * 10)));
@@ -82,7 +71,6 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
         }
       },
       onPanResponderMove: (_, gs) => {
-        // Drag: move relative to value at gesture start
         const tw = trackRef.current;
         if (tw <= 0) return;
         const delta = (gs.dx / tw) * 10;
@@ -109,9 +97,7 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
       }}
       {...panResponder.panHandlers}
     >
-      {/* Track */}
       <View style={{ height: 4, borderRadius: 2, backgroundColor: sliderColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-        {/* Fill */}
         <View
           style={{
             position: 'absolute', left: 0, top: 0, bottom: 0,
@@ -119,7 +105,6 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
           }}
         />
       </View>
-      {/* Thumb */}
       {trackPx > 0 && (
         <View
           style={{
@@ -141,7 +126,6 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 type CustomEffect = { id: string; label: string };
-
 type AnyEffect = { id: string; label: string; dbType: SideEffectType };
 
 export default function SideEffectsScreen() {
@@ -159,6 +143,40 @@ export default function SideEffectsScreen() {
   const [phase, setPhase] = useState<PhaseType>('balance');
   const [loading, setLoading] = useState(false);
 
+  // ── Entrance animations ──────────────────────────────────────────────────
+  const headerOpacity = useSharedValue(0);
+  const headerY = useSharedValue(12);
+  const labelOpacity = useSharedValue(0);
+  const labelY = useSharedValue(16);
+  const listOpacity = useSharedValue(0);
+  const listY = useSharedValue(24);
+  const bottomOpacity = useSharedValue(0);
+  const bottomY = useSharedValue(16);
+  const ctaOpacity = useSharedValue(0);
+  const ctaY = useSharedValue(40);
+
+  useEffect(() => {
+    const ease = { duration: 400, easing: Easing.out(Easing.quad) };
+    headerOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+    headerY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    labelOpacity.value = withDelay(100, withTiming(1, ease));
+    labelY.value = withDelay(100, withTiming(0, ease));
+    listOpacity.value = withDelay(200, withTiming(1, ease));
+    listY.value = withDelay(200, withTiming(0, ease));
+    bottomOpacity.value = withDelay(350, withTiming(1, ease));
+    bottomY.value = withDelay(350, withTiming(0, ease));
+    ctaOpacity.value = withDelay(450, withTiming(1, ease));
+    ctaY.value = withDelay(450, withTiming(0, ease));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const headerAnim = useAnimatedStyle(() => ({ opacity: headerOpacity.value, transform: [{ translateY: headerY.value }] }));
+  const labelAnim = useAnimatedStyle(() => ({ opacity: labelOpacity.value, transform: [{ translateY: labelY.value }] }));
+  const listAnim = useAnimatedStyle(() => ({ opacity: listOpacity.value, transform: [{ translateY: listY.value }] }));
+  const bottomAnim = useAnimatedStyle(() => ({ opacity: bottomOpacity.value, transform: [{ translateY: bottomY.value }] }));
+  const ctaAnim = useAnimatedStyle(() => ({ opacity: ctaOpacity.value, transform: [{ translateY: ctaY.value }] }));
+
+  // ── Data loading ─────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       async function load() {
@@ -183,9 +201,6 @@ export default function SideEffectsScreen() {
         }
         setActiveIds(ids);
         setCustomDefs(customs);
-        // Reset all values to 0, then pre-fill any symptom the user already
-        // logged in Apple Health today. The user can still slide back to 0
-        // to dismiss — HK is a suggestion, not a commitment.
         const init: Record<string, number> = {};
         [...ids, ...customs.map((c) => c.id)].forEach((id) => { init[id] = 0; });
         const suggested = new Set<string>();
@@ -222,6 +237,7 @@ export default function SideEffectsScreen() {
       const effectsParam = JSON.stringify(
         toLog.map(e => ({ type: e.dbType, severity: values[e.id] }))
       );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/entry/side-effect-impact?effects=${encodeURIComponent(effectsParam)}` as any);
     } finally {
       setLoading(false);
@@ -236,247 +252,381 @@ export default function SideEffectsScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={[s.root, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-          paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 14,
-          backgroundColor: colors.bg,
-        }}
-      >
+      {/* ── Header ── */}
+      <Animated.View style={[s.header, headerAnim]}>
         <TouchableOpacity
-          style={s.headerBtn}
-          onPress={() => router.back()}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }}
           activeOpacity={0.7}
+          style={s.headerBtn}
+          hitSlop={12}
         >
-          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
-          <GB r={20} />
-          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Side Effects Log</Text>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity
-            style={s.headerBtn}
-            onPress={() => router.push('/entry/customize-side-effects' as any)}
-            activeOpacity={0.7}
-          >
-            <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
-            <GB r={20} />
-            <Ionicons name="settings-outline" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
-          </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>Side Effects</Text>
+          <Text style={s.dateLabel}>{dateStr}</Text>
         </View>
-      </View>
+
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/entry/customize-side-effects' as any); }}
+          activeOpacity={0.7}
+          style={s.headerBtn}
+          hitSlop={12}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </Animated.View>
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 100 }}
+        style={s.scroll}
+        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Date card */}
-        <View style={[s.card, { marginBottom: 4 }]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-          <GB r={20} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10 }}>
-            <Ionicons name="calendar-outline" size={18} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
-            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-              {dateStr}
-            </Text>
-          </View>
-        </View>
+        {/* ── Section label ── */}
+        <Animated.View style={labelAnim}>
+          <Text style={s.sectionLabel}>EFFECTS</Text>
+        </Animated.View>
 
-        {/* Effect rows */}
-        <View style={[s.card, { marginTop: 12 }]}>
-          <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-          <GB r={20} />
-          <View style={{ padding: 20 }}>
-            {allActive.length === 0 ? (
-              <Text style={{ fontSize: 16, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', textAlign: 'center', paddingVertical: 20 }}>
-                No effects tracked yet. Tap the settings icon to customize.
-              </Text>
-            ) : (
-              allActive.map((effect, idx) => {
-                const val = values[effect.id] ?? 0;
-                const isLast = idx === allActive.length - 1;
-                const fromHK = hkSuggestedIds.has(effect.id) && val > 0;
-                const ctx = val > 0
-                  ? getSideEffectContext(effect.dbType, profile?.doseStartDate)
-                  : null;
-                return (
-                  <View
-                    key={effect.id}
-                    style={{
-                      paddingVertical: 16,
-                      borderBottomWidth: isLast ? 0 : 1,
-                      borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                        <Text style={{ fontSize: 17, fontWeight: '600', color: colors.textPrimary }}>{effect.label}</Text>
-                        {fromHK && (
-                          <View style={{
-                            flexDirection: 'row', alignItems: 'center', gap: 3,
-                            backgroundColor: 'rgba(255,59,48,0.12)',
-                            paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-                          }}>
-                            <Ionicons name="heart" size={9} color="#FF3B30" />
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.3 }}>
-                              HEALTH
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={{
-                          fontSize: 17, fontWeight: '800',
-                          color: val > 0 ? GREEN : (colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'),
-                          minWidth: 20, textAlign: 'right',
-                        }}
-                      >
-                        {val}
+        {/* ── Effect rows (flat, no card) ── */}
+        <Animated.View style={listAnim}>
+          {allActive.length === 0 ? (
+            <Text style={s.emptyText}>
+              No effects tracked yet. Tap the settings icon to customize.
+            </Text>
+          ) : (
+            allActive.map((effect, idx) => {
+              const val = values[effect.id] ?? 0;
+              const isLast = idx === allActive.length - 1;
+              const fromHK = hkSuggestedIds.has(effect.id) && val > 0;
+              const ctx = val > 0
+                ? getSideEffectContext(effect.dbType, profile?.doseStartDate)
+                : null;
+              return (
+                <View key={effect.id} style={[s.effectRow, isLast && s.effectRowLast]}>
+                  <View style={s.effectLabelRow}>
+                    <View style={s.effectLabelContainer}>
+                      <Text style={s.effectLabel}>{effect.label}</Text>
+                      {fromHK && (
+                        <View style={s.hkBadge}>
+                          <Ionicons name="heart" size={9} color="#FF3B30" />
+                          <Text style={s.hkBadgeText}>HEALTH</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[s.effectValue, val === 0 && s.effectValueZero]}>
+                      {val}
+                    </Text>
+                  </View>
+                  <EffectSlider
+                    value={val}
+                    onChange={(v) => setValues((prev) => ({ ...prev, [effect.id]: v }))}
+                  />
+                  {ctx && (
+                    <View style={[
+                      s.contextBox,
+                      ctx.severity === 'flag' && s.contextBoxFlag,
+                      ctx.severity === 'watch' && s.contextBoxWatch,
+                      ctx.severity === 'expected' && s.contextBoxOk,
+                    ]}>
+                      <Text style={[
+                        s.contextText,
+                        ctx.severity === 'flag' && s.contextTextFlag,
+                        ctx.severity === 'watch' && s.contextTextWatch,
+                        ctx.severity === 'expected' && s.contextTextOk,
+                      ]}>
+                        {ctx.message}
                       </Text>
                     </View>
-                    <EffectSlider
-                      value={val}
-                      onChange={(v) => setValues((prev) => ({ ...prev, [effect.id]: v }))}
-                    />
-                    {ctx && (
-                      <View style={{
-                        marginTop: 8, paddingVertical: 6, paddingHorizontal: 10,
-                        borderRadius: 8,
-                        backgroundColor: ctx.severity === 'flag'
-                          ? 'rgba(245,166,35,0.08)'
-                          : ctx.severity === 'watch'
-                            ? 'rgba(255,255,255,0.04)'
-                            : 'rgba(93,184,123,0.08)',
-                      }}>
-                        <Text style={{
-                          fontSize: 14, lineHeight: 16,
-                          color: ctx.severity === 'flag'
-                            ? '#F5A623'
-                            : ctx.severity === 'watch'
-                              ? 'rgba(255,255,255,0.5)'
-                              : GREEN,
-                        }}>
-                          {ctx.message}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </Animated.View>
 
-        {/* Customize prompt */}
-        <View style={{ marginTop: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', marginBottom: 14, textAlign: 'center' }}>
-            Any other side effects you'd like to track?
-          </Text>
+        {/* ── Customize + Food Noise ── */}
+        <Animated.View style={bottomAnim}>
           <TouchableOpacity
-            style={s.customizeBtn}
+            style={s.customizeRow}
             onPress={() => router.push('/entry/customize-side-effects' as any)}
-            activeOpacity={0.75}
+            activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', letterSpacing: 0.2 }}>
-              Customize side effects
-            </Text>
+            <Text style={s.customizeText}>Customize effects</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </TouchableOpacity>
-        </View>
 
-        {/* Food Noise FNQ prompt (Sunday or Monday) */}
-        {[0, 1].includes(new Date().getDay()) && (
-          <View style={{ marginTop: 20, marginBottom: 8 }}>
+          {[0, 1].includes(new Date().getDay()) && (
             <TouchableOpacity
-              style={{
-                borderRadius: 16,
-                backgroundColor: 'rgba(255,116,42,0.08)',
-                borderWidth: 1, borderColor: 'rgba(255,116,42,0.2)',
-                padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-              }}
+              style={s.foodNoiseCard}
               onPress={() => router.push('/entry/food-noise-survey' as any)}
               activeOpacity={0.8}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, marginBottom: 3 }}>
-                  Weekly Food Noise Check-In
-                </Text>
-                <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
-                  Track how much you're thinking about food this week · 2 min
+                <Text style={s.foodNoiseTitle}>Weekly Food Noise Check-In</Text>
+                <Text style={s.foodNoiseDesc}>
+                  Track how much you're thinking about food this week
                 </Text>
               </View>
               <Ionicons name="arrow-forward" size={16} color={ORANGE} />
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </Animated.View>
       </ScrollView>
 
-      {/* CTA */}
-      <View
-        style={{
-          paddingHorizontal: 20, paddingTop: 12,
-          paddingBottom: insets.bottom + 16,
-          backgroundColor: colors.bg,
-          borderTopWidth: 1,
-          borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-        }}
-      >
-        <TouchableOpacity
-          style={{
-            backgroundColor: hasAny ? ORANGE : 'rgba(255,116,42,0.2)',
-            borderRadius: 28, paddingVertical: 17,
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: hasAny ? 0.35 : 0, shadowRadius: 20, elevation: hasAny ? 10 : 0,
-          }}
-          onPress={handleLog}
-          activeOpacity={hasAny ? 0.8 : 1}
-          disabled={!hasAny || loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#FFF" size="small" />
-            : <Text style={{ fontSize: 18, fontWeight: '800', color: hasAny ? '#FFF' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)'), letterSpacing: 0.4 }}>
-                Log Side Effects
-              </Text>
-          }
-        </TouchableOpacity>
+      {/* ── CTA with gradient fade ── */}
+      <View style={[s.ctaWrapper, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]} pointerEvents="box-none">
+        <LinearGradient
+          colors={['transparent', colors.bg + 'CC', colors.bg]}
+          locations={[0, 0.35, 1]}
+          style={s.ctaFade}
+          pointerEvents="none"
+        />
+        <Animated.View style={ctaAnim}>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLog(); }}
+            activeOpacity={0.85}
+            disabled={!hasAny || loading}
+            style={[s.ctaBtn, (!hasAny || loading) && s.ctaBtnDisabled]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={s.ctaBtnText}>Log Side Effects</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const createStyles = (c: AppColors) => {
-  const SHADOW = {
-    shadowColor: c.shadowColor,
-    shadowOffset: { width: 0, height: 8 } as const,
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  };
-  return StyleSheet.create({
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const createStyles = (c: AppColors) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+
+    // ── Header ──
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
     headerBtn: {
-      width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
-      alignItems: 'center', justifyContent: 'center',
-      ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    card: {
-      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
-      ...SHADOW,
+    headerCenter: {
+      flex: 1,
+      alignItems: 'center',
     },
-    customizeBtn: {
-      borderWidth: 1, borderColor: c.border,
-      borderRadius: 24, paddingVertical: 12, paddingHorizontal: 24,
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.4,
+    },
+    dateLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.textMuted,
+      letterSpacing: 0.3,
+      marginTop: 2,
+    },
+
+    // ── Scroll ──
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+
+    // ── Section label ──
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: ORANGE,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+      marginBottom: 8,
+    },
+
+    // ── Empty state ──
+    emptyText: {
+      fontSize: 16,
+      color: c.textMuted,
+      textAlign: 'center',
+      paddingVertical: 40,
+    },
+
+    // ── Effect rows ──
+    effectRow: {
+      paddingVertical: 16,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+    },
+    effectRowLast: {
+      borderBottomWidth: 0,
+    },
+    effectLabelRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    effectLabelContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flex: 1,
+    },
+    effectLabel: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    effectValue: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: GREEN,
+      minWidth: 20,
+      textAlign: 'right',
+    },
+    effectValueZero: {
+      color: c.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+    },
+
+    // ── HealthKit badge ──
+    hkBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: 'rgba(255,59,48,0.12)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    hkBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FF3B30',
+      letterSpacing: 0.3,
+    },
+
+    // ── Context messages ──
+    contextBox: {
+      marginTop: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+    },
+    contextBoxFlag: {
+      backgroundColor: 'rgba(245,166,35,0.08)',
+    },
+    contextBoxWatch: {
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    },
+    contextBoxOk: {
+      backgroundColor: 'rgba(93,184,123,0.08)',
+    },
+    contextText: {
+      fontSize: 14,
+      lineHeight: 18,
+    },
+    contextTextFlag: {
+      color: '#F5A623',
+    },
+    contextTextWatch: {
+      color: c.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+    },
+    contextTextOk: {
+      color: GREEN,
+    },
+
+    // ── Customize prompt ──
+    customizeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginTop: 24,
+      paddingVertical: 12,
+    },
+    customizeText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+
+    // ── Food noise card ──
+    foodNoiseCard: {
+      borderRadius: 20,
+      backgroundColor: 'rgba(255,116,42,0.08)',
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 16,
+    },
+    foodNoiseTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: ORANGE,
+      marginBottom: 3,
+    },
+    foodNoiseDesc: {
+      fontSize: 14,
+      color: c.textMuted,
+    },
+
+    // ── CTA button ──
+    ctaWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: 20,
+    },
+    ctaFade: {
+      position: 'absolute',
+      top: -40,
+      left: 0,
+      right: 0,
+      height: 40,
+    },
+    ctaBtn: {
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: ORANGE,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    ctaBtnDisabled: {
+      opacity: 0.4,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    ctaBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      letterSpacing: -0.2,
     },
   });
-};

@@ -29,6 +29,7 @@ import {
 import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useUiStore } from '@/stores/ui-store';
+import { MEDICAL_DISCLAIMER, PK_DISCLAIMER } from '@/constants/medical-sources';
 
 const FF = 'System';
 
@@ -601,6 +602,17 @@ export default function ScoreDetailScreen() {
             </View>
           </View>
 
+          {/* Medical disclaimer & sources */}
+          <Text style={s.disclaimerText}>{MEDICAL_DISCLAIMER}</Text>
+          <Text style={s.disclaimerText}>{PK_DISCLAIMER}</Text>
+          <Pressable
+            style={s.sourcesLink}
+            onPress={() => router.push('/settings/medical-sources' as any)}
+          >
+            <Ionicons name="document-text-outline" size={16} color="#FF742A" />
+            <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
+          </Pressable>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
@@ -661,5 +673,28 @@ const createStyles = (c: AppColors) => {
     },
     coachInner: { padding: 18 },
     coachText: { fontSize: 17, color: w(0.55), lineHeight: 22, fontWeight: '400', fontFamily: FF },
+    disclaimerText: {
+      fontSize: 12,
+      color: w(0.30),
+      textAlign: 'center' as const,
+      lineHeight: 16,
+      marginTop: 16,
+      paddingHorizontal: 8,
+      fontFamily: FF,
+    },
+    sourcesLink: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 6,
+      paddingVertical: 12,
+      marginTop: 4,
+    },
+    sourcesLinkText: {
+      fontSize: 14,
+      fontWeight: '600' as const,
+      color: '#FF742A',
+      fontFamily: FF,
+    },
   });
 };
