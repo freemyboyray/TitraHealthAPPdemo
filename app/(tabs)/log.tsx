@@ -2980,7 +2980,9 @@ function LifestyleTrendCard({
 
 export default function InsightsScreen() {
   const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
+  const { appleHealthEnabled, headerStyle } = usePreferencesStore();
+  const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
+  const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
@@ -2988,7 +2990,6 @@ export default function InsightsScreen() {
   const { actuals, targets } = health;
   const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, userGoals, deleteInjectionLog, deleteWeightLog, weeklyCheckins, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
-  const { appleHealthEnabled } = usePreferencesStore();
   const isPremiumUser = useSubscriptionStore(s => s.isPremium);
   // Route Apple Health metric groups by domain so they render under
   // Activity Metrics / Vitals / (Progress tab) Body Composition instead of
@@ -3855,7 +3856,7 @@ export default function InsightsScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createStyles = (c: AppColors) => {
+const createStyles = (c: AppColors, minimalHeader = false) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
@@ -3864,7 +3865,7 @@ const createStyles = (c: AppColors) => {
   heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
   heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
   heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-  heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },
+  heroTitle: { fontSize: 36, fontWeight: '800', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },
 
   // Header (legacy)
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },

@@ -1081,6 +1081,47 @@ export type Database = {
           },
         ]
       }
+      energy_logs: {
+        Row: {
+          id: string
+          user_id: string
+          logged_at: string
+          level: number
+          time_slot: string
+          note: string | null
+          phase_at_log: string | null
+          program_week: number | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          logged_at?: string
+          level: number
+          time_slot?: string
+          note?: string | null
+          phase_at_log?: string | null
+          program_week?: number | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          logged_at?: string
+          level?: number
+          time_slot?: string
+          note?: string | null
+          phase_at_log?: string | null
+          program_week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energy_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       side_effect_logs: {
         Row: {
           effect_type: Database["public"]["Enums"]["side_effect_type"]

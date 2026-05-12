@@ -1,0 +1,316 @@
+OPERATING AGREEMENT
+OF
+TITRA HEALTH LLC
+A Georgia Limited Liability Company
+
+Effective Date: April 9, 2026
+
+============================================================
+
+ARTICLE I — FORMATION AND NAME
+
+1.1  Name. The name of the limited liability company is Titra Health LLC
+     (the "Company").
+
+1.2  Formation. The Company was formed under the Georgia Limited Liability
+     Company Act (O.C.G.A. § 14-11-100 et seq.) (the "Act") by filing
+     Articles of Organization with the Georgia Secretary of State on
+     April 9, 2026.
+
+1.3  Principal Office. The principal office of the Company shall be at an
+     address determined by the Members from time to time.
+
+1.4  Registered Agent. The registered agent and registered office shall be
+     as set forth in the Articles of Organization, as amended from time
+     to time.
+
+1.5  Purpose. The Company is formed for the purpose of developing,
+     marketing, and operating the TitraHealth mobile application and
+     related health technology products, and any other lawful business
+     the Members may determine.
+
+1.6  Term. The Company shall continue in existence until dissolved in
+     accordance with this Agreement or the Act.
+
+============================================================
+
+ARTICLE II — MEMBERS AND MEMBERSHIP INTERESTS
+
+2.1  Members. The Members of the Company are:
+
+     Name                        Membership Interest
+     --------------------------  -------------------
+     Ibrahim Mohammad                   50%
+     Ray Wade                           50%
+
+2.2  Capital Contributions. Each Member's initial capital contribution,
+     if any, is set forth in Exhibit A attached hereto.
+
+2.3  No Additional Contributions. No Member shall be required to make
+     additional capital contributions without the unanimous written
+     consent of all Members.
+
+2.4  No Interest on Capital. No Member shall receive interest on any
+     capital contribution.
+
+2.5  Return of Capital. No Member has the right to demand the return of
+     any capital contribution except upon dissolution of the Company.
+
+============================================================
+
+ARTICLE III — MANAGEMENT AND VOTING
+
+3.1  Member-Managed. The Company shall be member-managed. All Members
+     shall have the right to participate in the management of the
+     Company, subject to the voting provisions below.
+
+3.2  Voting Power. Voting power shall be allocated as follows,
+     independent of membership interest percentages:
+
+     Name                        Voting Power
+     --------------------------  ------------
+     Ibrahim Mohammad                  51%
+     Ray Wade                          49%
+
+3.3  Ordinary Decisions. All ordinary business decisions of the Company
+     shall be decided by a simple majority vote of the Members based on
+     their Voting Power. Because Ibrahim Mohammad holds 51% of the
+     Voting Power, he shall have tie-breaking authority on ordinary
+     business matters.
+
+3.4  Major Decisions Requiring Unanimous Consent. Notwithstanding
+     Section 3.3, the following actions shall require the unanimous
+     written consent of all Members:
+
+     (a) Sale, merger, or dissolution of the Company;
+     (b) Admission of new Members;
+     (c) Amendment of this Operating Agreement;
+     (d) Incurring debt or obligations exceeding $10,000;
+     (e) Sale or encumbrance of substantially all Company assets;
+     (f) Changing the purpose or nature of the Company's business;
+     (g) Issuance of additional membership interests or equity;
+     (h) Entering into any contract or commitment exceeding $25,000
+         in value;
+     (i) Filing for bankruptcy or insolvency proceedings;
+     (j) Changing the Company's tax classification.
+
+3.5  Managing Member. Ibrahim Mohammad shall serve as the Managing
+     Member responsible for the day-to-day operations of the Company,
+     including but not limited to:
+
+     (a) Managing the Company's bank accounts;
+     (b) Executing contracts in the ordinary course of business;
+     (c) Making hiring and operational decisions;
+     (d) Representing the Company in dealings with third parties.
+
+3.6  Duties of Members. Each Member shall devote such time and effort
+     to the Company's business as is reasonably necessary for the
+     Company to achieve its objectives.
+
+============================================================
+
+ARTICLE IV — ALLOCATIONS AND DISTRIBUTIONS
+
+4.1  Profits and Losses. The net profits and net losses of the Company
+     shall be allocated among the Members in proportion to their
+     Membership Interests (50% / 50%).
+
+4.2  Distributions. Distributions of available cash shall be made at
+     such times and in such amounts as determined by the Members,
+     allocated in proportion to their Membership Interests (50% / 50%).
+
+4.3  Tax Distributions. The Company shall make reasonable efforts to
+     distribute to each Member, at least quarterly, an amount sufficient
+     to cover such Member's estimated tax liability arising from the
+     Company's income allocated to such Member.
+
+4.4  Limitation on Distributions. No distribution shall be made if,
+     after giving effect to the distribution, the Company would not be
+     able to pay its debts as they become due in the ordinary course of
+     business.
+
+============================================================
+
+ARTICLE V — ACCOUNTING, RECORDS, AND TAX MATTERS
+
+5.1  Fiscal Year. The fiscal year of the Company shall be the calendar
+     year.
+
+5.2  Books and Records. The Company shall maintain complete and accurate
+     books and records of account. All Members shall have reasonable
+     access to inspect and copy Company records.
+
+5.3  Bank Accounts. The Company shall maintain one or more bank accounts
+     in the Company's name. All Company funds shall be deposited in such
+     accounts and shall not be commingled with personal funds of any
+     Member.
+
+5.4  Tax Classification. The Company shall be classified as a
+     partnership for federal income tax purposes unless the Members
+     unanimously agree to elect otherwise.
+
+5.5  Tax Matters Partner. Ibrahim Mohammad shall serve as the "Tax
+     Matters Partner" (or "Partnership Representative" under the
+     Bipartisan Budget Act) and shall be responsible for all tax filings
+     and communications with tax authorities on behalf of the Company.
+
+============================================================
+
+ARTICLE VI — TRANSFER OF MEMBERSHIP INTERESTS
+
+6.1  Restrictions on Transfer. No Member may sell, assign, transfer,
+     pledge, or otherwise dispose of all or any portion of their
+     Membership Interest without the prior written consent of all other
+     Members, except as otherwise provided herein.
+
+6.2  Right of First Refusal. If a Member receives a bona fide offer
+     from a third party to purchase all or any portion of such Member's
+     Membership Interest, the selling Member shall first offer to sell
+     such interest to the remaining Member(s) on the same terms and
+     conditions. The remaining Member(s) shall have thirty (30) days
+     to accept or decline the offer.
+
+6.3  Permitted Transfers. A Member may transfer their interest to a
+     trust, estate planning vehicle, or wholly-owned entity for the
+     benefit of the transferring Member without triggering the Right
+     of First Refusal, provided the transferring Member retains
+     control of the transferee entity.
+
+============================================================
+
+ARTICLE VII — WITHDRAWAL, DEATH, AND DISSOLUTION
+
+7.1  Voluntary Withdrawal. A Member may withdraw from the Company upon
+     ninety (90) days' written notice to all other Members. The
+     withdrawing Member's interest shall be purchased by the remaining
+     Member(s) at fair market value as determined by mutual agreement or,
+     if the Members cannot agree, by an independent appraiser.
+
+7.2  Death or Incapacity. Upon the death or permanent incapacity of a
+     Member, the deceased or incapacitated Member's Membership Interest
+     shall pass to their estate or legal representative. The remaining
+     Member(s) shall have the option (but not the obligation) to
+     purchase such interest at fair market value within one hundred
+     twenty (120) days.
+
+7.3  Dissolution. The Company shall be dissolved upon:
+     (a) The unanimous written consent of all Members;
+     (b) The sale of all or substantially all Company assets;
+     (c) A judicial decree of dissolution; or
+     (d) Any event that makes it unlawful for the Company to continue.
+
+7.4  Winding Up. Upon dissolution, the Managing Member shall wind up
+     the Company's affairs, liquidate its assets, and distribute
+     proceeds in the following order:
+     (a) Payment of debts and liabilities to creditors;
+     (b) Payment of any outstanding tax distributions;
+     (c) Distribution of remaining assets to Members in proportion to
+         their Membership Interests.
+
+============================================================
+
+ARTICLE VIII — INTELLECTUAL PROPERTY
+
+8.1  Company IP. All intellectual property created by any Member in
+     connection with the Company's business, including but not limited
+     to the TitraHealth mobile application, source code, designs,
+     trademarks, and trade secrets, shall be the sole property of the
+     Company.
+
+8.2  Assignment. Each Member hereby assigns to the Company all right,
+     title, and interest in any intellectual property created in the
+     course of Company business.
+
+8.3  Post-Departure. Upon a Member's withdrawal or removal, they shall
+     have no continuing rights to the Company's intellectual property.
+
+============================================================
+
+ARTICLE IX — INDEMNIFICATION AND LIABILITY
+
+9.1  Limited Liability. No Member shall be personally liable for any
+     debt, obligation, or liability of the Company solely by reason of
+     being a Member.
+
+9.2  Indemnification. The Company shall indemnify and hold harmless each
+     Member from and against any claims, losses, or liabilities arising
+     from actions taken in good faith on behalf of the Company, except
+     for acts of willful misconduct, gross negligence, or fraud.
+
+============================================================
+
+ARTICLE X — NON-COMPETE AND CONFIDENTIALITY
+
+10.1 Non-Compete. During their membership and for a period of twelve
+     (12) months following withdrawal or removal, no Member shall
+     directly or indirectly engage in any business that competes with
+     the Company's GLP-1 health tracking and titration management
+     business within the United States, without the written consent of
+     the other Member(s).
+
+10.2 Confidentiality. Each Member shall keep confidential all non-public
+     information concerning the Company's business, including user data,
+     financial information, trade secrets, and proprietary technology,
+     both during and after their membership.
+
+============================================================
+
+ARTICLE XI — DISPUTE RESOLUTION
+
+11.1 Mediation. Any dispute arising under this Agreement shall first be
+     submitted to mediation by a mutually agreed-upon mediator.
+
+11.2 Arbitration. If mediation fails to resolve the dispute within
+     thirty (30) days, the dispute shall be submitted to binding
+     arbitration in the State of Georgia under the rules of the
+     American Arbitration Association.
+
+11.3 Governing Law. This Agreement shall be governed by and construed
+     in accordance with the laws of the State of Georgia.
+
+============================================================
+
+ARTICLE XII — GENERAL PROVISIONS
+
+12.1 Entire Agreement. This Agreement constitutes the entire agreement
+     among the Members with respect to the Company and supersedes all
+     prior agreements and understandings.
+
+12.2 Amendments. This Agreement may be amended only by the unanimous
+     written consent of all Members.
+
+12.3 Severability. If any provision of this Agreement is found to be
+     invalid or unenforceable, the remaining provisions shall continue
+     in full force and effect.
+
+12.4 Notices. All notices required under this Agreement shall be in
+     writing and delivered to the Members at their addresses on file
+     with the Company.
+
+12.5 Counterparts. This Agreement may be executed in counterparts, each
+     of which shall be deemed an original.
+
+============================================================
+
+EXHIBIT A — INITIAL CAPITAL CONTRIBUTIONS
+
+Member                    Contribution        Description
+------------------------  ------------------  -------------------------
+Ibrahim Mohammad          $___________        [describe contribution]
+Ray Wade                  $___________        [describe contribution]
+
+(Members should fill in any cash, property, or services contributed
+at formation. If no capital was contributed, write "$0 — sweat equity.")
+
+============================================================
+
+IN WITNESS WHEREOF, the undersigned Members have executed this Operating
+Agreement as of the Effective Date set forth above.
+
+
+________________________________________    Date: _______________
+Ibrahim Mohammad, Member (51% Voting Power, 50% Membership Interest)
+
+
+________________________________________    Date: _______________
+Ray Wade, Member (49% Voting Power, 50% Membership Interest)

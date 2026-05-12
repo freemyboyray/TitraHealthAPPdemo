@@ -22,8 +22,9 @@ export function GradientBackground({ height = 350 }: { height?: number }) {
   const base = { marginHorizontal: -20, marginBottom: -height };
 
   if (headerStyle === 'minimal') {
+    // No decorative gradient — just reserve safe-area inset so content clears the status bar
     return (
-      <View style={{ height: totalHeight, ...base, backgroundColor: colors.bg }} pointerEvents="none" />
+      <View style={{ height: top, marginHorizontal: -20, backgroundColor: colors.bg }} pointerEvents="none" />
     );
   }
 

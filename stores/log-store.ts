@@ -14,6 +14,7 @@ export type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 export type FoodLog = Database['public']['Tables']['food_logs']['Row'];
 export type FoodNoiseLog = Database['public']['Tables']['food_noise_logs']['Row'];
 export type WeeklyCheckinRow = Database['public']['Tables']['weekly_checkins']['Row'];
+export type EnergyLog = Database['public']['Tables']['energy_logs']['Row'];
 
 export type SideEffectType = Database['public']['Enums']['side_effect_type'];
 export type PhaseType = Database['public']['Enums']['phase_type'];
@@ -52,6 +53,7 @@ type LogStore = {
   sideEffectLogs: SideEffectLog[];
   foodNoiseLogs: FoodNoiseLog[];
   weeklyCheckins: Record<string, WeeklyCheckinRow[]>;
+  energyLogs: EnergyLog[];
   profile: ProfileRow | null;
   userGoals: UserGoalsRow | null;
 
@@ -148,6 +150,16 @@ type LogStore = {
   fetchWeeklyCheckins: (type: 'energy_mood' | 'appetite' | 'gi_burden' | 'activity_quality' | 'sleep_quality' | 'mental_health' | 'food_noise') => Promise<void>;
   deleteWeeklyCheckinSession: (date: string) => Promise<void>;
 
+  // Energy logs
+  addEnergyLog: (
+    level: number,
+    time_slot: string,
+    note?: string,
+    phase_at_log?: string,
+    program_week?: number,
+  ) => Promise<void>;
+  deleteEnergyLog: (id: string) => Promise<void>;
+
   // Apple Health weight sync — imports latest weight sample if newer than last log
   syncWeightFromHealthKit: () => Promise<void>;
 };
@@ -169,7 +181,7 @@ function isoToLocalDate(iso: string | null | undefined): string | null {
   return localDateKey(new Date(iso));
 }
 
-export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLogs' | 'foodLogs' | 'activityLogs' | 'sideEffectLogs' | 'foodNoiseLogs'>): number {
+export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLogs' | 'foodLogs' | 'activityLogs' | 'sideEffectLogs' | 'foodNoiseLogs' | 'energyLogs'>): number {
   // Collect all log dates as local YYYY-MM-DD strings
   const dates = new Set<string>();
 
@@ -179,6 +191,7 @@ export function computeStreak(store: Pick<LogStore, 'weightLogs' | 'injectionLog
   store.activityLogs.forEach(l => { const d = isoToLocalDate(l.date); if (d) dates.add(d); });
   store.sideEffectLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
   store.foodNoiseLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
+  store.energyLogs.forEach(l => { const d = isoToLocalDate(l.logged_at); if (d) dates.add(d); });
 
   // Walk backwards from today using local dates
   let streak = 0;
@@ -208,6 +221,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
   activityLogs: [],
   sideEffectLogs: [],
   foodNoiseLogs: [],
+  energyLogs: [],
   weeklyCheckins: {},
   profile: null,
   userGoals: null,
@@ -227,7 +241,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const since1y  = since90d;
 
     try {
-      const [w, inj, f, a, se, prof, goals, fn, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn] = await Promise.all([
+      const [w, inj, f, a, se, prof, goals, fn, en, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn] = await Promise.all([
         supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
         supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
         supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
@@ -236,6 +250,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         supabase.from('profiles').select('*').eq('id', uid).single(),
         supabase.from('user_goals').select('*').eq('user_id', uid).single(),
         supabase.from('food_noise_logs').select('*').eq('user_id', uid).order('logged_at', { ascending: false }).limit(12),
+        supabase.from('energy_logs' as any).select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }).limit(90),
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'energy_mood').order('logged_at', { ascending: false }).limit(12),
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'appetite').order('logged_at', { ascending: false }).limit(12),
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'gi_burden').order('logged_at', { ascending: false }).limit(12),
@@ -252,6 +267,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         activityLogs:   a.data   ?? [],
         sideEffectLogs: se.data  ?? [],
         foodNoiseLogs:  (fn.data ?? []) as FoodNoiseLog[],
+        energyLogs:     (en.data ?? []) as EnergyLog[],
         weeklyCheckins: {
           energy_mood:      (wcEm.data ?? []) as WeeklyCheckinRow[],
           appetite:         (wcAp.data ?? []) as WeeklyCheckinRow[],
@@ -589,6 +605,24 @@ export const useLogStore = create<LogStore>((set, get) => ({
     if (!user) return;
     const { error } = await supabase.from('side_effect_logs').delete().eq('id', id).eq('user_id', user.id);
     if (!error) set({ sideEffectLogs: get().sideEffectLogs.filter(l => l.id !== id) });
+  },
+
+  addEnergyLog: async (level, time_slot, note, phase_at_log, program_week) => {
+    set({ loading: true, error: null });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+    const { error } = await supabase
+      .from('energy_logs' as any)
+      .insert({ user_id: user.id, level, time_slot, note: note ?? null, phase_at_log: phase_at_log ?? null, program_week: program_week ?? null });
+    if (!error) await get().fetchInsightsData();
+    set({ loading: false, error: error?.message ?? null });
+  },
+
+  deleteEnergyLog: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('energy_logs' as any).delete().eq('id', id).eq('user_id', user.id);
+    if (!error) set({ energyLogs: get().energyLogs.filter(l => l.id !== id) });
   },
 
   updateInjectionLog: async (id, fields) => {

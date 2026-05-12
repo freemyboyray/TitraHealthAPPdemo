@@ -25,6 +25,9 @@
         "com.apple.developer.healthkit": true,
         "com.apple.developer.applesignin": [
           "Default"
+        ],
+        "com.apple.security.application-groups": [
+          "group.com.titrahealth.app"
         ]
       }
     },
@@ -104,7 +107,8 @@
       ],
       "react-native-iap",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      "./plugins/withWidget"
     ],
     "experiments": {
       "typedRoutes": true,

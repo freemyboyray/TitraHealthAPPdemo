@@ -23,7 +23,7 @@ import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
-import { buildSystemPrompt, callOpenAI, callGPT4oMiniVision, UsageLimitError, DataConsentError } from '@/lib/openai';
+import { buildSystemPrompt, buildEnergySnapshot, callOpenAI, callGPT4oMiniVision, UsageLimitError, DataConsentError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
@@ -274,7 +274,7 @@ export function AiChatOverlay() {
     const { type } = aiChatParams;
     const hasLegacyType = type === 'recovery' || type === 'support';
     const typeArg = hasLegacyType ? (type as 'recovery' | 'support') : undefined;
-    const base = buildSystemPrompt(healthData, typeArg);
+    const base = buildSystemPrompt({ ...healthData, energy: buildEnergySnapshot(healthData.supportScore ?? 50, 'balance') }, typeArg);
 
     const { contextLabel, contextValue } = aiChatParams;
     if (pillVisible && contextLabel) {

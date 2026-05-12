@@ -22,6 +22,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { useProfile } from '@/contexts/profile-context';
 import { getEscalationPhase } from '@/lib/escalation-phase';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
@@ -924,7 +925,9 @@ export default function EducationScreen() {
   const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const { colors } = useAppTheme();
-  const s = useMemo(() => createScreenStyles(colors), [colors]);
+  const headerStyle = usePreferencesStore((st) => st.headerStyle ?? 'gradient');
+  const minimalHeader = headerStyle === 'minimal';
+  const s = useMemo(() => createScreenStyles(colors, minimalHeader), [colors, minimalHeader]);
 
   const fetchCourses = useCoursesStore((s) => s.fetchCourses);
 
@@ -975,7 +978,7 @@ export default function EducationScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const createScreenStyles = (c: AppColors) => {
+const createScreenStyles = (c: AppColors, minimalHeader = false) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
@@ -984,7 +987,7 @@ const createScreenStyles = (c: AppColors) => {
     heroBg: { backgroundColor: '#E8652A' },
     heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
     heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-    heroTitle: { fontSize: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
+    heroTitle: { fontSize: 36, fontWeight: '800', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
     heroSub: { fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: '500', fontFamily: FF },
 
     headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },

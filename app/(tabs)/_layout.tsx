@@ -22,6 +22,7 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useUiStore } from '@/stores/ui-store';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
+import { buildEnergySnapshot } from '@/lib/openai';
 
 const ORANGE = '#FF742A';
 
@@ -172,7 +173,7 @@ export default function TabLayout() {
     if (logLoading) { seenLoading.current = true; return; }
     if (seenLoading.current && !aiPrefetchFired.current) {
       aiPrefetchFired.current = true;
-      prefetchInsightsAi(health);
+      prefetchInsightsAi({ ...health, energy: buildEnergySnapshot(health.supportScore ?? 50, 'balance') });
     }
   }, [logLoading]);
 

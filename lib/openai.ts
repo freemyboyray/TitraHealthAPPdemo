@@ -77,7 +77,19 @@ export type HealthSnapshot = {
     steps: number;
   };
   focuses: Array<{ label: string; subtitle: string }>;
+  energy?: {
+    score: number;           // 0-100 computed energy bank percentage
+    phase: string;           // current medication phase
+  };
 };
+
+/** Build the energy snapshot from computed scores. */
+export function buildEnergySnapshot(
+  score: number,
+  phase: string,
+): HealthSnapshot['energy'] {
+  return { score, phase };
+}
 
 // ─── In-memory cache ───────────────────────────────────────────────────────────
 
@@ -93,7 +105,7 @@ export function buildSystemPrompt(
   health: HealthSnapshot,
   type?: 'recovery' | 'support',
 ): string {
-  const { profile, recoveryScore, supportScore, wearable, actuals, targets, focuses } = health;
+  const { profile, recoveryScore, supportScore, wearable, actuals, targets, focuses, energy } = health;
 
   const isOnMedication = profile.treatmentStatus === 'on' && !!profile.lastInjectionDate;
 
@@ -184,7 +196,8 @@ DAILY ACTUALS vs TARGETS:
 - Hydration: ${waterOz}oz / ${targetWaterOz}oz
 - Steps: ${actuals.steps.toLocaleString()} / ${targets.steps.toLocaleString()}
 - Fiber: ${actuals.fiberG}g / ${targets.fiberG}g${doseLogLine}
-
+${energy ? `
+ENERGY BANK: ${energy.score}% (${energy.score >= 70 ? 'Good' : energy.score >= 40 ? 'Moderate' : 'Low'})` : ''}
 TODAY'S TOP FOCUSES:
 ${focusList || '• All metrics on track'}
 ${typeContext}

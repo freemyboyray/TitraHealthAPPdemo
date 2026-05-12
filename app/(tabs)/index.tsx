@@ -26,12 +26,14 @@ import {
   type IntradayPhase,
 } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
-import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
+import { isOralDrug, doseNoun, doseIconName, pkConcentrationPct } from '@/constants/drug-pk';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AnimatedFire } from '@/components/animated-fire';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
+import { EnergyBankCard } from '@/components/energy-bank-card';
+import { computeEnergyBank, computeSideEffectBurden } from '@/constants/scoring';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
 import { useLogStore } from '@/stores/log-store';
@@ -41,6 +43,7 @@ import type { AppColors } from '@/constants/theme';
 import { focusCategoryColor } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { supabase } from '@/lib/supabase';
+import { pushWidgetData } from '@/lib/widget-sync';
 import { useBiometricStore } from '@/stores/biometric-store';
 import { WaterLogSheet } from '@/components/water-log-sheet';
 import { syncNotifications } from '@/stores/reminders-store';
@@ -937,6 +940,7 @@ function DailyLogSummaryCard({
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
+  const { appleHealthEnabled, updateStreakOnOpen, headerStyle } = usePreferencesStore();
   const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -946,7 +950,6 @@ export default function HomeScreen() {
   const { lastLogAction, actuals, targets, profile, focuses } = healthData;
   const oral = isOralDrug(profile?.glp1Type);
   const hkStore = useHealthKitStore();
-  const { appleHealthEnabled, updateStreakOnOpen, headerStyle } = usePreferencesStore();
   const { updateProfile, applyPendingTransition, profile: fullUserProfile } = useProfile();
   const onTreatment = isOnTreatment(fullUserProfile);
 
@@ -986,6 +989,7 @@ export default function HomeScreen() {
     hkStore.fetchAll().then(() => logStore.syncWeightFromHealthKit()).catch(() => {});
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
+    pushWidgetData(fullUserProfile);
     fetchProgressPhotos();
 
     // Fetch dates that have logged data (last 90 days) for calendar dot indicators
@@ -1648,6 +1652,43 @@ export default function HomeScreen() {
               </View>
             </Pressable>
           )}
+
+          {/* ── Energy Bank Card ── */}
+          {isToday && (() => {
+            const phase = dayNum <= Math.round((freq ?? 7) * 0.15) ? 'shot' as const
+              : dayNum <= Math.round((freq ?? 7) * 0.5) ? 'peak' as const
+              : dayNum <= Math.round((freq ?? 7) * 0.85) ? 'balance' as const : 'reset' as const;
+            const seLogs = (logStore.sideEffectLogs ?? []).map(l => ({
+              effect_type: l.effect_type, severity: l.severity ?? 0, logged_at: l.logged_at, phase_at_log: l.phase_at_log ?? '',
+            }));
+            const { burden: seBurden } = computeSideEffectBurden(seLogs, phase, 14);
+            // Compute real-time drug concentration from PK model
+            const tHours = dayNum * 24;
+            const glp1Type = profile.glp1Type;
+            const intervalH = (freq ?? 7) * 24;
+            const pkPct = glp1Type && tHours > 0
+              ? pkConcentrationPct(tHours, glp1Type as any, true, intervalH)
+              : null;
+            // Compute fatigue-specific burden (fatigue side effect logs only)
+            const fatigueLogs = seLogs.filter(l => l.effect_type === 'fatigue');
+            const { burden: fatigueBurden } = fatigueLogs.length > 0
+              ? computeSideEffectBurden(fatigueLogs, phase, 14)
+              : { burden: 0 };
+            const energyResult = computeEnergyBank(
+              healthData.wearable,
+              actuals,
+              targets,
+              phase,
+              seBurden,
+              pkPct,
+              fatigueBurden,
+            );
+            return (
+              <View style={{ marginBottom: 20 }}>
+                <EnergyBankCard result={energyResult} phase={phase} />
+              </View>
+            );
+          })()}
 
           {/* ── Daily Focuses ── */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
