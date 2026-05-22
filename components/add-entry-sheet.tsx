@@ -250,7 +250,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
               {parsedFood.confidence === 'high' ? 'High confidence' : parsedFood.confidence === 'medium' ? 'Medium confidence' : 'Low confidence - verify before adding'}
             </Text>
           </View>
-          <Text style={f.parsedEditHint} onPress={() => setAiParsingState('idle')}>Edit manually instead</Text>
+          <Text style={f.parsedEditHint} onPress={() => setAiParsingState('idle')} accessibilityLabel="Edit manually instead" accessibilityRole="button">Edit manually instead</Text>
         </View>
       ) : aiParsingState === 'loading' ? (
         /* Loading state */
@@ -273,7 +273,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
             multiline
             autoFocus={aiParsingState !== 'error'}
           />
-          <TouchableOpacity style={f.aiParseBtn} onPress={handleParseFood} activeOpacity={0.8}>
+          <TouchableOpacity style={f.aiParseBtn} onPress={handleParseFood} activeOpacity={0.8} accessibilityLabel="Parse food with AI" accessibilityRole="button">
             <Text style={f.aiParseBtnText}>Parse with AI</Text>
           </TouchableOpacity>
           {aiParsingState === 'error' && (
@@ -337,7 +337,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
       {/* Backdrop */}
       <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} accessibilityLabel="Close add entry sheet" accessibilityRole="button" />
       </Animated.View>
 
       <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'flex-end' as const }} pointerEvents="box-none">
@@ -355,7 +355,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                   /* ── Inline form view ── */
                   <>
                     <View style={f.header}>
-                      <TouchableOpacity onPress={handleBackFromForm} style={f.backBtn} activeOpacity={0.7}>
+                      <TouchableOpacity onPress={handleBackFromForm} style={f.backBtn} activeOpacity={0.7} accessibilityLabel="Go back" accessibilityRole="button">
                         <IconSymbol name="chevron.left" size={22} color={colors.textPrimary} />
                       </TouchableOpacity>
                       <Text style={s.title}>{formConfig[activeEntry].title}</Text>
@@ -364,7 +364,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                     <View style={f.formBody}>
                       {formConfig[activeEntry].content}
                     </View>
-                    <TouchableOpacity style={f.confirmBtn} onPress={formConfig[activeEntry].onConfirm} activeOpacity={0.8}>
+                    <TouchableOpacity style={f.confirmBtn} onPress={formConfig[activeEntry].onConfirm} activeOpacity={0.8} accessibilityLabel={`Confirm ${formConfig[activeEntry].title}`} accessibilityRole="button">
                       <Text style={f.confirmText}>Confirm</Text>
                     </TouchableOpacity>
                     <View style={{ height: 8 }} />
@@ -375,7 +375,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                     <View style={s.dash} />
                     <View style={s.grid}>
                       {GRID.map((item) => (
-                        <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress}>
+                        <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress} accessibilityLabel={item.label} accessibilityRole="button">
                           {item.special ? (
                             <View style={s.specialCircle}>
                               <IconSymbol name="bubble.left.fill" size={ICON_SIZE} color="#FFF" />

@@ -56,6 +56,8 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
   const miniOpacity = minimized.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
   const miniScale   = minimized.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] });
 
+  const TAB_LABELS = ['Home', 'Log', 'Explore', 'Settings'];
+
   const ICON_DEFS = [
     { focused: <IconSymbol name="house.fill" size={24} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="house" size={24} color={colors.textMuted} /> },
     { focused: <IconSymbol name="list.bullet" size={26} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="list.bullet" size={26} color={colors.textMuted} /> },
@@ -86,6 +88,9 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
                   <TouchableOpacity
                     key={route.key}
                     style={s.tabBtn}
+                    accessibilityLabel={`${TAB_LABELS[index]} tab`}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isFocused }}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       if (!isFocused) navigation.navigate(route.name);
@@ -113,6 +118,8 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
           <GlassSurface fallbackColors={colors} />
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
+            accessibilityLabel="Expand navigation"
+            accessibilityRole="button"
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); expand(); }}
             activeOpacity={0.7}
           />
@@ -134,6 +141,8 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
       {/* FAB */}
       <TouchableOpacity
         style={s.fab}
+        accessibilityLabel="Add new entry"
+        accessibilityRole="button"
         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onFabPress(); }}
         activeOpacity={0.85}
       >

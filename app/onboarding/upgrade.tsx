@@ -114,6 +114,9 @@ export default function UpgradeScreen() {
             style={[s.planCard, selectedPlan === 'annual' && s.planCardSelected]}
             activeOpacity={0.8}
             onPress={() => setSelectedPlan('annual')}
+            accessibilityLabel={`Annual plan, ${annualPrice}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPlan === 'annual' }}
           >
             <View style={s.planHeader}>
               <Text style={[s.planName, selectedPlan === 'annual' && s.planNameSelected]}>Annual</Text>
@@ -128,6 +131,9 @@ export default function UpgradeScreen() {
             style={[s.planCard, selectedPlan === 'monthly' && s.planCardSelected]}
             activeOpacity={0.8}
             onPress={() => setSelectedPlan('monthly')}
+            accessibilityLabel={`Monthly plan, ${monthlyPrice}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPlan === 'monthly' }}
           >
             <Text style={[s.planName, selectedPlan === 'monthly' && s.planNameSelected]}>Monthly</Text>
             <Text style={[s.planPrice, selectedPlan === 'monthly' && s.planPriceSelected]}>{monthlyPrice}</Text>
@@ -142,6 +148,9 @@ export default function UpgradeScreen() {
           activeOpacity={0.8}
           onPress={handlePurchase}
           disabled={purchasing}
+          accessibilityLabel={purchasing ? 'Purchasing' : 'Start Free Trial'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: purchasing }}
         >
           {purchasing ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -149,7 +158,7 @@ export default function UpgradeScreen() {
             <Text style={s.purchaseBtnText}>Start Free Trial</Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} style={s.skipBtn}>
+        <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} style={s.skipBtn} accessibilityLabel="Maybe later" accessibilityRole="button">
           <Text style={s.skipText}>Maybe later</Text>
         </TouchableOpacity>
       </View>

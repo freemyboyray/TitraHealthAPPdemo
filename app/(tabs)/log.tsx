@@ -214,7 +214,7 @@ function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWi
   const { openAiChat } = useUiStore();
   const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
   return (
-    <Pressable style={[s.hmWrap, fullWidth && { width: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }}>
+    <Pressable style={[s.hmWrap, fullWidth && { width: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }} accessibilityRole="button" accessibilityLabel={`${metric.label}, ${metric.value} ${metric.unit}, ${metric.rangeLabel}. Long press to ask AI`}>
       <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
         <View style={[s.hmInner, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
           {/* Left: content */}
@@ -683,7 +683,7 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
   };
 
   return (
-    <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI} delayLongPress={400}>
+    <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI} delayLongPress={400} accessibilityRole="button" accessibilityLabel={`${label}, ${isEmpty ? 'no data' : value}${target > 0 ? `, ${remaining > 0 ? `${remaining.toLocaleString()}${unit} to go` : 'goal reached'}` : ''}. Long press to ask AI`}>
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
         <View style={s.dailyInner}>
           <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
@@ -711,6 +711,8 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
                 <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onDecrement(); }}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: btnBg, alignItems: 'center', justifyContent: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Decrease ${label}`}
                 >
                   <Text style={{ fontSize: 20, fontWeight: '700', color: btnTxt, marginTop: -1 }}>−</Text>
                 </Pressable>
@@ -719,6 +721,8 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
                 <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onIncrement(); }}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Increase ${label}`}
                 >
                   <Text style={{ fontSize: 20, fontWeight: '700', color: ORANGE, marginTop: -1 }}>+</Text>
                 </Pressable>
@@ -771,7 +775,7 @@ function DailyMetricCard({
   const btnBg = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
   const btnTxt = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
   return (
-    <Pressable style={[s.dailyWrap, glassShadow, { minHeight: 184 }]} onPress={onPress} onLongPress={handleAskAI}>
+    <Pressable style={[s.dailyWrap, glassShadow, { minHeight: 184 }]} onPress={onPress} onLongPress={handleAskAI} accessibilityRole="button" accessibilityLabel={`${label}, ${value}, ${change}. Long press to ask AI`}>
       <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, flex: 1 }]}>
         <View style={[s.dailyInner, { flex: 1 }]}>
           <View style={s.dailyIconWrap}>{icon}</View>
@@ -786,6 +790,8 @@ function DailyMetricCard({
                 <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onDecrement(); }}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: btnBg, alignItems: 'center', justifyContent: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Decrease ${label}`}
                 >
                   <Text style={{ fontSize: 20, fontWeight: '700', color: btnTxt, marginTop: -1 }}>−</Text>
                 </Pressable>
@@ -794,6 +800,8 @@ function DailyMetricCard({
                 <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onIncrement(); }}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Increase ${label}`}
                 >
                   <Text style={{ fontSize: 20, fontWeight: '700', color: ORANGE, marginTop: -1 }}>+</Text>
                 </Pressable>
@@ -818,6 +826,8 @@ function HealthDataConnectPrompt() {
       <Pressable
         onPress={() => router.push('/settings')}
         style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,116,42,0.12)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Go to Settings to connect Apple Health"
       >
         <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: 'System' }}>
           Go to Settings
@@ -1777,7 +1787,7 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
       )}
 
       <GestureDetector gesture={weightScrub.gesture}>
-        <View style={{ height: svgH, position: 'relative' }} onLayout={onLayout}>
+        <View style={{ height: svgH, position: 'relative' }} onLayout={onLayout} accessibilityRole="image" accessibilityLabel="Weight trend chart. Long press and drag to scrub through data points">
           {!hasData ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={s.chartMuted}>Log weight entries to see your chart</Text>
@@ -1977,6 +1987,9 @@ function WeightProjectionCard({
                   style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
                   onPress={() => setActivePeriod(p)}
                   activeOpacity={0.6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p === 'MAX' ? 'All time' : p} period${activePeriod === p ? ', selected' : ''}`}
+                  accessibilityState={{ selected: activePeriod === p }}
                 >
                   <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
                 </TouchableOpacity>
@@ -2022,7 +2035,7 @@ function WeightProjectionCard({
               {/* Header */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 16 }}>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
-                <Pressable onPress={closeSheet} hitSlop={12}>
+                <Pressable onPress={closeSheet} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close weight journey detail">
                   <Ionicons name="close-circle" size={28} color={w(0.4)} />
                 </Pressable>
               </View>
@@ -2035,6 +2048,9 @@ function WeightProjectionCard({
                     style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
                     onPress={() => setActivePeriod(p)}
                     activeOpacity={0.6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p === 'MAX' ? 'All time' : p} period${activePeriod === p ? ', selected' : ''}`}
+                    accessibilityState={{ selected: activePeriod === p }}
                   >
                     <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
                   </TouchableOpacity>
@@ -2391,6 +2407,8 @@ function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
                 <TouchableOpacity
                   onPress={() => onDelete(entry.id)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${entry.title} log entry`}
                 >
                   <IconSymbol name="trash.fill" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
                 </TouchableOpacity>
@@ -2413,7 +2431,7 @@ function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
 
-        <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7}>
+        <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`Recent Logs, ${entries.length} entries, ${expanded ? 'expanded' : 'collapsed'}`} accessibilityState={{ expanded }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Text style={s.logHeaderText}>Recent Logs</Text>
             <View style={s.logCountBadge}>
@@ -2443,7 +2461,7 @@ function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
               capped.map((entry, i) => renderEntry(entry, i === capped.length - 1))
             )}
             {onViewAll && capped.length > 0 && (
-              <TouchableOpacity onPress={onViewAll} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7}>
+              <TouchableOpacity onPress={onViewAll} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="View all logs">
                 <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>View All Logs</Text>
               </TouchableOpacity>
             )}

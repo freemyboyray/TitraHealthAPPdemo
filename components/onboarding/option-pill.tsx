@@ -21,6 +21,9 @@ export function OptionPill({ label, selected, onPress, icon, subtitle }: Props) 
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.75}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
       style={[s.pill, selected && s.pillSelected]}>
       <View style={s.inner}>
         {icon && <View style={s.iconWrap}>{icon}</View>}

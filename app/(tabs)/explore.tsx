@@ -486,7 +486,13 @@ function MythCard({ item }: { item: MythItem }) {
   };
 
   return (
-    <Pressable style={[s.wrap, glassShadow(colors.isDark)]} onPress={handlePress}>
+    <Pressable
+      style={[s.wrap, glassShadow(colors.isDark)]}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={`${revealed ? 'Fact' : 'Myth'}: ${revealed ? item.fact : item.myth}. ${revealed ? 'Tap to see myth' : 'Tap to reveal fact'}`}
+      accessibilityState={{ expanded: revealed }}
+    >
       <View style={s.body}>
         <View style={s.iconWrap}>{item.icon}</View>
         <View style={s.labelRow}>
@@ -596,6 +602,9 @@ function SideEffectDecoder() {
                   setActiveCategory(cat);
                   setSelected(null);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter: ${cat === 'all' ? 'All' : cfg!.label}${isActive ? ', selected' : ''}`}
+                accessibilityState={{ selected: isActive }}
               >
                 <Text style={[s.filterText, isActive && { color: cfg ? cfg.color : ORANGE, fontWeight: '700' }]}>
                   {cat === 'all' ? 'All' : cfg!.label}
@@ -617,6 +626,9 @@ function SideEffectDecoder() {
                 key={item.name}
                 style={[s.symptomChip, { backgroundColor: isSelected ? cfg.bg : w(0.04) }, isSelected && { borderColor: cfg.color }]}
                 onPress={() => handleTap(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name}, ${cfg.label}${isSelected ? ', selected' : ''}`}
+                accessibilityState={{ selected: isSelected }}
               >
                 <Text style={[s.symptomText, isSelected && { color: cfg.color, fontWeight: '700' }]}>{item.name}</Text>
               </TouchableOpacity>
@@ -710,6 +722,9 @@ function SafetyCard() {
           setIsExpanded(e => !e);
         }}
         activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={`When to Call Your Doctor, ${isExpanded ? 'expanded' : 'collapsed'}`}
+        accessibilityState={{ expanded: isExpanded }}
       >
         <View style={s.headerRow}>
           <View style={s.iconWrap}>
@@ -809,6 +824,9 @@ function EducationCard({ section }: { section: Section }) {
                   setExpandedItem(isOpen ? null : idx);
                 }}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.q}, ${isOpen ? 'expanded' : 'collapsed'}`}
+                accessibilityState={{ expanded: isOpen }}
               >
                 <Text style={c.itemQ} numberOfLines={isOpen ? undefined : 2}>{item.q}</Text>
                 <IconSymbol
@@ -843,6 +861,8 @@ function ArticleCard({ article }: { article: ArticleRow }) {
     <Pressable
       style={[ac.wrap, glassShadow(colors.isDark)]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
+      accessibilityRole="button"
+      accessibilityLabel={`${article.title}, ${article.category}, ${article.reading_time_minutes} minute read`}
     >
       <View style={ac.body}>
         <View style={ac.inner}>
@@ -963,8 +983,13 @@ export default function EducationScreen() {
           {/* ── Side Effect Decoder ── */}
           <SideEffectDecoder />
 
-          <Text style={s.disclaimer}>{MEDICAL_DISCLAIMER}</Text>
-          <Pressable style={s.sourcesLink} onPress={() => router.push('/settings/medical-sources' as any)}>
+          <Text style={s.disclaimer} accessibilityRole="text" accessibilityLabel="Medical disclaimer">{MEDICAL_DISCLAIMER}</Text>
+          <Pressable
+            style={s.sourcesLink}
+            onPress={() => router.push('/settings/medical-sources' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="View Medical Sources and Citations"
+          >
             <Ionicons name="document-text-outline" size={14} color={ORANGE} />
             <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
           </Pressable>

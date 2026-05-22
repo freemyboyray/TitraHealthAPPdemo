@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -187,18 +187,6 @@ export default function ComparePhotosScreen() {
                 </View>
               )}
 
-              {/* Share button */}
-              <TouchableOpacity
-                style={s.shareBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  // eslint-disable-next-line no-alert
-                  alert('Coming soon');
-                }}
-              >
-                <MaterialIcons name="share" size={20} color="#FFFFFF" />
-                <Text style={s.shareBtnText}>Share</Text>
-              </TouchableOpacity>
             </>
           )}
         </View>
@@ -333,31 +321,6 @@ const createStyles = (c: AppColors) => {
       marginTop: 4,
     },
 
-    // Share button
-    shareBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      alignSelf: 'center',
-      height: 52,
-      paddingHorizontal: 32,
-      borderRadius: 26,
-      backgroundColor: ORANGE,
-      marginTop: 24,
-      gap: 8,
-      shadowColor: ORANGE,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.45,
-      shadowRadius: 18,
-      elevation: 8,
-    },
-    shareBtnText: {
-      fontSize: 16,
-      fontFamily: FF,
-      fontWeight: '800',
-      color: '#FFFFFF',
-      letterSpacing: 0.3,
-    },
 
     // Error state
     backBtnLight: {

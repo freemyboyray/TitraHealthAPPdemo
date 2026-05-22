@@ -771,7 +771,7 @@ export default function LogFoodScreen() {
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7} accessibilityLabel="Go back" accessibilityRole="button">
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]} />
           <GlassBorder r={22} />
@@ -788,6 +788,9 @@ export default function LogFoodScreen() {
               onPress={() => switchMode(m)}
               style={[s.modePill, mode === m && s.modePillActive]}
               activeOpacity={0.75}
+              accessibilityLabel={`${MODE_LABELS[m]} mode${mode === m ? ', selected' : ''}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === m }}
             >
               <Ionicons
                 name={MODE_ICONS[m] as any}
@@ -836,7 +839,7 @@ export default function LogFoodScreen() {
               <Ionicons name="barcode-outline" size={60} color={ORANGE} />
               <Text style={s.permTitle}>Camera Access Needed</Text>
               <Text style={s.permDesc}>Allow camera access to scan barcodes.</Text>
-              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8}>
+              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8} accessibilityLabel="Allow camera access for barcode scanning" accessibilityRole="button">
                 <Text style={s.permBtnText}>Allow Camera</Text>
               </TouchableOpacity>
             </View>
@@ -875,10 +878,10 @@ export default function LogFoodScreen() {
                     <Text style={s.servingUnit}>g</Text>
                   </View>
                   <View style={s.scanBtns}>
-                    <TouchableOpacity style={s.scanSecBtn} onPress={handleScanAgain} activeOpacity={0.8}>
+                    <TouchableOpacity style={s.scanSecBtn} onPress={handleScanAgain} activeOpacity={0.8} accessibilityLabel="Scan again" accessibilityRole="button">
                       <Text style={s.scanSecBtnText}>Scan Again</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={s.scanPrimBtn} onPress={handleAddScanProduct} activeOpacity={0.85}>
+                    <TouchableOpacity style={s.scanPrimBtn} onPress={handleAddScanProduct} activeOpacity={0.85} accessibilityLabel="Add scanned product to meal" accessibilityRole="button">
                       <Text style={s.scanPrimBtnText}>Add to Meal</Text>
                     </TouchableOpacity>
                   </View>
@@ -906,10 +909,10 @@ export default function LogFoodScreen() {
             <View style={{ flex: 1 }}>
               <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
               <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
-                <TouchableOpacity onPress={handleRetakePhoto} style={s.cameraLibraryBtn} activeOpacity={0.75}>
+                <TouchableOpacity onPress={handleRetakePhoto} style={s.cameraLibraryBtn} activeOpacity={0.75} accessibilityLabel="Retake photo" accessibilityRole="button">
                   <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-                <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85}>
+                <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85} accessibilityLabel="Analyze photo with AI" accessibilityRole="button">
                   <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
                   <Text style={s.cameraAnalyzeBtnText}>Analyze with AI</Text>
                 </TouchableOpacity>
@@ -937,10 +940,10 @@ export default function LogFoodScreen() {
               </View>
               {/* Shutter + library buttons */}
               <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
-                <TouchableOpacity onPress={handlePickLibrary} style={s.cameraLibraryBtn} activeOpacity={0.75}>
+                <TouchableOpacity onPress={handlePickLibrary} style={s.cameraLibraryBtn} activeOpacity={0.75} accessibilityLabel="Choose from photo library" accessibilityRole="button">
                   <Ionicons name="images-outline" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
+                <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85} accessibilityLabel="Take photo" accessibilityRole="button">
                   <View style={s.shutterInner} />
                 </TouchableOpacity>
                 <View style={{ width: 48 }} />
@@ -952,7 +955,7 @@ export default function LogFoodScreen() {
               <Ionicons name="camera-outline" size={60} color={ORANGE} />
               <Text style={s.permTitle}>Camera Access Needed</Text>
               <Text style={s.permDesc}>Allow camera access to take food photos.</Text>
-              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8}>
+              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8} accessibilityLabel="Allow camera access for food photos" accessibilityRole="button">
                 <Text style={s.permBtnText}>Allow Camera</Text>
               </TouchableOpacity>
             </View>
@@ -986,6 +989,7 @@ export default function LogFoodScreen() {
                   returnKeyType="search"
                   autoCorrect={false}
                   autoCapitalize="none"
+                  accessibilityLabel="Search foods"
                 />
                 {!!query && (
                   <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); setSuggestions([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

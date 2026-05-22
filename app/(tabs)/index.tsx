@@ -140,7 +140,7 @@ function MedicationBanner({
       <View style={mb.chip}>
         <Text style={mb.chipText}>Week {programWeek}  ·  Day {dayCount}</Text>
       </View>
-      <Pressable style={mb.viewChip} onPress={() => router.push('/medication-detail' as any)}>
+      <Pressable style={mb.viewChip} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel="View medication details" accessibilityRole="link">
         <Text style={mb.viewChipText}>View</Text>
         <IconSymbol name="chevron.right" size={13} color={ORANGE} />
       </Pressable>
@@ -320,11 +320,11 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
       <View style={cal.inner}>
         {/* Month nav */}
         <View style={cal.monthRow}>
-          <Pressable onPress={prevMonth} hitSlop={10}>
+          <Pressable onPress={prevMonth} hitSlop={10} accessibilityLabel="Previous month" accessibilityRole="button">
             <IconSymbol name="chevron.left" size={20} color={colors.textPrimary} />
           </Pressable>
-          <Text style={cal.monthLabel}>{monthLabel}</Text>
-          <Pressable onPress={nextMonth} hitSlop={10}>
+          <Text style={cal.monthLabel} accessibilityRole="header">{monthLabel}</Text>
+          <Pressable onPress={nextMonth} hitSlop={10} accessibilityLabel="Next month" accessibilityRole="button">
             <IconSymbol name="chevron.right" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
@@ -354,7 +354,14 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
                 : false);
               const hasOtherLog = !isTod && datesWithLogs?.has(localDateStr(date)) === true;
               return (
-                <Pressable key={di} style={cal.cell} onPress={() => { if (!isPre) onSelect(date); }}>
+                <Pressable
+                  key={di}
+                  style={cal.cell}
+                  onPress={() => { if (!isPre) onSelect(date); }}
+                  accessibilityLabel={`${new Date(viewYear, viewMonth).toLocaleDateString('en-US', { month: 'long' })} ${day}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSel, disabled: isPre }}
+                >
                   <View style={[cal.dayCircle, isSel && cal.daySelected]}>
                     <Text style={[cal.dayNum, isSel && cal.dayNumSel, isPre && cal.dayFuture]}>
                       {day}
@@ -619,6 +626,9 @@ function DailyLogSummaryCard({
         <Pressable
           style={{ padding: 20, paddingBottom: expanded ? 12 : 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
           onPress={() => canExpand && setExpanded(v => !v)}
+          accessibilityLabel={`Day log, ${totalCals} calories. ${expanded ? 'Collapse' : 'Expand'} details`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
         >
           <Text style={s.insightsTitle}>Day Log</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -684,7 +694,7 @@ function DailyLogSummaryCard({
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
-                  <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)}>
+                  <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)} accessibilityLabel={`Delete ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
                     <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                   </Pressable>
                 </View>
@@ -706,10 +716,10 @@ function DailyLogSummaryCard({
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', paddingTop: 2 }}>
-                        <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'food', item: f })}>
+                        <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'food', item: f })} accessibilityLabel={`Edit ${f.food_name}`} accessibilityRole="button">
                           <IconSymbol name="pencil" size={15} color={w(0.35)} />
                         </Pressable>
-                        <Pressable hitSlop={10} onPress={() => confirmDelete('food_logs', f.id, f.food_name)}>
+                        <Pressable hitSlop={10} onPress={() => confirmDelete('food_logs', f.id, f.food_name)} accessibilityLabel={`Delete ${f.food_name}`} accessibilityRole="button">
                           <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                         </Pressable>
                       </View>
@@ -737,10 +747,10 @@ function DailyLogSummaryCard({
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                      <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'activity', item: a })}>
+                      <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'activity', item: a })} accessibilityLabel={`Edit ${a.exercise_type || 'activity'}`} accessibilityRole="button">
                         <IconSymbol name="pencil" size={15} color={w(0.35)} />
                       </Pressable>
-                      <Pressable hitSlop={10} onPress={() => confirmDelete('activity_logs', a.id, a.exercise_type || 'Activity')}>
+                      <Pressable hitSlop={10} onPress={() => confirmDelete('activity_logs', a.id, a.exercise_type || 'Activity')} accessibilityLabel={`Delete ${a.exercise_type || 'activity'}`} accessibilityRole="button">
                         <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                       </Pressable>
                     </View>
@@ -757,10 +767,10 @@ function DailyLogSummaryCard({
                   <IconSymbol name="scalemass.fill" size={16} color={w(0.45)} />
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
                   <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                    <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })}>
+                    <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })} accessibilityLabel={`Edit weight ${weightLog.weight_lbs} lbs`} accessibilityRole="button">
                       <IconSymbol name="pencil" size={15} color={w(0.35)} />
                     </Pressable>
-                    <Pressable hitSlop={10} onPress={() => confirmDelete('weight_logs', weightLog.id, `${weightLog.weight_lbs} lbs`)}>
+                    <Pressable hitSlop={10} onPress={() => confirmDelete('weight_logs', weightLog.id, `${weightLog.weight_lbs} lbs`)} accessibilityLabel={`Delete weight ${weightLog.weight_lbs} lbs`} accessibilityRole="button">
                       <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                     </Pressable>
                   </View>
@@ -790,7 +800,7 @@ function DailyLogSummaryCard({
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
                         {se.effect_type.replace(/_/g, ' ')} · {se.severity}/10
                       </Text>
-                      <Pressable hitSlop={6} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))}>
+                      <Pressable hitSlop={6} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))} accessibilityLabel={`Remove ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
                         <Ionicons name="close-circle" size={14} color="#E74C3C" />
                       </Pressable>
                     </View>
@@ -847,6 +857,9 @@ function DailyLogSummaryCard({
                           key={mt}
                           onPress={() => setEditForm(f => ({ ...f, meal_type: mt }))}
                           style={{ flex: 1, padding: 9, borderRadius: 10, backgroundColor: editForm.meal_type === mt ? ORANGE : w(0.07), alignItems: 'center' }}
+                          accessibilityLabel={`${MEAL_LABELS[mt]}${editForm.meal_type === mt ? ', selected' : ''}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: editForm.meal_type === mt }}
                         >
                           <Text style={{ fontSize: 13, fontWeight: '700', color: editForm.meal_type === mt ? '#fff' : w(0.55), fontFamily: FF }}>
                             {MEAL_LABELS[mt]}
@@ -911,6 +924,8 @@ function DailyLogSummaryCard({
                   <Pressable
                     style={{ flex: 1, padding: 15, borderRadius: 14, backgroundColor: w(0.07), alignItems: 'center' }}
                     onPress={() => setEditTarget(null)}
+                    accessibilityLabel="Cancel editing"
+                    accessibilityRole="button"
                   >
                     <Text style={{ fontSize: 17, fontWeight: '600', color: w(0.6), fontFamily: FF }}>Cancel</Text>
                   </Pressable>
@@ -918,6 +933,9 @@ function DailyLogSummaryCard({
                     style={{ flex: 2, padding: 15, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', opacity: saving ? 0.65 : 1 }}
                     onPress={saveEdit}
                     disabled={saving}
+                    accessibilityLabel="Save changes"
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: saving }}
                   >
                     {saving
                       ? <ActivityIndicator color="#fff" />
@@ -1418,7 +1436,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
               {/* Right: date + streak fire */}
-              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')}>
+              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')} accessibilityLabel={`${dateLabel}, ${streak} day streak`} accessibilityRole="button">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={s.dateTitle}>{dateLabel}</Text>
@@ -1440,7 +1458,7 @@ export default function HomeScreen() {
               <Text style={s.futureNote}>No entries logged for this day</Text>
             }
           </View>
-          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
+          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600} accessibilityLabel="Dashboard content. Long press for AI assistant." accessibilityRole="none">
 
           {/* ── Viewing History Banner ── */}
           {isPast && (
@@ -1459,7 +1477,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF }}>
                 {`Viewing ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
               </Text>
-              <Pressable onPress={() => { setSelectedDate(new Date()); setCalendarOpen(false); }}>
+              <Pressable onPress={() => { setSelectedDate(new Date()); setCalendarOpen(false); }} accessibilityLabel="Back to today" accessibilityRole="button">
                 <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: FF }}>
                   Back to today
                 </Text>
@@ -1474,6 +1492,8 @@ export default function HomeScreen() {
             style={[s.cardWrap, { marginBottom: 20, marginTop: 16 }]}
             onLongPress={handlePhasePillPress}
             delayLongPress={500}
+            accessibilityLabel={`Treatment progress card. ${medName}${medDose ? `, ${medDose}` : ''}. Long press for AI insights.`}
+            accessibilityRole="button"
           >
             <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
               <View style={s.heroCard}>
@@ -1486,6 +1506,8 @@ export default function HomeScreen() {
                   <Pressable
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
                     onPress={() => router.push('/medication-detail' as any)}
+                    accessibilityLabel="View medication details"
+                    accessibilityRole="link"
                   >
                     <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>View</Text>
                     <IconSymbol name="chevron.right" size={14} color={ORANGE} />
@@ -1600,6 +1622,8 @@ export default function HomeScreen() {
                   <Pressable
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
                     onPress={() => router.push('/settings/edit-treatment')}
+                    accessibilityLabel="Add medication"
+                    accessibilityRole="button"
                   >
                     <Ionicons name="add-circle" size={15} color={ORANGE} />
                     <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF, marginLeft: 2 }}>Add Medication</Text>
@@ -1639,6 +1663,8 @@ export default function HomeScreen() {
             <Pressable
               style={[s.cardWrap, { marginBottom: 20 }]}
               onPress={() => router.push('/progress-photos' as any)}
+              accessibilityLabel="Progress photos"
+              accessibilityRole="button"
             >
               <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 }}>
@@ -1731,7 +1757,7 @@ export default function HomeScreen() {
                 };
                 return (
                   <React.Fragment key={item.id}>
-                    <Pressable style={s.focusRow} onPress={handleFocusTap} onLongPress={handleFocusLongPress} delayLongPress={400}>
+                    <Pressable style={s.focusRow} onPress={handleFocusTap} onLongPress={handleFocusLongPress} delayLongPress={400} accessibilityLabel={`${item.label}, ${item.status === 'completed' ? 'completed' : 'pending'}`} accessibilityRole="button" accessibilityState={{ checked: item.status === 'completed' }}>
                       {/* Icon */}
                       <View style={[s.focusIconWrap, { backgroundColor: focusColor + '1F' }, item.status === 'completed' && s.focusIconDone]}>
                         {item.iconSet === 'MaterialIcons'
@@ -1858,7 +1884,7 @@ export default function HomeScreen() {
 
           {/* ── Medical Disclaimer & Sources ── */}
           <Text style={s.medDisclaimer}>{MEDICAL_DISCLAIMER}</Text>
-          <Pressable style={s.sourcesLink} onPress={() => router.push('/settings/medical-sources' as any)}>
+          <Pressable style={s.sourcesLink} onPress={() => router.push('/settings/medical-sources' as any)} accessibilityLabel="View medical sources and citations" accessibilityRole="link">
             <Ionicons name="document-text-outline" size={14} color={ORANGE} />
             <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
           </Pressable>

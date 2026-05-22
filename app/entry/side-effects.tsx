@@ -95,6 +95,10 @@ function EffectSlider({ value, onChange }: { value: number; onChange: (v: number
         trackRef.current = w;
         setTrackPx(w);
       }}
+      accessible={true}
+      accessibilityRole="adjustable"
+      accessibilityLabel="Severity"
+      accessibilityValue={{ min: 0, max: 10, now: value }}
       {...panResponder.panHandlers}
     >
       <View style={{ height: 4, borderRadius: 2, backgroundColor: sliderColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
@@ -262,6 +266,8 @@ export default function SideEffectsScreen() {
           activeOpacity={0.7}
           style={s.headerBtn}
           hitSlop={12}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -276,6 +282,8 @@ export default function SideEffectsScreen() {
           activeOpacity={0.7}
           style={s.headerBtn}
           hitSlop={12}
+          accessibilityLabel="Customize side effects"
+          accessibilityRole="button"
         >
           <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -355,6 +363,8 @@ export default function SideEffectsScreen() {
             style={s.customizeRow}
             onPress={() => router.push('/entry/customize-side-effects' as any)}
             activeOpacity={0.7}
+            accessibilityLabel="Customize effects"
+            accessibilityRole="button"
           >
             <Text style={s.customizeText}>Customize effects</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
@@ -392,6 +402,8 @@ export default function SideEffectsScreen() {
             activeOpacity={0.85}
             disabled={!hasAny || loading}
             style={[s.ctaBtn, (!hasAny || loading) && s.ctaBtnDisabled]}
+            accessibilityLabel="Log side effects"
+            accessibilityRole="button"
           >
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />

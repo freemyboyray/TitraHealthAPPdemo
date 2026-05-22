@@ -70,14 +70,20 @@ export default function WeightScreen() {
           <View style={s.toggle}>
             <TouchableOpacity
               style={[s.toggleBtn, unit === 'imperial' && s.toggleBtnActive]}
-              onPress={() => setUnit('imperial')}>
+              onPress={() => setUnit('imperial')}
+              accessibilityLabel="Imperial"
+              accessibilityRole="button"
+              accessibilityState={{ selected: unit === 'imperial' }}>
               <Text style={[s.toggleText, unit === 'imperial' && s.toggleTextActive]}>
                 Imperial
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.toggleBtn, unit === 'metric' && s.toggleBtnActive]}
-              onPress={() => setUnit('metric')}>
+              onPress={() => setUnit('metric')}
+              accessibilityLabel="Metric"
+              accessibilityRole="button"
+              accessibilityState={{ selected: unit === 'metric' }}>
               <Text style={[s.toggleText, unit === 'metric' && s.toggleTextActive]}>
                 Metric
               </Text>

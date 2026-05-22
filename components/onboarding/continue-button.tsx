@@ -23,6 +23,9 @@ export function ContinueButton({ onPress, disabled, label = 'Continue' }: Props)
         onPress={onPress}
         disabled={disabled}
         activeOpacity={0.8}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled }}
         style={[s.btn, disabled && s.btnDisabled]}>
         <Text style={s.label}>{label}</Text>
       </TouchableOpacity>

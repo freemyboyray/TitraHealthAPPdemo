@@ -193,7 +193,7 @@ export default function SettingsScreen() {
           </View>
 
         {/* Profile card */}
-        <Pressable style={s.profileCard} onPress={() => { setNameInput(displayName); setEditingName(true); }}>
+        <Pressable style={s.profileCard} onPress={() => { setNameInput(displayName); setEditingName(true); }} accessibilityLabel="Edit display name" accessibilityRole="button">
           <View style={s.avatar}>
             <Text style={s.avatarLetter}>{displayName.charAt(0).toUpperCase()}</Text>
           </View>
@@ -208,6 +208,7 @@ export default function SettingsScreen() {
                   returnKeyType="done"
                   onSubmitEditing={saveUsername}
                   onBlur={saveUsername}
+                  accessibilityLabel="Display name"
                 />
               </View>
             ) : (
@@ -219,7 +220,7 @@ export default function SettingsScreen() {
         </Pressable>
 
         {/* SUBSCRIPTION */}
-        <Pressable style={[s.card, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20 }]} onPress={() => router.push('/settings/subscription' as any)}>
+        <Pressable style={[s.card, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20 }]} onPress={() => router.push('/settings/subscription' as any)} accessibilityLabel={isPremium ? 'Titra Pro, Manage your subscription' : 'Upgrade to Pro, $4.99/month, 7-day free trial'} accessibilityRole="button" accessibilityHint="Opens subscription settings">
           <View style={s.rowLeft}>
             <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
               <IconSymbol name="bolt.fill" size={18} color={ORANGE} />
@@ -237,7 +238,7 @@ export default function SettingsScreen() {
 
         <View style={s.card}>
           {/* Treatment Plan */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel={`Treatment Plan, ${treatmentLine1}`} accessibilityRole="button" accessibilityHint="Opens treatment plan details">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
@@ -254,7 +255,7 @@ export default function SettingsScreen() {
           <View style={s.divider} />
 
           {/* Body & Goals */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')} accessibilityLabel={`Body & Goals, ${bodyLine}`} accessibilityRole="button" accessibilityHint="Opens body and goals editor">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
                 <IconSymbol name="figure.stand" size={18} color="#0A84FF" />
@@ -271,7 +272,7 @@ export default function SettingsScreen() {
           {isPremium && (
             <>
               <View style={s.divider} />
-              <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)}>
+              <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)} accessibilityLabel="Provider Report, Export PDF for your doctor" accessibilityRole="button" accessibilityHint="Opens provider report export">
                 <View style={s.rowLeft}>
                   <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
                     <IconSymbol name="doc.text.fill" size={18} color="#34C759" />
@@ -309,6 +310,9 @@ export default function SettingsScreen() {
                   flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
                   backgroundColor: themeMode === mode ? ORANGE : 'transparent',
                 }}
+                accessibilityLabel={mode === 'system' ? 'System' : mode === 'light' ? 'Light' : 'Dark'}
+                accessibilityRole="button"
+                accessibilityState={{ selected: themeMode === mode }}
               >
                 <Text style={{
                   fontSize: 13, fontWeight: '600',
@@ -340,6 +344,9 @@ export default function SettingsScreen() {
                   flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
                   backgroundColor: (headerStyle ?? 'gradient') === style ? ORANGE : 'transparent',
                 }}
+                accessibilityLabel={style === 'gradient' ? 'Gradient' : style === 'solid' ? 'Solid' : 'Minimal'}
+                accessibilityRole="button"
+                accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}
               >
                 <Text style={{
                   fontSize: 13, fontWeight: '600',
@@ -354,7 +361,7 @@ export default function SettingsScreen() {
           <View style={s.divider} />
 
           {/* Reminders */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')} accessibilityLabel={`Reminders, ${masterEnabled ? 'On' : 'Off'}`} accessibilityRole="button" accessibilityHint="Opens reminders settings">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="bell.fill" size={18} color={ORANGE} />
@@ -372,7 +379,7 @@ export default function SettingsScreen() {
         <Text style={s.sectionLabel}>CONNECTIONS</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)} accessibilityLabel={`Apple Health, ${appleHealthEnabled ? 'Connected' : 'Not connected'}`} accessibilityRole="button" accessibilityHint="Opens Apple Health settings">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
                 <IconSymbol name="heart.fill" size={18} color="#FF3B30" />
@@ -394,7 +401,7 @@ export default function SettingsScreen() {
         <Text style={s.sectionLabel}>SUPPORT</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => WebBrowser.openBrowserAsync('https://embed-245422884.sleekplan.app/?hide_elements[]=footer#/feedback/')}>
+          <Pressable style={s.cardRow} onPress={() => WebBrowser.openBrowserAsync('https://embed-245422884.sleekplan.app/?hide_elements[]=footer#/feedback/')} accessibilityLabel="Send Feedback, Report bugs or request new features" accessibilityRole="button" accessibilityHint="Opens feedback form">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
                 <IconSymbol name="exclamationmark.bubble.fill" size={18} color="#32ADE6" />
@@ -426,6 +433,9 @@ export default function SettingsScreen() {
               value={aiDataConsent}
               onValueChange={setAiDataConsent}
               trackColor={{ true: ORANGE }}
+              accessibilityLabel="AI Data Processing"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: aiDataConsent }}
             />
           </View>
 
@@ -445,6 +455,9 @@ export default function SettingsScreen() {
               value={foodDbConsent}
               onValueChange={setFoodDbConsent}
               trackColor={{ true: ORANGE }}
+              accessibilityLabel="Food Database"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: foodDbConsent }}
             />
           </View>
         </View>
@@ -457,7 +470,7 @@ export default function SettingsScreen() {
         <Text style={s.sectionLabel}>LEGAL & ACCOUNT</Text>
 
         <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Terms & Privacy" accessibilityRole="button" accessibilityHint="Opens legal documents">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
                 <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
@@ -469,7 +482,7 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/medical-sources' as any)}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/medical-sources' as any)} accessibilityLabel="Medical Sources, Published studies and citations" accessibilityRole="button" accessibilityHint="Opens medical sources">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
                 <IconSymbol name="book.fill" size={18} color="#34C759" />
@@ -487,6 +500,9 @@ export default function SettingsScreen() {
           <Pressable
             style={s.cardRow}
             onPress={handleDeleteAccount}
+            accessibilityLabel="Delete account"
+            accessibilityRole="button"
+            accessibilityHint="Permanently deletes all data"
           >
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
@@ -504,7 +520,7 @@ export default function SettingsScreen() {
         <View style={{ flex: 1, minHeight: 40 }} />
 
         {/* Sign out */}
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut} activeOpacity={0.8} accessibilityLabel="Sign out" accessibilityRole="button">
           <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="#FF453A" style={{ marginRight: 8 }} />
           <Text style={s.signOutText}>Sign Out</Text>
         </TouchableOpacity>
@@ -515,6 +531,9 @@ export default function SettingsScreen() {
           onPress={handleDeleteAccount}
           activeOpacity={0.8}
           disabled={deleting}
+          accessibilityLabel="Delete account"
+          accessibilityRole="button"
+          accessibilityHint="Permanently deletes all data"
         >
           <IconSymbol name="trash.fill" size={18} color="#FF453A" style={{ marginRight: 8 }} />
           <Text style={s.signOutText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>

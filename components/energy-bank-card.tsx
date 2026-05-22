@@ -129,6 +129,8 @@ export function EnergyBankCard({ result, phase }: Props) {
         style={s.wrap}
         onPress={() => router.push('/paywall' as any)}
         activeOpacity={0.82}
+        accessibilityLabel="Energy Bank — premium feature, tap to unlock"
+        accessibilityRole="button"
       >
         <View style={s.inner}>
           <View style={s.topRow}>
@@ -161,6 +163,9 @@ export function EnergyBankCard({ result, phase }: Props) {
       style={s.wrap}
       onPress={() => router.push('/energy-detail' as any)}
       activeOpacity={0.82}
+      accessibilityLabel={`Energy Bank ${result.score}%, ${result.label}`}
+      accessibilityRole="button"
+      accessibilityHint="View energy bank details"
     >
       <View style={s.inner}>
         <View style={s.topRow}>

@@ -134,7 +134,7 @@ export default function HealthSyncScreen() {
             disabled={connecting}
             label={connecting ? 'Connecting…' : 'Connect Apple Health'}
           />
-          <TouchableOpacity onPress={handleSkip} disabled={connecting} style={s.skipBtn}>
+          <TouchableOpacity onPress={handleSkip} disabled={connecting} style={s.skipBtn} accessibilityLabel="Skip for now" accessibilityRole="button">
             <Text style={s.skipText}>Skip for now</Text>
           </TouchableOpacity>
         </View>

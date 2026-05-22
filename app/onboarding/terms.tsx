@@ -70,6 +70,8 @@ export default function TermsScreen() {
             style={s.linkRow}
             activeOpacity={0.7}
             onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
+            accessibilityLabel="Terms of Use"
+            accessibilityRole="link"
           >
             <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Terms of Use</Text>
@@ -80,6 +82,8 @@ export default function TermsScreen() {
             style={s.linkRow}
             activeOpacity={0.7}
             onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
+            accessibilityLabel="Privacy Policy"
+            accessibilityRole="link"
           >
             <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Privacy Policy</Text>
@@ -90,6 +94,8 @@ export default function TermsScreen() {
             style={s.linkRow}
             activeOpacity={0.7}
             onPress={() => setAiOpen(true)}
+            accessibilityLabel="AI Disclosure"
+            accessibilityRole="link"
           >
             <Ionicons name="sparkles-outline" size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>AI Disclosure</Text>
@@ -114,7 +120,7 @@ export default function TermsScreen() {
         <SafeAreaView style={s.safe}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>AI Disclosure</Text>
-            <TouchableOpacity onPress={() => setAiOpen(false)} style={s.modalClose} hitSlop={12}>
+            <TouchableOpacity onPress={() => setAiOpen(false)} style={s.modalClose} hitSlop={12} accessibilityLabel="Close AI Disclosure" accessibilityRole="button">
               <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>

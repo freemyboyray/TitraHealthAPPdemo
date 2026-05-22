@@ -441,6 +441,8 @@ export default function LogActivityScreen() {
           activeOpacity={0.7}
           style={s.backBtn}
           hitSlop={12}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -476,6 +478,9 @@ export default function LogActivityScreen() {
                       { width: gridItemWidth },
                       active ? s.typeBtnActive : s.typeBtnInactive,
                     ]}
+                    accessibilityLabel={`${t.label}${active ? ', selected' : ''}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                   >
                     <Ionicons
                       name={t.icon as any}
@@ -513,6 +518,8 @@ export default function LogActivityScreen() {
                 setEditingSteps(true);
               }}
               activeOpacity={0.7}
+              accessibilityLabel={`Steps: ${stepsValue}. Tap to edit`}
+              accessibilityRole="button"
             >
               <Ionicons name="footsteps-outline" size={13} color={colors.textMuted} />
               {editingSteps ? (
@@ -585,6 +592,7 @@ export default function LogActivityScreen() {
               maxLength={200}
               multiline
               textAlignVertical="top"
+              accessibilityLabel="Activity notes"
             />
             <VoiceButton onTranscription={handleVoiceTranscription} size="sm" style={{ marginTop: 6 }} />
           </View>
@@ -605,6 +613,8 @@ export default function LogActivityScreen() {
             activeOpacity={0.85}
             disabled={isSubmitting}
             style={[s.saveBtn, isSubmitting && s.saveBtnDisabled]}
+            accessibilityLabel="Save activity"
+            accessibilityRole="button"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFF" size="small" />

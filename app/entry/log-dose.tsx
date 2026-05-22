@@ -221,6 +221,8 @@ export default function LogDoseScreen() {
           activeOpacity={0.7}
           style={s.backBtn}
           hitSlop={12}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -245,6 +247,8 @@ export default function LogDoseScreen() {
             style={s.medRow}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings/edit-treatment'); }}
             activeOpacity={0.7}
+            accessibilityLabel={`Medication: ${medication}, ${doseLabel}. Tap to edit treatment`}
+            accessibilityRole="button"
           >
             <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={13} color={colors.textMuted} />
             <Text style={s.medRowText} numberOfLines={1}>
@@ -286,6 +290,9 @@ export default function LogDoseScreen() {
                       { width: gridItemWidth },
                       active ? s.siteBtnActive : s.siteBtnInactive,
                     ]}
+                    accessibilityLabel={`${siteName}${active ? ', selected' : ''}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                   >
                     {isRecommended && <View style={s.recommendedDot} />}
                     <Text style={[s.siteBtnText, active ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
@@ -300,6 +307,9 @@ export default function LogDoseScreen() {
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSite('Other'); }}
               activeOpacity={0.75}
               style={[s.otherBtn, site === 'Other' ? s.siteBtnActive : s.siteBtnInactive]}
+              accessibilityLabel={`Other site${site === 'Other' ? ', selected' : ''}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: site === 'Other' }}
             >
               <Text style={[s.siteBtnText, site === 'Other' ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
                 Other
@@ -314,6 +324,7 @@ export default function LogDoseScreen() {
                 value={customSite}
                 onChangeText={setCustomSite}
                 autoFocus
+                accessibilityLabel="Custom injection site"
               />
             )}
           </Animated.View>
@@ -331,6 +342,9 @@ export default function LogDoseScreen() {
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEmptyStomach(val); }}
                   activeOpacity={0.75}
                   style={[s.fastingBtn, emptyStomach === val ? s.siteBtnActive : s.siteBtnInactive]}
+                  accessibilityLabel={val ? 'Yes, empty stomach' : 'No, had food or water'}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: emptyStomach === val }}
                 >
                   <Text style={[s.siteBtnText, emptyStomach === val ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
                     {val ? 'Yes — empty stomach' : 'No — had food/water'}
@@ -355,6 +369,7 @@ export default function LogDoseScreen() {
               onChangeText={setBatchNumber}
               maxLength={30}
               returnKeyType="next"
+              accessibilityLabel="Batch number"
             />
           )}
           <View style={s.notesRow}>
@@ -367,6 +382,7 @@ export default function LogDoseScreen() {
               maxLength={200}
               multiline
               textAlignVertical="top"
+              accessibilityLabel="Notes"
             />
             <VoiceButton onTranscription={handleVoiceTranscription} size="sm" style={{ marginTop: 6 }} />
           </View>
@@ -387,6 +403,8 @@ export default function LogDoseScreen() {
             activeOpacity={0.85}
             disabled={loading}
             style={[s.saveBtn, loading && s.saveBtnDisabled]}
+            accessibilityLabel={isOral ? 'Save dose' : 'Save injection'}
+            accessibilityRole="button"
           >
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />

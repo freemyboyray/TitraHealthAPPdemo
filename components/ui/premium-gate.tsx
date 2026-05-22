@@ -80,6 +80,9 @@ export function PremiumGate({
               style={styles.upgradeButton}
               onPress={handleUpgrade}
               activeOpacity={0.7}
+              accessibilityLabel="Unlock with Pro"
+              accessibilityRole="button"
+              accessibilityHint="Opens the subscription upgrade screen"
             >
               <Ionicons name="lock-open-outline" size={14} color="#FFF" />
               <Text style={styles.upgradeButtonText}>Unlock with Pro</Text>
@@ -96,6 +99,9 @@ export function PremiumGate({
       style={[styles.hardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={handleUpgrade}
       activeOpacity={0.7}
+      accessibilityLabel={title ? `${title} — locked, unlock with Pro` : 'Premium feature — unlock with Pro'}
+      accessibilityRole="button"
+      accessibilityHint="Opens the subscription upgrade screen"
     >
       <View style={styles.hardHeader}>
         <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>

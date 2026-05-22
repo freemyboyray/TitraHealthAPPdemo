@@ -221,6 +221,7 @@ function BodyCompField({ label, value, onChange, suffix, placeholder }: {
             color: ORANGE, paddingVertical: 6, paddingHorizontal: 8,
             borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
           }}
+          accessibilityLabel={`${label} value`}
         />
         <Text style={{ fontSize: 13, fontWeight: '500', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', width: 32 }}>{suffix}</Text>
       </View>
@@ -394,6 +395,8 @@ export default function LogWeightScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
           style={s.back}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.borderSubtle }]} />
@@ -419,6 +422,8 @@ export default function LogWeightScreen() {
           <TouchableOpacity
             onPress={handleUseHKSuggestion}
             activeOpacity={0.75}
+            accessibilityLabel={`Use scale weight from ${hkSuggestion.sourceName || 'your scale'}`}
+            accessibilityRole="button"
             style={{
               marginHorizontal: 20,
               marginTop: 8,
@@ -486,6 +491,8 @@ export default function LogWeightScreen() {
             trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', true: ORANGE }}
             thumbColor="#FFFFFF"
             ios_backgroundColor={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
+            accessibilityLabel="Toggle metric units"
+            accessibilityRole="switch"
           />
           <Text style={[s.toggleLabel, { color: unit === 'kg' ? colors.textPrimary : (colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)') }]}>
             metric
@@ -503,6 +510,8 @@ export default function LogWeightScreen() {
               borderRadius: 16, backgroundColor: colors.surface,
               borderWidth: 0.5, borderColor: colors.border,
             }}
+            accessibilityLabel={`Body Composition, ${bodyCompOpen ? 'collapse' : 'expand'}`}
+            accessibilityRole="button"
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="body-outline" size={18} color={ORANGE} />
@@ -533,6 +542,8 @@ export default function LogWeightScreen() {
                 onPress={() => setMoreMetricsOpen(!moreMetricsOpen)}
                 activeOpacity={0.7}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 }}
+                accessibilityLabel={moreMetricsOpen ? 'Show fewer metrics' : 'Show more metrics'}
+                accessibilityRole="button"
               >
                 <Ionicons name={moreMetricsOpen ? 'remove-circle-outline' : 'add-circle-outline'} size={16} color={ORANGE} />
                 <Text style={{ fontSize: 14, fontWeight: '600', color: ORANGE }}>
@@ -560,6 +571,8 @@ export default function LogWeightScreen() {
             activeOpacity={0.85}
             disabled={loading}
             style={[s.logBtn, loading && { opacity: 0.75 }]}
+            accessibilityLabel="Save weight"
+            accessibilityRole="button"
           >
             {loading
               ? <ActivityIndicator color="#000" size="small" />

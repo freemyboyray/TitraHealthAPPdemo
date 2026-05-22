@@ -36,6 +36,9 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
         style={s.wrap}
         onPress={() => router.push('/entry/weekly-checkin' as any)}
         activeOpacity={0.8}
+        accessibilityLabel={`Start ${cardTitle}`}
+        accessibilityRole="button"
+        accessibilityHint="Opens the weekly check-in questionnaire"
       >
         <View style={s.inner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
@@ -64,6 +67,9 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
       style={s.wrap}
       onPress={() => router.push('/entry/weekly-checkin' as any)}
       activeOpacity={0.85}
+      accessibilityLabel={`${cardTitle} completed`}
+      accessibilityRole="button"
+      accessibilityHint="Opens the weekly check-in details"
     >
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(39,174,96,0.06)' }]} />
       <View
@@ -91,6 +97,8 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
             onPress={() => router.push('/entry/weekly-checkin' as any)}
             activeOpacity={0.7}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityLabel={`Retake ${cardTitle}`}
+            accessibilityRole="button"
           >
             <Text style={s.retakeText}>Retake</Text>
           </TouchableOpacity>
@@ -101,6 +109,8 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily }: WeeklyCheckinCardPr
             }}
             activeOpacity={0.7}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityLabel="View check-in history"
+            accessibilityRole="button"
           >
             <Text style={s.viewPastLink}>View History</Text>
           </TouchableOpacity>

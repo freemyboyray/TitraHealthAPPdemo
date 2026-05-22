@@ -250,11 +250,11 @@ export default function AskAIScreen() {
     return (
       <View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAssistant]}>
         {isUser ? (
-          <View style={s.userBubble}>
+          <View style={s.userBubble} accessible={true} accessibilityLabel={`You said: ${item.content}`} accessibilityRole="text">
             <Text style={s.userText}>{item.content}</Text>
           </View>
         ) : (
-          <View style={s.assistantBubble}>
+          <View style={s.assistantBubble} accessible={true} accessibilityLabel={`AI response: ${item.content}`} accessibilityRole="text">
             <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={s.assistantOverlay} />
             <GlassBorder r={18} />
@@ -273,7 +273,7 @@ export default function AskAIScreen() {
     >
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75} accessibilityLabel="Go back" accessibilityRole="button">
           <View style={s.backClip}>
             <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
@@ -293,6 +293,8 @@ export default function AskAIScreen() {
             onPress={() => setShowDisclaimer(true)}
             style={s.infoBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Medical disclaimer"
+            accessibilityRole="button"
           >
             <Ionicons name="information-circle-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
           </TouchableOpacity>
@@ -331,6 +333,8 @@ export default function AskAIScreen() {
                     style={s.chip}
                     onPress={() => sendSuggestion(prompt)}
                     activeOpacity={0.75}
+                    accessibilityLabel={prompt}
+                    accessibilityRole="button"
                   >
                     <Text style={s.chipText}>{prompt}</Text>
                   </TouchableOpacity>
@@ -365,6 +369,7 @@ export default function AskAIScreen() {
               returnKeyType="send"
               onSubmitEditing={handleSend}
               blurOnSubmit={false}
+              accessibilityLabel="Message input"
             />
           </View>
 
@@ -373,6 +378,8 @@ export default function AskAIScreen() {
             onPress={handleSend}
             activeOpacity={0.85}
             disabled={!input.trim() || typing}
+            accessibilityLabel="Send message"
+            accessibilityRole="button"
           >
             <Ionicons name="send" size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -385,6 +392,8 @@ export default function AskAIScreen() {
           style={s.disclaimerBackdrop}
           activeOpacity={1}
           onPress={() => setShowDisclaimer(false)}
+          accessibilityLabel="Dismiss disclaimer"
+          accessibilityRole="button"
         >
           <View style={s.disclaimerCard}>
             <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
@@ -399,6 +408,8 @@ export default function AskAIScreen() {
                 style={s.disclaimerBtn}
                 onPress={() => setShowDisclaimer(false)}
                 activeOpacity={0.85}
+                accessibilityLabel="Got it, dismiss disclaimer"
+                accessibilityRole="button"
               >
                 <Text style={s.disclaimerBtnText}>Got It</Text>
               </TouchableOpacity>

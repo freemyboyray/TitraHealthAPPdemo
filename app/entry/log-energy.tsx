@@ -90,6 +90,8 @@ export default function LogEnergyScreen() {
           style={s.headerBtn}
           onPress={() => router.back()}
           activeOpacity={0.7}
+          accessibilityLabel="Close"
+          accessibilityRole="button"
         >
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <Ionicons name="close" size={20} color={colors.textPrimary} />
@@ -102,6 +104,8 @@ export default function LogEnergyScreen() {
           onPress={handleSave}
           activeOpacity={0.7}
           disabled={!canSave}
+          accessibilityLabel="Save energy level"
+          accessibilityRole="button"
         >
           {loading ? (
             <ActivityIndicator size="small" color="#FFF" />
@@ -134,6 +138,9 @@ export default function LogEnergyScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
                 activeOpacity={0.7}
+                accessibilityLabel={`Energy level ${v} of 5, ${LEVEL_LABELS[v]}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
               >
                 <Text style={s.levelEmoji}>{LEVEL_EMOJIS[v]}</Text>
                 <Text style={[s.levelLabel, selected && { color, fontWeight: '800' }]}>
@@ -156,6 +163,9 @@ export default function LogEnergyScreen() {
                 style={[s.slotBtn, selected && s.slotBtnActive]}
                 onPress={() => setTimeSlot(slot.key)}
                 activeOpacity={0.7}
+                accessibilityLabel={`${slot.label}${selected ? ', selected' : ''}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
               >
                 <Ionicons
                   name={slot.icon}
@@ -180,6 +190,7 @@ export default function LogEnergyScreen() {
           onChangeText={setNote}
           multiline
           maxLength={200}
+          accessibilityLabel="Energy note"
         />
 
         {/* Today's previous entries */}
