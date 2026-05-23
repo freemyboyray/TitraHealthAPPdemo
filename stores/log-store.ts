@@ -314,8 +314,20 @@ export const useLogStore = create<LogStore>((set, get) => ({
         }),
       });
     if (!error) {
-      // Keep profile current_weight_lbs in sync with latest weigh-in
-      await supabase.from('profiles').update({ current_weight_lbs: weight_lbs }).eq('id', user.id);
+      // Keep profile.current_weight_lbs aligned with the most recent log by
+      // logged_at — not the value we just inserted. Otherwise a backdated entry
+      // (HK sync, onboarding seed, manual edit with past date) would silently
+      // overwrite the legitimate current weight with an older reading.
+      const { data: latestLog } = await supabase
+        .from('weight_logs')
+        .select('weight_lbs')
+        .eq('user_id', user.id)
+        .order('logged_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestLog?.weight_lbs != null) {
+        await supabase.from('profiles').update({ current_weight_lbs: latestLog.weight_lbs }).eq('id', user.id);
+      }
       await get().fetchInsightsData();
     }
     set({ loading: false, error: error?.message ?? null });
@@ -351,7 +363,18 @@ export const useLogStore = create<LogStore>((set, get) => ({
         notes: 'Synced from Apple Health',
       });
       if (!error) {
-        await supabase.from('profiles').update({ current_weight_lbs: sample.lbs }).eq('id', user.id);
+        // Same guard as addWeightLog: reconcile current_weight_lbs against the
+        // latest log by logged_at, in case the HK sample was backdated.
+        const { data: latestAfterInsert } = await supabase
+          .from('weight_logs')
+          .select('weight_lbs')
+          .eq('user_id', user.id)
+          .order('logged_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (latestAfterInsert?.weight_lbs != null) {
+          await supabase.from('profiles').update({ current_weight_lbs: latestAfterInsert.weight_lbs }).eq('id', user.id);
+        }
         await get().fetchInsightsData();
       }
     } catch {

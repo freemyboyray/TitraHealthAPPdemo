@@ -55,6 +55,8 @@ import { syncNotifications } from '@/stores/reminders-store';
 // import { AppetiteForecastGauge } from '@/components/appetite-forecast-gauge';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MissedShotModal } from '@/components/missed-shot-modal';
+import { TreatmentCheckModal } from '@/components/treatment-check-modal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
@@ -1110,6 +1112,7 @@ export default function HomeScreen() {
   const [datesWithLogs, setDatesWithLogs] = useState<Set<string>>(new Set());
   const [datesWithInjections, setDatesWithInjections] = useState<Set<string>>(new Set());
   const [missedShotVisible, setMissedShotVisible] = useState(false);
+  const [treatmentCheckVisible, setTreatmentCheckVisible] = useState(false);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
   const missedShotShownRef = useRef(false);
 
@@ -1430,25 +1433,28 @@ export default function HomeScreen() {
     ? 'weeks on\nmedication'
     : 'days on\nmedication';
 
-  // Latest weight: use profile.currentWeightLbs (synced on every weigh-in)
-  // as primary source — it's always the most recent actual weight logged.
-  // Weight logs array can have a seed entry with a synthetic timestamp that
-  // sorts after real logs, making weightLogsArr[0] unreliable.
+  // Latest weight: read from useProfile() (Supabase-backed), not healthData's
+  // copy, so we share a single source of truth with the Insights screen.
+  // fullUserProfile.currentWeightLbs is reconciled against the latest weight
+  // log timestamp on every weigh-in, so it's the authoritative current weight.
   const weightLogsArr = logStore.weightLogs ?? [];
   const selectedDateEndStr = localDateStr(selectedDate);
+  const currentFromProfile = fullUserProfile?.currentWeightLbs ?? 0;
+  const startFromProfile = fullUserProfile?.startWeightLbs ?? 0;
+  const goalFromProfile = fullUserProfile?.goalWeightLbs ?? 0;
   const latestWeight = isPast
     ? (weightLogsArr.find(w => localDateStr(new Date(w.logged_at)) <= selectedDateEndStr)?.weight_lbs ?? null)
-    : (profile.currentWeightLbs > 0 ? profile.currentWeightLbs : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null));
+    : (currentFromProfile > 0 ? currentFromProfile : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null));
 
   // Start weight: always use the profile's start weight (set during onboarding),
   // not the earliest weight log entry.
-  const startWeight = profile.startWeightLbs > 0 ? profile.startWeightLbs : null;
+  const startWeight = startFromProfile > 0 ? startFromProfile : null;
   const weightDelta = (startWeight != null && latestWeight != null)
     ? latestWeight - startWeight
     : null;
 
   // Stat 3: % to goal (or lbs to go if no goal set)
-  const goalWeight = profile.goalWeightLbs > 0 ? profile.goalWeightLbs : null;
+  const goalWeight = goalFromProfile > 0 ? goalFromProfile : null;
   const pctToGoal = (startWeight != null && goalWeight != null && latestWeight != null && startWeight !== goalWeight)
     ? Math.max(0, Math.min(100, Math.round(((startWeight - latestWeight) / (startWeight - goalWeight)) * 100)))
     : null;
@@ -1475,10 +1481,18 @@ export default function HomeScreen() {
 
   const overdueDays = (rawDaysUntil != null && rawDaysUntil < 0) ? Math.abs(rawDaysUntil) : 0;
 
+  const daysSinceLastShot = effectiveLastInjectionDate
+    ? Math.floor(
+        (today.getTime() - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
+      )
+    : 0;
+
   const lastDoseMg = logStore.injectionLogs[0]?.dose_mg ?? (profile as any).doseMg ?? 0.5;
 
-  // Trigger missed shot modal once per session when overdue
-  // Wait for logStore.hydrated so injection logs are loaded before checking
+  // Trigger missed shot / treatment check modal once per session when overdue.
+  // Wait for logStore.hydrated so injection logs are loaded before checking.
+  // 1–3 days late  -> MissedShotModal (quick backdate)
+  // 4+  days late  -> TreatmentCheckModal (still on this med? snoozable for 24h)
   const logStoreHydrated = useLogStore((s) => s.hydrated);
   useEffect(() => {
     if (!logStoreHydrated) return;
@@ -1491,8 +1505,27 @@ export default function HomeScreen() {
     // Only show after the user has actively logged at least one injection
     // (onboarding seeds exactly 1, so require >1 to avoid nagging new users)
     if (logStore.injectionLogs.length <= 1) return;
-    missedShotShownRef.current = true;
-    setMissedShotVisible(true);
+
+    const overdue = Math.abs(rawDaysUntil);
+
+    if (overdue <= 3) {
+      missedShotShownRef.current = true;
+      setMissedShotVisible(true);
+      return;
+    }
+
+    // 4+ days late — check 24h snooze before prompting
+    (async () => {
+      try {
+        const snoozedUntilStr = await AsyncStorage.getItem('treatmentCheckSnoozedUntil');
+        if (snoozedUntilStr) {
+          const snoozedUntil = parseInt(snoozedUntilStr, 10);
+          if (Number.isFinite(snoozedUntil) && Date.now() < snoozedUntil) return;
+        }
+      } catch {}
+      missedShotShownRef.current = true;
+      setTreatmentCheckVisible(true);
+    })();
   }, [logStoreHydrated, rawDaysUntil, todayInjLogged, effectiveLastInjectionDate]);
 
   // ── Today's individual log entries (from logStore) ──────────────────────────
@@ -2032,6 +2065,48 @@ export default function HomeScreen() {
             await updateProfile({ lastInjectionDate: injection_date });
           }}
           isOral={oral}
+        />
+
+        <TreatmentCheckModal
+          visible={onTreatment && treatmentCheckVisible}
+          onClose={() => setTreatmentCheckVisible(false)}
+          daysSinceLastShot={daysSinceLastShot}
+          medicationBrand={profile.medicationBrand}
+          medicationCustomName={(profile as any).medicationCustomName}
+          isOral={oral}
+          onLogRecentShot={() => {
+            router.push('/entry/log-dose');
+          }}
+          onStopMedication={async () => {
+            try {
+              await updateProfile({ treatmentStatus: 'off' });
+              const { data: { user: historyUser } } = await supabase.auth.getUser();
+              if (historyUser) {
+                const { error: histErr } = await supabase.from('medication_changes').insert({
+                  user_id: historyUser.id,
+                  change_type: 'stopped',
+                  prev_brand: profile.medicationBrand ?? null,
+                  prev_glp1_type: profile.glp1Type ?? null,
+                  prev_dose_mg: profile.doseMg ?? null,
+                  prev_frequency_days: profile.injectionFrequencyDays ?? null,
+                  new_brand: null,
+                  new_glp1_type: null,
+                  new_dose_mg: null,
+                  new_frequency_days: null,
+                });
+                if (histErr) console.warn('treatment-check: medication_changes.insert failed:', histErr);
+              }
+              logStore.fetchInsightsData();
+            } catch (err) {
+              console.warn('treatment-check: stop medication failed', err);
+            }
+          }}
+          onSnooze={async () => {
+            const next = Date.now() + 24 * 60 * 60 * 1000;
+            try {
+              await AsyncStorage.setItem('treatmentCheckSnoozedUntil', String(next));
+            } catch {}
+          }}
         />
 
         <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />

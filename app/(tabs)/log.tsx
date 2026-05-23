@@ -1694,9 +1694,10 @@ const WMR = 12; // margin right
 const WMT = 10; // margin top
 const WMB = 28; // margin bottom (X-axis labels)
 
-function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false, activePeriod: activePeriodProp, onPeriodChange }: {
+function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false, activePeriod: activePeriodProp, onPeriodChange }: {
   datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
+  startWeight?: number | null;
   chartHeight?: number;
   inline?: boolean;
   activePeriod?: '7D' | '14D' | '30D' | '90D' | 'MAX';
@@ -1727,9 +1728,23 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
   const maxW = rawMax + padding;
   const yRange = maxW - minW || 1;
 
-  const toX = (i: number) => data?.length === 1
-    ? WML + plotW / 2
-    : WML + (plotW / Math.max((data?.length ?? 2) - 1, 1)) * i;
+  // X position by real timestamp so dots and X-axis labels share the same time
+  // axis. The previous index-based mapping stretched 2 close-together points
+  // across the full plot width, making the chart look like a 30-day trend.
+  const periodDays = { '7D': 7, '14D': 14, '30D': 30, '90D': 90 }[activePeriod as '7D' | '14D' | '30D' | '90D'] ?? null;
+  const tEndChart = Date.now();
+  const tStartChart = activePeriod === 'MAX'
+    ? (hasData ? new Date(data[0].date).getTime() : tEndChart - 30 * 86400000)
+    : tEndChart - (periodDays ?? 30) * 86400000;
+  const tRangeChart = Math.max(tEndChart - tStartChart, 1);
+
+  const toX = (i: number) => {
+    if (!data || data.length === 0) return WML;
+    if (data.length === 1) return WML + plotW / 2;
+    const t = new Date(data[i].date).getTime();
+    const frac = Math.max(0, Math.min(1, (t - tStartChart) / tRangeChart));
+    return WML + plotW * frac;
+  };
   const toY = (w: number) => WMT + plotH - ((w - minW) / yRange) * plotH;
 
   const points = hasData ? data.map((d, i) => ({ x: toX(i), y: toY(d.weight) })) : [];
@@ -1879,9 +1894,9 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
 
       {hasData && svgWidth > 0 && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={s.progGoalLabel}>START ({data[0].weight} lbs)</Text>
+          <Text style={s.progGoalLabel}>START ({startWeight ?? data[0].weight} lbs)</Text>
           <Text style={[s.progGoalLabel, { color: ORANGE, fontWeight: '700' }]}>
-            CURRENT ({data[data.length - 1].weight} lbs)
+            CURRENT ({currentWeight ?? data[data.length - 1].weight} lbs)
           </Text>
         </View>
       )}
@@ -1906,11 +1921,12 @@ function WeightChartCard({ datasets, currentWeight, chartHeight = WEIGHT_CHART_H
 // ─── Weight projection card (tap-to-expand) ───────────────────────────────────
 
 function WeightProjectionCard({
-  projection, datasets, currentWeight, programWeek,
+  projection, datasets, currentWeight, startWeight, programWeek,
 }: {
   projection: WeightProjection | null;
   datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
+  startWeight?: number | null;
   programWeek?: number;
 }) {
   const { colors } = useAppTheme();
@@ -2000,6 +2016,7 @@ function WeightProjectionCard({
             <WeightChartCard
               datasets={datasets}
               currentWeight={currentWeight}
+              startWeight={startWeight}
               chartHeight={130}
               inline
               activePeriod={activePeriod}
@@ -2061,6 +2078,7 @@ function WeightProjectionCard({
               <WeightChartCard
                 datasets={datasets}
                 currentWeight={currentWeight}
+                startWeight={startWeight}
                 chartHeight={220}
                 inline
                 activePeriod={activePeriod}
@@ -3691,6 +3709,7 @@ export default function InsightsScreen() {
                 projection={projection ?? null}
                 datasets={weightDatasets}
                 currentWeight={currentWeight}
+                startWeight={startWeight}
                 programWeek={programWeek}
               />
               <WeightGoalCard

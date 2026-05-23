@@ -206,7 +206,8 @@ export default function LogDoseScreen() {
 
   const cols = USE_THREE_COLUMNS ? 3 : 2;
   const gridGap = 10;
-  const gridItemWidth = (SCREEN_WIDTH - 40 - gridGap * (cols - 1)) / cols;
+  // SCREEN_WIDTH minus scroll padding (20*2) minus card padding (20*2) minus inter-item gaps
+  const gridItemWidth = (SCREEN_WIDTH - 80 - gridGap * (cols - 1)) / cols;
 
   return (
     <KeyboardAvoidingView

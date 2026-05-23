@@ -236,7 +236,7 @@ export default function LogWeightScreen() {
   const hkStore = useHealthKitStore();
   const { colors } = useAppTheme();
   const posthog = usePostHog();
-  const { profile, updateProfile } = useProfile();
+  const { profile, updateProfile, reloadProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [lbs, setLbs]   = useState(() => {
@@ -351,7 +351,10 @@ export default function LogWeightScreen() {
     posthog?.capture('weight_logged', { has_body_comp: hasBodyComp, source: hkBodyCompUsed ? 'healthkit' : 'manual' });
     const synced = await hkStore.writeWeight(weightLbs);
     if (synced) useUiStore.getState().showHealthSyncToast('Weight saved to Apple Health');
-    await updateProfile({ weightLbs, currentWeightLbs: weightLbs });
+    // addWeightLog already wrote profile.current_weight_lbs in the DB (using the
+    // most-recent-by-logged_at log, not necessarily this entry). Pull the fresh
+    // row so the in-memory profile reflects it.
+    await reloadProfile();
     router.back();
   }
 
