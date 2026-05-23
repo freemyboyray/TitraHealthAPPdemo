@@ -155,7 +155,7 @@ export function MissedShotModal({
                   maximumDate={maxDate}
                   onChange={(_, date) => { if (date) setLateDateValue(date); }}
                   themeVariant="dark"
-                  style={{ alignSelf: 'stretch' }}
+                  style={{ alignSelf: 'center' }}
                 />
                 <View style={s.pickerRow}>
                   <TouchableOpacity

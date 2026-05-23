@@ -9,6 +9,7 @@ import {
   computeSideEffectBurden,
   computeMedicationScore,
   daysSinceInjection,
+  rawDaysSinceInjection,
   daysBetween,
   getShotPhase,
   getIntradayPhase,
@@ -226,6 +227,7 @@ describe('computeGlp1Support', () => {
       waterMl: 2500,
       fiberG: 20,
       steps: 8000,
+      caloriesKcal: 2000,
       injectionLogged: true,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(100);
@@ -237,6 +239,7 @@ describe('computeGlp1Support', () => {
       waterMl: 0,
       fiberG: 0,
       steps: 0,
+      caloriesKcal: 0,
       injectionLogged: false,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(0);
@@ -248,6 +251,7 @@ describe('computeGlp1Support', () => {
       waterMl: 5000, // over target
       fiberG: 40,    // over target
       steps: 16000,  // over target
+      caloriesKcal: 3000,
       injectionLogged: true,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(100);
@@ -255,7 +259,7 @@ describe('computeGlp1Support', () => {
 
   it('medication component is 15 or 0', () => {
     const base: DailyActuals = {
-      proteinG: 0, waterMl: 0, fiberG: 0, steps: 0,
+      proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0,
       injectionLogged: false,
     };
     expect(computeGlp1Support(base, targets)).toBe(0);
@@ -329,6 +333,32 @@ describe('daysSinceInjection', () => {
   it('caps at injFreqDays', () => {
     const result = daysSinceInjection('2020-01-01', new Date('2025-01-01'), 7);
     expect(result).toBe(7);
+  });
+});
+
+// ─── rawDaysSinceInjection ───────────────────────────────────────────────────
+
+describe('rawDaysSinceInjection', () => {
+  it('returns Infinity when no injection date', () => {
+    expect(rawDaysSinceInjection(null)).toBe(Infinity);
+    expect(rawDaysSinceInjection(undefined)).toBe(Infinity);
+  });
+
+  it('returns 0 on injection day', () => {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    expect(rawDaysSinceInjection(todayStr, today)).toBe(0);
+  });
+
+  it('returns unclamped value beyond 7 days', () => {
+    const ref = new Date('2025-05-22T00:00:00');
+    expect(rawDaysSinceInjection('2025-05-13', ref)).toBe(9);
+    expect(rawDaysSinceInjection('2025-05-08', ref)).toBe(14);
+    expect(rawDaysSinceInjection('2025-05-01', ref)).toBe(21);
+  });
+
+  it('returns Infinity for invalid date string', () => {
+    expect(rawDaysSinceInjection('not-a-date')).toBe(Infinity);
   });
 });
 

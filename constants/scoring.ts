@@ -34,6 +34,7 @@ export type DailyActuals = {
   waterMl: number;
   fiberG: number;
   steps: number;
+  caloriesKcal: number;
   injectionLogged: boolean;
 };
 
@@ -100,6 +101,24 @@ export function daysSinceInjection(
   return Math.max(0, Math.min(injFreqDays, days));
 }
 
+/** Unclamped days since last injection — for PK concentration calculations
+ *  that must continue decaying beyond the dosing interval.
+ *  Returns Infinity when no injection date is available. */
+export function rawDaysSinceInjection(
+  lastInjectionDate: string | Date | null | undefined,
+  refDate?: Date,
+): number {
+  if (!lastInjectionDate) return Infinity;
+  const lastMs =
+    typeof lastInjectionDate === 'string'
+      ? new Date(lastInjectionDate + 'T00:00:00').getTime()
+      : lastInjectionDate.getTime();
+  if (isNaN(lastMs)) return Infinity;
+  const ref = new Date(refDate ?? new Date());
+  ref.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((ref.getTime() - lastMs) / 86400000));
+}
+
 /** Hours since last dose (for intraday phase computation on daily drugs). */
 export function hoursSinceDose(
   lastDoseDate: string | null | undefined,
@@ -151,11 +170,11 @@ export function getDailyTargets(
 ): DailyTargets {
   const programPhase: ProgramPhase = opts?.programPhase ?? 'initiation';
 
-  // Protein: 1.0 g/kg base — floor of clinical range (1.0–1.6 g/kg)
-  // Source: Mechanick JI, et al. Obesity. 2013;21(S1):S1-S27.
-  // We start conservative so targets feel achievable with appetite suppression.
-  // Higher doses / later phases get a modest bump, not aggressive stacking.
-  let proteinG = profile.weightKg * 1.0;
+  // Protein: 1.2 g/kg base — minimum per 2025 ACLM/ASN/OMA/TOS Joint Advisory
+  // Source: AJCN 2025 — Nutritional Priorities to Support GLP-1 Therapy
+  // 1.2 g/kg is the evidence-based floor; medication-dose and phase multipliers
+  // layer on top, hard-capped at 1.6 g/kg.
+  let proteinG = profile.weightKg * 1.2;
 
   // Medication-specific: higher doses = slightly more lean mass risk → gentle bump
   if (profile.glp1Type === 'semaglutide') {
@@ -282,6 +301,42 @@ export function scoreRespRate(rpm: number): number {
   if (rpm > 20 && rpm <= 24) return 0.5;
   if (rpm > 24 && rpm <= 28) return 0.25;
   return 0.1;
+}
+
+// ─── Baseline-Normalized Scoring (WHOOP-style personal baselines) ────────────
+// When a personal baseline is available (14+ days of data), score relative to
+// the user's own average rather than absolute population thresholds.
+// Falls back to absolute scoring (scoreHRV/scoreRHR) when no baseline exists.
+
+/** HRV scored against personal baseline. +20% above → 1.0, at baseline → 0.75, -30% below → 0.30 */
+export function scoreHRVBaseline(todayMs: number, baselineMs: number): number {
+  if (baselineMs <= 0) return scoreHRV(todayMs);
+  const pctDiff = (todayMs - baselineMs) / baselineMs;
+  // Linear interpolation: -0.30 → 0.30, 0.0 → 0.75, +0.20 → 1.0
+  const score = 0.75 + pctDiff * (pctDiff >= 0 ? 1.25 : 1.5);
+  return Math.max(0.05, Math.min(1.0, score));
+}
+
+/** RHR scored against personal baseline (inverted — lower is better). -10% below → 1.0, at baseline → 0.75, +20% above → 0.30 */
+export function scoreRHRBaseline(todayBpm: number, baselineBpm: number): number {
+  if (baselineBpm <= 0) return scoreRHR(todayBpm);
+  const pctDiff = (todayBpm - baselineBpm) / baselineBpm;
+  // Inverted: -0.10 → 1.0, 0.0 → 0.75, +0.20 → 0.30
+  const score = 0.75 - pctDiff * (pctDiff >= 0 ? 2.25 : 2.5);
+  return Math.max(0.05, Math.min(1.0, score));
+}
+
+/** Calorie adequacy scored with a bell curve. Under-eating penalized more steeply than over-eating. */
+export function scoreCalories(actualKcal: number, targetKcal: number): number {
+  if (targetKcal <= 0) return 0;
+  const ratio = actualKcal / targetKcal;
+  if (ratio >= 0.85 && ratio <= 1.10) return 1.0;  // optimal range
+  if (ratio < 0.85) {
+    // Under-eating penalty: 50% → 0.30, 70% → 0.65
+    return Math.max(0.05, ratio / 0.85);
+  }
+  // Over-eating: gentle penalty — 130% → 0.85, 150%+ → 0.70
+  return Math.max(0.70, 1.0 - (ratio - 1.10) * 0.75);
 }
 
 // ─── GLP-1 Phase Offsets ──────────────────────────────────────────────────────
@@ -1403,6 +1458,7 @@ export function computeRollingAdherenceScore(params: {
       waterMl: 1100, // neutral - no historical water data
       fiberG,
       steps,
+      caloriesKcal: dayFood.reduce((s, f) => s + ((f as any).calories ?? 0), 0),
       injectionLogged: hasInjection,
     };
 
@@ -1604,7 +1660,7 @@ export function getTrialTrajectory(
 // ─── Energy Bank Score ──────────────────────────────────────────────────────
 
 export type EnergyComponent = {
-  id: 'sleep' | 'drugLevel' | 'hrv' | 'nutrition' | 'hydration' | 'sideEffects';
+  id: 'sleep' | 'drugLevel' | 'recovery' | 'nutrition' | 'hydration' | 'sideEffects';
   label: string;
   score: number;        // 0–100 component score
   weight: number;       // fractional weight after redistribution
@@ -1627,26 +1683,12 @@ export type EnergyBankResult = {
  * The score reflects how much energy a GLP-1 user likely has available,
  * based on factors that directly affect energy levels on these medications:
  *
- * 1. **Sleep** (30%) — The #1 predictor of daily energy. Uses HealthKit
- *    sleep data scored against clinical ranges (7–9h optimal).
- *
- * 2. **Drug Concentration** (20%) — Real-time GLP-1 medication level
- *    computed from pharmacokinetic models. Higher concentration = more
- *    fatigue/nausea. Uses pkConcentrationPct() for precision.
- *
- * 3. **HRV** (15%) — Heart Rate Variability from Apple Watch is the
- *    strongest objective biomarker for recovery and fatigue. Scored
- *    with GLP-1 phase offsets to avoid penalizing expected medication effects.
- *
- * 4. **Nutrition** (15%) — Protein intake vs. daily target. Under-eating
- *    (common on GLP-1s due to appetite suppression) causes fatigue.
- *
- * 5. **Hydration** (10%) — Dehydration is a top GLP-1 side effect and
- *    a leading cause of fatigue, dizziness, and headaches.
- *
- * 6. **Side Effects** (10%) — Active side effects drain energy. Fatigue
- *    logs are up-weighted (1.5x) since they directly measure energy drain.
- *    Nausea/GI symptoms also weighted heavily (1.3x).
+ * 1. **Sleep** (25%) — The #1 predictor of daily energy.
+ * 2. **Recovery** (20%) — HRV (65%) + RHR (35%) with personal baseline normalization.
+ * 3. **Drug Concentration** (18%) — Real-time PK modeling of GLP-1 levels.
+ * 4. **Nutrition** (17%) — Calories (60%) + Protein (40%) blend.
+ * 5. **Hydration** (10%) — Water intake vs. target.
+ * 6. **Side Effects** (10%) — Burden score with fatigue up-weighting.
  */
 export function computeEnergyBank(
   wearable: Partial<WearableData>,
@@ -1654,23 +1696,23 @@ export function computeEnergyBank(
   targets: DailyTargets,
   phase: ShotPhase,
   sideEffectBurden: number,
-  /** Real-time drug concentration 0–100% from pkConcentrationPct(). null if not on medication. */
   pkConcentration?: number | null,
-  /** Fatigue-specific burden 0–100. Computed from fatigue side effect logs only. */
   fatigueBurden?: number,
+  baseline?: { hrvMs: number | null; restingHR: number | null; sleepMinutes: number | null; sampleCount: number } | null,
 ): EnergyBankResult {
-  // ── Build raw components with availability flags ─────────────────────────
-
   const hasSleep = wearable.sleepMinutes != null;
   const hasHRV = wearable.hrvMs != null;
-  const hasNutrition = actuals.proteinG > 0;
+  const hasRHR = wearable.restingHR != null;
+  const hasRecovery = hasHRV || hasRHR;
+  const hasNutrition = actuals.proteinG > 0 || actuals.caloriesKcal > 0;
   const hasHydration = actuals.waterMl > 0;
   const hasPK = pkConcentration != null;
+  const hasBaseline = baseline != null && baseline.sampleCount >= 14;
 
   type RawComponent = Omit<EnergyComponent, 'weight'> & { baseWeight: number };
   const raw: RawComponent[] = [];
 
-  // ── 1. Sleep (30%) ───────────────────────────────────────────────────────
+  // ── 1. Sleep (25%) ───────────────────────────────────────────────────────
   const sleepScore = hasSleep
     ? Math.round(scoreSleep(wearable.sleepMinutes!) * 100)
     : 0;
@@ -1678,17 +1720,51 @@ export function computeEnergyBank(
     ? `${Math.floor(wearable.sleepMinutes! / 60)}h ${wearable.sleepMinutes! % 60}m`
     : null;
   raw.push({
-    id: 'sleep', label: 'Sleep', score: sleepScore, baseWeight: 0.30,
+    id: 'sleep', label: 'Sleep', score: sleepScore, baseWeight: 0.25,
     available: hasSleep,
     detail: hasSleep
       ? `${sleepHrs} logged — ${sleepScore >= 75 ? 'good recovery window' : sleepScore >= 50 ? 'adequate but could improve' : 'insufficient for recovery'}`
       : 'Not tracked — connect Apple Health to include sleep in your score',
   });
 
-  // ── 2. Drug Concentration (20%) ──────────────────────────────────────────
-  // Energy is inversely proportional to drug concentration.
-  // At 100% (peak): score ~20. At 0% (trough): score 100.
-  // Non-linear — fatigue ramps steeply near peak concentration.
+  // ── 2. Recovery — HRV (65%) + RHR (35%) (20%) ───────────────────────────
+  let recoveryScore = 0;
+  let recoveryDetail = 'Not tracked — wear Apple Watch to sleep for recovery data';
+  if (hasRecovery) {
+    let hrvSub = 0.5;
+    let rhrSub = 0.5;
+    if (hasHRV) {
+      const adjHrv = wearable.hrvMs! + glp1HrvOffset(phase);
+      hrvSub = hasBaseline && baseline!.hrvMs != null
+        ? scoreHRVBaseline(adjHrv, baseline!.hrvMs)
+        : scoreHRV(adjHrv);
+    }
+    if (hasRHR) {
+      const adjRhr = wearable.restingHR! + glp1RhrOffset(phase);
+      rhrSub = hasBaseline && baseline!.restingHR != null
+        ? scoreRHRBaseline(adjRhr, baseline!.restingHR)
+        : scoreRHR(adjRhr);
+    }
+    if (hasHRV && hasRHR) {
+      recoveryScore = Math.round((hrvSub * 0.65 + rhrSub * 0.35) * 100);
+    } else if (hasHRV) {
+      recoveryScore = Math.round(hrvSub * 100);
+    } else {
+      recoveryScore = Math.round(rhrSub * 100);
+    }
+    const parts: string[] = [];
+    if (hasHRV) parts.push(`HRV ${wearable.hrvMs}ms`);
+    if (hasRHR) parts.push(`RHR ${wearable.restingHR}bpm`);
+    const baselineNote = hasBaseline ? ' (vs. your baseline)' : '';
+    recoveryDetail = `${parts.join(' · ')}${baselineNote} — ${recoveryScore >= 75 ? 'strong recovery' : recoveryScore >= 50 ? 'moderate recovery' : 'low recovery — rest may help'}`;
+  }
+  raw.push({
+    id: 'recovery', label: 'Recovery', score: recoveryScore, baseWeight: 0.20,
+    available: hasRecovery,
+    detail: recoveryDetail,
+  });
+
+  // ── 3. Drug Concentration (18%) ──────────────────────────────────────────
   let drugScore: number;
   if (hasPK) {
     const pct = pkConcentration!;
@@ -1701,40 +1777,39 @@ export function computeEnergyBank(
     drugScore = phaseScores[phase] ?? 60;
   }
   raw.push({
-    id: 'drugLevel', label: 'Drug Level', score: drugScore, baseWeight: 0.20,
+    id: 'drugLevel', label: 'Drug Level', score: drugScore, baseWeight: 0.18,
     available: true,
     detail: hasPK
       ? `${Math.round(pkConcentration!)}% of peak — ${drugScore >= 70 ? 'low drug level, energy should be good' : drugScore >= 40 ? 'moderate level, some fatigue expected' : 'high concentration — fatigue and nausea most likely'}`
       : `${phase} phase — ${drugScore >= 70 ? 'energy should be good' : drugScore >= 40 ? 'some fatigue expected' : 'fatigue most likely now'}`,
   });
 
-  // ── 3. HRV (15%) ─────────────────────────────────────────────────────────
-  // GLP-1 medications suppress HRV by ~6ms at peak. We apply offsets
-  // so users aren't penalized for expected medication effects.
-  let hrvScore = 0;
-  if (hasHRV) {
-    const adjHrv = wearable.hrvMs! + glp1HrvOffset(phase);
-    hrvScore = Math.round(scoreHRV(adjHrv) * 100);
+  // ── 4. Nutrition — Calories (60%) + Protein (40%) (17%) ─────────────────
+  let nutritionScore = 0;
+  let nutritionDetail = 'Not tracked — log food to include nutrition in your score';
+  if (hasNutrition) {
+    const calScore = actuals.caloriesKcal > 0 && targets.caloriesTarget > 0
+      ? scoreCalories(actuals.caloriesKcal, targets.caloriesTarget)
+      : 0;
+    const proScore = actuals.proteinG > 0 && targets.proteinG > 0
+      ? Math.min(actuals.proteinG / targets.proteinG, 1)
+      : 0;
+    if (actuals.caloriesKcal > 0 && actuals.proteinG > 0) {
+      nutritionScore = Math.round((calScore * 0.60 + proScore * 0.40) * 100);
+    } else if (actuals.caloriesKcal > 0) {
+      nutritionScore = Math.round(calScore * 100);
+    } else {
+      nutritionScore = Math.round(proScore * 100);
+    }
+    const parts: string[] = [];
+    if (actuals.caloriesKcal > 0) parts.push(`${Math.round(actuals.caloriesKcal)} / ${Math.round(targets.caloriesTarget)} cal`);
+    if (actuals.proteinG > 0) parts.push(`${Math.round(actuals.proteinG)}g / ${Math.round(targets.proteinG)}g protein`);
+    nutritionDetail = `${parts.join(' · ')} — ${nutritionScore >= 75 ? 'well fueled' : nutritionScore >= 40 ? 'needs more fuel' : 'under-eating drains energy'}`;
   }
   raw.push({
-    id: 'hrv', label: 'HRV', score: hrvScore, baseWeight: 0.15,
-    available: hasHRV,
-    detail: hasHRV
-      ? `${wearable.hrvMs}ms${glp1HrvOffset(phase) > 0 ? ` (adjusted +${glp1HrvOffset(phase)}ms for ${phase} phase)` : ''} — ${hrvScore >= 75 ? 'strong recovery signal' : hrvScore >= 50 ? 'moderate recovery' : 'low recovery — rest may help'}`
-      : 'Not tracked — wear Apple Watch to sleep for HRV data',
-  });
-
-  // ── 4. Nutrition / Protein (15%) ─────────────────────────────────────────
-  const proteinPct = hasNutrition && targets.proteinG > 0
-    ? Math.min(actuals.proteinG / targets.proteinG, 1)
-    : 0;
-  const nutritionScore = Math.round(proteinPct * 100);
-  raw.push({
-    id: 'nutrition', label: 'Nutrition', score: nutritionScore, baseWeight: 0.15,
+    id: 'nutrition', label: 'Nutrition', score: nutritionScore, baseWeight: 0.17,
     available: hasNutrition,
-    detail: hasNutrition
-      ? `${Math.round(actuals.proteinG)}g / ${Math.round(targets.proteinG)}g protein — ${nutritionScore >= 75 ? 'well fueled' : nutritionScore >= 40 ? 'needs more protein' : 'under-eating drains energy'}`
-      : 'Not tracked — log food to include nutrition in your score',
+    detail: nutritionDetail,
   });
 
   // ── 5. Hydration (10%) ───────────────────────────────────────────────────
@@ -1766,15 +1841,12 @@ export function computeEnergyBank(
   });
 
   // ── Redistribute weights ─────────────────────────────────────────────────
-  // Unavailable components are excluded from the score entirely.
-  // Their weight is proportionally redistributed to available components.
   const availableWeight = raw.filter(c => c.available).reduce((s, c) => s + c.baseWeight, 0);
   const components: EnergyComponent[] = raw.map(c => ({
     ...c,
     weight: c.available && availableWeight > 0 ? c.baseWeight / availableWeight : 0,
   }));
 
-  // ── Final weighted score (only from available components) ────────────────
   const rawScore = components
     .filter(c => c.available)
     .reduce((sum, c) => sum + c.score * c.weight, 0);
@@ -1787,7 +1859,6 @@ export function computeEnergyBank(
     score >= 20 ? 'Low' :
     'Depleted';
 
-  // ── Disclaimer ───────────────────────────────────────────────────────────
   const missing = raw.filter(c => !c.available);
   const missingCount = missing.length;
   let disclaimer: string | null = null;

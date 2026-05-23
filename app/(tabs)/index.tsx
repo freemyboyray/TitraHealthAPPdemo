@@ -15,6 +15,7 @@ import { localDateStr } from '@/lib/date-utils';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import {
   daysSinceInjection,
+  rawDaysSinceInjection,
   generateFocuses,
   getScheduleMode,
   getIntradayPhase,
@@ -52,6 +53,7 @@ import { syncNotifications } from '@/stores/reminders-store';
 // import { AppetiteForecastStrip } from '@/components/appetite-forecast-strip';
 // import { AppetiteForecastWave } from '@/components/appetite-forecast-wave';
 // import { AppetiteForecastGauge } from '@/components/appetite-forecast-gauge';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MissedShotModal } from '@/components/missed-shot-modal';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
@@ -476,9 +478,12 @@ function MetricBar({ label, current, target, unit, colors, color }: {
 }
 
 type EditTarget =
-  | { kind: 'food';     item: DailySnapshot['foodLogs'][0] }
-  | { kind: 'activity'; item: DailySnapshot['activityLogs'][0] }
-  | { kind: 'weight';   item: NonNullable<DailySnapshot['weightLog']> }
+  | { kind: 'food';        item: DailySnapshot['foodLogs'][0] }
+  | { kind: 'activity';    item: DailySnapshot['activityLogs'][0] }
+  | { kind: 'weight';      item: NonNullable<DailySnapshot['weightLog']> }
+  | { kind: 'injection';   item: NonNullable<DailySnapshot['injectionLog']> }
+  | { kind: 'sideEffect';  item: DailySnapshot['sideEffectLogs'][0] }
+  | { kind: 'water' }
   | null;
 
 type DailyLogSummaryCardProps = {
@@ -488,6 +493,7 @@ type DailyLogSummaryCardProps = {
   injectionLog:   DailySnapshot['injectionLog'] | null;
   sideEffectLogs: DailySnapshot['sideEffectLogs'];
   waterOz:        number;
+  dateStr:        string;
   isLoading:      boolean;
   isFuture:       boolean;
   targets:        DailyTargets;
@@ -496,7 +502,7 @@ type DailyLogSummaryCardProps = {
 };
 
 function DailyLogSummaryCard({
-  foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs, waterOz,
+  foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs, waterOz, dateStr,
   isLoading, isFuture, targets, onRefresh, oral = false,
 }: DailyLogSummaryCardProps) {
   const { colors } = useAppTheme();
@@ -522,8 +528,14 @@ function DailyLogSummaryCard({
     } else if (target.kind === 'activity') {
       const i = target.item;
       form = { exercise_type: i.exercise_type, duration_min: String(i.duration_min), steps: String(i.steps), active_calories: String(i.active_calories) };
-    } else {
+    } else if (target.kind === 'weight') {
       form = { weight_lbs: String(target.item.weight_lbs) };
+    } else if (target.kind === 'injection') {
+      const i = target.item;
+      form = { medication_name: i.medication_name ?? '', dose_mg: String(i.dose_mg) };
+    } else if (target.kind === 'sideEffect') {
+      const i = target.item;
+      form = { effect_type: i.effect_type.replace(/_/g, ' '), severity: String(i.severity) };
     }
     setEditForm(form);
     setEditTarget(target);
@@ -554,11 +566,27 @@ function DailyLogSummaryCard({
           active_calories: Number(editForm.active_calories) || 0,
         }).eq('id', editTarget.item.id).eq('user_id', user.id);
         saveError = error;
-      } else {
+      } else if (editTarget.kind === 'weight') {
         const { error } = await supabase.from('weight_logs').update({
           weight_lbs: Number(editForm.weight_lbs) || 0,
         }).eq('id', editTarget.item.id).eq('user_id', user.id);
         saveError = error;
+      } else if (editTarget.kind === 'injection') {
+        const { error } = await supabase.from('injection_logs').update({
+          medication_name: editForm.medication_name || null,
+          dose_mg: Number(editForm.dose_mg) || 0,
+        }).eq('id', editTarget.item.id).eq('user_id', user.id);
+        saveError = error;
+      } else if (editTarget.kind === 'sideEffect') {
+        const { error } = await supabase.from('side_effect_logs').update({
+          effect_type: editForm.effect_type.replace(/\s+/g, '_'),
+          severity: Math.min(10, Math.max(1, Number(editForm.severity) || 1)),
+        }).eq('id', editTarget.item.id).eq('user_id', user.id);
+        saveError = error;
+      } else if (editTarget.kind === 'water') {
+        const newOz = Number(editForm.water_oz) || 0;
+        const newMl = Math.round(newOz * 29.5735);
+        await AsyncStorage.setItem(`@titrahealth_water_${dateStr}`, String(newMl));
       }
       if (saveError) {
         console.warn('inline edit save failed:', saveError);
@@ -694,9 +722,14 @@ function DailyLogSummaryCard({
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
-                  <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)} accessibilityLabel={`Delete ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
-                    <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                  </Pressable>
+                  <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+                    <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'injection', item: injectionLog })} accessibilityLabel={`Edit ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
+                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
+                    </Pressable>
+                    <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)} accessibilityLabel={`Delete ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
+                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             )}
@@ -785,6 +818,22 @@ function DailyLogSummaryCard({
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
                   <IconSymbol name="drop.fill" size={16} color="#5B8BF5" />
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
+                  <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+                    <Pressable hitSlop={10} onPress={() => { setEditForm({ water_oz: String(waterOz) }); setEditTarget({ kind: 'water' }); }} accessibilityLabel="Edit water intake" accessibilityRole="button">
+                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
+                    </Pressable>
+                    <Pressable hitSlop={10} onPress={() => {
+                      Alert.alert('Remove Entry', 'Delete water log for this day?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: async () => {
+                          await AsyncStorage.removeItem(`@titrahealth_water_${dateStr}`);
+                          onRefresh();
+                        }},
+                      ]);
+                    }} accessibilityLabel="Delete water log" accessibilityRole="button">
+                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             )}
@@ -793,19 +842,23 @@ function DailyLogSummaryCard({
             {sideEffectLogs.length > 0 && (
               <View>
                 <Text style={dlSectionLabel(w)}>Side Effects</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                  {sideEffectLogs.map(se => (
-                    <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(231,76,60,0.1)', borderRadius: 20, paddingLeft: 8, paddingRight: 6, paddingVertical: 5 }}>
-                      <MaterialIcons name="sick" size={12} color="#E74C3C" />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#E74C3C', fontFamily: FF }}>
-                        {se.effect_type.replace(/_/g, ' ')} · {se.severity}/10
-                      </Text>
-                      <Pressable hitSlop={6} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))} accessibilityLabel={`Remove ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
-                        <Ionicons name="close-circle" size={14} color="#E74C3C" />
+                {sideEffectLogs.map(se => (
+                  <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
+                    <MaterialIcons name="sick" size={16} color="#E74C3C" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{se.effect_type.replace(/_/g, ' ')}</Text>
+                      <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>Severity: {se.severity}/10</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+                      <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'sideEffect', item: se })} accessibilityLabel={`Edit ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
+                        <IconSymbol name="pencil" size={15} color={w(0.35)} />
+                      </Pressable>
+                      <Pressable hitSlop={10} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))} accessibilityLabel={`Delete ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
+                        <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
                       </Pressable>
                     </View>
-                  ))}
-                </View>
+                  </View>
+                ))}
               </View>
             )}
 
@@ -912,6 +965,78 @@ function DailyLogSummaryCard({
                       onChangeText={t => setEditForm(f => ({ ...f, weight_lbs: t }))}
                       keyboardType="decimal-pad"
                       placeholder="0.0"
+                      placeholderTextColor={w(0.3)}
+                      returnKeyType="done"
+                    />
+                    <View style={{ marginBottom: 22 }} />
+                  </>
+                )}
+
+                {/* ── Injection edit form ── */}
+                {editTarget?.kind === 'injection' && (
+                  <>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit {oral ? 'Dose' : 'Injection'}</Text>
+                    <Text style={dlEditLabel(w)}>Medication Name</Text>
+                    <TextInput
+                      style={dlInput(colors, w)}
+                      value={editForm.medication_name}
+                      onChangeText={t => setEditForm(f => ({ ...f, medication_name: t }))}
+                      placeholder="e.g. Ozempic"
+                      placeholderTextColor={w(0.3)}
+                      returnKeyType="done"
+                    />
+                    <Text style={dlEditLabel(w)}>Dose (mg)</Text>
+                    <TextInput
+                      style={dlInput(colors, w)}
+                      value={editForm.dose_mg}
+                      onChangeText={t => setEditForm(f => ({ ...f, dose_mg: t }))}
+                      keyboardType="decimal-pad"
+                      placeholder="0.0"
+                      placeholderTextColor={w(0.3)}
+                      returnKeyType="done"
+                    />
+                    <View style={{ marginBottom: 22 }} />
+                  </>
+                )}
+
+                {/* ── Side Effect edit form ── */}
+                {editTarget?.kind === 'sideEffect' && (
+                  <>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Side Effect</Text>
+                    <Text style={dlEditLabel(w)}>Effect</Text>
+                    <TextInput
+                      style={dlInput(colors, w)}
+                      value={editForm.effect_type}
+                      onChangeText={t => setEditForm(f => ({ ...f, effect_type: t }))}
+                      placeholder="e.g. nausea"
+                      placeholderTextColor={w(0.3)}
+                      returnKeyType="done"
+                    />
+                    <Text style={dlEditLabel(w)}>Severity (1–10)</Text>
+                    <TextInput
+                      style={dlInput(colors, w)}
+                      value={editForm.severity}
+                      onChangeText={t => setEditForm(f => ({ ...f, severity: t }))}
+                      keyboardType="number-pad"
+                      placeholder="1"
+                      placeholderTextColor={w(0.3)}
+                      returnKeyType="done"
+                    />
+                    <View style={{ marginBottom: 22 }} />
+                  </>
+                )}
+
+                {/* ── Water edit form ── */}
+                {editTarget?.kind === 'water' && (
+                  <>
+                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Water Intake</Text>
+                    <Text style={dlEditLabel(w)}>Water (oz)</Text>
+                    <TextInput
+                      style={dlInput(colors, w)}
+                      value={editForm.water_oz}
+                      onChangeText={t => setEditForm(f => ({ ...f, water_oz: t }))}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
                       placeholderTextColor={w(0.3)}
                       returnKeyType="done"
                     />
@@ -1109,17 +1234,13 @@ export default function HomeScreen() {
 
   const freq = profile.injectionFrequencyDays;
   const dayNum = daysSinceInjection(effectiveLastInjectionDate, selectedDate, freq ?? 7);
+  // Unclamped elapsed days for PK concentration (continues decaying past dosing interval)
+  const rawDayNum = rawDaysSinceInjection(effectiveLastInjectionDate, selectedDate);
 
   // Medication strip - always relative to today
   const todayDayNum = daysSinceInjection(effectiveLastInjectionDate, today, freq ?? 7);
-  // Use uncapped day math for accurate "days until next shot" — daysSinceInjection
-  // caps at freq which causes an off-by-one when the shot is due today.
-  const uncappedDaysUntil = effectiveLastInjectionDate
-    ? (freq ?? 7) - Math.floor(
-        ((() => { const t = new Date(today); t.setHours(0,0,0,0); return t.getTime(); })()
-          - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
-      )
-    : null;
+  const rawTodayDayNum = rawDaysSinceInjection(effectiveLastInjectionDate, today);
+  const uncappedDaysUntil = isFinite(rawTodayDayNum) ? (freq ?? 7) - rawTodayDayNum : null;
   const daysUntil = uncappedDaysUntil != null ? Math.max(0, uncappedDaysUntil) : (freq ?? 7);
   // Use actuals as source of truth for whether today's injection is already logged.
   // During washout, treat injection as "logged" so UI doesn't nag about missing dose
@@ -1176,7 +1297,7 @@ export default function HomeScreen() {
   const phaseOverdue = dayNum > freq;
 
   // ── Date-scoped display values ──────────────────────────────────────────────
-  const ZERO_ACTUALS: DailyActuals = { proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, injectionLogged: false };
+  const ZERO_ACTUALS: DailyActuals = { proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false };
 
   const displayActuals: DailyActuals = isToday
     ? actuals
@@ -1689,7 +1810,8 @@ export default function HomeScreen() {
             }));
             const { burden: seBurden } = computeSideEffectBurden(seLogs, phase, 14);
             // Compute real-time drug concentration from PK model
-            const tHours = dayNum * 24;
+            // Use unclamped rawDayNum so concentration continues decaying past the dosing interval
+            const tHours = rawDayNum * 24;
             const glp1Type = profile.glp1Type;
             const intervalH = (freq ?? 7) * 24;
             const pkPct = glp1Type && tHours > 0
@@ -1708,6 +1830,7 @@ export default function HomeScreen() {
               seBurden,
               pkPct,
               fatigueBurden,
+              biometricStore.baseline,
             );
             return (
               <View style={{ marginBottom: 20 }}>
@@ -1865,6 +1988,7 @@ export default function HomeScreen() {
             injectionLog={displaySnapshot.injectionLog}
             sideEffectLogs={displaySnapshot.sideEffectLogs}
             waterOz={Math.round((isToday ? actuals.waterMl : (historicalSnapshot?.actuals.waterMl ?? 0)) / 29.5735)}
+            dateStr={localDateStr(selectedDate)}
             isLoading={isPast && isLoadingDate}
             isFuture={isFuture}
             targets={targets}

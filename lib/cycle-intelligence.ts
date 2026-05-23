@@ -184,10 +184,15 @@ export function generateForecastStrip(
   const lastInjDate = new Date(lastInjectionDate + 'T00:00:00');
   const nextShotDate = new Date(lastInjDate.getTime() + injFreqDays * 86400000);
   const shotDue = today >= nextShotDate;
-  const anchorDateStr = shotDue ? todayStr : lastInjectionDate;
+  // Always anchor to real injection date so decay continues accurately when overdue
+  const anchorDateStr = lastInjectionDate;
   const isProjected = shotDue;
 
-  const displayDays = injFreqDays; // show full cycle (7 or 14 pills)
+  // Extend display to show continued decay when overdue (capped at 3× cycle)
+  const overdueDays = shotDue
+    ? Math.min(injFreqDays * 2, Math.round((today.getTime() - nextShotDate.getTime()) / 86400000))
+    : 0;
+  const displayDays = injFreqDays + overdueDays;
   const intervalH = injFreqDays * 24;
   return Array.from({ length: displayDays }, (_, i) => {
     const injDate = new Date(anchorDateStr + 'T00:00:00');

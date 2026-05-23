@@ -426,7 +426,7 @@ export default function LogActivityScreen() {
 
   const cols = USE_THREE_COLUMNS ? 3 : 2;
   const gridGap = 10;
-  const gridItemWidth = (SCREEN_WIDTH - 40 - gridGap * (cols - 1)) / cols;
+  const gridItemWidth = (SCREEN_WIDTH - 80 - gridGap * (cols - 1)) / cols;
 
   return (
     <KeyboardAvoidingView

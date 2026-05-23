@@ -70,10 +70,10 @@ export function computeBaseTargets(profile: FullUserProfile): BaseTargets {
   const calorieFloor = sex === 'male' ? 1500 : 1200;
   const caloriesTarget = Math.max(Math.round(tdee - deficit), calorieFloor);
 
-  // ── Protein (1.0–1.2 g/kg — floor of clinical range) ───────────────────────
-  // Clinical range is 1.2–2.0 g/kg for GLP-1 patients; we use the floor to
-  // keep targets achievable, especially with appetite suppression.
-  const proteinMult = weeklyLoss >= 1.5 ? 1.2 : 1.0;
+  // ── Protein (1.2–1.4 g/kg — aligned with 2025 Joint Advisory minimum) ──────
+  // 2025 ACLM/ASN/OMA/TOS Joint Advisory: ≥1.2 g/kg/day minimum for GLP-1
+  // patients to preserve lean mass. Bump to 1.4 for aggressive loss targets.
+  const proteinMult = weeklyLoss >= 1.5 ? 1.4 : 1.2;
   const proteinG = Math.round(effectiveWeightKg * proteinMult);
 
   // ── Fat (28% of calories) ─────────────────────────────────────────────────
