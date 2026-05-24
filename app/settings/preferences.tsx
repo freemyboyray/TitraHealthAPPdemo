@@ -1,0 +1,167 @@
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { router } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMemo, useState } from 'react';
+
+import { usePreferencesStore } from '@/stores/preferences-store';
+import { useRemindersStore } from '@/stores/reminders-store';
+import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useAppTheme } from '@/contexts/theme-context';
+import type { AppColors } from '@/constants/theme';
+
+const ORANGE = '#FF742A';
+
+export default function PreferencesScreen() {
+  const { colors } = useAppTheme();
+  const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle } = usePreferencesStore();
+  const { masterEnabled } = useRemindersStore();
+  const { lastRefreshed, liveCategories } = useHealthKitStore();
+  const s = useMemo(() => createStyles(colors), [colors]);
+
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const toggle = (key: string) => setExpandedRow(prev => prev === key ? null : key);
+
+  const themeModes = ['system', 'light', 'dark'] as const;
+  const themeLabels: Record<string, string> = { system: 'System', light: 'Light', dark: 'Dark' };
+  const headerStyles = ['gradient', 'minimal'] as const;
+  const headerLabels: Record<string, string> = { gradient: 'Gradient', minimal: 'Minimal' };
+
+  return (
+    <View style={s.safe}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={s.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
+            <IconSymbol name="chevron.left" size={22} color={ORANGE} />
+          </Pressable>
+          <Text style={s.headerTitle}>Preferences</Text>
+          <View style={{ width: 22 }} />
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          <View style={s.card}>
+            {/* Appearance */}
+            <Pressable style={s.cardRow} onPress={() => toggle('appearance')} accessibilityLabel="Appearance" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                  <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={ORANGE} />
+                </View>
+                <Text style={s.rowLabel}>Appearance</Text>
+              </View>
+              <View style={s.rowRight}>
+                <Text style={s.rowValue}>{themeLabels[themeMode]}</Text>
+                <IconSymbol name={expandedRow === 'appearance' ? 'chevron.down' : 'chevron.right'} size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+            {expandedRow === 'appearance' && (
+              <View style={s.expandedContent}>
+                {themeModes.map((mode) => (
+                  <Pressable key={mode} style={s.optionRow} onPress={() => setThemeMode(mode)} accessibilityLabel={themeLabels[mode]} accessibilityRole="button" accessibilityState={{ selected: themeMode === mode }}>
+                    <Text style={[s.optionLabel, themeMode === mode && { color: ORANGE, fontWeight: '700' }]}>{themeLabels[mode]}</Text>
+                    {themeMode === mode && <IconSymbol name="checkmark" size={16} color={ORANGE} />}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <View style={s.divider} />
+
+            {/* Header Style */}
+            <Pressable style={s.cardRow} onPress={() => toggle('headerStyle')} accessibilityLabel="Header Style" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                  <IconSymbol name="paintbrush.fill" size={18} color={ORANGE} />
+                </View>
+                <Text style={s.rowLabel}>Header Style</Text>
+              </View>
+              <View style={s.rowRight}>
+                <Text style={s.rowValue}>{headerLabels[headerStyle ?? 'gradient']}</Text>
+                <IconSymbol name={expandedRow === 'headerStyle' ? 'chevron.down' : 'chevron.right'} size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+            {expandedRow === 'headerStyle' && (
+              <View style={s.expandedContent}>
+                {headerStyles.map((style) => (
+                  <Pressable key={style} style={s.optionRow} onPress={() => setHeaderStyle(style)} accessibilityLabel={headerLabels[style]} accessibilityRole="button" accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}>
+                    <Text style={[s.optionLabel, (headerStyle ?? 'gradient') === style && { color: ORANGE, fontWeight: '700' }]}>{headerLabels[style]}</Text>
+                    {(headerStyle ?? 'gradient') === style && <IconSymbol name="checkmark" size={16} color={ORANGE} />}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <View style={s.divider} />
+
+            {/* Reminders */}
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')} accessibilityLabel="Reminders" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                  <IconSymbol name="bell.fill" size={18} color={ORANGE} />
+                </View>
+                <Text style={s.rowLabel}>Reminders</Text>
+              </View>
+              <View style={s.rowRight}>
+                <Text style={s.rowValue}>{masterEnabled ? 'On' : 'Off'}</Text>
+                <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+
+            <View style={s.divider} />
+
+            {/* Apple Health */}
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)} accessibilityLabel="Apple Health" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
+                  <IconSymbol name="heart.fill" size={18} color="#FF3B30" />
+                </View>
+                <Text style={s.rowLabel}>Apple Health</Text>
+              </View>
+              <View style={s.rowRight}>
+                <Text style={s.rowValue}>{appleHealthEnabled ? 'Connected' : 'Off'}</Text>
+                <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function createStyles(c: AppColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
+    },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
+    content: { padding: 16, paddingBottom: 60 },
+    card: {
+      backgroundColor: c.glassOverlay, borderRadius: 16, overflow: 'hidden',
+      borderWidth: 1, borderTopColor: c.border, borderLeftColor: c.borderSubtle,
+      borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
+    },
+    cardRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 14,
+    },
+    rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    iconBadge: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '600' },
+    rowValue: { color: c.textSecondary, fontSize: 15, fontWeight: '500' },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 64, marginRight: 16 },
+    expandedContent: {
+      marginLeft: 64, marginRight: 16, marginBottom: 12,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      borderRadius: 10, overflow: 'hidden',
+    },
+    optionRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 12,
+    },
+    optionLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '500' },
+  });
+}

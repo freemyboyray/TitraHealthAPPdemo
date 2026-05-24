@@ -814,6 +814,71 @@ function DailyMetricCard({
   );
 }
 
+// ─── Combined Premier Nutrition Card ─────────────────────────────────────────
+
+function PremierNutritionCard({
+  metrics,
+}: {
+  metrics: { label: string; current: number; target: number; unit: string; color: string; onIncrement: () => void; onDecrement: () => void }[];
+}) {
+  const { colors } = useAppTheme();
+  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
+  const trackColor = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const btnBg = colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const btnTxt = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  const labelColor = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
+  const valueColor = colors.isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)';
+
+  return (
+    <View style={[{ width: '100%', borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 14 }, glassShadow]}>
+      {metrics.map((m, i) => {
+        const pct = m.target > 0 ? Math.min(m.current / m.target, 1) : 0;
+        // Inverse status: green under 80%, neutral 80-100%, red over
+        const rawPct = m.target > 0 ? (m.current / m.target) * 100 : 0;
+        const barColor = rawPct <= 80 ? '#2B9450' : rawPct <= 100 ? '#9A9490' : '#DC3232';
+        return (
+          <View key={m.label}>
+            {i > 0 && <View style={{ height: 0.5, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', marginBottom: 14 }} />}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* Minus button */}
+              <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); m.onDecrement(); }}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: btnBg, alignItems: 'center', justifyContent: 'center' }}
+                accessibilityRole="button"
+                accessibilityLabel={`Decrease ${m.label}`}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: btnTxt, marginTop: -1 }}>−</Text>
+              </Pressable>
+              {/* Label + bar + value */}
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: m.color }} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: labelColor, fontFamily: 'System' }}>{m.label}</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: valueColor, fontFamily: 'System' }}>{m.current}/{m.target}{m.unit}</Text>
+                </View>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: trackColor, overflow: 'hidden' }}>
+                  <View style={{ width: `${pct * 100}%`, height: 6, borderRadius: 3, backgroundColor: barColor }} />
+                </View>
+              </View>
+              {/* Plus button */}
+              <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); m.onIncrement(); }}
+                style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
+                accessibilityRole="button"
+                accessibilityLabel={`Increase ${m.label}`}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: ORANGE, marginTop: -1 }}>+</Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Health Data connect prompt ──────────────────────────────────────────────────
 
 function HealthDataConnectPrompt() {
@@ -956,11 +1021,12 @@ const PK_TIER_GUIDE = [
   { label: 'Trough',  range: '0 – 29%',   color: '#9A9490', desc: 'Levels are near trough before your next dose. GLP-1 drugs never drop to zero. Returning appetite is a normal pharmacological effect.' },
 ];
 
-const CHART_HEIGHT = 120;
-const EXP_CHART_HEIGHT = 220;
+const CHART_HEIGHT = 134;
+const EXP_CHART_HEIGHT = 234;
 const ML = 40; // left margin for Y-axis labels
 const MR = 8;  // right margin
 const MT = 8;  // top margin
+const MB = 14; // bottom margin so 0% label isn't clipped
 
 // ── PK tier info ──────────────────────────────────────────────────────────────
 function pkTierInfo(pct: number): { label: string; color: string; body: string } {
@@ -1153,14 +1219,14 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const points = chartData
     ? chartData.map((v, i) => ({
         x: chartWidth > 0 ? ML + (n > 1 ? (plotW / (n - 1)) * i : plotW / 2) : 0,
-        y: MT + (CHART_HEIGHT - MT) * (1 - v / 100),
+        y: MT + (CHART_HEIGHT - MT - MB) * (1 - v / 100),
       }))
     : [];
 
   const expPoints = chartData
     ? chartData.map((v, i) => ({
         x: expChartWidth > 0 ? ML + (n > 1 ? (expPlotW / (n - 1)) * i : expPlotW / 2) : 0,
-        y: MT + (EXP_CHART_HEIGHT - MT) * (1 - v / 100),
+        y: MT + (EXP_CHART_HEIGHT - MT - MB) * (1 - v / 100),
       }))
     : [];
 
@@ -1177,13 +1243,17 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
 
   // Build real-date X-axis labels when injection timestamp is available
+  // Thin labels so they don't overlap — show at most ~5 evenly spaced labels
   const realDayLabels = useMemo(() => {
     if (!injTimestamp || isDailyDrug) return dayLabels;
     const injDate = new Date(injTimestamp);
     if (isNaN(injDate.getTime())) return dayLabels;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const total = dayLabels.length;
+    const maxLabels = 5;
+    const step = total <= maxLabels ? 1 : Math.ceil(total / maxLabels);
     return dayLabels.map((_, i) => {
+      // Always show first and last; skip intermediate labels to avoid smushing
+      if (i !== 0 && i !== total - 1 && i % step !== 0) return '';
       const d = new Date(injDate.getTime() + i * 24 * 3600000);
       return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
     });
@@ -1249,13 +1319,14 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   // Render chart internals as SVG (used in both compact and expanded views)
   function renderChartInternals(pts: { x: number; y: number }[], chartH: number, cW: number, cWFull: number) {
     if (cWFull <= 0 || pts.length === 0) return null;
-    const plotH = chartH - MT;
+    const plotH = chartH - MT - MB;
     const yTicks = [0, 25, 50, 75, 100];
     const linePath = smoothPath(pts);
     const firstPt = pts[0];
     const lastPt = pts[pts.length - 1];
+    const bottomY = MT + plotH; // bottom of plot area (above MB)
     const areaPath = pts.length >= 2
-      ? `${linePath} L ${lastPt.x} ${chartH} L ${firstPt.x} ${chartH} Z`
+      ? `${linePath} L ${lastPt.x} ${bottomY} L ${firstPt.x} ${bottomY} Z`
       : '';
     const nowX = currentCyclePct != null ? ML + currentCyclePct * (cWFull - ML - MR) : null;
     const nowY = currentConcentrationPct != null ? MT + plotH * (1 - currentConcentrationPct / 100) : null;
@@ -1328,9 +1399,10 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     <>
       <View style={{ marginBottom: 16 }}>
       {/* Title outside card, between nav bar and graph */}
-      <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 8 }]}>Drug Concentration</Text>
+      <Text style={[s.sectionTitle, { marginTop: 0 }]}>Drug Concentration</Text>
       <Pressable
         style={s.cardWrap}
+        onPress={openModal}
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
       >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
@@ -1838,21 +1910,24 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
                 })}
 
                 {/* X-axis labels */}
-                {xLabels.map(({ x, label }) => (
-                  <React.Fragment key={`x-${label}-${x}`}>
-                    <Line
-                      x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
-                      stroke={colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'} strokeWidth={1}
-                    />
-                    <SvgText
-                      x={WML + x} y={WMT + plotH + 18}
-                      fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
-                      textAnchor="middle" fontFamily="System"
-                    >
-                      {label}
-                    </SvgText>
-                  </React.Fragment>
-                ))}
+                {xLabels.map(({ x, label }, idx) => {
+                  const anchor = idx === 0 ? 'start' : idx === xLabels.length - 1 ? 'end' : 'middle';
+                  return (
+                    <React.Fragment key={`x-${label}-${x}`}>
+                      <Line
+                        x1={WML + x} y1={WMT} x2={WML + x} y2={WMT + plotH}
+                        stroke={colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'} strokeWidth={1}
+                      />
+                      <SvgText
+                        x={WML + x} y={WMT + plotH + 18}
+                        fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
+                        textAnchor={anchor} fontFamily="System"
+                      >
+                        {label}
+                      </SvgText>
+                    </React.Fragment>
+                  );
+                })}
 
                 {/* Area fill */}
                 {areaPath ? (
@@ -1982,7 +2057,7 @@ function WeightProjectionCard({
         <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>Weight Journey</Text>
       </Pressable>
 
-      <View style={[s.cardWrap, { marginBottom: 16 }]}>
+      <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => setExpanded(true)} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
             {/* Weight value + tap hint */}
@@ -2024,7 +2099,7 @@ function WeightProjectionCard({
             />
           </View>
         </View>
-      </View>
+      </Pressable>
 
       <Modal visible={expanded} transparent animationType="none" onRequestClose={closeSheet}>
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
@@ -2567,12 +2642,16 @@ function LifestyleTrendCard({
     return Math.max(7, Math.ceil(msAgo / 86400000));
   }, [periodDays, profile, foodByDate, activityByDate]);
 
-  const { dates, values, target, hitRate, average, trendPct, bestStreak } = useMemo(() => {
-    const ds = Array.from({ length: effectiveDays }, (_, i) => {
+  const { dates, values, target, hitRate, average, trendPct, bestStreak, todayCenterIdx } = useMemo(() => {
+    // Extend range so today sits near the center
+    const futurePad = Math.max(1, Math.round(effectiveDays * 0.35));
+    const totalDays = effectiveDays + futurePad;
+    const ds = Array.from({ length: totalDays }, (_, i) => {
       const d = new Date(todayStr + 'T12:00:00');
       d.setDate(d.getDate() - (effectiveDays - 1 - i));
       return d.toISOString().slice(0, 10);
     });
+    const todayCenter = effectiveDays - 1;
     const vs = ds.map(d => metric.getValue(foodByDate, activityByDate, d));
     const tgtRaw = metric.getTarget(targets);
     const tgt = Math.round(tgtRaw);
@@ -2586,7 +2665,7 @@ function LifestyleTrendCard({
     const tp = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
     let cur = 0, best = 0;
     vs.forEach(v => { if (v !== null && onTarget(v)) { cur++; best = Math.max(best, cur); } else cur = 0; });
-    return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best };
+    return { dates: ds, values: vs, target: tgt, hitRate: hr, average: avg, trendPct: tp, bestStreak: best, todayCenterIdx: todayCenter };
   }, [effectiveDays, todayStr, metric, foodByDate, activityByDate, targets]);
 
   const hasData = values.some(v => v !== null);
@@ -2786,6 +2865,19 @@ function LifestyleTrendCard({
           </React.Fragment>
         ))}
 
+        {/* Today vertical marker */}
+        {todayCenterIdx < data.pts.length && data.pts[todayCenterIdx] && (
+          <>
+            <Line x1={data.pts[todayCenterIdx].x} y1={LT_TMT} x2={data.pts[todayCenterIdx].x} y2={LT_TMT + plotH}
+              stroke={metric.color} strokeWidth={1} strokeOpacity={0.3} strokeDasharray="3,3" />
+            <SvgText x={data.pts[todayCenterIdx].x} y={LT_TMT - 2}
+              fontSize={9} fill={metric.color} fillOpacity={0.6}
+              textAnchor="middle" fontFamily="System" fontWeight="600">
+              Today
+            </SvgText>
+          </>
+        )}
+
         {/* Area fill */}
         {data.areaPath ? <Path d={data.areaPath} fill={`url(#${gradId})`} /> : null}
 
@@ -2827,48 +2919,52 @@ function LifestyleTrendCard({
       {/* ── Compact Card ── */}
       <View
         style={{
-          borderRadius: 16,
+          borderRadius: 24,
           backgroundColor: colors.surface,
           borderWidth: 0.5,
           borderColor: colors.border,
           padding: 14,
+          marginBottom: 16,
         }}
       >
-        {/* Period tabs — top */}
-        {renderPeriodTabs()}
-        {/* Chart with scrub */}
-        <GestureDetector gesture={ltCompactScrub.gesture}>
-          <View style={{ height: LT_COMPACT_H, position: 'relative' }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
-            {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
-            {compactW > 0 && (
-              <ChartScrubOverlay
-                activeIndex={ltCompactScrub.activeIndex}
-                isActive={ltCompactScrub.isActive}
-                crosshairX={ltCompactScrub.crosshairX}
-                crosshairY={ltCompactScrub.crosshairY}
-                chartHeight={LT_COMPACT_H}
-                chartWidth={compactW}
-                color={metric.color}
-                formatTooltip={ltTooltipFormatter}
-              />
+        {/* Tappable area: period tabs + chart + footer — opens expanded view */}
+        <Pressable onPress={openExpanded} accessibilityLabel={`${metric.label} trend chart. Tap to expand`} accessibilityRole="button">
+          {/* Period tabs — top */}
+          {renderPeriodTabs()}
+          {/* Chart with scrub */}
+          <GestureDetector gesture={ltCompactScrub.gesture}>
+            <View style={{ height: LT_COMPACT_H, position: 'relative' }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
+              {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
+              {compactW > 0 && (
+                <ChartScrubOverlay
+                  activeIndex={ltCompactScrub.activeIndex}
+                  isActive={ltCompactScrub.isActive}
+                  crosshairX={ltCompactScrub.crosshairX}
+                  crosshairY={ltCompactScrub.crosshairY}
+                  chartHeight={LT_COMPACT_H}
+                  chartWidth={compactW}
+                  color={metric.color}
+                  formatTooltip={ltTooltipFormatter}
+                />
+              )}
+            </View>
+          </GestureDetector>
+          {/* Footer stats */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+            <Text style={{ fontSize: 13, color: tc(0.5), fontFamily: 'System' }}>
+              Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
+            </Text>
+            {hasData && (
+              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${hitRateColor}22` }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: hitRateColor, fontFamily: 'System' }}>
+                  {hitRatePct}% on target
+                </Text>
+              </View>
             )}
           </View>
-        </GestureDetector>
-        {/* Metric pills — bottom */}
+        </Pressable>
+        {/* Metric pills — bottom (not tappable for expand) */}
         {renderMetricPills(setMetricId)}
-        {/* Footer stats */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ fontSize: 13, color: tc(0.5), fontFamily: 'System' }}>
-            Avg {hasData ? fmtVal(average) : '--'} {metric.unit}/day
-          </Text>
-          {hasData && (
-            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: `${hitRateColor}22` }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: hitRateColor, fontFamily: 'System' }}>
-                {hitRatePct}% on target
-              </Text>
-            </View>
-          )}
-        </View>
       </View>
 
       {/* ── Expanded Modal (glassmorphism) ── */}
@@ -3068,8 +3164,8 @@ export default function InsightsScreen() {
   }, [openAiChat, activeTab]);
 
   // ── Quick-adjust state (local +/- offsets, persisted per day) ───────────────
-  type QuickAdj = { proteinG: number; fiberG: number; carbsG: number; fatG: number; calories: number; steps: number; activeCal: number };
-  const ZERO_ADJ: QuickAdj = { proteinG: 0, fiberG: 0, carbsG: 0, fatG: 0, calories: 0, steps: 0, activeCal: 0 };
+  type QuickAdj = { proteinG: number; fiberG: number; carbsG: number; fatG: number; calories: number; steps: number; activeCal: number; sodiumMg: number; sugarG: number; satFatG: number; cholesterolMg: number };
+  const ZERO_ADJ: QuickAdj = { proteinG: 0, fiberG: 0, carbsG: 0, fatG: 0, calories: 0, steps: 0, activeCal: 0, sodiumMg: 0, sugarG: 0, satFatG: 0, cholesterolMg: 0 };
   const qaKey = `@titrahealth_quickadjust_${localDateStr()}`;
   const [qa, setQa] = useState<QuickAdj>(ZERO_ADJ);
   useEffect(() => {
@@ -3105,10 +3201,10 @@ export default function InsightsScreen() {
   const loggedFatG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fat_g, 0));
   const loggedCalories = Math.round(todayFoodLogs.reduce((s, f) => s + f.calories, 0));
   // Premier nutrition metrics (only populated when food was logged via FatSecret with Premier flags)
-  const todaySodiumMg       = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sodium_mg ?? 0), 0));
-  const todaySugarG         = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sugar_g ?? 0), 0));
-  const todaySaturatedFatG  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.saturated_fat_g ?? 0), 0));
-  const todayCholesterolMg  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.cholesterol_mg ?? 0), 0));
+  const todaySodiumMg       = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sodium_mg ?? 0), 0)) + qa.sodiumMg;
+  const todaySugarG         = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sugar_g ?? 0), 0)) + qa.sugarG;
+  const todaySaturatedFatG  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.saturated_fat_g ?? 0), 0)) + qa.satFatG;
+  const todayCholesterolMg  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.cholesterol_mg ?? 0), 0)) + qa.cholesterolMg;
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
   const todayProteinG = (loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0)) + qa.proteinG;
@@ -3523,36 +3619,13 @@ export default function InsightsScreen() {
                   onIncrement={() => adjustMetric('calories', 1)}
                   onDecrement={() => adjustMetric('calories', -1)}
                 />
-                {/* Premier nutrition metrics — sodium / sugar / sat fat / cholesterol.
-                    Inverse goal: target is a ceiling, status = positive when under. */}
-                <DailyMetricCard
-                  icon={<IconSymbol name="circle.fill" size={20} color="#FF6B6B" />}
-                  label="Sodium" value={`${todaySodiumMg}/${sodiumTargetMg}mg`}
-                  change={`${sodiumPct}%`}
-                  status={inverseStatus(sodiumPct)}
-                  pct={inversePct(sodiumPct)}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="circle.fill" size={20} color="#E879F9" />}
-                  label="Sugar" value={`${todaySugarG}/${sugarTargetG}g`}
-                  change={`${sugarPct}%`}
-                  status={inverseStatus(sugarPct)}
-                  pct={inversePct(sugarPct)}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="circle.fill" size={20} color="#F59E0B" />}
-                  label="Sat Fat" value={`${todaySaturatedFatG}/${satFatTargetG}g`}
-                  change={`${satFatPct}%`}
-                  status={inverseStatus(satFatPct)}
-                  pct={inversePct(satFatPct)}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="circle.fill" size={20} color="#A78BFA" />}
-                  label="Cholesterol" value={`${todayCholesterolMg}/${cholesterolTargetMg}mg`}
-                  change={`${cholesterolPct}%`}
-                  status={inverseStatus(cholesterolPct)}
-                  pct={inversePct(cholesterolPct)}
-                />
+                {/* Premier nutrition metrics — combined card with progress bars */}
+                <PremierNutritionCard metrics={[
+                  { label: 'Sodium', current: todaySodiumMg, target: sodiumTargetMg, unit: 'mg', color: '#FF6B6B', onIncrement: () => adjustMetric('sodiumMg', 50), onDecrement: () => adjustMetric('sodiumMg', -50) },
+                  { label: 'Sugar', current: todaySugarG, target: sugarTargetG, unit: 'g', color: '#E879F9', onIncrement: () => adjustMetric('sugarG', 1), onDecrement: () => adjustMetric('sugarG', -1) },
+                  { label: 'Sat Fat', current: todaySaturatedFatG, target: satFatTargetG, unit: 'g', color: '#F59E0B', onIncrement: () => adjustMetric('satFatG', 1), onDecrement: () => adjustMetric('satFatG', -1) },
+                  { label: 'Cholesterol', current: todayCholesterolMg, target: cholesterolTargetMg, unit: 'mg', color: '#A78BFA', onIncrement: () => adjustMetric('cholesterolMg', 10), onDecrement: () => adjustMetric('cholesterolMg', -10) },
+                ]} />
               </View>
 
               {/* ── Top Contributors row → full page ── */}

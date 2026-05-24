@@ -116,14 +116,13 @@ export const usePersonalizationStore = create<PersonalizationStore>((set, get) =
       const storedWater = await AsyncStorage.getItem(`@titrahealth_water_${localDateStr()}`);
       const waterMl = storedWater ? parseFloat(storedWater) : 0;
 
+      const todayFoods = (freshLogState.foodLogs ?? [])
+        .filter(f => f.logged_at?.startsWith(new Date().toISOString().split('T')[0]));
       const actuals: DailyActuals = {
-        proteinG:         (freshLogState.foodLogs ?? [])
-          .filter(f => f.logged_at?.startsWith(new Date().toISOString().split('T')[0]))
-          .reduce((s, f) => s + (f.protein_g ?? 0), 0),
+        proteinG:         todayFoods.reduce((s, f) => s + (f.protein_g ?? 0), 0),
         waterMl,
-        fiberG:           (freshLogState.foodLogs ?? [])
-          .filter(f => f.logged_at?.startsWith(new Date().toISOString().split('T')[0]))
-          .reduce((s, f) => s + (f.fiber_g ?? 0), 0),
+        fiberG:           todayFoods.reduce((s, f) => s + (f.fiber_g ?? 0), 0),
+        caloriesKcal:     todayFoods.reduce((s, f) => s + ((f as any).calories ?? 0), 0),
         steps:            (freshLogState.activityLogs ?? [])
           .filter(a => a.date === new Date().toISOString().split('T')[0])
           .reduce((s, a) => s + (a.steps ?? 0), 0),

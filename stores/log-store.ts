@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { localDateStr } from '../lib/date-utils';
+import { useSubscriptionStore } from './subscription-store';
 
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
@@ -492,20 +493,32 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
 
-    // Check usage limit for free users
-    const { data: usageResult, error: usageErr } = await supabase.rpc('check_and_increment_usage', {
-      p_user_id: user.id,
-      p_feature_key: 'food_log',
-      p_limit: 5,
-    });
-    if (!usageErr && usageResult && !(usageResult as { allowed: boolean }).allowed) {
-      Alert.alert(
-        'Daily limit reached',
-        'You\'ve used all 5 free food logs for today. Upgrade to Titra Pro for unlimited logging.',
-        [{ text: 'OK' }],
-      );
-      set({ loading: false, error: 'FOOD_LOG_LIMIT' });
-      return;
+    // Check usage limit for free users (query DB for accurate today count)
+    const { isPremium, loaded: subLoaded } = useSubscriptionStore.getState();
+    if (subLoaded && !isPremium) {
+      // Use local date string (YYYY-MM-DD) to build UTC midnight boundary
+      // so the count window matches the user's calendar day
+      const todayISO = localDateStr(new Date()) + 'T00:00:00';
+      const { count, error: countErr } = await supabase
+        .from('food_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('logged_at', todayISO);
+      if (countErr) {
+        console.warn('[addFoodLog] count query failed:', countErr.message);
+        // Fail closed — block if we can't verify
+        set({ loading: false, error: 'Unable to verify daily limit' });
+        return;
+      }
+      if ((count ?? 0) >= 5) {
+        Alert.alert(
+          'Daily limit reached',
+          "You've used all 5 free food logs for today. Upgrade to Titra Pro for unlimited logging.",
+          [{ text: 'OK' }],
+        );
+        set({ loading: false, error: 'FOOD_LOG_LIMIT' });
+        return;
+      }
     }
 
     const { error } = await supabase

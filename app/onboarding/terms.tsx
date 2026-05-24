@@ -52,7 +52,7 @@ export default function TermsScreen() {
     // Grant data consent for AI and food database when user accepts terms
     setAiDataConsent(true);
     setFoodDbConsent(true);
-    router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
+    router.push('/onboarding/username');
   };
 
   return (

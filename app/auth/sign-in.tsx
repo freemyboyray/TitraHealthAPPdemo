@@ -332,9 +332,9 @@ export default function SignInScreen() {
           <View style={s.footer}>
             <Text style={s.legalText}>
               By continuing, you agree to our{' '}
-              <Text style={s.legalLink}>Terms</Text>
+              <Text style={s.legalLink} onPress={() => router.push('/settings/legal' as any)}>Terms</Text>
               {' & '}
-              <Text style={s.legalLink}>Privacy Policy</Text>
+              <Text style={s.legalLink} onPress={() => router.push('/settings/legal' as any)}>Privacy Policy</Text>
             </Text>
           </View>
         </View>
@@ -434,6 +434,7 @@ const createStyles = (c: AppColors) =>
     googleLogo: {
       width: 22,
       height: 22,
+      borderRadius: 4,
     },
     googleBtnText: {
       fontSize: 17,

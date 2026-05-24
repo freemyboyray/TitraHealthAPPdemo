@@ -1,8 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth, CORS } from '../_shared/auth.ts';
 
-const VALID_DEMO_CODES = new Set(['demo123']);
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS });
@@ -13,19 +11,60 @@ Deno.serve(async (req: Request) => {
     if (auth instanceof Response) return auth;
 
     const { code } = await req.json();
-    if (!code || !VALID_DEMO_CODES.has(code.trim().toLowerCase())) {
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
       return new Response(JSON.stringify({ error: 'Invalid demo code' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
-    // Use service_role to bypass the protect_premium_columns trigger
+    // Use service_role to bypass RLS
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
+
+    // Look up code in database (case-insensitive)
+    const normalizedCode = code.trim().toLowerCase();
+    const { data: codeRow, error: lookupErr } = await supabase
+      .from('demo_codes')
+      .select('*')
+      .ilike('code', normalizedCode)
+      .single();
+
+    if (lookupErr || !codeRow) {
+      return new Response(JSON.stringify({ error: 'Invalid demo code' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check expiration
+    if (codeRow.expires_at && new Date(codeRow.expires_at) < new Date()) {
+      return new Response(JSON.stringify({ error: 'This code has expired' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check remaining uses
+    if (codeRow.current_uses >= codeRow.max_uses) {
+      return new Response(JSON.stringify({ error: 'This code has been fully redeemed' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Increment usage count
+    const { error: updateErr } = await supabase
+      .from('demo_codes')
+      .update({ current_uses: codeRow.current_uses + 1 })
+      .eq('id', codeRow.id);
+
+    if (updateErr) {
+      console.error('[redeem-demo] Failed to increment usage:', updateErr.message);
+    }
 
     // subscriptions.status is the source of truth for the client and the
     // check_and_increment_usage RPC. Insert a demo row; if the user already

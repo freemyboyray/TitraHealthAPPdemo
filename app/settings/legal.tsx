@@ -127,7 +127,7 @@ function createStyles(c: AppColors) {
       color: c.textPrimary,
     },
 
-    container: { flex: 1, paddingHorizontal: 16 },
+    container: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
 
     scroll: { flex: 1 },
     scrollContent: { paddingBottom: 40 },
@@ -136,6 +136,7 @@ function createStyles(c: AppColors) {
       fontSize: 14,
       color: w(0.4),
       fontWeight: '600',
+      marginTop: 14,
       marginBottom: 20,
     },
 

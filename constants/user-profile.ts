@@ -88,6 +88,7 @@ export type FullUserProfile = {
   activityLevel: ActivityLevel;
   cravingDays: string[];            // ['monday', 'wednesday', ...]
   sideEffects: SideEffect[];
+  username?: string | null;
   onboardingCompletedAt: string;
   tosAcceptedAt?: string;           // ISO 8601 timestamp
   tosVersion?: string;              // e.g. '1.0'

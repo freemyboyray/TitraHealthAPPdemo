@@ -4,7 +4,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   LayoutAnimation,
   Pressable,
   Animated,
@@ -20,7 +19,6 @@ import { GradientBackground } from '@/components/ui/gradient-background';
 import { ScrollTitle } from '@/components/ui/scroll-title';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { contentCategoryColor } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useProfile } from '@/contexts/profile-context';
@@ -30,15 +28,6 @@ import { useCoursesStore } from '@/stores/courses-store';
 import { CourseCard } from '@/components/courses/course-card';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
-
-type ArticleRow = {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  category: string;
-  reading_time_minutes: number;
-  published_at: string;
-};
 
 const ORANGE = '#FF742A';
 const FF = 'System';
@@ -767,8 +756,8 @@ const createSafetyStyles = (c: AppColors) => {
     body: {
       borderRadius: 20, overflow: 'hidden',
       backgroundColor: c.isDark ? 'rgba(231,76,60,0.06)' : '#FFFFFF',
-      borderWidth: c.isDark ? 1 : 0,
-      borderColor: c.isDark ? 'rgba(231,76,60,0.25)' : 'transparent',
+      borderWidth: 1,
+      borderColor: c.isDark ? 'rgba(231,76,60,0.25)' : 'rgba(231,76,60,0.15)',
       padding: 16,
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -850,60 +839,124 @@ function EducationCard({ section }: { section: Section }) {
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// ─── Knowledge Base ─────────────────────────────────────────────────────────
 
-function ArticleCard({ article }: { article: ArticleRow }) {
+const SECTION_COLORS: Record<string, string> = {
+  medication: '#FF742A',
+  injection: '#5856D6',
+  nutrition: '#34C759',
+  lifestyle: '#5AC8FA',
+  mental: '#AF52DE',
+  'side-effects': '#E74C3C',
+  faq: '#FF9500',
+};
+
+function KnowledgeBase() {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { colors } = useAppTheme();
-  const ac = useMemo(() => createArticleCardStyles(colors), [colors]);
-  const chipColor = contentCategoryColor(colors.isDark, article.category);
+  const s = useMemo(() => createKnowledgeBaseStyles(colors), [colors]);
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
+  const expanded = expandedId ? SECTIONS.find(sec => sec.id === expandedId) : null;
+
+  if (expanded) {
+    return (
+      <View style={{ marginBottom: 24 }}>
+        <TouchableOpacity
+          style={s.backBtn}
+          onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setExpandedId(null);
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Back to all topics"
+        >
+          <Ionicons name="chevron-back" size={18} color={ORANGE} />
+          <Text style={s.backText}>All Topics</Text>
+        </TouchableOpacity>
+        <EducationCard section={expanded} />
+      </View>
+    );
+  }
 
   return (
-    <Pressable
-      style={[ac.wrap, glassShadow(colors.isDark)]}
-      onPress={() => router.push(`/articles/${article.id}` as any)}
-      accessibilityRole="button"
-      accessibilityLabel={`${article.title}, ${article.category}, ${article.reading_time_minutes} minute read`}
-    >
-      <View style={ac.body}>
-        <View style={ac.inner}>
-          <View style={ac.topRow}>
-            <View style={[ac.chip, { backgroundColor: chipColor + '20', borderColor: chipColor + '55' }]}>
-              <Text style={[ac.chipText, { color: chipColor }]}>
-                {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
-              </Text>
-            </View>
-            <Text style={ac.readTime}>{article.reading_time_minutes} min read</Text>
-          </View>
-          <Text style={ac.title} numberOfLines={2}>{article.title}</Text>
-          {article.subtitle && (
-            <Text style={ac.subtitle} numberOfLines={2}>{article.subtitle}</Text>
-          )}
-        </View>
+    <View style={{ marginBottom: 24 }}>
+      <Text style={s.sectionHeader}>KNOWLEDGE BASE</Text>
+      <View style={s.grid}>
+        {SECTIONS.map(sec => {
+          const accent = SECTION_COLORS[sec.id] ?? ORANGE;
+          const icon = sec.iconSet === 'Ionicons'
+            ? <Ionicons name={sec.icon as any} size={18} color={accent} />
+            : <MaterialIcons name={sec.icon as any} size={18} color={accent} />;
+          return (
+            <TouchableOpacity
+              key={sec.id}
+              style={s.tile}
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setExpandedId(sec.id);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${sec.title}, ${sec.items.length} topics`}
+            >
+              <View style={[s.tileIcon, { backgroundColor: accent + '15' }]}>
+                {icon}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.tileTitle} numberOfLines={1}>{sec.title}</Text>
+                <Text style={s.tileSub}>{sec.items.length} topics</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={w(0.2)} />
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
-const createArticleCardStyles = (c: AppColors) => {
+const createKnowledgeBaseStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
-    wrap: { borderRadius: 20, marginBottom: 12 },
-    body: {
-      borderRadius: 20, overflow: 'hidden',
+    sectionHeader: {
+      fontSize: 13, fontWeight: '700', color: ORANGE,
+      letterSpacing: 1.5, marginBottom: 14, fontFamily: FF,
+    },
+    grid: {
+      gap: 10,
+    },
+    tile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       backgroundColor: c.surface,
-      borderWidth: c.isDark ? 0.5 : 0,
-      borderColor: c.isDark ? c.border : 'transparent',
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 0.5,
+      borderColor: c.borderSubtle,
+      ...glassShadow(c.isDark),
     },
-    inner: { padding: 18 },
-    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-    chip: {
-      borderRadius: 20, borderWidth: 1,
-      paddingHorizontal: 8, paddingVertical: 3,
+    tileIcon: {
+      width: 36, height: 36, borderRadius: 10,
+      alignItems: 'center', justifyContent: 'center',
     },
-    chipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-    readTime: { fontSize: 13, color: w(0.35), fontFamily: FF },
-    title: { fontSize: 18, fontWeight: '700', color: c.textPrimary, lineHeight: 22, marginBottom: 4, fontFamily: FF },
-    subtitle: { fontSize: 15, color: w(0.50), lineHeight: 19, fontFamily: FF },
+    tileTitle: {
+      fontSize: 15, fontWeight: '700', color: c.textPrimary,
+      fontFamily: FF, letterSpacing: -0.2,
+    },
+    tileSub: {
+      fontSize: 12, fontWeight: '500', color: w(0.35),
+      fontFamily: FF, marginTop: 1,
+    },
+    backBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      marginBottom: 12, paddingVertical: 4,
+    },
+    backText: {
+      fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF,
+    },
   });
 };
 
@@ -1008,15 +1061,8 @@ const createScreenStyles = (c: AppColors, minimalHeader = false) => {
   return StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
-    // Hero header background
-    heroBg: { backgroundColor: '#E8652A' },
-    heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
     heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
     heroTitle: { fontSize: 36, fontWeight: '800', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
-    heroSub: { fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: '500', fontFamily: FF },
-
-    headerTitle: { fontSize: 36, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, marginBottom: 4, fontFamily: 'System' },
-    headerSub: { fontSize: 16, color: w(0.45), fontWeight: '500', marginBottom: 24, fontFamily: FF },
     disclaimer: { fontSize: 13, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 16, paddingHorizontal: 8, fontFamily: FF },
     sourcesLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, marginBottom: 8 },
     sourcesLinkText: { fontSize: 13, fontWeight: '600', color: '#FF742A', fontFamily: FF },

@@ -216,3 +216,53 @@ export function formatSubscriptionPrice(product: ProductSubscription): string {
   }
   return '$9.99/month';
 }
+
+// ─── Introductory Offer Info ────────────────────────────────────────────────
+
+export type IntroOfferInfo = {
+  hasOffer: boolean;
+  trialDays: number | null;
+  trialLabel: string | null;
+};
+
+export function getIntroOfferInfo(product: ProductSubscription): IntroOfferInfo {
+  const p = product as any;
+
+  // iOS: introductoryPrice fields from StoreKit
+  if (Platform.OS === 'ios') {
+    const period = p.introductoryPriceSubscriptionPeriodIOS;
+    const numPeriods = p.introductoryPriceNumberOfPeriodsIOS;
+    const price = p.introductoryPrice;
+
+    if (period && numPeriods) {
+      const isFree = !price || price === '0' || price === '0.00';
+      const unit = period === 'DAY' ? 'day' : period === 'WEEK' ? 'week' : period === 'MONTH' ? 'month' : period;
+      const count = parseInt(numPeriods, 10) || 0;
+      if (isFree && count > 0) {
+        const days = unit === 'day' ? count : unit === 'week' ? count * 7 : unit === 'month' ? count * 30 : count;
+        return { hasOffer: true, trialDays: days, trialLabel: `${days}-day free trial` };
+      }
+    }
+  }
+
+  // Android: check pricingPhases for a free trial phase
+  if ('subscriptionOfferDetails' in p) {
+    const offers = p.subscriptionOfferDetails ?? [];
+    for (const offer of offers) {
+      const phases = offer?.pricingPhases?.pricingPhaseList ?? [];
+      for (const phase of phases) {
+        if (phase.priceAmountMicros === '0' || phase.formattedPrice === 'Free') {
+          const match = (phase.billingPeriod ?? '').match(/P(\d+)([DWMY])/);
+          if (match) {
+            const count = parseInt(match[1], 10);
+            const unit = match[2];
+            const days = unit === 'D' ? count : unit === 'W' ? count * 7 : unit === 'M' ? count * 30 : count * 365;
+            return { hasOffer: true, trialDays: days, trialLabel: `${days}-day free trial` };
+          }
+        }
+      }
+    }
+  }
+
+  return { hasOffer: false, trialDays: null, trialLabel: null };
+}

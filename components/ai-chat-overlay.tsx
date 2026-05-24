@@ -564,8 +564,8 @@ export function AiChatOverlay() {
                     }}
                     onPress={() => {
                       setShowUpgradeCard(false);
-                      closeAiChat();
-                      router.push('/settings/subscription' as any);
+                      handleDismiss();
+                      setTimeout(() => router.push('/settings/subscription' as any), 300);
                     }}
                     activeOpacity={0.85}
                   >

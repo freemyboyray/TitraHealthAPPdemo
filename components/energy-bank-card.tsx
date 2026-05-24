@@ -55,7 +55,7 @@ function BatteryIcon({ pct, color, isDark }: { pct: number; color: string; isDar
 const COMPONENT_COLORS: Record<string, string> = {
   sleep: '#5856D6',
   drugLevel: '#FF742A',
-  hrv: '#AF52DE',
+  recovery: '#AF52DE',
   nutrition: '#34C759',
   hydration: '#5AC8FA',
   sideEffects: '#FF3B30',
@@ -63,7 +63,6 @@ const COMPONENT_COLORS: Record<string, string> = {
 
 function SegmentedBar({ result, isDark }: { result: EnergyBankResult; isDark: boolean }) {
   const w = (a: number) => isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  // Show top 3 available components by weight
   const sorted = [...result.components]
     .filter(c => c.available)
     .sort((a, b) => b.weight - a.weight)
@@ -71,28 +70,27 @@ function SegmentedBar({ result, isDark }: { result: EnergyBankResult; isDark: bo
   const total = sorted.reduce((s, c) => s + c.score * c.weight, 0) || 1;
 
   return (
-    <View style={{ gap: 6 }}>
+    <View style={{ gap: 8 }}>
       <View style={{
-        flexDirection: 'row', height: 6, borderRadius: 3,
+        flexDirection: 'row', height: 8, borderRadius: 4,
         backgroundColor: w(0.06), overflow: 'hidden',
       }}>
         {sorted.map((c, i) => (
           <View key={c.id} style={{
             flex: Math.max(c.score * c.weight, 0.01) / total,
             backgroundColor: COMPONENT_COLORS[c.id] ?? '#999',
-            opacity: 0.8,
             marginRight: i < sorted.length - 1 ? 1.5 : 0,
           }} />
         ))}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', gap: 14 }}>
         {sorted.map(c => (
-          <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <View style={{
-              width: 6, height: 6, borderRadius: 3,
-              backgroundColor: COMPONENT_COLORS[c.id] ?? '#999', opacity: 0.8,
+              width: 2, height: 10, borderRadius: 1,
+              backgroundColor: COMPONENT_COLORS[c.id] ?? '#999',
             }} />
-            <Text style={{ fontSize: 11, color: w(0.4), fontFamily: FF, fontWeight: '600' }}>
+            <Text style={{ fontSize: 10, color: w(0.35), fontFamily: FF, fontWeight: '600', letterSpacing: 0.3 }}>
               {c.label}
             </Text>
           </View>
@@ -127,29 +125,34 @@ export function EnergyBankCard({ result, phase }: Props) {
     return (
       <TouchableOpacity
         style={s.wrap}
-        onPress={() => router.push('/paywall' as any)}
+        onPress={() => router.push('/settings/subscription' as any)}
         activeOpacity={0.82}
         accessibilityLabel="Energy Bank — premium feature, tap to unlock"
         accessibilityRole="button"
       >
         <View style={s.inner}>
-          <View style={s.topRow}>
-            <View style={{ gap: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="flash" size={16} color={w(0.25)} />
-                <Text style={[s.title, { color: w(0.35) }]}>Energy Bank</Text>
-              </View>
-              <Text style={s.phaseTag}>Premium Feature</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="lock-closed" size={18} color={w(0.25)} />
-              <Text style={[s.pctText, { color: w(0.2) }]}>--%</Text>
+          {/* Header */}
+          <View style={s.header}>
+            <Text style={[s.sectionLabel, { color: w(0.35) }]}>ENERGY BANK</Text>
+            <View style={s.phasePill}>
+              <Text style={s.phaseText}>Premium Feature</Text>
             </View>
           </View>
-          <View style={{
-            height: 6, borderRadius: 3, backgroundColor: w(0.06),
-          }} />
-          <Text style={{ fontSize: 13, color: w(0.35), fontFamily: FF }}>
+
+          {/* Hero row */}
+          <View style={s.heroRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="lock-closed" size={18} color={w(0.25)} />
+              <Text style={[s.scoreText, { color: w(0.15) }]}>
+                --<Text style={s.pctSuffix}>%</Text>
+              </Text>
+            </View>
+          </View>
+
+          {/* Empty bar */}
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: w(0.06) }} />
+
+          <Text style={{ fontSize: 12, color: w(0.35), fontFamily: FF, lineHeight: 17 }}>
             Unlock to see your computed energy level based on sleep, nutrition, and medication phase.
           </Text>
         </View>
@@ -168,34 +171,28 @@ export function EnergyBankCard({ result, phase }: Props) {
       accessibilityHint="View energy bank details"
     >
       <View style={s.inner}>
-        <View style={s.topRow}>
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="flash" size={16} color={color} />
-              <Text style={s.title}>Energy Bank</Text>
-            </View>
-            <Text style={s.phaseTag}>{phaseLabels[phase] ?? 'Active'}</Text>
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={s.sectionLabel}>ENERGY BANK</Text>
+          <View style={s.phasePill}>
+            <Text style={s.phaseText}>{phaseLabels[phase] ?? 'Active'}</Text>
           </View>
+        </View>
 
-          <View style={{ alignItems: 'flex-end', gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <BatteryIcon pct={result.score} color={color} isDark={colors.isDark} />
-              <Text style={[s.pctText, { color }]}>{result.score}%</Text>
-            </View>
-            <Text style={s.labelText}>{result.label}</Text>
+        {/* Hero row */}
+        <View style={s.heroRow}>
+          <BatteryIcon pct={result.score} color={color} isDark={colors.isDark} />
+          <View style={{ gap: 2 }}>
+            <Text style={[s.scoreText, { color }]}>
+              {result.score}<Text style={[s.pctSuffix, { color }]}>%</Text>
+            </Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color, fontFamily: FF }}>
+              {result.label}
+            </Text>
           </View>
         </View>
 
         <SegmentedBar result={result} isDark={colors.isDark} />
-
-        {result.missingCount > 0 && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="information-circle-outline" size={14} color={w(0.3)} />
-            <Text style={{ fontSize: 12, color: w(0.3), fontFamily: FF, flex: 1 }}>
-              Based on {6 - result.missingCount}/6 factors — tap for details
-            </Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -208,30 +205,43 @@ const createStyles = (c: AppColors) => {
       borderRadius: 20,
       overflow: 'hidden',
       backgroundColor: c.isDark ? c.surface : '#FFFFFF',
+      borderWidth: 0.5,
+      borderColor: c.borderSubtle,
       ...cardElevation(c.isDark),
     },
     inner: {
-      padding: 18,
+      padding: 20,
       gap: 16,
     },
-    topRow: {
+    header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
     },
-    title: {
-      fontSize: 17, fontWeight: '800', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: -0.2,
+    sectionLabel: {
+      fontSize: 13, fontWeight: '700', color: c.textPrimary,
+      fontFamily: FF, letterSpacing: 0.8,
     },
-    phaseTag: {
-      fontSize: 12, fontWeight: '600', color: w(0.35),
-      fontFamily: FF, textTransform: 'uppercase', letterSpacing: 0.6,
+    phasePill: {
+      backgroundColor: w(0.06),
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
     },
-    pctText: {
-      fontSize: 24, fontWeight: '800', fontFamily: FF,
+    phaseText: {
+      fontSize: 11, fontWeight: '600', color: w(0.35),
+      fontFamily: FF,
     },
-    labelText: {
-      fontSize: 13, fontWeight: '600', color: w(0.4), fontFamily: FF,
+    heroRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    scoreText: {
+      fontSize: 32, fontWeight: '800', fontFamily: FF, letterSpacing: -1.5,
+    },
+    pctSuffix: {
+      fontSize: 18, fontWeight: '700',
     },
   });
 };

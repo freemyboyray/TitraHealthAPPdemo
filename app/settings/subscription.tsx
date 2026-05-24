@@ -31,8 +31,8 @@ const ORANGE = '#FF742A';
 
 const PRO_INCLUDES = [
   'Unlimited AI coaching & food analysis',
-  'Personalized weekly health summary',
-  'Cycle intelligence & appetite forecasting',
+  'Energy bank & medication cycle tracking',
+  'Appetite forecasting & side effect insights',
   'Provider reports for your doctor',
 ];
 
@@ -64,6 +64,13 @@ export default function SubscriptionScreen() {
   const annualProduct = products.find((p: any) => p.productId?.includes('annual'));
   const monthlyPrice = monthlyProduct && storekit ? storekit.formatSubscriptionPrice(monthlyProduct as any) : '$4.99/mo';
   const annualPrice = annualProduct && storekit ? storekit.formatSubscriptionPrice(annualProduct as any) : '$49.99/yr';
+
+  // Pull intro offer from Apple/Google product metadata
+  const selectedProduct = selectedPlan === 'annual' ? annualProduct : monthlyProduct;
+  const introOffer = selectedProduct && storekit?.getIntroOfferInfo
+    ? storekit.getIntroOfferInfo(selectedProduct as any)
+    : null;
+  const trialLabel = introOffer?.hasOffer ? introOffer.trialLabel : '7-day free trial';
 
   const periodEndDate = currentPeriodEnd
     ? new Date(currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -196,9 +203,9 @@ export default function SubscriptionScreen() {
               {/* Hero */}
               <View style={s.hero}>
                 <Text style={s.heroWordmark}>TITRA PRO</Text>
-                <Text style={s.heroHeadline}>Your health,{'\n'}deeply understood.</Text>
+                <Text style={s.heroHeadline}>Your GLP-1 journey,{'\n'}fully optimized.</Text>
                 <Text style={s.heroSub}>
-                  Unlimited AI coaching, cycle intelligence, provider reports, and every insight — all in one place.
+                  AI-powered coaching, medication tracking, energy insights, and personalized guidance — built for your GLP-1 journey.
                 </Text>
               </View>
 
@@ -240,12 +247,12 @@ export default function SubscriptionScreen() {
                 {purchasing ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={s.ctaBtnText}>Try It Free</Text>
+                  <Text style={s.ctaBtnText}>{trialLabel ? 'Start Free Trial' : 'Subscribe'}</Text>
                 )}
               </TouchableOpacity>
 
               <Text style={s.finePrint}>
-                7-day free trial, then {selectedPlan === 'annual' ? annualPrice : monthlyPrice}. Cancel anytime in {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings.
+                {trialLabel}, then {selectedPlan === 'annual' ? annualPrice : monthlyPrice}. Cancel anytime in {Platform.OS === 'ios' ? 'App Store' : 'Play Store'} settings.
               </Text>
             </>
           )}

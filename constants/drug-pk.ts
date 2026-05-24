@@ -147,7 +147,7 @@ export function pkConcentrationPct(
   atSteadyState: boolean,
   intervalH: number,
 ): number {
-  if (tHours <= 0) return 0;
+  if (tHours <= 0 || !drug || !DRUG_PK[drug]) return 0;
   const { ka, ke } = DRUG_PK[drug];
   const EPSILON = 1e-6;
 

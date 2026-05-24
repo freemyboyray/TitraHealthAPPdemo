@@ -30,6 +30,7 @@ const ZERO_ACTUALS: DailyActuals = {
   waterMl: 0,
   fiberG: 0,
   steps: 0,
+  caloriesKcal: 0,
   injectionLogged: false,
 };
 
@@ -193,17 +194,19 @@ export function HealthProvider({
     }
 
     const [foodRes, actRes, injRes] = await Promise.all([
-      supabase.from('food_logs').select('protein_g,fiber_g').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
+      supabase.from('food_logs').select('protein_g,fiber_g,calories').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
       supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
       supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
     ]);
-    const proteinG = (foodRes.data ?? []).reduce((s, f) => s + (f.protein_g ?? 0), 0);
-    const fiberG = (foodRes.data ?? []).reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+    const foods = foodRes.data ?? [];
+    const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0);
+    const fiberG = foods.reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+    const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0);
     const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
     const injectionLogged = (injRes.data ?? []).length > 0;
     dispatch({
       type: 'FETCH_ACTUALS',
-      actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
+      actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
     });
   }
 
@@ -284,7 +287,7 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
-      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, injectionLogged: false },
+      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false },
       foodLogs: [],
       activityLogs: [],
       weightLog: null,
@@ -330,11 +333,12 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
 
   const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const fiberG   = foods.reduce((s, f) => s + (f.fiber_g   ?? 0), 0);
+  const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0);
   const steps    = acts.reduce( (s, a) => s + (a.steps     ?? 0), 0);
   const injectionLogged = (injRes.data ?? []).length > 0;
 
   return {
-    actuals: { proteinG, fiberG, steps, waterMl, injectionLogged },
+    actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
     foodLogs: foods.map(f => ({
       id:        f.id,
       food_name: f.food_name,

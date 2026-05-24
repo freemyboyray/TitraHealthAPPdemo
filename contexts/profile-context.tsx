@@ -320,6 +320,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Throw so the caller (onboarding finish screen) can show an error.
       const { error: profileErr } = await supabase.from('profiles').upsert({
         id: user.id,
+        username:                 complete.username ?? null,
         dob:                      complete.birthday,
         dose_mg:                  complete.doseMg,
         medication_type:          complete.glp1Type,

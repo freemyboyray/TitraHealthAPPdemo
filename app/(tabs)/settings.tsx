@@ -219,325 +219,90 @@ export default function SettingsScreen() {
           {!editingName && <IconSymbol name="pencil" size={16} color={colors.textMuted} />}
         </Pressable>
 
-        {/* SUBSCRIPTION */}
-        <Pressable style={[s.card, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20 }]} onPress={() => router.push('/settings/subscription' as any)} accessibilityLabel={isPremium ? 'Titra Pro, Manage your subscription' : 'Upgrade to Pro, $4.99/month, 7-day free trial'} accessibilityRole="button" accessibilityHint="Opens subscription settings">
-          <View style={s.rowLeft}>
-            <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-              <IconSymbol name="bolt.fill" size={18} color={ORANGE} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{isPremium ? 'Titra Pro' : 'Upgrade to Pro'}</Text>
-              <Text style={s.rowSub}>{isPremium ? 'Manage your subscription' : '$4.99/month \u00b7 7-day free trial'}</Text>
-            </View>
-          </View>
-          <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-        </Pressable>
-
-        {/* MY PLAN section */}
-        <Text style={s.sectionLabel}>MY PLAN</Text>
-
+        {/* ── Categories ── */}
         <View style={s.card}>
-          {/* Treatment Plan */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel={`Treatment Plan, ${treatmentLine1}`} accessibilityRole="button" accessibilityHint="Opens treatment plan details">
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/plan' as any)} accessibilityLabel="My Plan" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Treatment Plan</Text>
-                <Text style={s.rowSub}>{treatmentLine1}</Text>
-                {treatmentLine2 ? <Text style={s.rowSub}>{treatmentLine2}</Text> : null}
-              </View>
+              <Text style={s.rowLabel}>My Plan</Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </Pressable>
 
           <View style={s.divider} />
 
-          {/* Body & Goals */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')} accessibilityLabel={`Body & Goals, ${bodyLine}`} accessibilityRole="button" accessibilityHint="Opens body and goals editor">
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/subscription' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <IconSymbol name="bolt.fill" size={18} color={ORANGE} />
+              </View>
+              <Text style={s.rowLabel}>Subscription</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        <View style={s.card}>
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/preferences' as any)} accessibilityLabel="Preferences" accessibilityRole="button">
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                <IconSymbol name="gearshape.fill" size={18} color={ORANGE} />
+              </View>
+              <Text style={s.rowLabel}>Preferences</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+          </Pressable>
+
+          <View style={s.divider} />
+
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/privacy' as any)} accessibilityLabel="Privacy & Data" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
-                <IconSymbol name="figure.stand" size={18} color="#0A84FF" />
+                <IconSymbol name="hand.raised.fill" size={18} color="#0A84FF" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Body & Goals</Text>
-                <Text style={s.rowSub}>{bodyLine}</Text>
-                {goalsLine ? <Text style={s.rowSub}>{goalsLine}</Text> : null}
-              </View>
+              <Text style={s.rowLabel}>Privacy & Data</Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </Pressable>
-
-          {isPremium && (
-            <>
-              <View style={s.divider} />
-              <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)} accessibilityLabel="Provider Report, Export PDF for your doctor" accessibilityRole="button" accessibilityHint="Opens provider report export">
-                <View style={s.rowLeft}>
-                  <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                    <IconSymbol name="doc.text.fill" size={18} color="#34C759" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowLabel}>Provider Report</Text>
-                    <Text style={s.rowSub}>Export PDF for your doctor</Text>
-                  </View>
-                </View>
-                <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-              </Pressable>
-            </>
-          )}
-        </View>
-
-        {/* PREFERENCES section */}
-        <Text style={s.sectionLabel}>PREFERENCES</Text>
-
-        <View style={s.card}>
-          {/* Appearance */}
-          <View style={s.cardRow}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={ORANGE} />
-              </View>
-              <Text style={s.rowLabel}>Appearance</Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-            {(['system', 'light', 'dark'] as const).map((mode) => (
-              <Pressable
-                key={mode}
-                onPress={() => setThemeMode(mode)}
-                style={{
-                  flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
-                  backgroundColor: themeMode === mode ? ORANGE : 'transparent',
-                }}
-                accessibilityLabel={mode === 'system' ? 'System' : mode === 'light' ? 'Light' : 'Dark'}
-                accessibilityRole="button"
-                accessibilityState={{ selected: themeMode === mode }}
-              >
-                <Text style={{
-                  fontSize: 13, fontWeight: '600',
-                  color: themeMode === mode ? '#FFF' : colors.textSecondary,
-                }}>
-                  {mode === 'system' ? 'System' : mode === 'light' ? 'Light' : 'Dark'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
 
           <View style={s.divider} />
 
-          {/* Header Style */}
-          <View style={s.cardRow}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="paintbrush.fill" size={18} color={ORANGE} />
-              </View>
-              <Text style={s.rowLabel}>Header Style</Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-            {(['gradient', 'solid', 'minimal'] as const).map((style) => (
-              <Pressable
-                key={style}
-                onPress={() => setHeaderStyle(style)}
-                style={{
-                  flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
-                  backgroundColor: (headerStyle ?? 'gradient') === style ? ORANGE : 'transparent',
-                }}
-                accessibilityLabel={style === 'gradient' ? 'Gradient' : style === 'solid' ? 'Solid' : 'Minimal'}
-                accessibilityRole="button"
-                accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}
-              >
-                <Text style={{
-                  fontSize: 13, fontWeight: '600',
-                  color: (headerStyle ?? 'gradient') === style ? '#FFF' : colors.textSecondary,
-                }}>
-                  {style === 'gradient' ? 'Gradient' : style === 'solid' ? 'Solid' : 'Minimal'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={s.divider} />
-
-          {/* Reminders */}
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')} accessibilityLabel={`Reminders, ${masterEnabled ? 'On' : 'Off'}`} accessibilityRole="button" accessibilityHint="Opens reminders settings">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="bell.fill" size={18} color={ORANGE} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Reminders</Text>
-                <Text style={s.rowSub}>{masterEnabled ? 'On' : 'Off'}</Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
-
-        {/* CONNECTIONS section */}
-        <Text style={s.sectionLabel}>CONNECTIONS</Text>
-
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)} accessibilityLabel={`Apple Health, ${appleHealthEnabled ? 'Connected' : 'Not connected'}`} accessibilityRole="button" accessibilityHint="Opens Apple Health settings">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
-                <IconSymbol name="heart.fill" size={18} color="#FF3B30" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Apple Health</Text>
-                <Text style={s.rowSub}>
-                  {appleHealthEnabled
-                    ? `${liveCategories.size} categories live${lastRefreshed ? ` · Synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
-                    : 'Not connected'}
-                </Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
-
-        {/* SUPPORT section */}
-        <Text style={s.sectionLabel}>SUPPORT</Text>
-
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => WebBrowser.openBrowserAsync('https://embed-245422884.sleekplan.app/?hide_elements[]=footer#/feedback/')} accessibilityLabel="Send Feedback, Report bugs or request new features" accessibilityRole="button" accessibilityHint="Opens feedback form">
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/support' as any)} accessibilityLabel="Support & Legal" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
-                <IconSymbol name="exclamationmark.bubble.fill" size={18} color="#32ADE6" />
+                <IconSymbol name="questionmark.circle.fill" size={18} color="#32ADE6" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Send Feedback</Text>
-                <Text style={s.rowSub}>Report bugs or request new features</Text>
-              </View>
+              <Text style={s.rowLabel}>Support & Legal</Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </Pressable>
         </View>
 
-        {/* PRIVACY & DATA section */}
-        <Text style={s.sectionLabel}>PRIVACY & DATA</Text>
-
         <View style={s.card}>
-          <View style={s.cardRow}>
+          <Pressable style={s.cardRow} onPress={handleSignOut} accessibilityLabel="Sign out" accessibilityRole="button">
             <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="sparkles" size={18} color={ORANGE} />
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
+                <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="#FF453A" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>AI Data Processing</Text>
-                <Text style={s.rowSub}>Send health context to OpenAI for coaching, food analysis, and insights</Text>
-              </View>
+              <Text style={s.rowLabel}>Sign Out</Text>
             </View>
-            <Switch
-              value={aiDataConsent}
-              onValueChange={setAiDataConsent}
-              trackColor={{ true: ORANGE }}
-              accessibilityLabel="AI Data Processing"
-              accessibilityRole="switch"
-              accessibilityState={{ checked: aiDataConsent }}
-            />
-          </View>
-
-          <View style={s.divider} />
-
-          <View style={s.cardRow}>
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <IconSymbol name="fork.knife" size={18} color="#34C759" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Food Database</Text>
-                <Text style={s.rowSub}>Send food search queries to FatSecret for nutritional data</Text>
-              </View>
-            </View>
-            <Switch
-              value={foodDbConsent}
-              onValueChange={setFoodDbConsent}
-              trackColor={{ true: ORANGE }}
-              accessibilityLabel="Food Database"
-              accessibilityRole="switch"
-              accessibilityState={{ checked: foodDbConsent }}
-            />
-          </View>
-        </View>
-
-        <Text style={[s.rowSub, { paddingHorizontal: 4, marginTop: -4, marginBottom: 16 }]}>
-          These features are optional. Disabling them will prevent the app from sending data to the respective third-party services. You can re-enable them at any time.
-        </Text>
-
-        {/* LEGAL & ACCOUNT section */}
-        <Text style={s.sectionLabel}>LEGAL & ACCOUNT</Text>
-
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Terms & Privacy" accessibilityRole="button" accessibilityHint="Opens legal documents">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
-                <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
-              </View>
-              <Text style={s.rowLabel}>Terms & Privacy</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
 
           <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/medical-sources' as any)} accessibilityLabel="Medical Sources, Published studies and citations" accessibilityRole="button" accessibilityHint="Opens medical sources">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <IconSymbol name="book.fill" size={18} color="#34C759" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Medical Sources</Text>
-                <Text style={s.rowSub}>Published studies & citations</Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={s.divider} />
-
-          <Pressable
-            style={s.cardRow}
-            onPress={handleDeleteAccount}
-            accessibilityLabel="Delete account"
-            accessibilityRole="button"
-            accessibilityHint="Permanently deletes all data"
-          >
+          <Pressable style={s.cardRow} onPress={handleDeleteAccount} disabled={deleting} accessibilityLabel="Delete account" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
                 <IconSymbol name="trash.fill" size={18} color="#FF453A" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.rowLabel, { color: '#FF453A' }]}>Delete Account</Text>
-                <Text style={s.rowSub}>Permanently delete all your data</Text>
-              </View>
+              <Text style={[s.rowLabel, { color: '#FF453A' }]}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
 
-        <View style={{ flex: 1, minHeight: 40 }} />
-
-        {/* Sign out */}
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut} activeOpacity={0.8} accessibilityLabel="Sign out" accessibilityRole="button">
-          <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="#FF453A" style={{ marginRight: 8 }} />
-          <Text style={s.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-
-        {/* Delete account */}
-        <TouchableOpacity
-          style={s.deleteBtn}
-          onPress={handleDeleteAccount}
-          activeOpacity={0.8}
-          disabled={deleting}
-          accessibilityLabel="Delete account"
-          accessibilityRole="button"
-          accessibilityHint="Permanently deletes all data"
-        >
-          <IconSymbol name="trash.fill" size={18} color="#FF453A" style={{ marginRight: 8 }} />
-          <Text style={s.signOutText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
-        </TouchableOpacity>
+        <View style={{ height: 40 }} />
 
         </ScrollView>
       </SafeAreaView>
@@ -604,20 +369,8 @@ function createStyles(c: AppColors) {
       alignItems: 'center', justifyContent: 'center',
     },
     rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '600', lineHeight: 22 },
-    rowSub: { color: c.textSecondary, fontSize: 13, fontWeight: '500', lineHeight: 18, marginTop: 2 },
-    chevronBtn: { padding: 4 },
+    rowValue: { color: c.textSecondary, fontSize: 15, fontWeight: '500' },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 64, marginRight: 16 },
 
-    signOutBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: 'rgba(255,69,58,0.1)',
-      borderRadius: 14, paddingVertical: 14,
-      borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)',
-    },
-    signOutText: { color: '#FF453A', fontSize: 17, fontWeight: '600' },
-    deleteBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      paddingVertical: 14, marginTop: 12,
-    },
   });
 }

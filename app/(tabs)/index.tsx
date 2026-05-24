@@ -30,6 +30,7 @@ import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
 import { isOralDrug, doseNoun, doseIconName, pkConcentrationPct } from '@/constants/drug-pk';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AnimatedFire } from '@/components/animated-fire';
+import { useUserStore } from '@/stores/user-store';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
@@ -257,6 +258,127 @@ function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+// ─── Week Calendar Strip ─────────────────────────────────────────────────────
+
+const STRIP_DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const STRIP_TOTAL_DAYS = 29; // 14 past + today + 14 future
+const STRIP_TODAY_IDX = 14;
+const STRIP_TILE_W = 44;
+const STRIP_GAP = 6;
+const STRIP_ITEM_W = STRIP_TILE_W + STRIP_GAP;
+
+type StripDay = {
+  date: Date;
+  dateStr: string;
+  day: number;
+  dayLabel: string;
+  isToday: boolean;
+  isSelected: boolean;
+  isFuture: boolean;
+  hasLog: boolean;
+};
+
+function DayTile({ item, onSelect, colors }: { item: StripDay; onSelect: (d: Date) => void; colors: AppColors }) {
+  const isHighlighted = item.isToday && item.isSelected;
+  const isSelectedOther = item.isSelected && !item.isToday;
+  const dk = colors.isDark;
+
+  return (
+    <Pressable
+      onPress={() => onSelect(item.date)}
+      style={{
+        width: STRIP_TILE_W,
+        height: 56,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isHighlighted ? '#FF742A'
+          : item.isToday ? (dk ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.1)')
+          : isSelectedOther ? (dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)')
+          : dk ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.85)',
+        borderWidth: isSelectedOther ? 1.5 : 0,
+        borderColor: isSelectedOther ? '#FF742A' : 'transparent',
+        opacity: item.isFuture && !item.isSelected ? 0.55 : 1,
+      }}
+      accessibilityLabel={`${item.dayLabel} ${item.day}${item.isToday ? ', today' : ''}${item.hasLog ? ', has logged data' : ''}`}
+      accessibilityRole="button"
+    >
+      <Text style={{
+        fontSize: 10, fontWeight: '600', fontFamily: 'System',
+        color: isHighlighted ? 'rgba(255,255,255,0.8)'
+          : dk ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+        marginBottom: 2,
+      }}>
+        {item.dayLabel}
+      </Text>
+      <Text style={{
+        fontSize: 17, fontWeight: '800', fontFamily: 'System',
+        color: isHighlighted ? '#FFFFFF'
+          : dk ? '#FFFFFF' : '#000000',
+      }}>
+        {item.day}
+      </Text>
+      {item.hasLog && !isHighlighted && (
+        <View style={{
+          width: 4, height: 4, borderRadius: 2, marginTop: 2,
+          backgroundColor: item.isToday ? '#FF742A' : (dk ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'),
+        }} />
+      )}
+    </Pressable>
+  );
+}
+
+function WeekStrip({ selectedDate, onSelect, datesWithLogs, colors }: {
+  selectedDate: Date;
+  onSelect: (d: Date) => void;
+  datesWithLogs: Set<string>;
+  colors: AppColors;
+}) {
+  const days = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: STRIP_TOTAL_DAYS }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + (i - STRIP_TODAY_IDX));
+      return {
+        date: d,
+        dateStr: localDateStr(d),
+        day: d.getDate(),
+        dayLabel: STRIP_DAY_LABELS[d.getDay()],
+        isToday: sameDay(d, today),
+        isSelected: sameDay(d, selectedDate),
+        isFuture: d > today && !sameDay(d, today),
+        hasLog: datesWithLogs.has(localDateStr(d)),
+      };
+    });
+  }, [selectedDate, datesWithLogs]);
+
+  const listRef = useRef<FlatList<StripDay>>(null);
+  const hasScrolled = useRef(false);
+
+  useEffect(() => {
+    if (!hasScrolled.current) {
+      setTimeout(() => {
+        listRef.current?.scrollToIndex({ index: STRIP_TODAY_IDX, animated: false, viewPosition: 0.5 });
+        hasScrolled.current = true;
+      }, 100);
+    }
+  }, []);
+
+  return (
+    <FlatList
+      ref={listRef}
+      horizontal
+      data={days}
+      keyExtractor={d => d.dateStr}
+      renderItem={({ item }) => <DayTile item={item} onSelect={onSelect} colors={colors} />}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 8, gap: STRIP_GAP }}
+      getItemLayout={(_, i) => ({ length: STRIP_ITEM_W, offset: STRIP_ITEM_W * i, index: i })}
+      onScrollToIndexFailed={() => {}}
+    />
+  );
 }
 
 function isProjectedShot(lastDate: string | null, freqDays: number, target: Date): boolean {
@@ -1117,6 +1239,7 @@ export default function HomeScreen() {
   const missedShotShownRef = useRef(false);
 
   const streak = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
+  const userName = useUserStore(st => st.profile?.username ?? null);
 
   const biometricStore = useBiometricStore();
 
@@ -1201,6 +1324,26 @@ export default function HomeScreen() {
   const dateLabel = `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
   const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
 
+  const goToPrevDay = useCallback(() => {
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    setSelectedDate(prev);
+  }, [selectedDate]);
+
+  const MAX_FUTURE_DAYS = 14;
+  const daysAhead = Math.round((selectedDate.getTime() - today.getTime()) / 86400000);
+  const atFutureLimit = daysAhead >= MAX_FUTURE_DAYS;
+
+  const goToNextDay = useCallback(() => {
+    if (!atFutureLimit) {
+      const next = new Date(selectedDate);
+      next.setDate(next.getDate() + 1);
+      setSelectedDate(next);
+    }
+  }, [selectedDate, atFutureLimit]);
+
+  const toggleCalendar = useCallback(() => setCalendarOpen(o => !o), []);
+
   // ── Medication transition detection ──
   const hasPendingTransition = profile.pendingFirstDoseDate != null;
   const pendingFirstDoseStr = profile.pendingFirstDoseDate ?? '';
@@ -1262,12 +1405,8 @@ export default function HomeScreen() {
   const medName = (() => {
     const display = BRAND_DISPLAY_NAMES[profile.medicationBrand ?? ''];
     if (!display || display === 'Other') {
-      const type = profile.glp1Type;
-      if (type === 'semaglutide') return 'Semaglutide';
-      if (type === 'tirzepatide') return 'Tirzepatide';
-      if (type === 'liraglutide') return 'Liraglutide';
-      if (type === 'oral_semaglutide') return 'Semaglutide (oral)';
-      return 'GLP-1';
+      // Use the user's custom name if they set one, otherwise show generic label
+      return profile.medicationCustomName || 'My Medication';
     }
     return display;
   })();
@@ -1581,26 +1720,45 @@ export default function HomeScreen() {
             style={s.headerArea}
             onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
           >
-            <View style={s.headerTopRow}>
-              {/* Left: greeting */}
-              <View style={{ flex: 1 }}>
-                <Text style={s.greetingLabel}>Welcome,</Text>
-                <Text style={s.greetingName}>
-                  {(logStore.profile as any)?.username?.split(' ')[0] ?? 'there'}!
-                </Text>
-              </View>
-              {/* Right: date + streak fire */}
-              <Pressable style={s.dateTitleRow} onPress={() => router.push('/streak')} accessibilityLabel={`${dateLabel}, ${streak} day streak`} accessibilityRole="button">
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={s.dateTitle}>{dateLabel}</Text>
-                    <Text style={s.weekday}>{weekday}</Text>
-                  </View>
-                  <View style={s.fireWrap}>
-                    <AnimatedFire size={30} streak={streak} showNumber={streak > 0} active={streak > 0} />
-                  </View>
-                </View>
+            {/* Greeting + Streak row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={s.greetingText}>
+                {(() => {
+                  const h = new Date().getHours();
+                  return h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+                })()}
+                {userName ? (
+                  <>
+                    {'\n'}
+                    <Text style={s.greetingName}>
+                      {userName.length > 15 ? userName.slice(0, 15).trim() + '…' : userName}
+                    </Text>
+                  </>
+                ) : null}
+              </Text>
+
+              <Pressable
+                onPress={() => router.push('/streak')}
+                style={{
+                  width: 52, height: 52, borderRadius: 26,
+                  backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+                accessibilityLabel={`${streak} day streak. Tap for achievements`}
+                accessibilityRole="button"
+              >
+                <AnimatedFire size={36} streak={streak} showNumber={streak > 0} active={streak > 0} />
               </Pressable>
+            </View>
+
+            {/* Week calendar strip */}
+            <View style={{ marginTop: 14, marginBottom: 4, marginHorizontal: -20 }}>
+              <WeekStrip
+                selectedDate={selectedDate}
+                onSelect={setSelectedDate}
+                datesWithLogs={datesWithLogs}
+                colors={colors}
+              />
             </View>
 
             {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
@@ -1612,6 +1770,7 @@ export default function HomeScreen() {
               <Text style={s.futureNote}>No entries logged for this day</Text>
             }
           </View>
+
           <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600} accessibilityLabel="Dashboard content. Long press for AI assistant." accessibilityRole="none">
 
           {/* ── Viewing History Banner ── */}
@@ -2134,18 +2293,10 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   },
 
   // Fixed header
-  headerArea: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
-  fireWrap: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: minimalHeader && !c.isDark ? 'rgba(0,0,0,0.08)' : c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.35)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  dateTitleRow: { alignItems: 'flex-end' },
-  dateTitle: { fontSize: 18, fontWeight: '700', color: headerText, letterSpacing: -0.2, fontFamily: 'System', textAlign: 'right' },
-  weekday: { fontSize: 14, fontWeight: '500', color: headerTextMuted, marginTop: 2, fontFamily: 'System', textAlign: 'right' },
-  greetingLabel: { fontSize: 15, fontWeight: '500', color: headerTextMuted, fontFamily: 'System', marginBottom: 2 },
-  greetingName: { fontSize: 26, fontWeight: '800', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
+  headerArea: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
+  greetingText: { fontSize: 28, fontWeight: '600', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
+  greetingName: { fontSize: 28, fontWeight: '900', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
+  dateTitle: { fontSize: 18, fontWeight: '700', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -0.3, fontFamily: 'System' },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
@@ -2154,7 +2305,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   },
   medPillText: { fontSize: 14, fontWeight: '600', color: c.textMuted, fontFamily: 'System' },
   phaseLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: 'System' },
-  futureNote: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4, fontWeight: '600', fontFamily: 'System' },
+  futureNote: { fontSize: 13, color: headerText, opacity: 0.7, marginTop: 4, fontWeight: '600', fontFamily: 'System', textAlign: 'center' as const },
   connectHealthKit: { fontSize: 14, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'System' },
 
   // Card containers
