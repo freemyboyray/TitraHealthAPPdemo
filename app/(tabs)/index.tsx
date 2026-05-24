@@ -57,7 +57,6 @@ import { syncNotifications } from '@/stores/reminders-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MissedShotModal } from '@/components/missed-shot-modal';
 import { TreatmentCheckModal } from '@/components/treatment-check-modal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
@@ -1725,7 +1724,7 @@ export default function HomeScreen() {
               <Text style={s.greetingText}>
                 {(() => {
                   const h = new Date().getHours();
-                  return h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+                  return h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
                 })()}
                 {userName ? (
                   <>
