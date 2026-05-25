@@ -113,7 +113,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         AsyncStorage.clear().catch(() => {});
         resetProfile();
         posthog?.reset();
-        router.replace('/auth/sign-in');
+        router.replace('/auth/welcome');
       }
     });
 

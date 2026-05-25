@@ -11,6 +11,7 @@ import { scheduleDoseReminder } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { useUserStore } from '@/stores/user-store';
 import {
   getReachedPhotoMilestones,
   getUnlockedAchievementIds,
@@ -435,6 +436,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           complete.lastInjectionDate || null,
         ).catch(() => {});
       }
+
+      // Reload user store so the home screen greeting picks up the saved username
+      useUserStore.getState().loadProfile().catch(() => {});
     }
   };
 

@@ -13,6 +13,7 @@ import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 
 const ORANGE = '#FF742A';
+const FF = 'System';
 
 export default function ProgressPhotoScreen() {
   const router = useRouter();
@@ -63,7 +64,6 @@ export default function ProgressPhotoScreen() {
   const handleContinue = () => {
     if (photoBase64) {
       const weightLbs = draft.weightLbs ?? draft.currentWeightLbs ?? 0;
-      // Fire and forget — don't block navigation
       useProgressPhotoStore.getState().uploadPhoto(photoBase64, weightLbs, { isStarting: true });
     }
     router.replace('/onboarding/reminders');
@@ -80,109 +80,124 @@ export default function ProgressPhotoScreen() {
         <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
         <View style={s.content}>
-          <View style={s.center}>
-            <Ionicons name="camera-outline" size={64} color={ORANGE} style={s.icon} />
-            <Text style={s.title}>Take Your Starting Photo</Text>
-            <Text style={[s.subtitle, { color: w(0.5) }]}>
-              Capture where you are today. As you hit milestones, you'll see your transformation side by side.
-            </Text>
+          {photoUri ? (
+            /* ── Photo captured state ── */
+            <View style={s.center}>
+              <Image source={{ uri: photoUri }} style={s.preview} />
+              <Text style={s.capturedLabel}>Looking great!</Text>
+              <TouchableOpacity onPress={takePhoto} activeOpacity={0.7} style={s.retakeBtn}>
+                <Ionicons name="camera-outline" size={16} color={ORANGE} />
+                <Text style={s.retakeText}>Retake</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* ── Initial state ── */
+            <View style={s.center}>
+              {/* Icon */}
+              <View style={s.iconCircle}>
+                <Ionicons name="camera" size={32} color={ORANGE} />
+              </View>
 
-            {photoUri ? (
-              <>
-                <Image source={{ uri: photoUri }} style={s.preview} />
-                <TouchableOpacity onPress={takePhoto} activeOpacity={0.7}>
-                  <Text style={[s.retakeText, { color: ORANGE }]}>Retake</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
+              <Text style={s.title}>Starting Photo</Text>
+              <Text style={[s.subtitle, { color: w(0.45) }]}>
+                Capture where you are today. As you hit{'\n'}milestones, you'll see your transformation.
+              </Text>
+
+              {/* Action buttons */}
               <View style={s.actions}>
                 <TouchableOpacity style={s.primaryBtn} onPress={takePhoto} activeOpacity={0.8}>
+                  <Ionicons name="camera" size={20} color="#FFFFFF" />
                   <Text style={s.primaryBtnLabel}>Take Photo</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.outlineBtn} onPress={chooseFromGallery} activeOpacity={0.8}>
-                  <Text style={[s.outlineBtnLabel, { color: ORANGE }]}>Choose from Gallery</Text>
+                <TouchableOpacity style={[s.secondaryBtn, { backgroundColor: w(0.06) }]} onPress={chooseFromGallery} activeOpacity={0.8}>
+                  <Ionicons name="images-outline" size={20} color={colors.textPrimary} />
+                  <Text style={[s.secondaryBtnLabel, { color: colors.textPrimary }]}>Choose from Gallery</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </View>
+            </View>
+          )}
         </View>
 
-        <ContinueButton onPress={handleContinue} label="Continue" />
-        <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} style={s.skipWrapper}>
-          <Text style={[s.skipText, { color: w(0.5) }]}>Skip for now</Text>
-        </TouchableOpacity>
+        <ContinueButton onPress={handleContinue} label={photoUri ? 'Continue' : 'Continue without photo'} />
+        {!photoUri && (
+          <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} style={s.skipWrapper}>
+            <Text style={[s.skipText, { color: w(0.35) }]}>Skip for now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
-const createStyles = (c: AppColors) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.bg },
-  container: { flex: 1, paddingHorizontal: 24 },
-  content: { flex: 1, justifyContent: 'center' },
-  center: { alignItems: 'center' },
-  icon: { marginBottom: 20 },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: c.textPrimary,
-    textAlign: 'center',
-    marginBottom: 12,
-    fontFamily: 'Inter_800ExtraBold',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-    paddingHorizontal: 8,
-    fontFamily: 'Inter_400Regular',
-  },
-  actions: { width: '100%', gap: 12 },
-  primaryBtn: {
-    backgroundColor: ORANGE,
-    borderRadius: 28,
-    paddingVertical: 17,
-    alignItems: 'center',
-  },
-  primaryBtnLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
-  },
-  outlineBtn: {
-    borderWidth: 2,
-    borderColor: ORANGE,
-    borderRadius: 28,
-    paddingVertical: 17,
-    alignItems: 'center',
-  },
-  outlineBtnLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Inter_400Regular',
-  },
-  preview: {
-    width: 200,
-    height: 200,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  retakeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-    fontFamily: 'Inter_400Regular',
-  },
-  skipWrapper: {
-    alignItems: 'center',
-    paddingBottom: 16,
-    paddingTop: 8,
-  },
-  skipText: {
-    fontSize: 15,
-    fontWeight: '500',
-    fontFamily: 'Inter_400Regular',
-  },
-});
+const createStyles = (c: AppColors) => {
+  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, paddingHorizontal: 24 },
+    content: { flex: 1, justifyContent: 'center' },
+    center: { alignItems: 'center' },
+
+    // Icon
+    iconCircle: {
+      width: 72, height: 72, borderRadius: 36,
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(255,116,42,0.08)',
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 24,
+    },
+
+    // Text
+    title: {
+      fontSize: 28, fontWeight: '800', color: c.textPrimary,
+      textAlign: 'center', marginBottom: 10, letterSpacing: -0.5,
+      fontFamily: FF,
+    },
+    subtitle: {
+      fontSize: 15, textAlign: 'center', lineHeight: 21,
+      marginBottom: 36, fontFamily: FF,
+    },
+
+    // Buttons
+    actions: { width: '100%', gap: 12 },
+    primaryBtn: {
+      backgroundColor: ORANGE, borderRadius: 16,
+      paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'row', gap: 8,
+    },
+    primaryBtnLabel: {
+      color: '#FFFFFF', fontSize: 17, fontWeight: '700', fontFamily: FF,
+    },
+    secondaryBtn: {
+      borderRadius: 16, paddingVertical: 16,
+      alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'row', gap: 8,
+    },
+    secondaryBtnLabel: {
+      fontSize: 17, fontWeight: '600', fontFamily: FF,
+    },
+
+    // Photo captured state
+    preview: {
+      width: 220, height: 293, borderRadius: 20, marginBottom: 16,
+    },
+    capturedLabel: {
+      fontSize: 18, fontWeight: '700', color: c.textPrimary,
+      fontFamily: FF, marginBottom: 8,
+    },
+    retakeBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingVertical: 8, paddingHorizontal: 16,
+      borderRadius: 10, backgroundColor: w(0.06),
+    },
+    retakeText: {
+      fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF,
+    },
+
+    // Skip
+    skipWrapper: {
+      alignItems: 'center', paddingBottom: 16, paddingTop: 10,
+    },
+    skipText: {
+      fontSize: 15, fontWeight: '500', fontFamily: FF,
+    },
+  });
+};

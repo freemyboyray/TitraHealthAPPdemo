@@ -10,9 +10,13 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +28,7 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -47,8 +52,63 @@ export default function SignInScreen() {
 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading]   = useState(false);
+  const [signUpLoading, setSignUpLoading] = useState(false);
   const [error, setError]                 = useState<string | null>(null);
-  const anyLoading = googleLoading || appleLoading;
+  const [email, setEmail]                 = useState('');
+  const [password, setPassword]           = useState('');
+  const [showPassword, setShowPassword]   = useState(false);
+  const [isLoginMode, setIsLoginMode]     = useState(false);
+  const anyLoading = googleLoading || appleLoading || signUpLoading;
+
+  // Crossfade animation for mode toggle
+  const modeOpacity = useSharedValue(1);
+  const swapMode = () => { setIsLoginMode(m => !m); setError(null); };
+  const toggleMode = () => {
+    modeOpacity.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, (finished) => {
+      if (finished) runOnJS(swapMode)();
+    });
+  };
+  useEffect(() => {
+    modeOpacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.quad) });
+  }, [isLoginMode]);
+  const modeAnim = useAnimatedStyle(() => ({ opacity: modeOpacity.value }));
+
+  const handleLogin = async () => {
+    const trimmed = email.trim();
+    if (!trimmed || !password) { setError('Please enter your email and password.'); return; }
+    setError(null);
+    setSignUpLoading(true);
+    try {
+      const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email: trimmed, password });
+      if (signInErr) { setError(signInErr.message); return; }
+      if (data.session) await finishAuth(data.session);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign-in failed');
+    } finally {
+      setSignUpLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    const trimmed = email.trim();
+    if (!trimmed || !password) { setError('Please enter your email and password.'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    setError(null);
+    setSignUpLoading(true);
+    try {
+      const { data, error: signUpErr } = await supabase.auth.signUp({ email: trimmed, password });
+      if (signUpErr) { setError(signUpErr.message); return; }
+      if (data.session) {
+        await finishAuth(data.session);
+      } else {
+        router.push('/auth/sign-up');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign-up failed');
+    } finally {
+      setSignUpLoading(false);
+    }
+  };
 
   // ── Entrance animations ──────────────────────────────────────────────────
   const logoScale = useSharedValue(0.8);
@@ -234,38 +294,89 @@ export default function SignInScreen() {
 
   return (
     <View style={s.root}>
-      <StatusBar style="light" />
+      <StatusBar style={c.isDark ? 'light' : 'dark'} />
 
-      {/* ── Hero gradient background ── */}
-      <LinearGradient
-        colors={c.heroGradient as unknown as [string, string, ...string[]]}
-        locations={[0, 0.35, 0.65, 1.0]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
+      {/* ── Background illustration ── */}
+      <Image
+        source={c.isDark ? require('@/assets/images/signin-bg-dark.png') : require('@/assets/images/signin-bg.png')}
         style={s.gradient}
+        resizeMode="cover"
         pointerEvents="none"
       />
 
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        {/* ── Brand section (centered on gradient) ── */}
-        <View style={s.brandSection}>
-          <Animated.View style={logoAnim}>
-            <Image
-              source={require('@/assets/images/titra-logo.png')}
-              style={s.logo}
-              resizeMode="cover"
-            />
-          </Animated.View>
-          <Animated.View style={titleAnim}>
-            <Text style={s.brandName}>TitraHealth</Text>
-            <Text style={s.tagline}>Track more. Achieve more.</Text>
-          </Animated.View>
-        </View>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {/* Back button */}
+        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignSelf: 'flex-start' }} accessibilityLabel="Back" accessibilityRole="button">
+          <Ionicons name="chevron-back" size={26} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
+        </Pressable>
 
-        {/* ── Auth buttons section ── */}
+        {/* Spacer to push content below illustration */}
+        <View style={{ flex: 1 }} />
+
+        {/* ── Auth section ── */}
         <View style={s.buttonsSection}>
+          {/* Welcome text */}
+          <Animated.View style={[{ marginBottom: 20 }, modeAnim]}>
+            <Text style={s.brandName}>{isLoginMode ? 'Welcome Back!' : 'Welcome!'}</Text>
+            <Text style={s.tagline}>{isLoginMode ? 'Continue your journey.' : 'Start your journey today.'}</Text>
+          </Animated.View>
+
+          {/* Email & Password inputs */}
+          <View style={s.inputContainer}>
+            <TextInput
+              style={s.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+            />
+          </View>
+          <View style={[s.inputContainer, { marginBottom: 16 }]}>
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              placeholder="Enter your password"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="password"
+            />
+            <Pressable onPress={() => setShowPassword(p => !p)} hitSlop={8} style={{ position: 'absolute', right: 16, top: 16 }}>
+              <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color="#999" />
+            </Pressable>
+          </View>
+
+          {/* Action button */}
+          <TouchableOpacity
+            style={[s.emailBtn, anyLoading && s.btnDisabled]}
+            onPress={isLoginMode ? handleLogin : handleCreateAccount}
+            activeOpacity={0.85}
+            disabled={anyLoading}
+          >
+            {signUpLoading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Animated.Text style={[s.emailBtnText, modeAnim]}>{isLoginMode ? 'Login' : 'Create Your Account'}</Animated.Text>
+            )}
+          </TouchableOpacity>
+
+          {/* ── Divider ── */}
+          <Animated.View style={[s.divider, dividerAnim]}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>or</Text>
+            <View style={s.dividerLine} />
+          </Animated.View>
+
+          {/* Social sign-in */}
           {Platform.OS === 'ios' && (
-            <Animated.View style={btn1Anim}>
+            <Animated.View style={btn2Anim}>
               <TouchableOpacity
                 style={[s.appleBtn, anyLoading && !appleLoading && s.btnDisabled]}
                 onPress={handleAppleSignIn}
@@ -273,10 +384,10 @@ export default function SignInScreen() {
                 disabled={anyLoading}
               >
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={c.isDark ? '#000' : '#FFF'} />
+                  <ActivityIndicator size="small" color="#1A1A1A" />
                 ) : (
                   <>
-                    <Ionicons name="logo-apple" size={22} color={c.isDark ? '#000' : '#FFF'} />
+                    <Ionicons name="logo-apple" size={22} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
                     <Text style={s.appleBtnText}>Continue with Apple</Text>
                   </>
                 )}
@@ -284,7 +395,7 @@ export default function SignInScreen() {
             </Animated.View>
           )}
 
-          <Animated.View style={btn2Anim}>
+          <Animated.View style={btn3Anim}>
             <TouchableOpacity
               style={[s.googleBtn, anyLoading && !googleLoading && s.btnDisabled]}
               onPress={handleGoogleSignIn}
@@ -292,7 +403,7 @@ export default function SignInScreen() {
               disabled={anyLoading}
             >
               {googleLoading ? (
-                <ActivityIndicator size="small" color={c.textPrimary} />
+                <ActivityIndicator size="small" color="#1A1A1A" />
               ) : (
                 <>
                   <Image
@@ -306,38 +417,20 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* ── Divider ── */}
-          <Animated.View style={[s.divider, dividerAnim]}>
-            <View style={s.dividerLine} />
-            <Text style={s.dividerText}>or</Text>
-            <View style={s.dividerLine} />
-          </Animated.View>
-
-          {/* ── Email CTA ── */}
-          <Animated.View style={btn3Anim}>
-            <TouchableOpacity
-              style={[s.emailBtn, anyLoading && s.btnDisabled]}
-              onPress={() => router.push('/auth/email-sign-in')}
-              activeOpacity={0.85}
-              disabled={anyLoading}
-            >
-              <Ionicons name="mail-outline" size={20} color="#FFF" />
-              <Text style={s.emailBtnText}>Continue with Email</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
           {error ? <Text style={s.errorText}>{error}</Text> : null}
 
-          {/* ── Footer ── */}
-          <View style={s.footer}>
+          {/* ── Toggle mode ── */}
+          <Animated.View style={[s.footer, modeAnim]}>
             <Text style={s.legalText}>
-              By continuing, you agree to our{' '}
-              <Text style={s.legalLink} onPress={() => router.push('/settings/legal' as any)}>Terms</Text>
-              {' & '}
-              <Text style={s.legalLink} onPress={() => router.push('/settings/legal' as any)}>Privacy Policy</Text>
+              {isLoginMode ? "Don't have an account? " : 'Already have an account? '}
+              <Text style={s.legalLink} onPress={toggleMode}>
+                {isLoginMode ? 'Sign up' : 'Sign in'}
+              </Text>
             </Text>
-          </View>
+          </Animated.View>
         </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -347,14 +440,12 @@ const createStyles = (c: AppColors) =>
   StyleSheet.create({
     root: {
       flex: 1,
-      backgroundColor: c.bg,
+      backgroundColor: c.isDark ? '#1A1A1A' : '#FFFFFF',
     },
     gradient: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: SCREEN_HEIGHT * 0.52,
+      ...StyleSheet.absoluteFillObject,
+      width: '100%',
+      height: '100%',
     },
     safe: {
       flex: 1,
@@ -375,18 +466,18 @@ const createStyles = (c: AppColors) =>
       marginBottom: 20,
     },
     brandName: {
-      fontSize: 38,
-      fontWeight: '800',
-      color: '#FFFFFF',
+      fontSize: 32,
+      fontWeight: '700',
+      color: c.isDark ? '#FFFFFF' : '#1A1A1A',
       fontFamily: FONT,
-      letterSpacing: -1.0,
+      letterSpacing: -0.5,
       textAlign: 'center',
       marginBottom: 8,
     },
     tagline: {
       fontSize: 17,
       fontWeight: '500',
-      color: 'rgba(255,255,255,0.75)',
+      color: c.isDark ? 'rgba(255,255,255,0.6)' : '#777777',
       fontFamily: FONT,
       letterSpacing: -0.2,
       textAlign: 'center',
@@ -396,6 +487,23 @@ const createStyles = (c: AppColors) =>
     buttonsSection: {
       paddingBottom: 8,
     },
+    inputContainer: {
+      height: 54,
+      borderRadius: 27,
+      borderWidth: 1.5,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      marginBottom: 12,
+    },
+    input: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: c.isDark ? '#FFFFFF' : '#1A1A1A',
+      fontFamily: FONT,
+      height: '100%',
+    },
     appleBtn: {
       height: 56,
       borderRadius: 18,
@@ -403,13 +511,15 @@ const createStyles = (c: AppColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
-      backgroundColor: c.isDark ? '#FFFFFF' : '#000000',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
       marginBottom: 12,
     },
     appleBtnText: {
       fontSize: 17,
       fontWeight: '600',
-      color: c.isDark ? '#000000' : '#FFFFFF',
+      color: c.isDark ? '#FFFFFF' : '#1A1A1A',
       fontFamily: FONT,
       letterSpacing: -0.2,
     },
@@ -421,15 +531,8 @@ const createStyles = (c: AppColors) =>
       justifyContent: 'center',
       gap: 10,
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
-      ...(c.isDark
-        ? { borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }
-        : {
-            shadowColor: 'rgba(0,0,0,0.08)',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 1,
-            shadowRadius: 12,
-            elevation: 2,
-          }),
+      borderWidth: 1,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
     },
     googleLogo: {
       width: 22,
@@ -439,7 +542,7 @@ const createStyles = (c: AppColors) =>
     googleBtnText: {
       fontSize: 17,
       fontWeight: '600',
-      color: c.textPrimary,
+      color: c.isDark ? '#FFFFFF' : '#1A1A1A',
       fontFamily: FONT,
       letterSpacing: -0.2,
     },

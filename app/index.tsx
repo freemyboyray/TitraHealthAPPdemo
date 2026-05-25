@@ -36,7 +36,7 @@ export default function Index() {
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!sessionLoaded || !profile) {
-        router.replace('/auth/sign-in');
+        router.replace('/auth/welcome');
       }
     }, 10000);
     return () => clearTimeout(timeout);
@@ -54,7 +54,7 @@ export default function Index() {
   useEffect(() => {
     if (!sessionLoaded) return;
     if (!session && !demoMode) {
-      router.replace('/auth/sign-in');
+      router.replace('/auth/welcome');
       return;
     }
     if (isLoading || !profile) return;
