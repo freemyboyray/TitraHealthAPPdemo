@@ -1,57 +1,97 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { ARTICLES, type ArticleSection } from '@/constants/articles';
 
 const FF = 'System';
 const ORANGE = '#FF742A';
 
-type ArticleDetail = {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  category: string;
-  body_markdown: string;
-  reading_time_minutes: number;
-  published_at: string;
-  phase_focus: string;
-};
+const ARTICLE_DISCLAIMER =
+  'This content is for informational and educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult your healthcare provider before making changes to your health routine.';
 
+// ─── Inline markdown renderer ────────────────────────────────────────────────
+// Supports: **bold**, - bullets, \n paragraphs
+
+function renderTextWithBold(text: string, baseStyle: any, boldStyle: any, key: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return (
+    <Text key={key} style={baseStyle}>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <Text key={i} style={boldStyle}>
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
+}
+
+function SectionContent({ section, styles }: { section: ArticleSection; styles: ReturnType<typeof createStyles> }) {
+  const lines = section.body.split('\n').filter((l) => l.trim() !== '');
+
+  return (
+    <View style={styles.sectionWrap}>
+      {section.heading && <Text style={styles.sectionHeading}>{section.heading}</Text>}
+      {lines.map((line, i) => {
+        const isBullet = line.startsWith('- ');
+        const cleanLine = isBullet ? line.slice(2) : line;
+
+        if (isBullet) {
+          return (
+            <View key={i} style={styles.bulletRow}>
+              <View style={styles.bulletDot} />
+              <View style={{ flex: 1 }}>
+                {renderTextWithBold(cleanLine, styles.bodyText, styles.boldText, `b-${i}`)}
+              </View>
+            </View>
+          );
+        }
+
+        return renderTextWithBold(cleanLine, styles.bodyText, styles.boldText, `p-${i}`);
+      })}
+    </View>
+  );
+}
+
+// ─── Article Detail Screen ───────────────────────────────────────────────────
 
 export default function ArticleDetailScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [article, setArticle] = useState<ArticleDetail | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!id) return;
-    supabase
-      .from('articles')
-      .select('id, title, subtitle, category, body_markdown, reading_time_minutes, published_at, phase_focus')
-      .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) setArticle(data as ArticleDetail);
-        setLoading(false);
-      });
-  }, [id]);
+  const article = ARTICLES.find((a) => a.id === id);
 
-  const chipColor = article ? contentCategoryColor(colors.isDark, article.category) : ORANGE;
-  const categoryLabel = article
-    ? article.category.charAt(0).toUpperCase() + article.category.slice(1)
-    : '';
-  const publishedLabel = article
-    ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : '';
+  if (!article) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <SafeAreaView>
+          <Text style={{ color: colors.textMuted, fontSize: 17, fontFamily: FF }}>
+            Article not found.
+          </Text>
+          <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
+            <Text style={{ color: ORANGE, fontSize: 15, fontWeight: '600', fontFamily: FF, textAlign: 'center' }}>
+              Go Back
+            </Text>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  const chipColor = contentCategoryColor(colors.isDark, article.category);
+  const categoryLabel =
+    article.category.charAt(0).toUpperCase() + article.category.slice(1);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -65,78 +105,58 @@ export default function ArticleDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        {loading ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <ActivityIndicator size="large" color={ORANGE} />
-          </View>
-        ) : !article ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.textMuted, fontSize: 17, fontFamily: FF }}>
-              Article not found.
-            </Text>
-          </View>
-        ) : (
-          <ScrollView
-            contentContainerStyle={s.content}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Category + reading time */}
-            <View style={s.metaRow}>
-              <View style={[s.chip, { backgroundColor: chipColor + '20', borderColor: chipColor + '55' }]}>
-                <Text style={[s.chipText, { color: chipColor }]}>{categoryLabel}</Text>
-              </View>
-              <Text style={s.readTime}>{article.reading_time_minutes} min read</Text>
-              <Text style={s.readTime}>{publishedLabel}</Text>
+        <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+          {/* Cover image */}
+          <Image
+            source={article.coverImage}
+            style={s.coverImage}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+
+          {/* Meta */}
+          <View style={s.metaRow}>
+            <View style={[s.chip, { backgroundColor: chipColor + '18' }]}>
+              <Text style={[s.chipText, { color: chipColor }]}>{categoryLabel}</Text>
             </View>
+            <Text style={s.readTime}>{article.readingTime} min read</Text>
+          </View>
 
-            {/* Title */}
-            <Text style={s.title}>{article.title}</Text>
+          {/* Title + subtitle */}
+          <Text style={s.title}>{article.title}</Text>
+          <Text style={s.subtitle}>{article.subtitle}</Text>
 
-            {/* Subtitle */}
-            {article.subtitle && (
-              <Text style={s.subtitle}>{article.subtitle}</Text>
-            )}
+          <View style={s.divider} />
 
-            <View style={s.divider} />
+          {/* Article sections */}
+          {article.sections.map((section, i) => (
+            <SectionContent key={i} section={section} styles={s} />
+          ))}
 
-            {/* Body - render markdown as plain text paragraphs */}
-            {article.body_markdown
-              .split('\n')
-              .filter(line => line.trim() !== '')
-              .map((line, i) => {
-                const isH1 = line.startsWith('# ');
-                const isH2 = line.startsWith('## ');
-                const isH3 = line.startsWith('### ');
-                const isBullet = line.startsWith('- ') || line.startsWith('* ');
-                const cleanLine = line
-                  .replace(/^#{1,3}\s/, '')
-                  .replace(/\*\*(.*?)\*\*/g, '$1')
-                  .replace(/\*(.*?)\*/g, '$1')
-                  .replace(/^[-*]\s/, '');
+          {/* Sources */}
+          <View style={s.sourcesWrap}>
+            <Text style={s.sourcesTitle}>Sources</Text>
+            {article.sources.map((source, i) => (
+              <Text key={i} style={s.sourceItem}>{source}</Text>
+            ))}
+          </View>
 
-                if (isH1) return <Text key={i} style={s.bodyH1}>{cleanLine}</Text>;
-                if (isH2) return <Text key={i} style={s.bodyH2}>{cleanLine}</Text>;
-                if (isH3) return <Text key={i} style={s.bodyH3}>{cleanLine}</Text>;
-                if (isBullet) return (
-                  <View key={i} style={s.bulletRow}>
-                    <View style={s.bulletDot} />
-                    <Text style={s.bodyText}>{cleanLine}</Text>
-                  </View>
-                );
-                return <Text key={i} style={s.bodyText}>{cleanLine}</Text>;
-              })
-            }
+          {/* Disclaimer */}
+          <View style={s.disclaimerWrap}>
+            <Text style={s.disclaimerText}>{ARTICLE_DISCLAIMER}</Text>
+          </View>
 
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        )}
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const w = (a: number) => (c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return StyleSheet.create({
     navBar: {
       flexDirection: 'row',
@@ -147,64 +167,157 @@ const createStyles = (c: AppColors) => {
       paddingBottom: 12,
     },
     backBtn: {
-      width: 40, height: 40, borderRadius: 12,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       backgroundColor: c.borderSubtle,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     navTitle: {
-      fontSize: 19, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.3, fontFamily: 'System', flex: 1, textAlign: 'center',
+      fontSize: 19,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.3,
+      fontFamily: FF,
+      flex: 1,
+      textAlign: 'center',
     },
 
-    content: { paddingHorizontal: 20, paddingBottom: 40 },
+    content: { paddingBottom: 40 },
+
+    coverImage: {
+      width: '100%',
+      height: 220,
+      backgroundColor: c.isDark ? w(0.06) : w(0.04),
+      marginBottom: 20,
+    },
 
     metaRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      marginBottom: 16, flexWrap: 'wrap',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+      paddingHorizontal: 20,
     },
     chip: {
-      borderRadius: 20, borderWidth: 1,
-      paddingHorizontal: 10, paddingVertical: 4,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
     },
-    chipText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, fontFamily: FF },
-    readTime: { fontSize: 14, color: w(0.40), fontFamily: FF },
+    chipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      fontFamily: FF,
+    },
+    readTime: {
+      fontSize: 13,
+      color: w(0.4),
+      fontFamily: FF,
+    },
 
     title: {
-      fontSize: 28, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.5, lineHeight: 36, marginBottom: 10, fontFamily: 'System',
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.textPrimary,
+      letterSpacing: -0.5,
+      lineHeight: 34,
+      marginBottom: 8,
+      paddingHorizontal: 20,
+      fontFamily: FF,
     },
     subtitle: {
-      fontSize: 18, color: w(0.55), lineHeight: 24,
-      fontWeight: '400', marginBottom: 8, fontFamily: FF,
+      fontSize: 17,
+      color: w(0.55),
+      lineHeight: 23,
+      fontWeight: '400',
+      paddingHorizontal: 20,
+      fontFamily: FF,
     },
     divider: {
-      height: 1, backgroundColor: c.borderSubtle,
-      marginVertical: 20,
+      height: 1,
+      backgroundColor: c.borderSubtle,
+      marginVertical: 24,
+      marginHorizontal: 20,
     },
 
-    bodyH1: {
-      fontSize: 22, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.3, marginBottom: 10, marginTop: 20, fontFamily: 'System',
+    sectionWrap: {
+      marginBottom: 28,
+      paddingHorizontal: 20,
     },
-    bodyH2: {
-      fontSize: 20, fontWeight: '700', color: c.textPrimary,
-      letterSpacing: -0.2, marginBottom: 8, marginTop: 18, fontFamily: 'System',
-    },
-    bodyH3: {
-      fontSize: 17, fontWeight: '700', color: ORANGE,
-      marginBottom: 6, marginTop: 14, fontFamily: 'System',
+    sectionHeading: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.3,
+      marginBottom: 12,
+      fontFamily: FF,
     },
     bodyText: {
-      fontSize: 17, color: w(0.75),
-      lineHeight: 24, marginBottom: 12, fontFamily: FF, flex: 1,
+      fontSize: 17,
+      color: w(0.75),
+      lineHeight: 25,
+      marginBottom: 12,
+      fontFamily: FF,
     },
+    boldText: {
+      fontWeight: '700',
+      color: c.textPrimary,
+    },
+
     bulletRow: {
-      flexDirection: 'row', alignItems: 'flex-start',
-      gap: 10, marginBottom: 10,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      marginBottom: 10,
     },
     bulletDot: {
-      width: 6, height: 6, borderRadius: 3,
-      backgroundColor: ORANGE, marginTop: 9, flexShrink: 0,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: ORANGE,
+      marginTop: 10,
+      flexShrink: 0,
+    },
+
+    sourcesWrap: {
+      marginTop: 12,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      borderTopWidth: 1,
+      borderTopColor: c.borderSubtle,
+    },
+    sourcesTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: ORANGE,
+      letterSpacing: 1,
+      marginBottom: 10,
+      textTransform: 'uppercase',
+      fontFamily: FF,
+    },
+    sourceItem: {
+      fontSize: 14,
+      color: w(0.4),
+      lineHeight: 20,
+      marginBottom: 6,
+      fontFamily: FF,
+    },
+
+    disclaimerWrap: {
+      marginTop: 24,
+      marginHorizontal: 20,
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: c.isDark ? w(0.04) : w(0.03),
+    },
+    disclaimerText: {
+      fontSize: 13,
+      color: w(0.35),
+      lineHeight: 18,
+      textAlign: 'center',
+      fontFamily: FF,
     },
   });
 };

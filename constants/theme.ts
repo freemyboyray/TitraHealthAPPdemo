@@ -153,10 +153,13 @@ export const SPACE = {
 
 /** Map content categories (courses/articles) to category key */
 const CONTENT_TO_CATEGORY: Record<string, string> = {
-  medical:       'medication',
-  nutrition:     'nutrition',
-  mental_health: 'sleep',
-  lifestyle:     'activity',
+  medical:        'medication',
+  medication:     'medication',
+  nutrition:      'nutrition',
+  mental_health:  'sleep',
+  lifestyle:      'activity',
+  'side-effects': 'vitals',
+  hydration:      'hydration',
 };
 
 export function contentCategoryColor(isDark: boolean, contentCategory: string): string {

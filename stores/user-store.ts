@@ -3,6 +3,7 @@ import { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { ProfileRow } from './log-store';
+import { usePreferencesStore } from './preferences-store';
 
 type UserStore = {
   session: Session | null;
@@ -61,6 +62,7 @@ export const useUserStore = create<UserStore>((set) => ({
       const appKeys = keys.filter(k => k.startsWith('@titrahealth_'));
       if (appKeys.length > 0) await AsyncStorage.multiRemove(appKeys);
     } catch {}
+    usePreferencesStore.getState().reset();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 
@@ -84,6 +86,7 @@ export const useUserStore = create<UserStore>((set) => ({
     // Sign out and clear local storage
     await supabase.auth.signOut();
     await AsyncStorage.clear().catch(() => {});
+    usePreferencesStore.getState().reset();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 }));
