@@ -209,7 +209,14 @@ export default function TabLayout() {
               onFabPress={() => setSheetOpen((v) => !v)}
             />
           )}
-          screenOptions={{ headerShown: false }}>
+          screenOptions={{
+            headerShown: false,
+            animation: 'fade',
+            transitionSpec: {
+              animation: 'timing',
+              config: { duration: 350 },
+            },
+          }}>
           <Tabs.Screen name="index" />
           <Tabs.Screen name="log" />
           <Tabs.Screen name="explore" />

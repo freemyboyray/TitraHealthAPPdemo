@@ -5,7 +5,7 @@ try { Notifications = require('expo-notifications'); } catch {}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -29,6 +29,7 @@ import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
 import { ReviewPrompt } from '@/components/review-prompt';
+import { ConsentPrompt } from '@/components/consent-prompt';
 import { useAchievementDetector } from '@/hooks/useAchievementDetector';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 
@@ -72,9 +73,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function migrateConsent() {
       const prefs = usePreferencesStore.getState();
-      if (prefs.aiDataConsent && prefs.foodDbConsent) return; // already migrated
+      if (prefs.aiDataConsent && prefs.foodDbConsent) {
+        useUserStore.setState({ consentMigrationDone: true });
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        useUserStore.setState({ consentMigrationDone: true });
+        return;
+      }
       const { data } = await supabase
         .from('profiles')
         .select('ai_accepted_at')
@@ -84,8 +91,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         prefs.setAiDataConsent(true);
         prefs.setFoodDbConsent(true);
       }
+      useUserStore.setState({ consentMigrationDone: true });
     }
-    migrateConsent().catch(() => {});
+    migrateConsent().catch(() => {
+      useUserStore.setState({ consentMigrationDone: true });
+    });
   }, []);
 
   // Initialize IAP connection on mount (no-op in Expo Go — native module unavailable)
@@ -211,6 +221,42 @@ function ReviewPromptLayer() {
   return <ReviewPrompt onReview={onReview} onDismiss={onDismiss} />;
 }
 
+function ConsentPromptLayer() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const session = useUserStore((s) => s.session);
+  const sessionLoaded = useUserStore((s) => s.sessionLoaded);
+  const consentMigrationDone = useUserStore((s) => s.consentMigrationDone);
+  const aiDataConsent = usePreferencesStore((s) => s.aiDataConsent);
+  const foodDbConsent = usePreferencesStore((s) => s.foodDbConsent);
+  const { pendingEvent } = useAchievementDetector();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (!sessionLoaded || !consentMigrationDone) return null;
+  if (!session) return null;
+  if (dismissed) return null;
+  if (pendingEvent) return null;
+  if (aiDataConsent && foodDbConsent) return null;
+  // Don't interrupt onboarding / auth / TOS-update flows
+  if (
+    pathname?.startsWith('/auth') ||
+    pathname?.startsWith('/onboarding') ||
+    pathname?.startsWith('/tos-update')
+  ) return null;
+
+  return (
+    <ConsentPrompt
+      missingAi={!aiDataConsent}
+      missingFood={!foodDbConsent}
+      onReview={() => {
+        setDismissed(true);
+        router.push('/settings/privacy');
+      }}
+      onDismiss={() => setDismissed(true)}
+    />
+  );
+}
+
 function ScreenTracker() {
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -262,6 +308,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="progress-photos" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="articles" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="top-contributors" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />
@@ -269,6 +316,7 @@ function RootLayoutInner() {
               <HealthSyncToast />
               <MilestoneLayer />
               <ReviewPromptLayer />
+              <ConsentPromptLayer />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>

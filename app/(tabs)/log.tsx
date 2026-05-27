@@ -48,7 +48,7 @@ import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { useAnimatedReaction, runOnJS as reanimatedRunOnJS } from 'react-native-reanimated';
+import Reanimated, { useAnimatedReaction, runOnJS as reanimatedRunOnJS, FadeIn } from 'react-native-reanimated';
 import { useChartScrub } from '@/hooks/useChartScrub';
 import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
@@ -214,7 +214,7 @@ function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWi
   const { openAiChat } = useUiStore();
   const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
   return (
-    <Pressable style={[s.hmWrap, fullWidth && { width: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }} accessibilityRole="button" accessibilityLabel={`${metric.label}, ${metric.value} ${metric.unit}, ${metric.rangeLabel}. Long press to ask AI`}>
+    <Pressable style={[s.hmWrap, fullWidth && { flexBasis: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }} accessibilityRole="button" accessibilityLabel={`${metric.label}, ${metric.value} ${metric.unit}, ${metric.rangeLabel}. Long press to ask AI`}>
       <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
         <View style={[s.hmInner, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
           {/* Left: content */}
@@ -684,8 +684,8 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
 
   return (
     <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI} delayLongPress={400} accessibilityRole="button" accessibilityLabel={`${label}, ${isEmpty ? 'no data' : value}${target > 0 ? `, ${remaining > 0 ? `${remaining.toLocaleString()}${unit} to go` : 'goal reached'}` : ''}. Long press to ask AI`}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={s.dailyInner}>
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, flex: 1 }]}>
+        <View style={[s.dailyInner, { flex: 1 }]}>
           <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <RingIndicator size={64} strokeWidth={5} pct={pct} color={isEmpty ? (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)') : ringColor} />
             <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
@@ -706,7 +706,7 @@ function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, u
             </Pressable>
           )}
           {(onIncrement || onDecrement) && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 'auto', paddingTop: 12 }}>
               {onDecrement && (
                 <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onDecrement(); }}
@@ -1023,7 +1023,7 @@ const PK_TIER_GUIDE = [
 
 const CHART_HEIGHT = 134;
 const EXP_CHART_HEIGHT = 234;
-const ML = 40; // left margin for Y-axis labels
+const ML = 48; // left margin for Y-axis labels
 const MR = 8;  // right margin
 const MT = 8;  // top margin
 const MB = 14; // bottom margin so 0% label isn't clipped
@@ -1188,12 +1188,16 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
 
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
   const dismissSheet = () => {
-    Animated.timing(sheetTranslateY, { toValue: screenHeight, duration: 220, useNativeDriver: true }).start(() => {
-      sheetTranslateY.setValue(0);
+    Animated.timing(sheetTranslateY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
       setExpandedModal(false);
       setSelectedPointIdx(null);
     });
   };
+  useEffect(() => {
+    if (expandedModal) {
+      Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
+    }
+  }, [expandedModal, sheetTranslateY]);
   const sheetPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
@@ -1272,8 +1276,11 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   }, [chartData, injFreqDays, injTimestamp]);
 
   const openModal = useCallback(() => {
-    if (chartData) setExpandedModal(true);
-  }, [chartData]);
+    if (chartData) {
+      sheetTranslateY.setValue(screenHeight);
+      setExpandedModal(true);
+    }
+  }, [chartData, screenHeight, sheetTranslateY]);
 
   const compactScrub = useChartScrub({
     points,
@@ -1349,7 +1356,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 stroke={colors.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'} strokeWidth={1} strokeDasharray="3,4"
               />
               <SvgText
-                x={ML - 5} y={y + 3.5}
+                x={ML - 8} y={y + 3.5}
                 fontSize={11} fill={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.45)'}
                 textAnchor="end" fontFamily="System"
               >
@@ -1407,26 +1414,21 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
 
-            {/* Medication info */}
-            <Text style={[s.chartMuted, { marginBottom: 14, fontSize: 13 }]}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+            {/* Top row: medication info + tap-for-full-view */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={[s.chartMuted, { fontSize: 13, flexShrink: 1 }]} numberOfLines={1}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 8 }}>
+                <Ionicons name="expand-outline" size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
+                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+              </View>
+            </View>
 
             {/* Level display */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
-              <View>
-                <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
-                {concentrationDisplay && (
-                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{levelLabel} · of peak level</Text>
-                )}
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={[s.chartMuted, { fontSize: 13 }]}>
-                  {isDailyDrug ? 'Intraday profile' : daysSinceLabel}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Ionicons name="expand-outline" size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                  <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
-                </View>
-              </View>
+            <View style={{ marginBottom: 14 }}>
+              <Text style={s.chartBig}>{concentrationDisplay ?? levelLabel}</Text>
+              {concentrationDisplay && (
+                <Text style={[s.chartMuted, { marginTop: 2 }]}>{levelLabel} · of peak level</Text>
+              )}
             </View>
 
             <GestureDetector gesture={compactScrub.gesture}>
@@ -2012,9 +2014,22 @@ function WeightProjectionCard({
   const insets = useSafeAreaInsets();
   const { openAiChat } = useUiStore();
 
-  // Drag-to-dismiss
+  // Drag-to-dismiss + slide-in/out
   const sheetY = useRef(new Animated.Value(0)).current;
-  const closeSheet = () => { sheetY.setValue(0); setExpanded(false); };
+  const openSheet = useCallback(() => {
+    sheetY.setValue(screenHeight);
+    setExpanded(true);
+  }, [screenHeight, sheetY]);
+  const closeSheet = () => {
+    Animated.timing(sheetY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
+      setExpanded(false);
+    });
+  };
+  useEffect(() => {
+    if (expanded) {
+      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
+    }
+  }, [expanded, sheetY]);
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
@@ -2040,7 +2055,7 @@ function WeightProjectionCard({
     <>
       {/* Header row — outside the card */}
       <Pressable
-        onPress={() => setExpanded(true)}
+        onPress={openSheet}
         onLongPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           openAiChat({
@@ -2056,7 +2071,7 @@ function WeightProjectionCard({
         <View style={{ height: 4 }} />
       </Pressable>
 
-      <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => setExpanded(true)} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
+      <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={openSheet} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
             {/* Weight value + tap hint */}
@@ -2605,12 +2620,17 @@ function LifestyleTrendCard({
   const sheetY = useRef(new Animated.Value(0)).current;
 
   const dismiss = () => {
-    Animated.timing(sheetY, { toValue: screenHeight, duration: 220, useNativeDriver: true }).start(() => {
-      sheetY.setValue(0);
+    Animated.timing(sheetY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
       setExpanded(false);
       setSelIdx(null);
     });
   };
+
+  useEffect(() => {
+    if (expanded) {
+      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
+    }
+  }, [expanded, sheetY]);
 
   const panRef = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
@@ -2715,7 +2735,10 @@ function LifestyleTrendCard({
     };
   }, [values, dates, metric, target]);
 
-  const openExpanded = useCallback(() => setExpanded(true), []);
+  const openExpanded = useCallback(() => {
+    sheetY.setValue(screenHeight);
+    setExpanded(true);
+  }, [screenHeight, sheetY]);
 
   const ltCompactScrub = useChartScrub({
     points: compact.pts,
@@ -2752,8 +2775,8 @@ function LifestyleTrendCard({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 6, paddingRight: 4 }}
-        style={{ marginBottom: 8 }}
+        contentContainerStyle={{ gap: 10, paddingRight: 4 }}
+        style={{ marginTop: 12, marginBottom: 8 }}
       >
         {LIFESTYLE_METRICS.map(m => (
           <Pressable
@@ -3537,7 +3560,7 @@ export default function InsightsScreen() {
 
           {/* ── Lifestyle content ── */}
           {activeTab === 'lifestyle' && (
-            <>
+            <Reanimated.View key="lifestyle" entering={FadeIn.duration(350)}>
               {/* <AIInsightsCard /> */}
 
               <View style={{ height: 4 }} />
@@ -3704,12 +3727,12 @@ export default function InsightsScreen() {
                 ))
               )}
               <RecentLogsCard entries={lifestyleLogs} grouped onViewAll={() => router.push('/log-history')} />
-            </>
+            </Reanimated.View>
           )}
 
           {/* ── Medication content ── */}
           {activeTab === 'medication' && (
-            <>
+            <Reanimated.View key="medication" entering={FadeIn.duration(350)}>
               {/* <MedAIInsightsCard /> */}
               <MedLevelChartCard
                 chartData={medChartData}
@@ -3767,12 +3790,12 @@ export default function InsightsScreen() {
                   { text: 'Delete', style: 'destructive', onPress: () => deleteInjectionLog(id) },
                 ]);
               }} onViewAll={() => router.push('/log-history')} />
-            </>
+            </Reanimated.View>
           )}
 
           {/* ── Progress content ── */}
           {activeTab === 'progress' && (
-            <>
+            <Reanimated.View key="progress" entering={FadeIn.duration(350)}>
               {/* <ProgAIInsightsCard /> */}
               <WeightProjectionCard
                 projection={projection ?? null}
@@ -3913,7 +3936,7 @@ export default function InsightsScreen() {
                 <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
                 <WeeklyCheckinCard lastLoggedAt={lastCheckinLoggedAt} />
               </View>
-            </>
+            </Reanimated.View>
           )}
 
           </Pressable>
@@ -4001,7 +4024,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   // Daily Metrics grid
   sectionTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
   dailyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  dailyWrap: { width: '47%', borderRadius: 20 },
+  dailyWrap: { flexBasis: '47%', flexGrow: 1, borderRadius: 20 },
   dailyInner: { padding: 18 },
   dailyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   dailyIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
@@ -4052,7 +4075,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Health Monitor
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 8 },
-  hmWrap: { width: '47%', borderRadius: 20 },
+  hmWrap: { flexBasis: '47%', flexGrow: 1, borderRadius: 20 },
   hmBody: { overflow: 'hidden', borderWidth: 0.5, borderColor: c.border },
   hmInner: { padding: 18 },
   hmTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },

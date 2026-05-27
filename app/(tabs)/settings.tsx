@@ -326,7 +326,7 @@ function createStyles(c: AppColors) {
 
     profileCard: {
       flexDirection: 'row', alignItems: 'center', gap: 14,
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, padding: 16, marginBottom: 8,
       borderWidth: 1,
       borderTopColor: c.border,
@@ -349,7 +349,7 @@ function createStyles(c: AppColors) {
     },
 
     card: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16,
       borderWidth: 1,
       borderTopColor: c.border,

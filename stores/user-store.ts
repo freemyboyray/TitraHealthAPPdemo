@@ -10,6 +10,7 @@ type UserStore = {
   sessionLoaded: boolean;
   demoMode: boolean;
   profile: ProfileRow | null;
+  consentMigrationDone: boolean;
   setSession: (s: Session | null) => void;
   setSessionLoaded: (v: boolean) => void;
   setDemoMode: (v: boolean) => void;
@@ -23,6 +24,7 @@ export const useUserStore = create<UserStore>((set) => ({
   sessionLoaded: false,
   demoMode: false,
   profile: null,
+  consentMigrationDone: false,
 
   setSession: (session) => set({ session }),
   setSessionLoaded: (sessionLoaded) => set({ sessionLoaded }),
