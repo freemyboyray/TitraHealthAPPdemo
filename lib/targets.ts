@@ -124,6 +124,8 @@ export type SideEffectRule = {
   foodsToPrioritize?: string[];
   /** Human-readable label for UI reason string. */
   label: string;
+  /** Clinical evidence citations for trust UI. */
+  citations?: { label: string; shortDesc: string }[];
 };
 
 // ─── Side-Effect Rules Table ──────────────────────────────────────────────────
@@ -140,6 +142,10 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     foodsToAvoid: ['fried foods', 'processed foods', 'refined grains'],
     foodsToPrioritize: ['oats', 'legumes', 'leafy greens', 'berries', 'cooked vegetables'],
     label: 'Water, fiber, and activity increased for constipation',
+    citations: [
+      { label: 'PMC11668918', shortDesc: 'Dietary recs for GI symptoms on GLP-1 RAs' },
+      { label: 'PMC9821052', shortDesc: 'GLP-1 GI adverse event management consensus' },
+    ],
   },
   diarrhea: {
     waterMlDelta: 400, proteinPct: 0, fiberGDelta: -10, fatPct: -15, carbsPct: 0,
@@ -148,6 +154,9 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     foodsToAvoid: ['high-FODMAP foods', 'dairy', 'fried foods', 'artificial sweeteners', 'high-fat foods'],
     foodsToPrioritize: ['white rice', 'bananas', 'plain chicken', 'cooked carrots', 'boiled potatoes'],
     label: 'Water increased, fiber and fat reduced for diarrhea',
+    citations: [
+      { label: 'PMC11668918', shortDesc: 'Dietary recs for GI symptoms on GLP-1 RAs' },
+    ],
   },
   nausea: {
     waterMlDelta: 300, proteinPct: 0, fiberGDelta: -5, fatPct: -20, carbsPct: 0,
@@ -155,6 +164,10 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     foodsToAvoid: ['greasy foods', 'spicy foods', 'citrus', 'carbonated drinks', 'high-fat foods'],
     foodsToPrioritize: ['bland foods', 'crackers', 'white rice', 'bananas', 'plain chicken', 'toast'],
     label: 'Fat and fiber reduced, small frequent meals recommended for nausea',
+    citations: [
+      { label: 'PMC9821052', shortDesc: 'GLP-1 GI adverse event management consensus' },
+      { label: 'PMC11668918', shortDesc: 'Dietary recs for GI symptoms on GLP-1 RAs' },
+    ],
   },
   vomiting: {
     waterMlDelta: 500, proteinPct: 0, fiberGDelta: -10, fatPct: -25, carbsPct: 0,
@@ -162,6 +175,9 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     foodsToAvoid: ['greasy foods', 'fried foods', 'spicy foods', 'high-fat foods', 'high-fiber foods'],
     foodsToPrioritize: ['bananas', 'white rice', 'applesauce', 'toast', 'protein shakes', 'clear fluids'],
     label: 'Fat and fiber minimized, hydration prioritized for vomiting',
+    citations: [
+      { label: 'PMC9821052', shortDesc: 'GLP-1 GI adverse event management consensus' },
+    ],
   },
   fatigue: {
     waterMlDelta: 300, proteinPct: 0, fiberGDelta: 0, fatPct: 0, carbsPct: 10,
@@ -182,6 +198,9 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     stepsDelta: 0, activeMinDelta: 0, mealFrequency: 5,
     foodsToPrioritize: ['protein shakes', 'Greek yogurt', 'eggs', 'nutrient-dense foods'],
     label: 'Protein and small frequent meals prioritized for suppressed appetite',
+    citations: [
+      { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: '≥1.2g/kg protein to preserve lean mass' },
+    ],
   },
 
   // ── New enum values (active after migration 20260315) ────────────────────
@@ -205,6 +224,10 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     resistanceFlag: true,
     foodsToPrioritize: ['fish', 'poultry', 'eggs', 'Greek yogurt', 'cottage cheese', 'tofu'],
     label: 'Protein increased, resistance training recommended for muscle loss',
+    citations: [
+      { label: 'PMC12536186', shortDesc: 'Lean mass preservation on GLP-1/GIP agonists' },
+      { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: '≥1.2g/kg protein to preserve lean mass' },
+    ],
   },
   heartburn: {
     waterMlDelta: 0, proteinPct: 0, fiberGDelta: 0, fatPct: -15, carbsPct: 0,
@@ -218,6 +241,9 @@ export const SIDE_EFFECT_RULES: Record<string, SideEffectRule> = {
     stepsDelta: 0, activeMinDelta: 0, mealFrequency: 4,
     foodsToPrioritize: ['high-protein foods', 'high-fiber foods', 'low-glycemic foods'],
     label: 'Protein and fiber increased to reduce food noise',
+    citations: [
+      { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: '≥1.2g/kg protein to preserve lean mass' },
+    ],
   },
   sulfur_burps: {
     waterMlDelta: 300, proteinPct: 0, fiberGDelta: -5, fatPct: -10, carbsPct: 0,
@@ -246,6 +272,8 @@ export type SideEffectAdjustment = {
   adjustmentReasons: string[];
   resistanceTrainingRecommended: boolean;
   fiberType?: string;
+  /** Aggregated citations from all triggered rules. */
+  citations: { label: string; shortDesc: string }[];
 };
 
 // ─── Adjustable Targets (minimal shape - avoids circular import with scoring.ts) ─
@@ -290,6 +318,7 @@ export function applyAdjustments<T extends AdjustableTargets>(
     foodsToPrioritize: [],
     adjustmentReasons: [],
     resistanceTrainingRecommended: false,
+    citations: [],
   };
 
   if (!recentLogs || recentLogs.length === 0) return { ...base, ...noOp };
@@ -331,6 +360,7 @@ export function applyAdjustments<T extends AdjustableTargets>(
   const foodsToAvoid: string[] = [];
   const foodsToPrioritize: string[] = [];
   const reasons: string[] = [];
+  const allCitations: { label: string; shortDesc: string }[] = [];
 
   const fiberTypePriority: Record<string, number> = {
     soluble_only: 3,
@@ -399,6 +429,11 @@ export function applyAdjustments<T extends AdjustableTargets>(
     }
 
     reasons.push(`${rule.label} (logged ${daysLabel})`);
+
+    // Citations (deduplicated by label)
+    for (const c of rule.citations ?? []) {
+      if (!allCitations.some(x => x.label === c.label)) allCitations.push(c);
+    }
   }
 
   // Apply deltas with hard floors
@@ -425,5 +460,6 @@ export function applyAdjustments<T extends AdjustableTargets>(
     adjustmentReasons: reasons,
     resistanceTrainingRecommended: resistanceFlag,
     fiberType,
+    citations: allCitations,
   };
 }

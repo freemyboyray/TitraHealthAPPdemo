@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -23,7 +24,14 @@ import { useProfile } from '@/contexts/profile-context';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { requestNotificationPermission, scheduleDoseReminder, cancelReminder } from '@/lib/notifications';
-import { type ReminderSlot, useRemindersStore } from '@/stores/reminders-store';
+import {
+  type ReminderSlot,
+  type HydrationConfig,
+  type ProteinConfig,
+  type CustomReminder,
+  MAX_CUSTOM_REMINDERS,
+  useRemindersStore,
+} from '@/stores/reminders-store';
 
 const FF = 'System';
 
@@ -82,6 +90,26 @@ function getCategories(isOnMedication: boolean): Category[] {
   ];
 }
 
+/* ── Custom reminder presets ── */
+const CUSTOM_PRESETS: { label: string; icon: string; color: string }[] = [
+  { label: 'Take supplements', icon: 'sunny-outline', color: '#FF9500' },
+  { label: 'Movement break', icon: 'walk-outline', color: '#34C759' },
+  { label: 'Drink electrolytes', icon: 'flash-outline', color: '#5AC8FA' },
+  { label: 'Mindful breathing', icon: 'leaf-outline', color: '#AF52DE' },
+  { label: 'Log progress photo', icon: 'camera-outline', color: '#FF2D55' },
+];
+
+/* ── Hydration interval options ── */
+const HYDRATION_INTERVALS: { label: string; value: number }[] = [
+  { label: '1h', value: 1 },
+  { label: '1.5h', value: 1.5 },
+  { label: '2h', value: 2 },
+  { label: '3h', value: 3 },
+];
+
+/* ── Protein meal labels ── */
+const PROTEIN_MEALS = ['Breakfast', 'Lunch', 'Dinner'] as const;
+
 /* ── Time helpers ── */
 function hhmmToDate(hhmm: string): Date {
   const [h, m] = hhmm.split(':').map(Number);
@@ -115,7 +143,16 @@ function computeNextDose(lastDate: string | undefined, freqDays: number | undefi
 }
 
 /* ── Component ── */
-type PickerTarget = ReminderSlot | 'dose_time' | null;
+type PickerTarget =
+  | ReminderSlot
+  | 'dose_time'
+  | 'hydration_start'
+  | 'hydration_end'
+  | 'protein_0'
+  | 'protein_1'
+  | 'protein_2'
+  | `custom_${string}`
+  | null;
 
 export default function RemindersScreen() {
   const { colors } = useAppTheme();
@@ -126,6 +163,10 @@ export default function RemindersScreen() {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [pickerDate, setPickerDate] = useState<Date>(new Date(2000, 0, 1, 8, 0));
   const pickerDateRef = useRef<Date>(new Date(2000, 0, 1, 8, 0));
+
+  // Custom reminder inline form state
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customLabel, setCustomLabel] = useState('');
 
   // ─── Entrance animations ──────────────────────────────────────────────────
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -222,6 +263,30 @@ export default function RemindersScreen() {
     setPickerTarget(slot);
   }
 
+  function openHydrationPicker(which: 'hydration_start' | 'hydration_end') {
+    const time = which === 'hydration_start' ? store.hydration.startTime : store.hydration.endTime;
+    const d = hhmmToDate(time);
+    pickerDateRef.current = d;
+    setPickerDate(d);
+    setPickerTarget(which);
+  }
+
+  function openProteinPicker(index: 0 | 1 | 2) {
+    const d = hhmmToDate(store.protein.times[index]);
+    pickerDateRef.current = d;
+    setPickerDate(d);
+    setPickerTarget(`protein_${index}` as PickerTarget);
+  }
+
+  function openCustomPicker(id: string) {
+    const cr = store.customReminders.find((r) => r.id === id);
+    if (!cr) return;
+    const d = hhmmToDate(cr.time);
+    pickerDateRef.current = d;
+    setPickerDate(d);
+    setPickerTarget(`custom_${id}`);
+  }
+
   function closePicker() {
     setPickerTarget(null);
   }
@@ -232,8 +297,67 @@ export default function RemindersScreen() {
       confirmDoseTime();
       return;
     }
-    store.setSlotTime(pickerTarget, dateToHHMM(pickerDateRef.current));
+    if (pickerTarget === 'hydration_start') {
+      store.setHydrationStartTime(dateToHHMM(pickerDateRef.current));
+      closePicker();
+      return;
+    }
+    if (pickerTarget === 'hydration_end') {
+      store.setHydrationEndTime(dateToHHMM(pickerDateRef.current));
+      closePicker();
+      return;
+    }
+    if (pickerTarget === 'protein_0' || pickerTarget === 'protein_1' || pickerTarget === 'protein_2') {
+      const index = Number(pickerTarget.split('_')[1]) as 0 | 1 | 2;
+      store.setProteinTime(index, dateToHHMM(pickerDateRef.current));
+      closePicker();
+      return;
+    }
+    if (typeof pickerTarget === 'string' && pickerTarget.startsWith('custom_')) {
+      const id = pickerTarget.slice(7);
+      store.updateCustomReminder(id, { time: dateToHHMM(pickerDateRef.current) });
+      closePicker();
+      return;
+    }
+    // Standard slot
+    store.setSlotTime(pickerTarget as ReminderSlot, dateToHHMM(pickerDateRef.current));
     closePicker();
+  }
+
+  function handleAddPreset(preset: typeof CUSTOM_PRESETS[number]) {
+    if (store.customReminders.length >= MAX_CUSTOM_REMINDERS) return;
+    const id = crypto.randomUUID?.() ?? Date.now().toString();
+    store.addCustomReminder({
+      id,
+      label: preset.label,
+      enabled: true,
+      time: '09:00',
+      icon: preset.icon,
+      color: preset.color,
+    });
+  }
+
+  function handleAddCustom() {
+    if (!customLabel.trim()) return;
+    if (store.customReminders.length >= MAX_CUSTOM_REMINDERS) return;
+    const id = crypto.randomUUID?.() ?? Date.now().toString();
+    store.addCustomReminder({
+      id,
+      label: customLabel.trim(),
+      enabled: true,
+      time: '09:00',
+      icon: 'notifications-outline',
+      color: colors.orange,
+    });
+    setCustomLabel('');
+    setShowCustomForm(false);
+  }
+
+  function handleDeleteCustom(id: string) {
+    Alert.alert('Remove Reminder', 'Are you sure you want to delete this reminder?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => store.removeCustomReminder(id) },
+    ]);
   }
 
   // Medication info
@@ -246,6 +370,10 @@ export default function RemindersScreen() {
   const doseLabel = p
     ? `${brandName} ${p.doseMg} mg · ${freqDays === 1 ? 'daily' : freqDays === 7 ? 'weekly' : freqDays === 14 ? 'biweekly' : `every ${freqDays}d`}`
     : null;
+
+  // Split categories: Nutrition is index 0, the rest follow after Wellness
+  const nutritionCategory = categories[0];
+  const remainingCategories = categories.slice(1);
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -282,8 +410,184 @@ export default function RemindersScreen() {
 
         {store.masterEnabled && (
           <Animated.View style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslate }] }}>
-            {/* Reminder categories */}
-            {categories.map((cat) => (
+
+            {/* ── Nutrition category ── */}
+            {nutritionCategory && (
+              <View style={s.section}>
+                <View style={s.sectionHeader}>
+                  <Text style={s.sectionTitle}>{nutritionCategory.title}</Text>
+                  <Text style={s.sectionSub}>{nutritionCategory.subtitle}</Text>
+                </View>
+                <View style={s.card}>
+                  {nutritionCategory.slots.map((meta, i) => {
+                    const cfg = store.slots[meta.slot];
+                    return (
+                      <View key={meta.slot}>
+                        {i > 0 && <View style={s.divider} />}
+                        <View style={s.slotRow}>
+                          <View style={s.slotLeft}>
+                            <View style={[s.slotIconWrap, { backgroundColor: meta.color + '18' }]}>
+                              <Ionicons name={meta.icon} size={18} color={meta.color} />
+                            </View>
+                            <View style={s.slotTextWrap}>
+                              <Text style={[s.slotLabel, !cfg.enabled && s.slotLabelDisabled]}>
+                                {meta.label}
+                              </Text>
+                              {cfg.enabled && (
+                                <TouchableOpacity
+                                  onPress={() => openPicker(meta.slot)}
+                                  activeOpacity={0.7}
+                                  hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                                >
+                                  <Text style={s.timeInline}>{formatTime(cfg.time)}</Text>
+                                </TouchableOpacity>
+                              )}
+                              {!cfg.enabled && (
+                                <Text style={s.slotSub}>{meta.subtitle}</Text>
+                              )}
+                            </View>
+                          </View>
+                          <Switch
+                            value={cfg.enabled}
+                            onValueChange={(v) => store.setSlotEnabled(meta.slot, v)}
+                            trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                            thumbColor="#FFFFFF"
+                            ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                            style={s.slotSwitch}
+                          />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* ── Wellness section (Hydration + Protein) ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Wellness</Text>
+                <Text style={s.sectionSub}>Healthy habits throughout the day</Text>
+              </View>
+              <View style={s.card}>
+
+                {/* Hydration row */}
+                <View style={s.slotRow}>
+                  <View style={s.slotLeft}>
+                    <View style={[s.slotIconWrap, { backgroundColor: '#5AC8FA18' }]}>
+                      <Ionicons name="water-outline" size={18} color="#5AC8FA" />
+                    </View>
+                    <View style={[s.slotTextWrap, { flex: 1 }]}>
+                      <Text style={[s.slotLabel, !store.hydration.enabled && s.slotLabelDisabled]}>
+                        Hydration Reminders
+                      </Text>
+                      {!store.hydration.enabled && (
+                        <Text style={s.slotSub}>Gentle sip reminders throughout the day</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Switch
+                    value={store.hydration.enabled}
+                    onValueChange={(v) => store.setHydrationEnabled(v)}
+                    trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                    style={s.slotSwitch}
+                  />
+                </View>
+                {store.hydration.enabled && (
+                  <View style={s.wellnessExpanded}>
+                    {/* Start / End time row */}
+                    <View style={s.wellnessTimeRow}>
+                      <TouchableOpacity
+                        onPress={() => openHydrationPicker('hydration_start')}
+                        activeOpacity={0.7}
+                        style={s.wellnessTimePill}
+                      >
+                        <Text style={s.wellnessTimeLabel}>From</Text>
+                        <Text style={s.timeInline}>{formatTime(store.hydration.startTime)}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => openHydrationPicker('hydration_end')}
+                        activeOpacity={0.7}
+                        style={s.wellnessTimePill}
+                      >
+                        <Text style={s.wellnessTimeLabel}>To</Text>
+                        <Text style={s.timeInline}>{formatTime(store.hydration.endTime)}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* Interval selector */}
+                    <View style={s.intervalRow}>
+                      {HYDRATION_INTERVALS.map((opt) => {
+                        const active = store.hydration.intervalHours === opt.value;
+                        return (
+                          <TouchableOpacity
+                            key={opt.value}
+                            onPress={() => store.setHydrationInterval(opt.value)}
+                            activeOpacity={0.7}
+                            style={[s.intervalPill, active && s.intervalPillActive]}
+                          >
+                            <Text style={[s.intervalPillText, active && s.intervalPillTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <Text style={s.wellnessSummary}>
+                      Reminders every {store.hydration.intervalHours}h from {formatTime(store.hydration.startTime)} to {formatTime(store.hydration.endTime)}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={s.divider} />
+
+                {/* Protein row */}
+                <View style={s.slotRow}>
+                  <View style={s.slotLeft}>
+                    <View style={[s.slotIconWrap, { backgroundColor: '#FF742A18' }]}>
+                      <Ionicons name="restaurant-outline" size={18} color="#FF742A" />
+                    </View>
+                    <View style={[s.slotTextWrap, { flex: 1 }]}>
+                      <Text style={[s.slotLabel, !store.protein.enabled && s.slotLabelDisabled]}>
+                        Protein Check-ins
+                      </Text>
+                      {!store.protein.enabled && (
+                        <Text style={s.slotSub}>Protein-first reminders at each meal</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Switch
+                    value={store.protein.enabled}
+                    onValueChange={(v) => store.setProteinEnabled(v)}
+                    trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                    style={s.slotSwitch}
+                  />
+                </View>
+                {store.protein.enabled && (
+                  <View style={s.wellnessExpanded}>
+                    {PROTEIN_MEALS.map((meal, i) => (
+                      <View key={meal} style={s.proteinMealRow}>
+                        <Text style={s.proteinMealLabel}>{meal}</Text>
+                        <TouchableOpacity
+                          onPress={() => openProteinPicker(i as 0 | 1 | 2)}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                        >
+                          <Text style={s.timeInline}>{formatTime(store.protein.times[i])}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+              </View>
+            </View>
+
+            {/* ── Remaining categories (Health Tracking, Daily Planning) ── */}
+            {remainingCategories.map((cat) => (
               <View key={cat.title} style={s.section}>
                 <View style={s.sectionHeader}>
                   <Text style={s.sectionTitle}>{cat.title}</Text>
@@ -383,6 +687,125 @@ export default function RemindersScreen() {
                 </View>
               </View>
             )}
+
+            {/* ── Custom section ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Custom</Text>
+                <Text style={s.sectionSub}>Your personal reminders</Text>
+              </View>
+
+              {/* Preset chips */}
+              {store.customReminders.length < MAX_CUSTOM_REMINDERS && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={s.presetsScroll}
+                  contentContainerStyle={s.presetsContent}
+                >
+                  {CUSTOM_PRESETS.filter(
+                    (preset) => !store.customReminders.some((cr) => cr.label === preset.label),
+                  ).map((preset) => (
+                    <TouchableOpacity
+                      key={preset.label}
+                      onPress={() => handleAddPreset(preset)}
+                      activeOpacity={0.7}
+                      style={s.presetChip}
+                    >
+                      <Ionicons name={preset.icon as any} size={14} color={preset.color} />
+                      <Text style={s.presetChipText}>{preset.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Existing custom reminders */}
+              {store.customReminders.length > 0 && (
+                <View style={s.card}>
+                  {store.customReminders.map((cr, i) => (
+                    <View key={cr.id}>
+                      {i > 0 && <View style={s.divider} />}
+                      <View style={s.slotRow}>
+                        <View style={s.slotLeft}>
+                          <View style={[s.slotIconWrap, { backgroundColor: cr.color + '18' }]}>
+                            <Ionicons name={cr.icon as any} size={18} color={cr.color} />
+                          </View>
+                          <View style={[s.slotTextWrap, { flex: 1 }]}>
+                            <Text style={[s.slotLabel, !cr.enabled && s.slotLabelDisabled]}>
+                              {cr.label}
+                            </Text>
+                            {cr.enabled && (
+                              <TouchableOpacity
+                                onPress={() => openCustomPicker(cr.id)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                              >
+                                <Text style={s.timeInline}>{formatTime(cr.time)}</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteCustom(cr.id)}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={s.deleteBtn}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                        </TouchableOpacity>
+                        <Switch
+                          value={cr.enabled}
+                          onValueChange={(v) => store.setCustomReminderEnabled(cr.id, v)}
+                          trackColor={{ false: colors.isDark ? '#333' : '#DDD', true: colors.orange }}
+                          thumbColor="#FFFFFF"
+                          ios_backgroundColor={colors.isDark ? '#333' : '#DDD'}
+                          style={s.slotSwitch}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Inline add form */}
+              {showCustomForm && (
+                <View style={[s.card, { marginTop: 12 }]}>
+                  <View style={s.customFormRow}>
+                    <TextInput
+                      style={s.customInput}
+                      placeholder="Reminder label..."
+                      placeholderTextColor={colors.textMuted}
+                      value={customLabel}
+                      onChangeText={setCustomLabel}
+                      maxLength={40}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={handleAddCustom}
+                    />
+                    <TouchableOpacity
+                      onPress={handleAddCustom}
+                      activeOpacity={0.7}
+                      style={[s.customDoneBtn, !customLabel.trim() && { opacity: 0.4 }]}
+                      disabled={!customLabel.trim()}
+                    >
+                      <Text style={s.customDoneBtnText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Add button */}
+              {store.customReminders.length < MAX_CUSTOM_REMINDERS && !showCustomForm && (
+                <TouchableOpacity
+                  onPress={() => setShowCustomForm(true)}
+                  activeOpacity={0.7}
+                  style={s.addCustomBtn}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={colors.orange} />
+                  <Text style={s.addCustomBtnText}>Add Custom Reminder</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
           </Animated.View>
         )}
@@ -601,6 +1024,72 @@ const createStyles = (c: AppColors) => {
       marginLeft: 64,
     },
 
+    /* ── Wellness expanded area ──────────────── */
+    wellnessExpanded: {
+      paddingHorizontal: 16,
+      paddingBottom: 14,
+      paddingTop: 2,
+      marginLeft: 48,
+    },
+    wellnessTimeRow: {
+      flexDirection: 'row',
+      gap: 16,
+      marginBottom: 10,
+    },
+    wellnessTimePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    wellnessTimeLabel: {
+      color: c.textSecondary,
+      fontSize: 13,
+      fontFamily: FF,
+    },
+    wellnessSummary: {
+      color: c.textMuted,
+      fontSize: 12,
+      fontFamily: FF,
+      marginTop: 8,
+    },
+
+    /* ── Interval pills ──────────────────────── */
+    intervalRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    intervalPill: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    },
+    intervalPillActive: {
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.2)' : 'rgba(232,101,42,0.12)',
+    },
+    intervalPillText: {
+      color: c.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+      fontFamily: FF,
+    },
+    intervalPillTextActive: {
+      color: c.orange,
+    },
+
+    /* ── Protein meals ───────────────────────── */
+    proteinMealRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    proteinMealLabel: {
+      color: c.textSecondary,
+      fontSize: 14,
+      fontFamily: FF,
+    },
+
     /* ── Medication ──────────────────────────── */
     medDetail: {
       color: c.textSecondary,
@@ -626,6 +1115,80 @@ const createStyles = (c: AppColors) => {
     overdueText: {
       color: '#FF3B30',
       fontWeight: '600',
+    },
+
+    /* ── Custom reminders ────────────────────── */
+    presetsScroll: {
+      marginBottom: 12,
+    },
+    presetsContent: {
+      gap: 8,
+      paddingHorizontal: 2,
+    },
+    presetChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    },
+    presetChipText: {
+      color: c.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+      fontFamily: FF,
+    },
+    deleteBtn: {
+      padding: 4,
+      marginLeft: 4,
+    },
+    addCustomBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 12,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.isDark ? 'rgba(255,116,42,0.25)' : 'rgba(232,101,42,0.2)',
+      borderStyle: 'dashed',
+    },
+    addCustomBtnText: {
+      color: c.orange,
+      fontSize: 15,
+      fontWeight: '600',
+      fontFamily: FF,
+    },
+    customFormRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      gap: 10,
+    },
+    customInput: {
+      flex: 1,
+      color: c.textPrimary,
+      fontSize: 16,
+      fontFamily: FF,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    customDoneBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: c.orange,
+    },
+    customDoneBtnText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '600',
+      fontFamily: FF,
     },
 
     /* ── Picker modal ────────────────────────── */

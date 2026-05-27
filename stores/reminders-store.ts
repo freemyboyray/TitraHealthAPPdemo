@@ -4,10 +4,15 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   cancelAllReminders,
   cancelReminder,
+  cancelIntervalReminders,
   scheduleDailyReminder,
+  scheduleIntervalReminders,
 } from '../lib/notifications';
 import {
   buildReminderContent,
+  getHydrationTitles,
+  getHydrationBodies,
+  getProteinCheckContent,
   type ReminderContext,
   type ReminderSlot,
 } from '../lib/reminder-content';
@@ -21,6 +26,27 @@ export type SlotConfig = {
   time: string; // "HH:MM"
 };
 
+export type HydrationConfig = {
+  enabled: boolean;
+  startTime: string; // "HH:MM"
+  endTime: string;   // "HH:MM"
+  intervalHours: number; // 1, 1.5, 2, or 3
+};
+
+export type ProteinConfig = {
+  enabled: boolean;
+  times: [string, string, string]; // breakfast, lunch, dinner "HH:MM"
+};
+
+export type CustomReminder = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  time: string; // "HH:MM"
+  icon: string; // Ionicons name
+  color: string; // hex
+};
+
 export const ALL_SLOTS: ReminderSlot[] = [
   'meals_morning',
   'meals_evening',
@@ -29,15 +55,33 @@ export const ALL_SLOTS: ReminderSlot[] = [
   'daily_plan_morning',
 ];
 
+export const MAX_CUSTOM_REMINDERS = 5;
+
 type RemindersStore = {
   masterEnabled: boolean;
   doseReminderEnabled: boolean;
   slots: Record<ReminderSlot, SlotConfig>;
+  hydration: HydrationConfig;
+  protein: ProteinConfig;
+  customReminders: CustomReminder[];
 
   setMasterEnabled(v: boolean): void;
   setDoseReminderEnabled(v: boolean): void;
   setSlotEnabled(slot: ReminderSlot, v: boolean): void;
   setSlotTime(slot: ReminderSlot, time: string): void;
+
+  setHydrationEnabled(v: boolean): void;
+  setHydrationStartTime(time: string): void;
+  setHydrationEndTime(time: string): void;
+  setHydrationInterval(hours: number): void;
+
+  setProteinEnabled(v: boolean): void;
+  setProteinTime(index: 0 | 1 | 2, time: string): void;
+
+  addCustomReminder(reminder: CustomReminder): void;
+  updateCustomReminder(id: string, updates: Partial<Omit<CustomReminder, 'id'>>): void;
+  removeCustomReminder(id: string): void;
+  setCustomReminderEnabled(id: string, v: boolean): void;
 };
 
 // Default fallback content (used if personalization returns null unexpectedly)
@@ -117,12 +161,69 @@ export async function syncNotifications(state?: RemindersStore): Promise<void> {
 
   const ctx = gatherContext();
 
+  // Standard slots
   for (const slot of ALL_SLOTS) {
     const cfg = s.slots[slot];
     if (cfg.enabled) {
       await scheduleSlot(slot, cfg.time, ctx);
     } else {
       await cancelReminder(slot);
+    }
+  }
+
+  // Hydration interval reminders
+  if (s.hydration.enabled) {
+    const { hour: startH } = parseHHMM(s.hydration.startTime);
+    const { hour: endH } = parseHHMM(s.hydration.endTime);
+    await scheduleIntervalReminders(
+      'hydration',
+      getHydrationTitles(),
+      getHydrationBodies(),
+      startH,
+      endH,
+      s.hydration.intervalHours,
+      '/(tabs)',
+    );
+  } else {
+    await cancelIntervalReminders('hydration');
+  }
+
+  // Protein check reminders (3 daily)
+  if (s.protein.enabled) {
+    for (let i = 0; i < 3; i++) {
+      const content = getProteinCheckContent(ctx, i);
+      if (content) {
+        const { hour, minute } = parseHHMM(s.protein.times[i]);
+        await scheduleDailyReminder(
+          `protein_check_${i}`,
+          content.title,
+          content.body,
+          hour,
+          minute,
+          content.deepLink,
+        );
+      }
+    }
+  } else {
+    for (let i = 0; i < 3; i++) {
+      await cancelReminder(`protein_check_${i}`);
+    }
+  }
+
+  // Custom reminders
+  for (const cr of s.customReminders) {
+    if (cr.enabled) {
+      const { hour, minute } = parseHHMM(cr.time);
+      await scheduleDailyReminder(
+        `custom_${cr.id}`,
+        cr.label,
+        'Tap to open TitraHealth',
+        hour,
+        minute,
+        '/(tabs)',
+      );
+    } else {
+      await cancelReminder(`custom_${cr.id}`);
     }
   }
 }
@@ -135,12 +236,27 @@ const DEFAULT_SLOTS: Record<ReminderSlot, SlotConfig> = {
   daily_plan_morning: { enabled: true, time: '08:00' },
 };
 
+const DEFAULT_HYDRATION: HydrationConfig = {
+  enabled: false,
+  startTime: '08:00',
+  endTime: '20:00',
+  intervalHours: 2,
+};
+
+const DEFAULT_PROTEIN: ProteinConfig = {
+  enabled: false,
+  times: ['08:00', '12:30', '18:30'],
+};
+
 export const useRemindersStore = create<RemindersStore>()(
   persist(
     (set, get) => ({
       masterEnabled: false,
       doseReminderEnabled: true,
       slots: { ...DEFAULT_SLOTS },
+      hydration: { ...DEFAULT_HYDRATION },
+      protein: { ...DEFAULT_PROTEIN },
+      customReminders: [],
 
       setMasterEnabled(v) {
         set({ masterEnabled: v });
@@ -165,21 +281,76 @@ export const useRemindersStore = create<RemindersStore>()(
         syncNotifications(get());
       },
 
-      reset() {
-        set({
-          masterEnabled: false,
-          doseReminderEnabled: true,
-          slots: { ...DEFAULT_SLOTS },
+      // ── Hydration ──────────────────────────────────────────────────────────
+      setHydrationEnabled(v) {
+        set((s) => ({ hydration: { ...s.hydration, enabled: v } }));
+        syncNotifications(get());
+      },
+      setHydrationStartTime(time) {
+        set((s) => ({ hydration: { ...s.hydration, startTime: time } }));
+        syncNotifications(get());
+      },
+      setHydrationEndTime(time) {
+        set((s) => ({ hydration: { ...s.hydration, endTime: time } }));
+        syncNotifications(get());
+      },
+      setHydrationInterval(hours) {
+        set((s) => ({ hydration: { ...s.hydration, intervalHours: hours } }));
+        syncNotifications(get());
+      },
+
+      // ── Protein ────────────────────────────────────────────────────────────
+      setProteinEnabled(v) {
+        set((s) => ({ protein: { ...s.protein, enabled: v } }));
+        syncNotifications(get());
+      },
+      setProteinTime(index, time) {
+        set((s) => {
+          const times = [...s.protein.times] as [string, string, string];
+          times[index] = time;
+          return { protein: { ...s.protein, times } };
         });
+        syncNotifications(get());
+      },
+
+      // ── Custom ─────────────────────────────────────────────────────────────
+      addCustomReminder(reminder) {
+        set((s) => {
+          if (s.customReminders.length >= MAX_CUSTOM_REMINDERS) return s;
+          return { customReminders: [...s.customReminders, reminder] };
+        });
+        syncNotifications(get());
+      },
+      updateCustomReminder(id, updates) {
+        set((s) => ({
+          customReminders: s.customReminders.map((cr) =>
+            cr.id === id ? { ...cr, ...updates } : cr,
+          ),
+        }));
+        syncNotifications(get());
+      },
+      removeCustomReminder(id) {
+        cancelReminder(`custom_${id}`).catch(() => {});
+        set((s) => ({
+          customReminders: s.customReminders.filter((cr) => cr.id !== id),
+        }));
+      },
+      setCustomReminderEnabled(id, v) {
+        set((s) => ({
+          customReminders: s.customReminders.map((cr) =>
+            cr.id === id ? { ...cr, enabled: v } : cr,
+          ),
+        }));
+        syncNotifications(get());
       },
     }),
     {
       name: 'reminders-store',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
       migrate(persisted: any, version: number) {
         if (version === 0 && persisted) {
-          // Migrate from old shape { meals: { enabled, times }, weight: {...}, ... }
+          // Migrate from v0 (old shape)
           const old = persisted as any;
           const slots = { ...DEFAULT_SLOTS };
           if (old.meals) {
@@ -195,7 +366,23 @@ export const useRemindersStore = create<RemindersStore>()(
           if (old.dailyPlan) {
             slots.daily_plan_morning = { enabled: old.dailyPlan.enabled ?? true, time: old.dailyPlan.times?.[0] ?? '08:00' };
           }
-          return { masterEnabled: old.masterEnabled ?? false, slots };
+          return {
+            masterEnabled: old.masterEnabled ?? false,
+            doseReminderEnabled: true,
+            slots,
+            hydration: { ...DEFAULT_HYDRATION },
+            protein: { ...DEFAULT_PROTEIN },
+            customReminders: [],
+          };
+        }
+        if (version === 1 && persisted) {
+          // Migrate from v1: add hydration, protein, customReminders
+          return {
+            ...persisted,
+            hydration: (persisted as any).hydration ?? { ...DEFAULT_HYDRATION },
+            protein: (persisted as any).protein ?? { ...DEFAULT_PROTEIN },
+            customReminders: (persisted as any).customReminders ?? [],
+          };
         }
         return persisted as RemindersStore;
       },

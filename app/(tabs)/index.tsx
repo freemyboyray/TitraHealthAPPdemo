@@ -1750,15 +1750,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
-            {/* Week calendar strip */}
-            <View style={{ marginTop: 14, marginBottom: 4, marginHorizontal: -20 }}>
-              <WeekStrip
-                selectedDate={selectedDate}
-                onSelect={setSelectedDate}
-                datesWithLogs={datesWithLogs}
-                colors={colors}
-              />
-            </View>
+            <View style={{ height: 8 }} />
 
             {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
             {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}

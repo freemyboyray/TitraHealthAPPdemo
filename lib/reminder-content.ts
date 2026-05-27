@@ -411,3 +411,74 @@ export function buildReminderContent(
 ): ReminderContent {
   return SLOT_BUILDERS[slot](ctx);
 }
+
+// ─── Hydration Reminder Content ─────────────────────────────────────────────
+
+const HYDRATION_TITLES = [
+  'Time for a few sips',
+  'Hydration check',
+  'Stay hydrated',
+  'Water break',
+  'Quick sip reminder',
+];
+
+const HYDRATION_BODIES = [
+  'Small, steady sips throughout the day are easier on your stomach than large amounts at once.',
+  'Staying hydrated helps manage GI symptoms and supports how your medication works.',
+  'Have you had water recently? Even a few sips count.',
+  'Your body needs extra fluids right now. Grab your water bottle.',
+  'Dehydration can worsen side effects. Keep sipping steadily.',
+  'Try adding electrolytes if plain water feels hard to drink.',
+  'Room temperature water is often easier to tolerate on GLP-1s.',
+];
+
+export function getHydrationTitles(): string[] {
+  return HYDRATION_TITLES;
+}
+
+export function getHydrationBodies(): string[] {
+  return HYDRATION_BODIES;
+}
+
+// ─── Protein Check Content ──────────────────────────────────────────────────
+
+export function getProteinCheckContent(
+  ctx: ReminderContext,
+  mealIndex: number, // 0=breakfast, 1=lunch, 2=dinner
+): ReminderContent {
+  const mealLabels = ['breakfast', 'lunch', 'dinner'];
+  const mealLabel = mealLabels[mealIndex] ?? 'meal';
+
+  const todayProtein = ctx.todayProteinG ?? 0;
+  const targetProtein = ctx.userGoals?.daily_protein_g_target ?? 0;
+
+  if (targetProtein > 0 && todayProtein > 0) {
+    const remaining = Math.max(0, targetProtein - todayProtein);
+    if (remaining <= 0) {
+      return {
+        title: 'Protein goal hit!',
+        body: `You've reached ${targetProtein}g today. Great job keeping your muscle-preserving protein high.`,
+        deepLink: '/entry/log-food',
+      };
+    }
+    const perMeal = Math.round(remaining / (3 - mealIndex || 1));
+    return {
+      title: `Protein check — ${mealLabel}`,
+      body: `You're at ${todayProtein}g of ${targetProtein}g. Aim for ~${perMeal}g this ${mealLabel}.`,
+      deepLink: '/entry/log-food',
+    };
+  }
+
+  // Fallback if no tracking data
+  const fallbacks = [
+    'Start with protein first — eggs, Greek yogurt, or a shake.',
+    'Protein preserves lean muscle on GLP-1. Prioritize it every meal.',
+    'Even a small protein-rich snack counts. Try cottage cheese or a handful of nuts.',
+  ];
+
+  return {
+    title: `Protein first — ${mealLabel}`,
+    body: fallbacks[mealIndex % fallbacks.length],
+    deepLink: '/entry/log-food',
+  };
+}

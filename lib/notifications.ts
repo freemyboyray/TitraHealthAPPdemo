@@ -56,6 +56,50 @@ export async function cancelAllReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
+/**
+ * Schedule multiple daily notifications at regular intervals within a waking window.
+ * E.g., every 2h from 8 AM to 8 PM = 7 notifications (08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00).
+ */
+export async function scheduleIntervalReminders(
+  idPrefix: string,
+  titles: string[],
+  bodies: string[],
+  startHour: number,
+  endHour: number,
+  intervalHours: number,
+  deepLinkUrl?: string,
+): Promise<void> {
+  if (!Notifications) return;
+  // Cancel existing interval reminders
+  await cancelIntervalReminders(idPrefix, 24);
+  let index = 0;
+  for (let h = startHour; h <= endHour; h += intervalHours) {
+    const hour = Math.floor(h);
+    const minute = Math.round((h - hour) * 60);
+    const id = `${idPrefix}_${index}`;
+    const title = titles[index % titles.length];
+    const body = bodies[index % bodies.length];
+    await Notifications.scheduleNotificationAsync({
+      identifier: id,
+      content: { title, body, data: deepLinkUrl ? { url: deepLinkUrl } : {} },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
+    });
+    index++;
+  }
+}
+
+/** Cancel all interval reminders with a given prefix. */
+export async function cancelIntervalReminders(idPrefix: string, maxCount: number = 24): Promise<void> {
+  if (!Notifications) return;
+  for (let i = 0; i < maxCount; i++) {
+    await Notifications.cancelScheduledNotificationAsync(`${idPrefix}_${i}`).catch(() => {});
+  }
+}
+
 export async function scheduleTestNotification(title: string, body: string): Promise<void> {
   if (!Notifications) return;
   await Notifications.scheduleNotificationAsync({

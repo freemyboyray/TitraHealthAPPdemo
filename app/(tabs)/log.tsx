@@ -1398,8 +1398,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   return (
     <>
       <View style={{ marginBottom: 16 }}>
-      {/* Title outside card, between nav bar and graph */}
-      <Text style={[s.sectionTitle, { marginTop: 0 }]}>Drug Concentration</Text>
+      {/* Card flows directly under nav — no title on gradient */}
       <Pressable
         style={s.cardWrap}
         onPress={openModal}
@@ -2054,7 +2053,7 @@ function WeightProjectionCard({
         delayLongPress={400}
         style={{ marginBottom: 10, paddingHorizontal: 4 }}
       >
-        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>Weight Journey</Text>
+        <View style={{ height: 4 }} />
       </Pressable>
 
       <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={() => setExpanded(true)} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
@@ -2237,7 +2236,7 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
 
   return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System', marginBottom: 10, marginTop: 12 }}>Goal Progress</Text>
+      <View style={{ height: 12 }} />
       <View style={s.cardWrap}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
@@ -2396,10 +2395,7 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
 
   return (
     <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
-        <Text style={[s.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Side Effects</Text>
-        <Text style={{ fontSize: 13, color: w(0.35), fontFamily: 'System' }}>Last 30 days</Text>
-      </View>
+      <View style={{ height: 12 }} />
       <Pressable
         style={s.cardWrap}
         onLongPress={() => { if (top.length > 0) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Side Effects', contextValue: aiContext, chips: JSON.stringify(['Are these normal for my phase?', 'How can I reduce nausea?', 'Should I contact my doctor?', 'Do these affect my score?']) }); } }}
@@ -3544,7 +3540,7 @@ export default function InsightsScreen() {
             <>
               {/* <AIInsightsCard /> */}
 
-              <Text style={s.sectionTitle}>Nutrition Facts</Text>
+              <View style={{ height: 4 }} />
               {/* ── Lifestyle Trend Card ── */}
               <LifestyleTrendCard
                 foodByDate={foodByDate}
@@ -3557,7 +3553,7 @@ export default function InsightsScreen() {
               {/* ── Patterns: side-effect ↔ nutrition correlation ── */}
               <PatternsCard />
 
-              <Text style={s.sectionTitle}>Nutrition Metrics</Text>
+              <View style={{ height: 12 }} />
               <View style={s.dailyGrid}>
                 <DailyMetricCard
                   icon={<IconSymbol name="fork.knife" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
@@ -3631,7 +3627,7 @@ export default function InsightsScreen() {
               {/* ── Top Contributors row → full page ── */}
               <TopContributorsRow />
 
-              <Text style={[s.sectionTitle, { marginTop: 24 }]}>Activity Metrics</Text>
+              <View style={{ height: 24 }} />
               <View style={s.dailyGrid}>
                 <ActivityDailyCard
                   value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
@@ -3680,7 +3676,7 @@ export default function InsightsScreen() {
               ))}
 
               {/* ── Vitals (HRV / sleep / glucose / mindfulness) ── */}
-              <Text style={[s.sectionTitle, { marginTop: 24 }]}>Vitals</Text>
+              <View style={{ height: 24 }} />
               {!appleHealthEnabled ? (
                 <HealthDataConnectPrompt />
               ) : routedHealthGroups.vitals.length === 0 ? (
@@ -3738,7 +3734,7 @@ export default function InsightsScreen() {
                   />
                 </>
               )}
-              <Text style={s.sectionTitle}>{oral ? 'Dose Details' : 'Injection Details'}</Text>
+              <View style={{ height: 12 }} />
               <View style={[s.dailyGrid, { marginBottom: 24 }]}>
                 {!oral && (
                   <InjectionCard
