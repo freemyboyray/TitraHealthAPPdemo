@@ -8,7 +8,6 @@ import type { Glp1Type, Sex } from '@/constants/user-profile';
 
 export type BmiClass = 'normal' | 'overweight' | 'obesity_1' | 'obesity_2' | 'obesity_3';
 export type ConfidenceLevel = 'high' | 'on_track' | 'monitoring';
-export type PlateauRisk = 'none' | 'approaching' | 'detected';
 
 export type WeightProjection = {
   lossToDateLbs: number;
@@ -21,7 +20,6 @@ export type WeightProjection = {
   weeksToGoal: number;
   bmi: number;
   bmiClass: BmiClass;
-  plateauRisk: PlateauRisk;
   curve: { week: number; weightLbs: number }[]; // 72 points for chart
 };
 
@@ -121,7 +119,7 @@ export function computeWeightProjection(params: {
     ? Math.round((lossToDateLbs / startWeightLbs) * 1000) / 10
     : 0;
 
-  // 3. Linear regression over last 4 weight logs (used for trend/plateau detection)
+  // 3. Linear regression over last 4 weight logs (used for trend detection)
   const sorted4 = [...weightLogHistory]
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
     .slice(-4);
@@ -184,18 +182,6 @@ export function computeWeightProjection(params: {
     : lossToDatePct >= targetLossPct * 0.5 ? 'on_track'
     : 'monitoring';
 
-  // 11. Plateau risk: last 3 consecutive weekly entries diff < 0.5 lbs
-  let plateauRisk: PlateauRisk = 'none';
-  if (sorted4.length >= 3) {
-    const last3 = sorted4.slice(-3);
-    const diffs = [
-      Math.abs(last3[0].weight_lbs - last3[1].weight_lbs),
-      Math.abs(last3[1].weight_lbs - last3[2].weight_lbs),
-    ];
-    if (diffs.every(d => d < 0.5)) plateauRisk = 'detected';
-    else if (diffs.some(d => d < 0.5)) plateauRisk = 'approaching';
-  }
-
   return {
     lossToDateLbs,
     lossToDatePct,
@@ -207,7 +193,6 @@ export function computeWeightProjection(params: {
     weeksToGoal,
     bmi,
     bmiClass: bmiCls,
-    plateauRisk,
     curve,
   };
 }

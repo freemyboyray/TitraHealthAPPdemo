@@ -21,7 +21,6 @@ import {
   getIntradayPhase,
   hoursSinceDose,
   type DailyActuals,
-  type DailyTargets,
   type FocusItem,
   type ShotPhase,
   type IntradayPhase,
@@ -523,26 +522,6 @@ function CalendarDropdown({ selectedDate, onSelect, top, minDate, lastInjectionD
 
 // ─── Daily Log Summary Card ───────────────────────────────────────────────────
 
-const MEAL_LABELS: Record<string, string> = {
-  breakfast: 'Breakfast',
-  lunch:     'Lunch',
-  dinner:    'Dinner',
-  snack:     'Snack',
-};
-
-type MealIconName = React.ComponentProps<typeof MaterialIcons>['name'];
-const MEAL_ICON: Record<string, MealIconName> = {
-  breakfast: 'free-breakfast',
-  lunch:     'lunch-dining',
-  dinner:    'dinner-dining',
-  snack:     'local-cafe',
-};
-
-function MealIcon({ mealType, size = 16, color }: { mealType: string; size?: number; color: string }) {
-  const name = MEAL_ICON[(mealType ?? 'snack').toLowerCase()] ?? 'restaurant';
-  return <MaterialIcons name={name} size={size} color={color} />;
-}
-
 function activityIconNameDL(exerciseType: string | null | undefined): React.ComponentProps<typeof MaterialIcons>['name'] {
   const t = (exerciseType ?? '').toLowerCase();
   if (t.includes('run') || t.includes('jog'))      return 'directions-run';
@@ -557,58 +536,6 @@ function activityIconNameDL(exerciseType: string | null | undefined): React.Comp
   return 'flash-on';
 }
 
-// ── Style helpers (outside component to avoid recreation) ──────────────────
-function dlSectionLabel(w: (a: number) => string) {
-  return { fontSize: 13, fontWeight: '700' as const, color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase' as const, marginBottom: 6, fontFamily: FF };
-}
-function dlEditLabel(w: (a: number) => string) {
-  return { fontSize: 14, fontWeight: '600' as const, color: w(0.45), marginBottom: 6, fontFamily: FF };
-}
-function dlInput(colors: AppColors, w: (a: number) => string) {
-  return {
-    backgroundColor: w(0.05),
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 17,
-    color: w(0.85),
-    fontFamily: FF,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: w(0.1),
-    marginBottom: 14,
-  };
-}
-
-// ── MetricBar sub-component ────────────────────────────────────────────────
-function MetricBar({ label, current, target, unit, colors, color }: {
-  label: string; current: number; target: number; unit: string; colors: AppColors; color: string;
-}) {
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const pct  = target > 0 ? Math.min(current / target, 1) : 0;
-  const over = current > target && target > 0;
-  return (
-    <View style={{ marginBottom: 12 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-        <Text style={{ fontSize: 14, color: w(0.5), fontFamily: FF }}>{label}</Text>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: over ? ORANGE : w(0.65), fontFamily: FF }}>
-          {current}{unit} / {target}{unit}
-        </Text>
-      </View>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: w(0.14), overflow: 'hidden' }}>
-        <View style={{ width: `${pct * 100}%`, height: 4, borderRadius: 2, backgroundColor: over ? ORANGE : color }} />
-      </View>
-    </View>
-  );
-}
-
-type EditTarget =
-  | { kind: 'food';        item: DailySnapshot['foodLogs'][0] }
-  | { kind: 'activity';    item: DailySnapshot['activityLogs'][0] }
-  | { kind: 'weight';      item: NonNullable<DailySnapshot['weightLog']> }
-  | { kind: 'injection';   item: NonNullable<DailySnapshot['injectionLog']> }
-  | { kind: 'sideEffect';  item: DailySnapshot['sideEffectLogs'][0] }
-  | { kind: 'water' }
-  | null;
-
 type DailyLogSummaryCardProps = {
   foodLogs:       DailySnapshot['foodLogs'];
   activityLogs:   DailySnapshot['activityLogs'];
@@ -616,130 +543,24 @@ type DailyLogSummaryCardProps = {
   injectionLog:   DailySnapshot['injectionLog'] | null;
   sideEffectLogs: DailySnapshot['sideEffectLogs'];
   waterOz:        number;
-  dateStr:        string;
   isLoading:      boolean;
   isFuture:       boolean;
-  targets:        DailyTargets;
-  onRefresh:      () => void;
   oral?:          boolean;
 };
 
 function DailyLogSummaryCard({
-  foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs, waterOz, dateStr,
-  isLoading, isFuture, targets, onRefresh, oral = false,
+  foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs, waterOz,
+  isLoading, isFuture, oral = false,
 }: DailyLogSummaryCardProps) {
+  const router = useRouter();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
-  const [expanded,   setExpanded]   = useState(false);
-  const [editTarget, setEditTarget] = useState<EditTarget>(null);
-  const [editForm,   setEditForm]   = useState<Record<string, string>>({});
-  const [saving,     setSaving]     = useState(false);
-
-  const totalCals    = foodLogs.reduce((sum, f) => sum + (f.calories  ?? 0), 0);
-  const totalProtein = foodLogs.reduce((sum, f) => sum + (f.protein_g ?? 0), 0);
-  const totalFiber   = foodLogs.reduce((sum, f) => sum + (f.fiber_g   ?? 0), 0);
+  const totalCals = foodLogs.reduce((sum, f) => sum + (f.calories ?? 0), 0);
   const isEmpty = foodLogs.length === 0 && activityLogs.length === 0 && !weightLog && !injectionLog && sideEffectLogs.length === 0 && waterOz === 0;
 
-  function openEdit(target: EditTarget) {
-    if (!target) return;
-    let form: Record<string, string> = {};
-    if (target.kind === 'food') {
-      const i = target.item;
-      form = { food_name: i.food_name, calories: String(i.calories), protein_g: String(i.protein_g), carbs_g: String(i.carbs_g), fat_g: String(i.fat_g), meal_type: i.meal_type };
-    } else if (target.kind === 'activity') {
-      const i = target.item;
-      form = { exercise_type: i.exercise_type, duration_min: String(i.duration_min), steps: String(i.steps), active_calories: String(i.active_calories) };
-    } else if (target.kind === 'weight') {
-      form = { weight_lbs: String(target.item.weight_lbs) };
-    } else if (target.kind === 'injection') {
-      const i = target.item;
-      form = { medication_name: i.medication_name ?? '', dose_mg: String(i.dose_mg) };
-    } else if (target.kind === 'sideEffect') {
-      const i = target.item;
-      form = { effect_type: i.effect_type.replace(/_/g, ' '), severity: String(i.severity) };
-    }
-    setEditForm(form);
-    setEditTarget(target);
-  }
-
-  async function saveEdit() {
-    if (!editTarget) return;
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      let saveError: { message: string } | null = null;
-      if (editTarget.kind === 'food') {
-        const { error } = await supabase.from('food_logs').update({
-          food_name: editForm.food_name,
-          calories:  Number(editForm.calories)  || 0,
-          protein_g: Number(editForm.protein_g) || 0,
-          carbs_g:   Number(editForm.carbs_g)   || 0,
-          fat_g:     Number(editForm.fat_g)     || 0,
-          meal_type: editForm.meal_type as any,
-        }).eq('id', editTarget.item.id).eq('user_id', user.id);
-        saveError = error;
-      } else if (editTarget.kind === 'activity') {
-        const { error } = await supabase.from('activity_logs').update({
-          exercise_type:   editForm.exercise_type,
-          duration_min:    Number(editForm.duration_min)    || 0,
-          steps:           Number(editForm.steps)           || 0,
-          active_calories: Number(editForm.active_calories) || 0,
-        }).eq('id', editTarget.item.id).eq('user_id', user.id);
-        saveError = error;
-      } else if (editTarget.kind === 'weight') {
-        const { error } = await supabase.from('weight_logs').update({
-          weight_lbs: Number(editForm.weight_lbs) || 0,
-        }).eq('id', editTarget.item.id).eq('user_id', user.id);
-        saveError = error;
-      } else if (editTarget.kind === 'injection') {
-        const { error } = await supabase.from('injection_logs').update({
-          medication_name: editForm.medication_name || null,
-          dose_mg: Number(editForm.dose_mg) || 0,
-        }).eq('id', editTarget.item.id).eq('user_id', user.id);
-        saveError = error;
-      } else if (editTarget.kind === 'sideEffect') {
-        const { error } = await supabase.from('side_effect_logs').update({
-          effect_type: editForm.effect_type.replace(/\s+/g, '_'),
-          severity: Math.min(10, Math.max(1, Number(editForm.severity) || 1)),
-        }).eq('id', editTarget.item.id).eq('user_id', user.id);
-        saveError = error;
-      } else if (editTarget.kind === 'water') {
-        const newOz = Number(editForm.water_oz) || 0;
-        const newMl = Math.round(newOz * 29.5735);
-        await AsyncStorage.setItem(`@titrahealth_water_${dateStr}`, String(newMl));
-      }
-      if (saveError) {
-        console.warn('inline edit save failed:', saveError);
-        Alert.alert('Could not save', saveError.message);
-        return;
-      }
-      setEditTarget(null);
-      onRefresh();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function confirmDelete(table: string, id: string, label: string) {
-    Alert.alert('Remove Entry', `Delete "${label}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-          const { error } = await supabase.from(table as any).delete().eq('id', id).eq('user_id', user.id);
-          if (error) {
-            console.warn('inline delete failed:', error);
-            Alert.alert('Could not delete', error.message);
-            return;
-          }
-          onRefresh();
-        }
-      },
-    ]);
-  }
+  const navigate = () => router.push('/day-log' as any);
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (isLoading) {
@@ -771,16 +592,14 @@ function DailyLogSummaryCard({
 
   return (
     <View style={[s.cardWrap, { marginBottom: 24, marginTop: 8 }]}>
-      <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
-
-        {/* ── Header - always tappable ── */}
-        <Pressable
-          style={{ padding: 20, paddingBottom: expanded ? 12 : 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-          onPress={() => canExpand && setExpanded(v => !v)}
-          accessibilityLabel={`Day log, ${totalCals} calories. ${expanded ? 'Collapse' : 'Expand'} details`}
-          accessibilityRole="button"
-          accessibilityState={{ expanded }}
-        >
+      <Pressable
+        style={[s.cardBody, { backgroundColor: colors.surface }]}
+        onPress={navigate}
+        accessibilityLabel={`Day log, ${totalCals} calories. View full day`}
+        accessibilityRole="button"
+      >
+        {/* ── Header ── */}
+        <View style={{ padding: 20, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={s.insightsTitle}>Day Log</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             {totalCals > 0 && (
@@ -788,416 +607,29 @@ function DailyLogSummaryCard({
                 <Text style={{ fontSize: 14, fontWeight: '700', color: w(0.55), fontFamily: FF }}>{totalCals} cal</Text>
               </View>
             )}
-            {canExpand && (
-              <IconSymbol name={expanded ? 'chevron.up' : 'chevron.down'} size={16} color={w(0.35)} />
-            )}
+            <IconSymbol name="chevron.right" size={16} color={w(0.35)} />
           </View>
-        </Pressable>
+        </View>
 
-        {/* ── Collapsed state ── */}
-        {!expanded && (
-          <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
-            {isFuture ? (
-              <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>Nothing logged yet - this is a future date.</Text>
-            ) : isEmpty ? (
-              <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
-            ) : (
-              <View style={{ gap: 7 }}>
-                {summaryRows.map((row, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 16, alignItems: 'center' }}>{row.icon}</View>
-                    <Text style={{ fontSize: 16, color: w(0.65), fontFamily: FF }}>{row.label}</Text>
-                  </View>
-                ))}
-                <Text style={{ fontSize: 14, color: w(0.28), marginTop: 4, fontFamily: FF }}>Tap to view details & edit</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ── Expanded state ── */}
-        {expanded && canExpand && (
-          <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
-
-            {/* ── Metrics Impact ── */}
-            <View style={{ marginBottom: 18, padding: 14, borderRadius: 16, backgroundColor: w(0.04) }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: w(0.35), letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, fontFamily: FF }}>Metrics Impact</Text>
-              {targets.caloriesTarget > 0 && (
-                <MetricBar label="Calories" current={totalCals}    target={targets.caloriesTarget} unit=" cal" colors={colors} color={ORANGE} />
-              )}
-              {targets.proteinG > 0 && (
-                <MetricBar label="Protein"  current={totalProtein} target={targets.proteinG}       unit="g"   colors={colors} color="#34C759" />
-              )}
-              {targets.fiberG > 0 && (
-                <MetricBar label="Fiber"    current={totalFiber}   target={targets.fiberG}         unit="g"   colors={colors} color="#5AC8FA" />
-              )}
-              {targets.waterMl > 0 && waterOz > 0 && (
-                <MetricBar label="Water" current={waterOz} target={Math.round(targets.waterMl / 29.5735)} unit=" oz" colors={colors} color="#5B8BF5" />
-              )}
+        {/* ── Body ── */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 18 }}>
+          {isFuture ? (
+            <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>Nothing logged yet - this is a future date.</Text>
+          ) : isEmpty ? (
+            <Text style={{ fontSize: 16, color: w(0.4), fontFamily: FF }}>No entries logged for this day.</Text>
+          ) : (
+            <View style={{ gap: 7 }}>
+              {summaryRows.map((row, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 16, alignItems: 'center' }}>{row.icon}</View>
+                  <Text style={{ fontSize: 16, color: w(0.65), fontFamily: FF }}>{row.label}</Text>
+                </View>
+              ))}
+              <Text style={{ fontSize: 14, color: w(0.28), marginTop: 4, fontFamily: FF }}>Tap to view full log</Text>
             </View>
-
-            {/* ── Injection / Dose ── */}
-            {injectionLog && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>{oral ? 'Dose' : 'Injection'}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 10 }}>
-                  <FontAwesome5 name={doseIconName(oral)} size={14} color={w(0.45)} />
-                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
-                    {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                    <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'injection', item: injectionLog })} accessibilityLabel={`Edit ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
-                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                    </Pressable>
-                    <Pressable hitSlop={10} onPress={() => confirmDelete('injection_logs', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)} accessibilityLabel={`Delete ${injectionLog.medication_name ?? (oral ? 'dose' : 'injection')} log`} accessibilityRole="button">
-                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* ── Food ── */}
-            {foodLogs.length > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>Food</Text>
-                {foodLogs.map(f => (
-                  <View key={f.id} style={{ paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07) }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                      <MealIcon mealType={f.meal_type ?? 'snack'} size={14} color={w(0.45)} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }} numberOfLines={1}>{f.food_name}</Text>
-                        <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>
-                          {f.calories} cal · P {f.protein_g}g · C {f.carbs_g}g · F {f.fat_g}g
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', paddingTop: 2 }}>
-                        <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'food', item: f })} accessibilityLabel={`Edit ${f.food_name}`} accessibilityRole="button">
-                          <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                        </Pressable>
-                        <Pressable hitSlop={10} onPress={() => confirmDelete('food_logs', f.id, f.food_name)} accessibilityLabel={`Delete ${f.food_name}`} accessibilityRole="button">
-                          <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                        </Pressable>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* ── Activity ── */}
-            {activityLogs.length > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>Activity</Text>
-                {activityLogs.map(a => (
-                  <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                    <MaterialIcons name={activityIconNameDL(a.exercise_type)} size={16} color={w(0.45)} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
-                      <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>
-                        {[
-                          a.duration_min > 0 ? `${a.duration_min} min` : null,
-                          a.steps > 0 ? `${a.steps.toLocaleString()} steps` : null,
-                          a.active_calories > 0 ? `${a.active_calories} cal burned` : null,
-                        ].filter(Boolean).join(' · ')}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                      <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'activity', item: a })} accessibilityLabel={`Edit ${a.exercise_type || 'activity'}`} accessibilityRole="button">
-                        <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                      </Pressable>
-                      <Pressable hitSlop={10} onPress={() => confirmDelete('activity_logs', a.id, a.exercise_type || 'Activity')} accessibilityLabel={`Delete ${a.exercise_type || 'activity'}`} accessibilityRole="button">
-                        <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                      </Pressable>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* ── Weight ── */}
-            {weightLog && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>Weight</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <IconSymbol name="scalemass.fill" size={16} color={w(0.45)} />
-                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
-                  <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                    <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'weight', item: weightLog })} accessibilityLabel={`Edit weight ${weightLog.weight_lbs} lbs`} accessibilityRole="button">
-                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                    </Pressable>
-                    <Pressable hitSlop={10} onPress={() => confirmDelete('weight_logs', weightLog.id, `${weightLog.weight_lbs} lbs`)} accessibilityLabel={`Delete weight ${weightLog.weight_lbs} lbs`} accessibilityRole="button">
-                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* ── Water ── */}
-            {waterOz > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={dlSectionLabel(w)}>Water</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                  <IconSymbol name="drop.fill" size={16} color="#5B8BF5" />
-                  <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{waterOz} oz</Text>
-                  <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                    <Pressable hitSlop={10} onPress={() => { setEditForm({ water_oz: String(waterOz) }); setEditTarget({ kind: 'water' }); }} accessibilityLabel="Edit water intake" accessibilityRole="button">
-                      <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                    </Pressable>
-                    <Pressable hitSlop={10} onPress={() => {
-                      Alert.alert('Remove Entry', 'Delete water log for this day?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: async () => {
-                          await AsyncStorage.removeItem(`@titrahealth_water_${dateStr}`);
-                          onRefresh();
-                        }},
-                      ]);
-                    }} accessibilityLabel="Delete water log" accessibilityRole="button">
-                      <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* ── Side Effects ── */}
-            {sideEffectLogs.length > 0 && (
-              <View>
-                <Text style={dlSectionLabel(w)}>Side Effects</Text>
-                {sideEffectLogs.map(se => (
-                  <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07), gap: 8 }}>
-                    <MaterialIcons name="sick" size={16} color="#E74C3C" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{se.effect_type.replace(/_/g, ' ')}</Text>
-                      <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>Severity: {se.severity}/10</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                      <Pressable hitSlop={10} onPress={() => openEdit({ kind: 'sideEffect', item: se })} accessibilityLabel={`Edit ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
-                        <IconSymbol name="pencil" size={15} color={w(0.35)} />
-                      </Pressable>
-                      <Pressable hitSlop={10} onPress={() => confirmDelete('side_effect_logs', se.id, se.effect_type.replace(/_/g, ' '))} accessibilityLabel={`Delete ${se.effect_type.replace(/_/g, ' ')} side effect`} accessibilityRole="button">
-                        <IconSymbol name="trash.fill" size={15} color={w(0.28)} />
-                      </Pressable>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-          </View>
-        )}
-      </View>
-
-      {/* ── Edit Modal ── */}
-      <Modal visible={editTarget !== null} transparent animationType="slide" onRequestClose={() => setEditTarget(null)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={() => setEditTarget(null)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <Pressable onPress={() => {}}>
-              <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 }}>
-                {/* Drag handle */}
-                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: w(0.18), alignSelf: 'center', marginBottom: 20 }} />
-
-                {/* ── Food edit form ── */}
-                {editTarget?.kind === 'food' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Food Entry</Text>
-                    <Text style={dlEditLabel(w)}>Food Name</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.food_name}
-                      onChangeText={t => setEditForm(f => ({ ...f, food_name: t }))}
-                      placeholder="Food name"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {(['calories', 'protein_g', 'carbs_g', 'fat_g'] as const).map(field => (
-                        <View key={field} style={{ flex: 1 }}>
-                          <Text style={dlEditLabel(w)}>{field === 'calories' ? 'Cal' : field === 'protein_g' ? 'Pro' : field === 'carbs_g' ? 'Carb' : 'Fat'}</Text>
-                          <TextInput
-                            style={dlInput(colors, w)}
-                            value={editForm[field]}
-                            onChangeText={t => setEditForm(f => ({ ...f, [field]: t }))}
-                            keyboardType="decimal-pad"
-                            placeholder="0"
-                            placeholderTextColor={w(0.3)}
-                          />
-                        </View>
-                      ))}
-                    </View>
-                    <Text style={dlEditLabel(w)}>Meal Type</Text>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 22 }}>
-                      {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map(mt => (
-                        <Pressable
-                          key={mt}
-                          onPress={() => setEditForm(f => ({ ...f, meal_type: mt }))}
-                          style={{ flex: 1, padding: 9, borderRadius: 10, backgroundColor: editForm.meal_type === mt ? ORANGE : w(0.07), alignItems: 'center' }}
-                          accessibilityLabel={`${MEAL_LABELS[mt]}${editForm.meal_type === mt ? ', selected' : ''}`}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: editForm.meal_type === mt }}
-                        >
-                          <Text style={{ fontSize: 13, fontWeight: '700', color: editForm.meal_type === mt ? '#fff' : w(0.55), fontFamily: FF }}>
-                            {MEAL_LABELS[mt]}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                )}
-
-                {/* ── Activity edit form ── */}
-                {editTarget?.kind === 'activity' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Activity</Text>
-                    <Text style={dlEditLabel(w)}>Exercise Type</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.exercise_type}
-                      onChangeText={t => setEditForm(f => ({ ...f, exercise_type: t }))}
-                      placeholder="e.g. Walking"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
-                      {(['duration_min', 'steps', 'active_calories'] as const).map(field => (
-                        <View key={field} style={{ flex: 1 }}>
-                          <Text style={dlEditLabel(w)}>{field === 'duration_min' ? 'Min' : field === 'steps' ? 'Steps' : 'Cal burned'}</Text>
-                          <TextInput
-                            style={dlInput(colors, w)}
-                            value={editForm[field]}
-                            onChangeText={t => setEditForm(f => ({ ...f, [field]: t }))}
-                            keyboardType="number-pad"
-                            placeholder="0"
-                            placeholderTextColor={w(0.3)}
-                          />
-                        </View>
-                      ))}
-                    </View>
-                  </>
-                )}
-
-                {/* ── Weight edit form ── */}
-                {editTarget?.kind === 'weight' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Weight</Text>
-                    <Text style={dlEditLabel(w)}>Weight (lbs)</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.weight_lbs}
-                      onChangeText={t => setEditForm(f => ({ ...f, weight_lbs: t }))}
-                      keyboardType="decimal-pad"
-                      placeholder="0.0"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ marginBottom: 22 }} />
-                  </>
-                )}
-
-                {/* ── Injection edit form ── */}
-                {editTarget?.kind === 'injection' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit {oral ? 'Dose' : 'Injection'}</Text>
-                    <Text style={dlEditLabel(w)}>Medication Name</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.medication_name}
-                      onChangeText={t => setEditForm(f => ({ ...f, medication_name: t }))}
-                      placeholder="e.g. Ozempic"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <Text style={dlEditLabel(w)}>Dose (mg)</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.dose_mg}
-                      onChangeText={t => setEditForm(f => ({ ...f, dose_mg: t }))}
-                      keyboardType="decimal-pad"
-                      placeholder="0.0"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ marginBottom: 22 }} />
-                  </>
-                )}
-
-                {/* ── Side Effect edit form ── */}
-                {editTarget?.kind === 'sideEffect' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Side Effect</Text>
-                    <Text style={dlEditLabel(w)}>Effect</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.effect_type}
-                      onChangeText={t => setEditForm(f => ({ ...f, effect_type: t }))}
-                      placeholder="e.g. nausea"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <Text style={dlEditLabel(w)}>Severity (1–10)</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.severity}
-                      onChangeText={t => setEditForm(f => ({ ...f, severity: t }))}
-                      keyboardType="number-pad"
-                      placeholder="1"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ marginBottom: 22 }} />
-                  </>
-                )}
-
-                {/* ── Water edit form ── */}
-                {editTarget?.kind === 'water' && (
-                  <>
-                    <Text style={{ fontSize: 19, fontWeight: '700', color: w(0.9), fontFamily: FF, marginBottom: 18 }}>Edit Water Intake</Text>
-                    <Text style={dlEditLabel(w)}>Water (oz)</Text>
-                    <TextInput
-                      style={dlInput(colors, w)}
-                      value={editForm.water_oz}
-                      onChangeText={t => setEditForm(f => ({ ...f, water_oz: t }))}
-                      keyboardType="decimal-pad"
-                      placeholder="0"
-                      placeholderTextColor={w(0.3)}
-                      returnKeyType="done"
-                    />
-                    <View style={{ marginBottom: 22 }} />
-                  </>
-                )}
-
-                {/* ── Buttons ── */}
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <Pressable
-                    style={{ flex: 1, padding: 15, borderRadius: 14, backgroundColor: w(0.07), alignItems: 'center' }}
-                    onPress={() => setEditTarget(null)}
-                    accessibilityLabel="Cancel editing"
-                    accessibilityRole="button"
-                  >
-                    <Text style={{ fontSize: 17, fontWeight: '600', color: w(0.6), fontFamily: FF }}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    style={{ flex: 2, padding: 15, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', opacity: saving ? 0.65 : 1 }}
-                    onPress={saveEdit}
-                    disabled={saving}
-                    accessibilityLabel="Save changes"
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: saving }}
-                  >
-                    {saving
-                      ? <ActivityIndicator color="#fff" />
-                      : <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff', fontFamily: FF }}>Save Changes</Text>
-                    }
-                  </Pressable>
-                </View>
-
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
-
+          )}
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -2171,22 +1603,9 @@ export default function HomeScreen() {
             injectionLog={displaySnapshot.injectionLog}
             sideEffectLogs={displaySnapshot.sideEffectLogs}
             waterOz={Math.round((isToday ? actuals.waterMl : (historicalSnapshot?.actuals.waterMl ?? 0)) / 29.5735)}
-            dateStr={localDateStr(selectedDate)}
             isLoading={isPast && isLoadingDate}
             isFuture={isFuture}
-            targets={targets}
             oral={oral}
-            onRefresh={() => {
-              if (isToday) {
-                logStore.fetchInsightsData();
-              } else {
-                setIsLoadingDate(true);
-                fetchDailySnapshot(localDateStr(selectedDate))
-                  .then(setHistoricalSnapshot)
-                  .catch(() => setHistoricalSnapshot(null))
-                  .finally(() => setIsLoadingDate(false));
-              }
-            }}
           />
 
           {/* ── Medical Disclaimer & Sources ── */}

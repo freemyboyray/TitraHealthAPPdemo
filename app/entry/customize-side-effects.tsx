@@ -95,6 +95,17 @@ export default function CustomizeSideEffectsScreen() {
     });
   }
 
+  function toggleCategory(cat: SideEffectCategory) {
+    const ids = SIDE_EFFECTS.filter((e) => e.category === cat).map((e) => e.id);
+    setEnabled((prev) => {
+      const next = new Set(prev);
+      const allOn = ids.every((id) => next.has(id));
+      if (allOn) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
   function addCustomEffect() {
     const label = newEffectText.trim();
     if (!label) return;
@@ -159,9 +170,21 @@ export default function CustomizeSideEffectsScreen() {
         {/* Built-in effects grouped by category */}
         {CATEGORIES.map((cat) => {
           const effects = SIDE_EFFECTS.filter((e) => e.category === cat);
+          const allOn = effects.every((e) => enabled.has(e.id));
           return (
             <View key={cat} style={{ marginBottom: 8 }}>
-              <Text style={s.sectionHeader}>{CATEGORY_LABELS[cat].toUpperCase()}</Text>
+              <View style={s.sectionHeaderRow}>
+                <Text style={s.sectionHeader}>{CATEGORY_LABELS[cat].toUpperCase()}</Text>
+                <TouchableOpacity
+                  onPress={() => toggleCategory(cat)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={s.selectAllText}>
+                    {allOn ? 'Deselect all' : 'Select all'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <View style={[s.card]}>
                 <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
                 <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
@@ -317,10 +340,22 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
       ...SHADOW, shadowOpacity: 0.08, shadowRadius: 12,
     },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+      paddingHorizontal: 4,
+    },
     sectionHeader: {
       fontSize: 13, fontWeight: '700', color: c.textMuted,
       letterSpacing: 3.5, textTransform: 'uppercase',
-      marginBottom: 10, marginLeft: 4,
+    },
+    selectAllText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: ORANGE,
+      letterSpacing: 0.3,
     },
     card: {
       borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,

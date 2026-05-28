@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLogStore, type WeeklyCheckinRow } from '@/stores/log-store';
 import { usePersonalizationStore } from '@/stores/personalization-store';
+import { useAppTheme } from '@/contexts/theme-context';
 
 const ORANGE = '#FF742A';
 const FF = 'System';
@@ -116,6 +117,7 @@ function GlassBorder({ r = 20 }: { r?: number }) {
 
 export default function WeeklyCheckinHistoryScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
   const weeklyCheckins = useLogStore(s => s.weeklyCheckins);
   const deleteWeeklyCheckinSession = useLogStore(s => s.deleteWeeklyCheckinSession);
   const fetchAndRecompute = usePersonalizationStore(s => s.fetchAndRecompute);
@@ -151,7 +153,7 @@ export default function WeeklyCheckinHistoryScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
       {/* Header */}
       <View style={{

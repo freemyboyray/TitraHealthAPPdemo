@@ -2,11 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -35,96 +34,23 @@ import { useLogStore } from '../../stores/log-store';
 import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { useProfile } from '@/contexts/profile-context';
-import { getSideEffectContext } from '@/lib/side-effect-context';
 
 const ORANGE = '#FF742A';
-const GREEN = '#5DB87B';
-const THUMB_R = 11;
 
-// ─── Slider ───────────────────────────────────────────────────────────────────
+// ─── Severity buckets ─────────────────────────────────────────────────────────
+// Storage stays 0–10 (DB, HealthKit, insights). UI cycles through 4 buckets.
+type Bucket = 0 | 1 | 2 | 3;
+const BUCKET_VALUE: Record<Bucket, number> = { 0: 0, 1: 3, 2: 6, 3: 9 };
+const BUCKET_LABEL: Record<Bucket, string> = { 0: '', 1: 'Mild', 2: 'Moderate', 3: 'Severe' };
 
-function EffectSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const { colors: sliderColors } = useAppTheme();
-  const trackRef = useRef(0);
-  const [trackPx, setTrackPx] = useState(0);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const lastHapticRef = useRef(value);
-  const valueRef = useRef(value);
-  valueRef.current = value;
-  const panStartValueRef = useRef(value);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const tw = trackRef.current;
-        if (tw <= 0) return;
-        const next = Math.max(0, Math.min(10, Math.round((evt.nativeEvent.locationX / tw) * 10)));
-        panStartValueRef.current = next;
-        onChangeRef.current(next);
-        if (next !== lastHapticRef.current) {
-          lastHapticRef.current = next;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      },
-      onPanResponderMove: (_, gs) => {
-        const tw = trackRef.current;
-        if (tw <= 0) return;
-        const delta = (gs.dx / tw) * 10;
-        const next = Math.max(0, Math.min(10, Math.round(panStartValueRef.current + delta)));
-        onChangeRef.current(next);
-        if (next !== lastHapticRef.current) {
-          lastHapticRef.current = next;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      },
-    })
-  ).current;
-
-  const fillWidth = (value / 10) * trackPx;
-  const thumbLeft = fillWidth - THUMB_R;
-
-  return (
-    <View
-      style={{ height: THUMB_R * 2 + 4, justifyContent: 'center', marginTop: 10 }}
-      onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
-        trackRef.current = w;
-        setTrackPx(w);
-      }}
-      accessible={true}
-      accessibilityRole="adjustable"
-      accessibilityLabel="Severity"
-      accessibilityValue={{ min: 0, max: 10, now: value }}
-      {...panResponder.panHandlers}
-    >
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: sliderColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-        <View
-          style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: fillWidth, backgroundColor: GREEN, borderRadius: 2,
-          }}
-        />
-      </View>
-      {trackPx > 0 && (
-        <View
-          style={{
-            position: 'absolute',
-            left: thumbLeft,
-            width: THUMB_R * 2,
-            height: THUMB_R * 2,
-            borderRadius: THUMB_R,
-            backgroundColor: value > 0 ? GREEN : '#2C2C2C',
-            borderWidth: 2,
-            borderColor: value > 0 ? GREEN : (sliderColors.isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)'),
-          }}
-        />
-      )}
-    </View>
-  );
+function numericToBucket(n: number): Bucket {
+  if (n <= 0) return 0;
+  if (n <= 3) return 1;
+  if (n <= 6) return 2;
+  return 3;
+}
+function nextBucket(b: Bucket): Bucket {
+  return ((b + 1) % 4) as Bucket;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -137,7 +63,6 @@ export default function SideEffectsScreen() {
   const insets = useSafeAreaInsets();
   const { addSideEffectLog } = useLogStore();
   const { colors } = useAppTheme();
-  const { profile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [activeIds, setActiveIds] = useState<string[]>([]);
@@ -298,64 +223,70 @@ export default function SideEffectsScreen() {
         {/* ── Section label ── */}
         <Animated.View style={labelAnim}>
           <Text style={s.sectionLabel}>EFFECTS</Text>
+          <Text style={s.sectionHint}>Tap to cycle: mild → moderate → severe</Text>
         </Animated.View>
 
-        {/* ── Effect rows (flat, no card) ── */}
-        <Animated.View style={listAnim}>
+        {/* ── Effect chips (2-col grid) ── */}
+        <Animated.View style={[listAnim, s.grid]}>
           {allActive.length === 0 ? (
             <Text style={s.emptyText}>
               No effects tracked yet. Tap the settings icon to customize.
             </Text>
           ) : (
-            allActive.map((effect, idx) => {
+            allActive.map((effect) => {
               const val = values[effect.id] ?? 0;
-              const isLast = idx === allActive.length - 1;
+              const bucket = numericToBucket(val);
               const fromHK = hkSuggestedIds.has(effect.id) && val > 0;
-              const ctx = val > 0
-                ? getSideEffectContext(effect.dbType, profile?.doseStartDate)
-                : null;
               return (
-                <View key={effect.id} style={[s.effectRow, isLast && s.effectRowLast]}>
-                  <View style={s.effectLabelRow}>
-                    <View style={s.effectLabelContainer}>
-                      <Text style={s.effectLabel}>{effect.label}</Text>
-                      {fromHK && (
-                        <View style={s.hkBadge}>
-                          <Ionicons name="heart" size={9} color="#FF3B30" />
-                          <Text style={s.hkBadgeText}>HEALTH</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[s.effectValue, val === 0 && s.effectValueZero]}>
-                      {val}
+                <TouchableOpacity
+                  key={effect.id}
+                  activeOpacity={0.85}
+                  style={[s.chip, s[`chip_${bucket}`]]}
+                  onPress={() => {
+                    const next = nextBucket(bucket);
+                    setValues((prev) => ({ ...prev, [effect.id]: BUCKET_VALUE[next] }));
+                    Haptics.impactAsync(
+                      next === 3
+                        ? Haptics.ImpactFeedbackStyle.Medium
+                        : Haptics.ImpactFeedbackStyle.Light
+                    );
+                  }}
+                  accessibilityLabel={`${effect.label}, ${bucket === 0 ? 'none' : BUCKET_LABEL[bucket]}`}
+                  accessibilityRole="button"
+                  accessibilityHint="Tap to cycle severity"
+                >
+                  <View style={s.chipTopRow}>
+                    <Text style={[s.chipLabel, s[`chipLabel_${bucket}`]]} numberOfLines={2}>
+                      {effect.label}
                     </Text>
+                    {fromHK && (
+                      <Ionicons name="heart" size={11} color="#FF3B30" />
+                    )}
                   </View>
-                  <EffectSlider
-                    value={val}
-                    onChange={(v) => setValues((prev) => ({ ...prev, [effect.id]: v }))}
-                  />
-                  {ctx && (
-                    <View style={[
-                      s.contextBox,
-                      ctx.severity === 'flag' && s.contextBoxFlag,
-                      ctx.severity === 'watch' && s.contextBoxWatch,
-                      ctx.severity === 'expected' && s.contextBoxOk,
-                    ]}>
-                      <Text style={[
-                        s.contextText,
-                        ctx.severity === 'flag' && s.contextTextFlag,
-                        ctx.severity === 'watch' && s.contextTextWatch,
-                        ctx.severity === 'expected' && s.contextTextOk,
-                      ]}>
-                        {ctx.message}
-                      </Text>
+                  <View style={s.chipBottomRow}>
+                    <View style={s.dotRow}>
+                      {[1, 2, 3].map((i) => (
+                        <View
+                          key={i}
+                          style={[
+                            s.dot,
+                            bucket >= i && s[`dot_${bucket}`],
+                          ]}
+                        />
+                      ))}
                     </View>
-                  )}
-                </View>
+                    {bucket > 0 && (
+                      <Text style={[s.chipSev, s[`chipSev_${bucket}`]]}>
+                        {BUCKET_LABEL[bucket]}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               );
             })
           )}
         </Animated.View>
+
 
         {/* ── Customize + Food Noise ── */}
         <Animated.View style={bottomAnim}>
@@ -472,7 +403,12 @@ const createStyles = (c: AppColors) =>
       color: ORANGE,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
-      marginBottom: 8,
+      marginBottom: 4,
+    },
+    sectionHint: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginBottom: 14,
     },
 
     // ── Empty state ──
@@ -481,91 +417,89 @@ const createStyles = (c: AppColors) =>
       color: c.textMuted,
       textAlign: 'center',
       paddingVertical: 40,
+      width: '100%',
     },
 
-    // ── Effect rows ──
-    effectRow: {
-      paddingVertical: 16,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.borderSubtle,
-    },
-    effectRowLast: {
-      borderBottomWidth: 0,
-    },
-    effectLabelRow: {
+    // ── Chip grid ──
+    grid: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    chip: {
+      width: '48%',
+      minHeight: 86,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
       justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 2,
+      borderWidth: 1,
     },
-    effectLabelContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      flex: 1,
-    },
-    effectLabel: {
-      fontSize: 17,
-      fontWeight: '600',
-      color: c.textPrimary,
-    },
-    effectValue: {
-      fontSize: 17,
-      fontWeight: '800',
-      color: GREEN,
-      minWidth: 20,
-      textAlign: 'right',
-    },
-    effectValueZero: {
-      color: c.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
-    },
-
-    // ── HealthKit badge ──
-    hkBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 3,
-      backgroundColor: 'rgba(255,59,48,0.12)',
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    hkBadgeText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: '#FF3B30',
-      letterSpacing: 0.3,
-    },
-
-    // ── Context messages ──
-    contextBox: {
-      marginTop: 8,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 8,
-    },
-    contextBoxFlag: {
-      backgroundColor: 'rgba(245,166,35,0.08)',
-    },
-    contextBoxWatch: {
+    chip_0: {
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      borderColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
     },
-    contextBoxOk: {
-      backgroundColor: 'rgba(93,184,123,0.08)',
+    chip_1: {
+      backgroundColor: 'rgba(245,200,80,0.14)',
+      borderColor: 'rgba(245,200,80,0.35)',
     },
-    contextText: {
-      fontSize: 14,
-      lineHeight: 18,
+    chip_2: {
+      backgroundColor: 'rgba(255,116,42,0.18)',
+      borderColor: 'rgba(255,116,42,0.45)',
     },
-    contextTextFlag: {
-      color: '#F5A623',
+    chip_3: {
+      backgroundColor: 'rgba(255,69,58,0.22)',
+      borderColor: 'rgba(255,69,58,0.55)',
     },
-    contextTextWatch: {
-      color: c.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+
+    chipTopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 6,
     },
-    contextTextOk: {
-      color: GREEN,
+    chipLabel: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '700',
+      letterSpacing: -0.2,
     },
+    chipLabel_0: { color: c.textPrimary },
+    chipLabel_1: { color: c.textPrimary },
+    chipLabel_2: { color: c.textPrimary },
+    chipLabel_3: { color: c.textPrimary },
+
+    chipBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 10,
+    },
+    dotRow: {
+      flexDirection: 'row',
+      gap: 4,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+    },
+    dot_0: {},
+    dot_1: { backgroundColor: '#F5C850' },
+    dot_2: { backgroundColor: ORANGE },
+    dot_3: { backgroundColor: '#FF453A' },
+
+    chipSev: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    chipSev_0: {},
+    chipSev_1: { color: '#F5C850' },
+    chipSev_2: { color: ORANGE },
+    chipSev_3: { color: '#FF453A' },
+
 
     // ── Customize prompt ──
     customizeRow: {

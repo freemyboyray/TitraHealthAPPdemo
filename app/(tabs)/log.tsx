@@ -1725,31 +1725,81 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   );
 }
 
-// ─── Injection info card ───────────────────────────────────────────────────────
+// ─── Latest injection entry-point (taps through to /injection-history) ──────
 
-function InjectionCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function LatestInjectionEntry({
+  lastInj, lastSite, rotateTo, lastDosage, nextInjLabel, lastDaysSince, oral,
+}: {
+  lastInj: InjectionLog | null;
+  lastSite: string | null;
+  rotateTo: string;
+  lastDosage: string;
+  nextInjLabel: string;
+  lastDaysSince: number;
+  oral: boolean;
+}) {
   const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  const glassShadow = useMemo(() => ({ shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: colors.isDark ? 8 : 2 }, shadowOpacity: colors.isDark ? 0.3 : 0.06, shadowRadius: colors.isDark ? 24 : 8, elevation: colors.isDark ? 8 : 2 }), [colors]);
-  const { openAiChat } = useUiStore();
-  const handleAskAI = () => {
-    openAiChat({ type: 'metric', contextLabel: label, contextValue: value, chips: JSON.stringify(['Why does this matter?', 'How does this affect my treatment?', 'What should I know about site rotation?']) });
-  };
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const noun = oral ? 'Dose' : 'Injection';
+
+  const sinceLabel = !lastInj
+    ? null
+    : lastDaysSince <= 1
+      ? 'Today'
+      : lastDaysSince === 2
+        ? 'Yesterday'
+        : `${lastDaysSince - 1} days ago`;
+
   return (
     <Pressable
-      style={[s.dailyWrap, glassShadow]}
-      onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleAskAI(); }}
-      delayLongPress={400}
+      onPress={() => router.push('/injection-history' as any)}
+      style={({ pressed }) => [{
+        borderRadius: 20,
+        marginBottom: 24,
+        backgroundColor: colors.surface,
+        borderWidth: 0.5,
+        borderColor: colors.border,
+        padding: 18,
+        opacity: pressed ? 0.85 : 1,
+        ...(colors.isDark
+          ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4 }
+          : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3 }),
+      }]}
+      accessibilityLabel={`Latest ${noun.toLowerCase()}, tap to view history`}
+      accessibilityRole="button"
     >
-      <View style={[s.cardBody, { flex: 1, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={s.dailyInner}>
-          <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
-            <View style={s.dailyIconWrap}>{icon}</View>
-          </View>
-          <Text style={s.dailyLabel}>{label}</Text>
-          <Text style={s.dailyValue}>{value}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <FontAwesome5 name={doseIconName(oral)} size={14} color={ORANGE} />
+          <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.2 }}>
+            Latest {noun}
+          </Text>
         </View>
+        <IconSymbol name="chevron.right" size={16} color={w(0.35)} />
       </View>
+
+      {lastInj ? (
+        <>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginBottom: 4 }}>
+            {!oral && lastSite ? `${lastSite} · ${lastDosage}` : lastDosage}
+          </Text>
+          <Text style={{ fontSize: 14, color: w(0.55), fontFamily: 'System' }}>
+            {sinceLabel ? `${sinceLabel} · ` : ''}Next {oral ? 'dose' : 'injection'} {nextInjLabel.toLowerCase()}
+          </Text>
+          {!oral && lastSite && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: w(0.08) }}>
+              <IconSymbol name="arrow.triangle.2.circlepath" size={13} color={w(0.5)} />
+              <Text style={{ fontSize: 13, color: w(0.55), fontFamily: 'System' }}>
+                Rotate to <Text style={{ color: ORANGE, fontWeight: '700' }}>{rotateTo}</Text>
+              </Text>
+            </View>
+          )}
+        </>
+      ) : (
+        <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System' }}>
+          No {noun.toLowerCase()}s logged yet. Tap to view history.
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -2044,8 +2094,6 @@ function WeightProjectionCard({
     })
   ).current;
 
-  const plateauColor = projection?.plateauRisk === 'detected' ? '#FF3B30' : '#FF9500';
-  const plateauLabel = projection?.plateauRisk === 'detected' ? 'PLATEAU DETECTED' : 'PLATEAU APPROACHING';
   const goalDateLabel = projection
     ? new Date(projection.projectedGoalDate + 'T00:00:00')
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -2074,15 +2122,15 @@ function WeightProjectionCard({
       <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={openSheet} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            {/* Weight value + tap hint */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
+            <View style={{ position: 'absolute', top: 22, right: 18, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Ionicons name="expand-outline" size={11} color={w(0.3)} />
+              <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+            </View>
+            {/* Weight value */}
+            <View style={{ marginBottom: 12 }}>
               <Text style={{ fontSize: 24, fontWeight: '800', color: ORANGE, letterSpacing: -1 }}>
                 {currentWeight != null ? `${currentWeight} lbs` : '-'}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Ionicons name="expand-outline" size={11} color={w(0.3)} />
-                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
-              </View>
             </View>
             {/* Period selector */}
             <View style={s.progPeriodRow}>
@@ -2192,13 +2240,6 @@ function WeightProjectionCard({
                       <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
                     </View>
                   </View>
-                  {projection.plateauRisk !== 'none' && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
-                      <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: plateauColor, fontFamily: 'System' }}>{plateauLabel}</Text>
-                      </View>
-                    </View>
-                  )}
                 </>
               )}
 
@@ -2242,8 +2283,6 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const plateauColor = projection?.plateauRisk === 'detected' ? '#FF3B30' : '#FF9500';
-  const plateauLabel = projection?.plateauRisk === 'detected' ? 'PLATEAU DETECTED' : 'PLATEAU APPROACHING';
   const goalDateLabel = projection
     ? new Date(projection.projectedGoalDate + 'T00:00:00')
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -2255,7 +2294,7 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
       <View style={s.cardWrap}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: projection?.plateauRisk && projection.plateauRisk !== 'none' ? 12 : 0 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
               <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>GOAL WEIGHT</Text>
               <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
@@ -2284,13 +2323,6 @@ function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
             </View>
           </View>
 
-          {projection?.plateauRisk != null && projection.plateauRisk !== 'none' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <View style={{ backgroundColor: plateauColor + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: plateauColor, fontFamily: 'System' }}>⚠ {plateauLabel}</Text>
-              </View>
-            </View>
-          )}
           </View>
         </View>
       </View>
@@ -2458,6 +2490,42 @@ function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
   );
 }
 
+// ─── Side Effect Insights entry-point ────────────────────────────────────────
+
+function SideEffectInsightsEntryCard({ count }: { count: number }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const subtitle = count === 0
+    ? 'Track symptoms to surface cycle patterns'
+    : `Cycle patterns, trends & clusters from ${count} log${count === 1 ? '' : 's'}`;
+  return (
+    <Pressable
+      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/insights/side-effects'); }}
+      style={[s.cardWrap, { marginBottom: 16 }]}
+      accessibilityRole="button"
+      accessibilityLabel="View side effect insights"
+    >
+      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 }}>
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: ORANGE + '1A', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="trending-up" size={20} color={ORANGE} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>
+              Side Effect Insights
+            </Text>
+            <Text style={{ fontSize: 13, color: w(0.5), fontFamily: 'System', marginTop: 2 }}>
+              {subtitle}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={w(0.35)} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 // ─── Recent Logs card ─────────────────────────────────────────────────────────
 
 function formatGroupDate(dateStr: string): string {
@@ -2613,6 +2681,7 @@ function LifestyleTrendCard({
   const [metricId, setMetricId] = useState('protein');
   const [periodDays, setPeriodDays] = useState(30);
   const [expanded, setExpanded] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [compactW, setCompactW] = useState(0);
   const [expW, setExpW] = useState(0);
   const [selIdx, setSelIdx] = useState<number | null>(null);
@@ -2620,17 +2689,32 @@ function LifestyleTrendCard({
   const sheetY = useRef(new Animated.Value(0)).current;
 
   const dismiss = () => {
+    // Force-close the picker overlay first so it can't leak into the post-expanded state.
+    setPickerOpen(false);
     Animated.timing(sheetY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
       setExpanded(false);
       setSelIdx(null);
     });
   };
 
+  // Reset sheet position + spring up when expanded flips true.
+  // Putting the setValue inside the effect (not in openExpanded) makes it idempotent —
+  // a double-fired tap (chart GestureDetector + outer Pressable both calling openExpanded)
+  // won't reset sheetY mid-animation and strand the sheet off-screen.
   useEffect(() => {
     if (expanded) {
+      sheetY.setValue(screenHeight);
       Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
     }
-  }, [expanded, sheetY]);
+  }, [expanded, sheetY, screenHeight]);
+
+  const openPicker = useCallback(() => {
+    setPickerOpen(true);
+  }, []);
+
+  const closePicker = useCallback(() => {
+    setPickerOpen(false);
+  }, []);
 
   const panRef = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
@@ -2736,9 +2820,8 @@ function LifestyleTrendCard({
   }, [values, dates, metric, target]);
 
   const openExpanded = useCallback(() => {
-    sheetY.setValue(screenHeight);
     setExpanded(true);
-  }, [screenHeight, sheetY]);
+  }, []);
 
   const ltCompactScrub = useChartScrub({
     points: compact.pts,
@@ -2770,32 +2853,104 @@ function LifestyleTrendCard({
     [ltExpScrub.activeIndex],
   );
 
-  function renderMetricPills(onSelect: (id: string) => void) {
+  function renderMetricDropdown() {
     return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 10, paddingRight: 4 }}
-        style={{ marginTop: 12, marginBottom: 8 }}
+      <Pressable
+        onPress={() => { Haptics.selectionAsync(); openPicker(); }}
+        accessibilityRole="button"
+        accessibilityLabel={`Select metric. Current: ${metric.label}`}
+        style={({ pressed }) => ({
+          marginTop: 12,
+          marginBottom: 4,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 14,
+          paddingVertical: 11,
+          borderRadius: 14,
+          backgroundColor: tc(pressed ? 0.10 : 0.06),
+        })}
       >
-        {LIFESTYLE_METRICS.map(m => (
-          <Pressable
-            key={m.id}
-            onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); onSelect(m.id); setSelIdx(null); }}
-            style={{
-              paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
-              backgroundColor: metricId === m.id ? m.color : tc(0.08),
-            }}
-          >
-            <Text style={{
-              fontSize: 13, fontWeight: '600', fontFamily: 'System',
-              color: metricId === m.id ? '#FFF' : tc(0.45),
-            }}>
-              {m.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: metric.color }} />
+          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>
+            {metric.label}
+          </Text>
+        </View>
+        <Ionicons name="chevron-down" size={16} color={tc(0.45)} />
+      </Pressable>
+    );
+  }
+
+  // Picker sheet contents (without Modal wrapper).
+  // Rendered inline so it can layer over either the compact card OR the expanded sheet.
+  function renderMetricPickerSheet() {
+    return (
+      <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', zIndex: 100 }]}>
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+          onPress={closePicker}
+        />
+        <View
+          style={{
+            maxHeight: screenHeight * 0.7,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            overflow: 'hidden',
+            paddingBottom: insets.bottom + 12,
+            backgroundColor: dk ? '#141416' : '#FFFFFF',
+          }}
+        >
+          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 6 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: tc(0.18) }} />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10, fontFamily: 'System', letterSpacing: -0.3 }}>
+            Choose metric
+          </Text>
+          <ScrollView style={{ paddingHorizontal: 12 }} showsVerticalScrollIndicator={false}>
+            {LIFESTYLE_METRICS.map(m => {
+              const isActive = m.id === metricId;
+              return (
+                <Pressable
+                  key={m.id}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setMetricId(m.id);
+                    setSelIdx(null);
+                    closePicker();
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    backgroundColor: isActive ? `${m.color}1A` : 'transparent',
+                  }}
+                >
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: m.color }} />
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>
+                    {m.label}
+                  </Text>
+                  {isActive && <Ionicons name="checkmark" size={20} color={m.color} />}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  // Wraps the picker sheet in a Modal — used when no other modal is active.
+  function renderMetricPicker() {
+    if (!pickerOpen || expanded) return null;
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={closePicker}>
+        {renderMetricPickerSheet()}
+      </Modal>
     );
   }
 
@@ -2953,7 +3108,11 @@ function LifestyleTrendCard({
           {/* Chart with scrub */}
           <GestureDetector gesture={ltCompactScrub.gesture}>
             <View style={{ height: LT_COMPACT_H, position: 'relative' }} onLayout={e => setCompactW(e.nativeEvent.layout.width)}>
-              {compactW > 0 && renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
+              {compactW > 0 && (
+                <Reanimated.View key={metricId} entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill}>
+                  {renderChart(LT_COMPACT_H, compact, compactW, compactLabels, 'ltGradCompact')}
+                </Reanimated.View>
+              )}
               {compactW > 0 && (
                 <ChartScrubOverlay
                   activeIndex={ltCompactScrub.activeIndex}
@@ -2982,8 +3141,8 @@ function LifestyleTrendCard({
             )}
           </View>
         </Pressable>
-        {/* Metric pills — bottom (not tappable for expand) */}
-        {renderMetricPills(setMetricId)}
+        {/* Metric dropdown — bottom (not tappable for expand) */}
+        {renderMetricDropdown()}
       </View>
 
       {/* ── Expanded Modal (glassmorphism) ── */}
@@ -3033,8 +3192,12 @@ function LifestyleTrendCard({
               {/* Chart with scrub */}
               <GestureDetector gesture={ltExpScrub.gesture}>
                 <View style={{ position: 'relative' }}>
-                  <View style={{ height: LT_EXP_H }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
-                    {expW > 0 && renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
+                  <View style={{ height: LT_EXP_H, position: 'relative' }} onLayout={e => setExpW(e.nativeEvent.layout.width)}>
+                    {expW > 0 && (
+                      <Reanimated.View key={metricId} entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill}>
+                        {renderChart(LT_EXP_H, exp, expW, expLabels, 'ltGradExp')}
+                      </Reanimated.View>
+                    )}
                   </View>
                   {expW > 0 && (
                     <ChartScrubOverlay
@@ -3051,8 +3214,8 @@ function LifestyleTrendCard({
                 </View>
               </GestureDetector>
 
-              {/* Metric pills — below chart */}
-              {renderMetricPills(setMetricId)}
+              {/* Metric dropdown — below chart */}
+              {renderMetricDropdown()}
 
               {/* Selected point tooltip */}
               {selValue !== null && selDate !== null && (
@@ -3120,9 +3283,15 @@ function LifestyleTrendCard({
                 </View>
               )}
             </ScrollView>
+
+            {/* Picker sheet — layered on top of the expanded sheet */}
+            {pickerOpen && renderMetricPickerSheet()}
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Metric picker (only when expanded sheet is closed) */}
+      {renderMetricPicker()}
     </>
   );
 }
@@ -3355,7 +3524,6 @@ export default function InsightsScreen() {
         health.profile.glp1Status === 'active',
         cycleHours,
       ));
-  const medicationLogs: LogEntry[] = injectionLogs.slice(0, 5).map(inj => injectionToEntry(inj, oral));
 
   // ── Shot phase (needed for biometric baseline exclusion) ───────────────────
   const currentShotPhase = getShotPhase(Math.min(lastDaysSince, 7));
@@ -3748,6 +3916,7 @@ export default function InsightsScreen() {
                 lastDoseMg={lastInj?.dose_mg ?? null}
               />
               <SideEffectsCard logs={sideEffectLogs} />
+              <SideEffectInsightsEntryCard count={sideEffectLogs.length} />
               {appleHealthEnabled && (hkStore.hrv != null || hkStore.restingHR != null || hkStore.sleepHours != null) && (
                 <>
                   <Text style={[s.sectionTitle, { marginTop: 8 }]}>Cycle Biometrics</Text>
@@ -3758,38 +3927,15 @@ export default function InsightsScreen() {
                 </>
               )}
               <View style={{ height: 12 }} />
-              <View style={[s.dailyGrid, { marginBottom: 24 }]}>
-                {!oral && (
-                  <InjectionCard
-                    icon={<IconSymbol name="figure.stand" size={20} color={ORANGE} />}
-                    label="Last Injection Site"
-                    value={lastSite ?? '-'}
-                  />
-                )}
-                {!oral && (
-                  <InjectionCard
-                    icon={<IconSymbol name="magnifyingglass" size={20} color={ORANGE} />}
-                    label="Rotate To"
-                    value={rotateTo}
-                  />
-                )}
-                <InjectionCard
-                  icon={<FontAwesome5 name={doseIconName(oral)} size={18} color={ORANGE} />}
-                  label="Last Dosage"
-                  value={lastDosage}
-                />
-                <InjectionCard
-                  icon={<IconSymbol name="magnifyingglass" size={20} color={ORANGE} />}
-                  label={oral ? 'Next Dose' : 'Next Injection'}
-                  value={nextInjLabel}
-                />
-              </View>
-              <RecentLogsCard entries={medicationLogs} onDelete={(id) => {
-                Alert.alert('Delete Log', 'Remove this dose entry?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => deleteInjectionLog(id) },
-                ]);
-              }} onViewAll={() => router.push('/log-history')} />
+              <LatestInjectionEntry
+                lastInj={lastInj}
+                lastSite={lastSite}
+                rotateTo={rotateTo}
+                lastDosage={lastDosage}
+                nextInjLabel={nextInjLabel}
+                lastDaysSince={lastDaysSince}
+                oral={oral}
+              />
             </Reanimated.View>
           )}
 
