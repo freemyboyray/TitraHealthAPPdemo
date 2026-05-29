@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PostHogProvider, usePostHog, posthogConfig } from '@/lib/posthog';
@@ -21,6 +21,7 @@ import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { syncNotifications } from '@/stores/reminders-store';
 // react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
@@ -285,6 +286,15 @@ function RootLayoutInner() {
     return () => sub.remove();
   }, []);
 
+  // Re-sync scheduled notifications on app foreground so weekly dose reminders advance
+  // and engagement-based back-off recomputes even when the user doesn't open Home.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') syncNotifications().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ProfileProvider>
@@ -313,6 +323,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="courses" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="articles" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="top-contributors" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="trends" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />

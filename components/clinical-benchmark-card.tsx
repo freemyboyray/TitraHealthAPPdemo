@@ -242,6 +242,12 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
         </View>
       )}
 
+      {result.isEarlyEstimate && (
+        <Text style={s.earlyEstimateNote}>
+          Early estimate · {result.trialName}'s first published datapoint is week 4
+        </Text>
+      )}
+
       {/* SVG Chart */}
       <GestureDetector gesture={scrub.gesture}>
         <View style={{ height: svgH, position: 'relative', marginTop: 16 }} onLayout={onLayout}>
@@ -491,6 +497,14 @@ const createStyles = (c: AppColors) => {
       lineHeight: 19,
       marginTop: 8,
       fontFamily: 'System',
+    },
+    earlyEstimateNote: {
+      fontSize: 12,
+      color: `${dim}0.4)`,
+      textAlign: 'center',
+      marginTop: 10,
+      fontFamily: 'System',
+      fontStyle: 'italic',
     },
     hint: {
       fontSize: 13,

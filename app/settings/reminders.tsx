@@ -23,7 +23,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
-import { requestNotificationPermission, scheduleDoseReminder, cancelReminder } from '@/lib/notifications';
+import { requestNotificationPermission } from '@/lib/notifications';
 import {
   type ReminderSlot,
   type HydrationConfig,
@@ -31,6 +31,7 @@ import {
   type CustomReminder,
   MAX_CUSTOM_REMINDERS,
   useRemindersStore,
+  syncDoseReminder,
 } from '@/stores/reminders-store';
 
 const FF = 'System';
@@ -203,16 +204,15 @@ export default function RemindersScreen() {
       const brandDisplay = profile.medicationBrand
         ? (profile.medicationBrand.charAt(0).toUpperCase() + profile.medicationBrand.slice(1))
         : 'GLP-1';
-      await scheduleDoseReminder(
-        profile.injectionFrequencyDays ?? 7,
-        doseTimeStr,
-        brandDisplay,
-        profile.lastInjectionDate || null,
-      ).catch(() => {});
+      await syncDoseReminder({
+        injFreqDays: profile.injectionFrequencyDays ?? 7,
+        doseTime: doseTimeStr,
+        drugName: brandDisplay,
+        lastInjectionDate: profile.lastInjectionDate || null,
+      }).catch(() => {});
     } else {
-      await cancelReminder('dose_reminder_daily').catch(() => {});
-      await cancelReminder('dose_reminder_weekly').catch(() => {});
-      await cancelReminder('dose_reminder_weekly_eve').catch(() => {});
+      // doseReminderEnabled is now false → syncDoseReminder cancels all dose reminders.
+      await syncDoseReminder().catch(() => {});
     }
   }
 
@@ -228,17 +228,16 @@ export default function RemindersScreen() {
     closePicker();
     if (profile) {
       await updateProfile({ doseTime: newTime });
-      if (doseReminderEnabled) {
-        const brandDisplay = profile.medicationBrand
-          ? (profile.medicationBrand.charAt(0).toUpperCase() + profile.medicationBrand.slice(1))
-          : 'GLP-1';
-        await scheduleDoseReminder(
-          profile.injectionFrequencyDays ?? 7,
-          newTime,
-          brandDisplay,
-          profile.lastInjectionDate || null,
-        ).catch(() => {});
-      }
+      // syncDoseReminder no-ops (cancels) when the dose toggle is off.
+      const brandDisplay = profile.medicationBrand
+        ? (profile.medicationBrand.charAt(0).toUpperCase() + profile.medicationBrand.slice(1))
+        : 'GLP-1';
+      await syncDoseReminder({
+        injFreqDays: profile.injectionFrequencyDays ?? 7,
+        doseTime: newTime,
+        drugName: brandDisplay,
+        lastInjectionDate: profile.lastInjectionDate || null,
+      }).catch(() => {});
     }
   }
 

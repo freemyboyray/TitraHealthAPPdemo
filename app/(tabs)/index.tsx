@@ -33,7 +33,8 @@ import { useUserStore } from '@/stores/user-store';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
-import { EnergyBankCard } from '@/components/energy-bank-card';
+import { WeeklySummaryCard } from '@/components/weekly-summary-card';
+import { TodayPagerCard } from '@/components/today-pager-card';
 import { computeEnergyBank, computeSideEffectBurden } from '@/constants/scoring';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
@@ -1222,177 +1223,72 @@ export default function HomeScreen() {
           )}
 
 
-          {/* ── Treatment Hero Card (medication users only) ── */}
-          {onTreatment ? (
-          <Pressable
-            style={[s.cardWrap, { marginBottom: 20, marginTop: 16 }]}
-            onLongPress={handlePhasePillPress}
-            delayLongPress={500}
-            accessibilityLabel={`Treatment progress card. ${medName}${medDose ? `, ${medDose}` : ''}. Long press for AI insights.`}
-            accessibilityRole="button"
-          >
-            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
-              <View style={s.heroCard}>
-
-                {/* Medication row */}
-                <View style={s.heroTopRow}>
-                  <Text style={s.heroMedLabel}>
-                    {medName}{medDose ? ` · ${medDose}` : ''}
-                  </Text>
-                  <Pressable
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-                    onPress={() => router.push('/medication-detail' as any)}
-                    accessibilityLabel="View medication details"
-                    accessibilityRole="link"
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>View</Text>
-                    <IconSymbol name="chevron.right" size={14} color={ORANGE} />
-                  </Pressable>
-                </View>
-
-                {/* Stats row */}
-                <View style={s.heroStats}>
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatVal}>
-                      {treatmentDisplayVal ?? '—'}
-                    </Text>
-                    <Text style={s.heroStatLbl}>{treatmentDisplayLbl}</Text>
-                  </View>
-                  <View style={s.heroStatDiv} />
-                  <View style={s.heroStat}>
-                    <Text style={[s.heroStatVal, weightDelta != null && { color: weightDelta <= 0 ? '#27AE60' : '#E53E3E' }]}>
-                      {weightDelta != null ? `${weightDelta > 0 ? '+' : ''}${weightDelta.toFixed(1)}` : '—'}
-                    </Text>
-                    <Text style={s.heroStatLbl}>
-                      {isPast
-                        ? `lbs since\nstart (${MONTHS[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()})`
-                        : 'lbs since\nstart'}
-                    </Text>
-                  </View>
-                  <View style={s.heroStatDiv} />
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatVal}>{stat3Val}</Text>
-                    <Text style={s.heroStatLbl}>{stat3Lbl}</Text>
-                  </View>
-                </View>
-
-                {/* Transition banner during washout */}
-                {onTreatment && (transitionPhase === 'washout' || transitionPhase === 'old_med') && profile.pendingFirstDoseDate && (
-                  (() => {
-                    const startDate = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
-                    const daysAway = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / 86400000));
-                    const dateLabel2 = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    const newBrandLabel = BRAND_DISPLAY_NAMES[profile.pendingMedicationBrand as keyof typeof BRAND_DISPLAY_NAMES] ?? profile.pendingMedicationBrand ?? '';
-                    return (
-                      <View style={s.transitionBanner}>
-                        <View style={s.transitionRow}>
-                          <Ionicons name="swap-horizontal" size={16} color={ORANGE} />
-                          <Text style={s.transitionTitle}>Switching Medication</Text>
-                        </View>
-                        <Text style={s.transitionBody}>
-                          Starting {newBrandLabel} {profile.pendingDoseMg}mg on {dateLabel2}
-                          {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
-                        </Text>
-                        {transitionPhase === 'washout' && (
-                          <Text style={s.transitionHint}>Washout period — no active dose cycle</Text>
-                        )}
-                      </View>
-                    );
-                  })()
-                )}
-
-                {/* Cycle day progress bar — hidden during washout and off-treatment */}
-                {onTreatment && transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
-                  (() => {
-                    // Shot-day override: show start of new cycle instead of end of old one
-                    const displayDayNum = todayDayNum === 0 ? 1 : todayDayNum;
-                    return (
-                  <View style={s.heroCycleRow}>
-                    <View style={s.heroCycleLabels}>
-                      <Text style={s.heroCycleLbl}>Day {displayDayNum} of {freq ?? 7}</Text>
-                      <Text style={[
-                        s.heroCycleLbl,
-                        !todayInjLogged && rawDaysUntil != null && rawDaysUntil < 0 && { color: '#E74C3C' },
-                        !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
-                      ]}>
-                        {todayInjLogged
-                          ? <>{oral ? 'Dosed' : 'Injected'} today <IconSymbol name="checkmark.circle.fill" size={14} color="#27AE60" /></>
-                          : rawDaysUntil == null
-                            ? `In ${daysUntil} days`
-                            : rawDaysUntil < 0
-                              ? 'Past due'
-                              : rawDaysUntil === 0
-                                ? (oral ? 'Dose day' : 'Shot day')
-                                : rawDaysUntil === 1
-                                  ? (oral ? 'Dose tomorrow' : 'Shot tomorrow')
-                                  : `In ${rawDaysUntil} days`}
-                      </Text>
-                    </View>
-                    <View style={s.heroCycleBar}>
-                      <View style={[
-                        s.heroCycleFill,
-                        {
-                          width: `${Math.min((displayDayNum / (freq ?? 7)) * 100, 100)}%` as any,
-                          backgroundColor: intradayPhase
-                            ? INTRADAY_PHASE_COLORS[intradayPhase]
-                            : PHASE_COLORS[shotPhaseForLabel],
-                        },
-                      ]} />
-                    </View>
-                  </View>
-                    );
-                  })()
-                )}
-
-              </View>
-            </View>
-          </Pressable>
-          ) : (
-          /* ── Paused / No Medication Card ── */
-          <View style={[s.cardWrap, { marginBottom: 20 }]}>
-            <View style={[s.cardBody, { backgroundColor: colors.surface }]}>
-              <View style={s.heroCard}>
-                {/* Top row with Add Medication link */}
-                <View style={s.heroTopRow}>
-                  <Text style={s.heroMedLabel}>No active medication</Text>
-                  <Pressable
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-                    onPress={() => router.push('/settings/edit-treatment')}
-                    accessibilityLabel="Add medication"
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="add-circle" size={15} color={ORANGE} />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF, marginLeft: 2 }}>Add Medication</Text>
-                  </Pressable>
-                </View>
-
-                {/* Weight stats */}
-                <View style={s.heroStats}>
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatVal}>
-                      {profile.currentWeightLbs ?? profile.weightLbs ?? '—'}
-                    </Text>
-                    <Text style={s.heroStatLbl}>{'current\nweight'}</Text>
-                  </View>
-                  <View style={s.heroStatDiv} />
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatVal}>{profile.goalWeightLbs ?? '—'}</Text>
-                    <Text style={s.heroStatLbl}>{'goal\nweight'}</Text>
-                  </View>
-                  <View style={s.heroStatDiv} />
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatVal}>
-                      {profile.currentWeightLbs && profile.goalWeightLbs
-                        ? `${Math.max(0, Math.round(((profile.currentWeightLbs ?? profile.weightLbs) - profile.goalWeightLbs) * 10) / 10)}`
-                        : '—'}
-                    </Text>
-                    <Text style={s.heroStatLbl}>{'lbs\nto go'}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-          )}
+          {/* ── Today Pager Card (medication, energy, lifestyle highlight, article of day) ── */}
+          {(() => {
+            // Energy slide data — only computed/shown for today's view.
+            let energySlide: { result: ReturnType<typeof computeEnergyBank>; phase: 'shot' | 'peak' | 'balance' | 'reset' } | null = null;
+            if (isToday) {
+              const phase = dayNum <= Math.round((freq ?? 7) * 0.15) ? 'shot' as const
+                : dayNum <= Math.round((freq ?? 7) * 0.5) ? 'peak' as const
+                : dayNum <= Math.round((freq ?? 7) * 0.85) ? 'balance' as const : 'reset' as const;
+              const seLogs = (logStore.sideEffectLogs ?? []).map(l => ({
+                effect_type: l.effect_type, severity: l.severity ?? 0, logged_at: l.logged_at, phase_at_log: l.phase_at_log ?? '',
+              }));
+              const { burden: seBurden } = computeSideEffectBurden(seLogs, phase, 14);
+              // Use unclamped rawDayNum so concentration continues decaying past the dosing interval
+              const tHours = rawDayNum * 24;
+              const glp1Type = profile.glp1Type;
+              const intervalH = (freq ?? 7) * 24;
+              const pkPct = glp1Type && tHours > 0
+                ? pkConcentrationPct(tHours, glp1Type as any, true, intervalH)
+                : null;
+              const fatigueLogs = seLogs.filter(l => l.effect_type === 'fatigue');
+              const { burden: fatigueBurden } = fatigueLogs.length > 0
+                ? computeSideEffectBurden(fatigueLogs, phase, 14)
+                : { burden: 0 };
+              const energyResult = computeEnergyBank(
+                healthData.wearable,
+                actuals,
+                targets,
+                phase,
+                seBurden,
+                pkPct,
+                fatigueBurden,
+                biometricStore.baseline,
+              );
+              energySlide = { result: energyResult, phase };
+            }
+            return (
+              <TodayPagerCard
+                medication={{
+                  onTreatment,
+                  profile,
+                  medName,
+                  medDose,
+                  treatmentDisplayVal,
+                  treatmentDisplayLbl,
+                  weightDelta,
+                  stat3Val,
+                  stat3Lbl,
+                  todayDayNum,
+                  freq,
+                  todayInjLogged,
+                  rawDaysUntil,
+                  daysUntil,
+                  oral,
+                  effectiveLastInjectionDate,
+                  transitionPhase,
+                  intradayPhase,
+                  shotPhaseForLabel,
+                  isPast,
+                  selectedDate,
+                  today,
+                  onPhaseLongPress: handlePhasePillPress,
+                }}
+                energy={energySlide}
+              />
+            );
+          })()}
 
           {/* ── Progress Photos Card ── */}
           {isToday && (
@@ -1414,45 +1310,6 @@ export default function HomeScreen() {
               </View>
             </Pressable>
           )}
-
-          {/* ── Energy Bank Card ── */}
-          {isToday && (() => {
-            const phase = dayNum <= Math.round((freq ?? 7) * 0.15) ? 'shot' as const
-              : dayNum <= Math.round((freq ?? 7) * 0.5) ? 'peak' as const
-              : dayNum <= Math.round((freq ?? 7) * 0.85) ? 'balance' as const : 'reset' as const;
-            const seLogs = (logStore.sideEffectLogs ?? []).map(l => ({
-              effect_type: l.effect_type, severity: l.severity ?? 0, logged_at: l.logged_at, phase_at_log: l.phase_at_log ?? '',
-            }));
-            const { burden: seBurden } = computeSideEffectBurden(seLogs, phase, 14);
-            // Compute real-time drug concentration from PK model
-            // Use unclamped rawDayNum so concentration continues decaying past the dosing interval
-            const tHours = rawDayNum * 24;
-            const glp1Type = profile.glp1Type;
-            const intervalH = (freq ?? 7) * 24;
-            const pkPct = glp1Type && tHours > 0
-              ? pkConcentrationPct(tHours, glp1Type as any, true, intervalH)
-              : null;
-            // Compute fatigue-specific burden (fatigue side effect logs only)
-            const fatigueLogs = seLogs.filter(l => l.effect_type === 'fatigue');
-            const { burden: fatigueBurden } = fatigueLogs.length > 0
-              ? computeSideEffectBurden(fatigueLogs, phase, 14)
-              : { burden: 0 };
-            const energyResult = computeEnergyBank(
-              healthData.wearable,
-              actuals,
-              targets,
-              phase,
-              seBurden,
-              pkPct,
-              fatigueBurden,
-              biometricStore.baseline,
-            );
-            return (
-              <View style={{ marginBottom: 20 }}>
-                <EnergyBankCard result={energyResult} phase={phase} />
-              </View>
-            );
-          })()}
 
           {/* ── Daily Focuses ── */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 12 }}>
@@ -1575,14 +1432,18 @@ export default function HomeScreen() {
               : null;
 
             return (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
+              <View style={{ marginBottom: 12 }}>
                 <WeeklyCheckinCard lastLoggedAt={lastLoggedAt} isDaily={scheduleMode === 'intraday'} />
               </View>
             );
           })()}
 
-
+          {/* ── Weekly Summary (today only) ── */}
+          {isToday && (
+            <View style={{ marginBottom: 16 }}>
+              <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} />
+            </View>
+          )}
 
 
           {/* ── Shot / Dose Day Banner (future projected days) ── */}

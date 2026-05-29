@@ -16,6 +16,7 @@ export type FoodLog = Database['public']['Tables']['food_logs']['Row'];
 export type FoodNoiseLog = Database['public']['Tables']['food_noise_logs']['Row'];
 export type WeeklyCheckinRow = Database['public']['Tables']['weekly_checkins']['Row'];
 export type EnergyLog = Database['public']['Tables']['energy_logs']['Row'];
+export type WeeklySummaryRow = Database['public']['Tables']['weekly_summaries']['Row'];
 
 export type SideEffectType = Database['public']['Enums']['side_effect_type'];
 export type PhaseType = Database['public']['Enums']['phase_type'];
@@ -55,6 +56,7 @@ type LogStore = {
   foodNoiseLogs: FoodNoiseLog[];
   weeklyCheckins: Record<string, WeeklyCheckinRow[]>;
   energyLogs: EnergyLog[];
+  weeklySummaries: WeeklySummaryRow[];
   profile: ProfileRow | null;
   userGoals: UserGoalsRow | null;
 
@@ -161,6 +163,15 @@ type LogStore = {
   ) => Promise<void>;
   deleteEnergyLog: (id: string) => Promise<void>;
 
+  // Weekly summaries
+  fetchWeeklySummaries: () => Promise<void>;
+  upsertWeeklySummary: (params: {
+    window_start: string;
+    window_end: string;
+    summary_data: unknown;
+    ai_insight: string | null;
+  }) => Promise<void>;
+
   // Apple Health weight sync — imports latest weight sample if newer than last log
   syncWeightFromHealthKit: () => Promise<void>;
 };
@@ -224,6 +235,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
   foodNoiseLogs: [],
   energyLogs: [],
   weeklyCheckins: {},
+  weeklySummaries: [],
   profile: null,
   userGoals: null,
 
@@ -242,7 +254,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const since1y  = since90d;
 
     try {
-      const [w, inj, f, a, se, prof, goals, fn, en, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn] = await Promise.all([
+      const [w, inj, f, a, se, prof, goals, fn, en, wcEm, wcAp, wcGi, wcAq, wcSq, wcMh, wcFn, ws] = await Promise.all([
         supabase.from('weight_logs').select('*').eq('user_id', uid).gte('logged_at', since1y).order('logged_at', { ascending: false }),
         supabase.from('injection_logs').select('*').eq('user_id', uid).order('injection_date', { ascending: false }).limit(20),
         supabase.from('food_logs').select('*').eq('user_id', uid).gte('logged_at', since90d).order('logged_at', { ascending: false }),
@@ -259,6 +271,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'sleep_quality').order('logged_at', { ascending: false }).limit(12),
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'mental_health').order('logged_at', { ascending: false }).limit(12),
         supabase.from('weekly_checkins' as any).select('*').eq('user_id', uid).eq('checkin_type', 'food_noise').order('logged_at', { ascending: false }).limit(12),
+        supabase.from('weekly_summaries').select('*').eq('user_id', uid).order('window_end', { ascending: false }).limit(26),
       ]);
 
       set({
@@ -278,6 +291,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
           mental_health:    (wcMh.data ?? []) as WeeklyCheckinRow[],
           food_noise:       (wcFn.data ?? []) as WeeklyCheckinRow[],
         },
+        weeklySummaries: (ws.data ?? []) as WeeklySummaryRow[],
         profile:        prof.data ?? null,
         userGoals:      goals.data ?? null,
         loading:        false,
@@ -332,6 +346,37 @@ export const useLogStore = create<LogStore>((set, get) => ({
       await get().fetchInsightsData();
     }
     set({ loading: false, error: error?.message ?? null });
+  },
+
+  fetchWeeklySummaries: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('weekly_summaries')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('window_end', { ascending: false })
+      .limit(26);
+    set({ weeklySummaries: (data ?? []) as WeeklySummaryRow[] });
+  },
+
+  upsertWeeklySummary: async ({ window_start, window_end, summary_data, ai_insight }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
+      .from('weekly_summaries')
+      .upsert({
+        user_id: user.id,
+        window_start,
+        window_end,
+        summary_data: summary_data as any,
+        ai_insight,
+      }, { onConflict: 'user_id,window_end' });
+    if (error) {
+      console.warn('upsertWeeklySummary failed:', error.message);
+      return;
+    }
+    await get().fetchWeeklySummaries();
   },
 
   syncWeightFromHealthKit: async () => {

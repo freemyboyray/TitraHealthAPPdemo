@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
 let Print: typeof import('expo-print') | undefined;
 try { Print = require('expo-print'); } catch {}
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -204,9 +204,16 @@ export default function WeeklySummaryScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
   const { targets } = useHealthData();
-  const { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs, injectionLogs } = useLogStore();
-  const { setLastWeeklySummaryDate } = usePreferencesStore();
+  const { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs, injectionLogs, weeklySummaries, upsertWeeklySummary } = useLogStore();
+  const { setLastWeeklySummaryDate, aiDataConsent } = usePreferencesStore();
   const { openAiChat } = useUiStore();
+
+  const { snapshot_id } = useLocalSearchParams<{ snapshot_id?: string }>();
+  const historicalSnapshot = useMemo(
+    () => snapshot_id ? weeklySummaries.find(s => s.id === snapshot_id) ?? null : null,
+    [snapshot_id, weeklySummaries],
+  );
+  const isHistorical = !!snapshot_id;
 
   const [summary, setSummary] = useState<WeeklySummaryData | null>(null);
   const [aiInsight, setAiInsight] = useState<string>('');
@@ -283,20 +290,31 @@ export default function WeeklySummaryScreen() {
     return { predictedScore, reportedScore, deltaLabel, adherenceStreak: null, isIntraday: false };
   }, [injectionLogs, summary?.checkins.appetite, profile]);
 
-  // Mark summary as shown immediately on mount — prevents re-triggering gate
+  // Mark summary as shown immediately on mount — prevents re-triggering gate.
+  // Skip in historical mode so opening a past snapshot doesn't suppress today's trigger.
   useEffect(() => {
+    if (isHistorical) return;
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setLastWeeklySummaryDate(today);
   }, []);
 
-  // Compute summary once
+  // Hydrate from snapshot (historical) or compute + persist (live)
   useEffect(() => {
     if (computedRef.current) return;
     computedRef.current = true;
 
     async function load() {
-      // Read 7 water keys from AsyncStorage
+      if (isHistorical) {
+        if (historicalSnapshot) {
+          setSummary(historicalSnapshot.summary_data as unknown as WeeklySummaryData);
+          setAiInsight(historicalSnapshot.ai_insight ?? '');
+        }
+        setAiLoading(false);
+        return;
+      }
+
+      // Live mode: compute, fetch AI insight, then upsert to Supabase.
       const waterByDate: Record<string, number> = {};
       const today = new Date();
       for (let i = 1; i <= 7; i++) {
@@ -315,16 +333,27 @@ export default function WeeklySummaryScreen() {
       );
       setSummary(computed);
 
-      // Load AI insight
+      let insight = '';
       if (profile) {
         try {
-          const insight = await generateWeeklyInsight(computed, profile);
+          insight = await generateWeeklyInsight(computed, profile);
           setAiInsight(insight);
         } catch {
           setAiInsight('');
         }
       }
       setAiLoading(false);
+
+      try {
+        await upsertWeeklySummary({
+          window_start: computed.windowStart,
+          window_end:   computed.windowEnd,
+          summary_data: computed,
+          ai_insight:   aiDataConsent ? (insight || null) : null,
+        });
+      } catch (err) {
+        console.warn('weekly-summary: upsert failed', err);
+      }
     }
 
     load();

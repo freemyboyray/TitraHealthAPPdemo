@@ -143,17 +143,6 @@ function sideEffectToEntry(se: SideEffectLog): LogEntry {
   };
 }
 
-// ─── Filter config ──────────────────────────────────────────────────────────
-
-const FILTERS: { key: FilterType; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'food', label: 'Food' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'weight', label: 'Weight' },
-  { key: 'medication', label: 'Medication' },
-  { key: 'side_effect', label: 'Side Effects' },
-];
-
 // ─── Edit Modal ─────────────────────────────────────────────────────────────
 
 type EditState = {
@@ -283,7 +272,7 @@ export default function LogHistoryScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const store = useLogStore();
   const { foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs } = store;
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [visibleDays, setVisibleDays] = useState(5);
   const [editState, setEditState] = useState<EditState>(null);
 
   const allEntries = useMemo(() => {
@@ -297,11 +286,9 @@ export default function LogHistoryScreen() {
     return entries.sort((a, b) => b.rawDate.localeCompare(a.rawDate) || b.timestamp.localeCompare(a.timestamp));
   }, [foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs]);
 
-  const filtered = filter === 'all' ? allEntries : allEntries.filter(e => e.logType === filter);
-
   const sections = useMemo(() => {
     const map = new Map<string, LogEntry[]>();
-    for (const e of filtered) {
+    for (const e of allEntries) {
       const list = map.get(e.rawDate) ?? [];
       list.push(e);
       map.set(e.rawDate, list);
@@ -310,7 +297,11 @@ export default function LogHistoryScreen() {
       title: formatSectionDate(date),
       data,
     }));
-  }, [filtered]);
+  }, [allEntries]);
+
+  // Paginate by day: show the most recent N days, "Load More" reveals 5 more.
+  const visibleSections = sections.slice(0, visibleDays);
+  const hasMore = sections.length > visibleDays;
 
   const getEditFields = useCallback((id: string, logType: FilterType): Record<string, string> => {
     switch (logType) {
@@ -435,28 +426,10 @@ export default function LogHistoryScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={s.headerTitle}>Log History</Text>
-          <View style={{ width: 26 }} />
-        </View>
-
-        <View style={s.filterRow}>
-          {FILTERS.map(({ key, label }) => {
-            const active = filter === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[s.filterChip, active && s.filterChipActive]}
-                onPress={() => setFilter(key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[s.filterLabel, active && s.filterLabelActive]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
 
         <SectionList
-          sections={sections}
+          sections={visibleSections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
@@ -496,6 +469,19 @@ export default function LogHistoryScreen() {
               <Text style={{ color: colors.textMuted, fontSize: 16, fontFamily: FF }}>No logs found</Text>
             </View>
           }
+          ListFooterComponent={
+            hasMore ? (
+              <TouchableOpacity
+                style={s.loadMoreBtn}
+                onPress={() => setVisibleDays(d => d + 5)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Load more days"
+              >
+                <Text style={s.loadMoreText}>Load More</Text>
+              </TouchableOpacity>
+            ) : null
+          }
         />
       </SafeAreaView>
 
@@ -521,19 +507,12 @@ const createStyles = (c: AppColors) => {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 20, paddingVertical: 12,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', fontFamily: FF },
-    filterRow: {
-      flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexWrap: 'wrap',
+    loadMoreBtn: {
+      marginTop: 20, alignSelf: 'center',
+      paddingHorizontal: 28, paddingVertical: 12, borderRadius: 22,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
     },
-    filterChip: {
-      paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-    },
-    filterChipActive: {
-      backgroundColor: ORANGE,
-    },
-    filterLabel: { fontSize: 13, fontWeight: '600', color: muted, fontFamily: FF },
-    filterLabelActive: { color: '#FFFFFF' },
+    loadMoreText: { fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF },
     listContent: { paddingHorizontal: 20, paddingBottom: 100 },
     sectionHeader: {
       fontSize: 15, fontWeight: '700', color: c.textPrimary,

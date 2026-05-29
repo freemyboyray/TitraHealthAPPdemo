@@ -20,7 +20,7 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { DRUG_IS_ORAL, DRUG_WASHOUT_DAYS, DRUG_WASHOUT_LABEL } from '@/constants/drug-pk';
 import { getDailyTargets, type DailyTargets } from '@/constants/scoring';
-import { scheduleDoseReminder } from '@/lib/notifications';
+import { syncDoseReminder } from '@/stores/reminders-store';
 import { supabase } from '@/lib/supabase';
 import { useLogStore } from '@/stores/log-store';
 
@@ -304,13 +304,13 @@ export default function EditTreatmentScreen() {
       });
 
       // Schedule reminder for the first dose date
-      await scheduleDoseReminder(
-        freqDays as number,
-        formattedDoseTime || '09:00',
-        brandDisplay,
+      await syncDoseReminder({
+        injFreqDays: freqDays as number,
+        doseTime: formattedDoseTime || '09:00',
+        drugName: brandDisplay,
         // Use fakeLastDate so reminder fires on firstDoseDate
-        toDateString(new Date(confirmFirstDoseDate.getTime() - (freqDays as number) * 86400000)),
-      ).catch(() => {});
+        lastInjectionDate: toDateString(new Date(confirmFirstDoseDate.getTime() - (freqDays as number) * 86400000)),
+      }).catch(() => {});
 
     // ── Immediate start: apply now ──
     } else {
@@ -411,12 +411,12 @@ export default function EditTreatmentScreen() {
       }
 
       // Reschedule dose reminders
-      await scheduleDoseReminder(
-        freqDays as number,
-        formattedDoseTime || '09:00',
-        brandDisplay,
-        finalLastInjDateStr,
-      ).catch(() => {});
+      await syncDoseReminder({
+        injFreqDays: freqDays as number,
+        doseTime: formattedDoseTime || '09:00',
+        drugName: brandDisplay,
+        lastInjectionDate: finalLastInjDateStr,
+      }).catch(() => {});
     }
 
     // Record medication change history (for both immediate and future)

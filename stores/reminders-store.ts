@@ -2,14 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
-  cancelAllReminders,
   cancelReminder,
   cancelIntervalReminders,
   scheduleDailyReminder,
+  scheduleDoseReminder,
   scheduleIntervalReminders,
 } from '../lib/notifications';
 import {
   buildReminderContent,
+  getDoseReminderContent,
+  getEngagementTier,
   getHydrationTitles,
   getHydrationBodies,
   getProteinCheckContent,
@@ -150,21 +152,86 @@ async function scheduleSlot(
   await scheduleDailyReminder(slot, content.title, content.body, hour, minute, content.deepLink);
 }
 
+const DOSE_IDS = ['dose_reminder_daily', 'dose_reminder_weekly', 'dose_reminder_weekly_eve'];
+
+async function cancelDoseReminders(): Promise<void> {
+  for (const id of DOSE_IDS) await cancelReminder(id);
+}
+
+/**
+ * Single source of truth for dose/medication reminders. Independent of the master
+ * "logging nudges" toggle — gated only by `doseReminderEnabled`.
+ *
+ * Pass `override` with fresh treatment data (onboarding, treatment edits, dose-time
+ * change) when the store profile may be stale; otherwise params are derived from the
+ * stored profile so every resync re-schedules the next cycle (weekly self-heal).
+ */
+export async function syncDoseReminder(override?: {
+  injFreqDays: number;
+  doseTime: string;
+  drugName: string;
+  lastInjectionDate: string | null;
+}): Promise<void> {
+  const s = useRemindersStore.getState();
+  if (!s.doseReminderEnabled) {
+    await cancelDoseReminders();
+    return;
+  }
+
+  const ctx = gatherContext();
+  const p = ctx.profile;
+
+  // Only schedule for an active treatment plan. An explicit override means the caller
+  // is mid-treatment-setup, so treat it as active.
+  const treatmentOn = override != null || p?.treatment_status === 'on';
+  if (!treatmentOn) {
+    await cancelDoseReminders();
+    return;
+  }
+
+  const injFreqDays = override?.injFreqDays ?? p?.injection_frequency_days ?? 7;
+  const doseTime = override?.doseTime ?? p?.dose_time ?? '09:00';
+  const drugName = override?.drugName ?? p?.medication_brand ?? p?.medication_type ?? 'GLP-1';
+  const lastInjectionDate = override?.lastInjectionDate ?? p?.last_injection_date ?? null;
+
+  await scheduleDoseReminder(
+    injFreqDays,
+    doseTime,
+    drugName,
+    lastInjectionDate,
+    getDoseReminderContent(ctx),
+  );
+}
+
+/** Cancel only the nudge reminders managed by syncNotifications (NOT dose reminders). */
+async function cancelNudgeReminders(s: RemindersStore): Promise<void> {
+  for (const slot of ALL_SLOTS) await cancelReminder(slot);
+  await cancelIntervalReminders('hydration');
+  for (let i = 0; i < 3; i++) await cancelReminder(`protein_check_${i}`);
+  for (const cr of s.customReminders) await cancelReminder(`custom_${cr.id}`);
+}
+
 /** Sync all notification slots with personalized content. Exported for foreground resync. */
 export async function syncNotifications(state?: RemindersStore): Promise<void> {
   const s = state ?? useRemindersStore.getState();
 
   if (!s.masterEnabled) {
-    await cancelAllReminders();
+    // Master controls logging nudges only — dose reminders are independent.
+    await cancelNudgeReminders(s);
+    await syncDoseReminder();
     return;
   }
 
   const ctx = gatherContext();
+  const tier = getEngagementTier(ctx);
+  ctx.tier = tier;
 
-  // Standard slots
+  // Standard slots. When the user has gone dormant, back off to a single soft carrier
+  // (daily_plan_morning) and cancel the rest to cut notification volume.
   for (const slot of ALL_SLOTS) {
     const cfg = s.slots[slot];
-    if (cfg.enabled) {
+    const backOff = tier === 'dormant' && slot !== 'daily_plan_morning';
+    if (cfg.enabled && !backOff) {
       await scheduleSlot(slot, cfg.time, ctx);
     } else {
       await cancelReminder(slot);
@@ -226,6 +293,10 @@ export async function syncNotifications(state?: RemindersStore): Promise<void> {
       await cancelReminder(`custom_${cr.id}`);
     }
   }
+
+  // Dose reminders — independent of the master toggle; re-derived from the store every
+  // resync so weekly/bi-weekly cycles self-advance after each dose.
+  await syncDoseReminder();
 }
 
 const DEFAULT_SLOTS: Record<ReminderSlot, SlotConfig> = {

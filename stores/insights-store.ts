@@ -423,8 +423,10 @@ export type ClinicalBenchmarkResult = {
   trialName: string;
   deltaVsTrial: number | null;
   status: BenchmarkStatus | null;
-  /** true when user has weight data but treatment week is before first trial datapoint */
+  /** true when user has weight data but treatment week is before first trial datapoint AND we couldn't extrapolate (week 0) */
   tooEarly: boolean;
+  /** true when trialLossPct is a linear extrapolation from (week 0, 0%) to the first published trial datapoint (week 4) */
+  isEarlyEstimate: boolean;
   /** true when medication type is unknown / not set */
   unknownMedication: boolean;
   /** true when medication is set but no published trial benchmarks exist for it */
@@ -447,6 +449,7 @@ const EMPTY_BENCHMARK: ClinicalBenchmarkResult = {
   deltaVsTrial: null,
   status: null,
   tooEarly: false,
+  isEarlyEstimate: false,
   unknownMedication: false,
   noTrialData: false,
   userTrajectory: [],
@@ -530,7 +533,47 @@ export function computeClinicalBenchmark(
     ? trialTrajectory[trialTrajectory.length - 1].week
     : 0;
 
+  // Early-estimate mode: user is before the first published trial datapoint (week 4
+  // for STEP 1 / SURMOUNT). Linearly extrapolate from (week 0, 0%) → first datapoint
+  // so the benchmark is useful from day 1. STEP 1 / SURMOUNT curves are near-linear
+  // through week 12, so this is a defensible approximation for weeks 1–3.
   if (trialLossPct === null) {
+    const firstPoint = tier.data[0];
+    if (treatmentWeek >= 1 && firstPoint && firstPoint.week > 0) {
+      const ratio = treatmentWeek / firstPoint.week;
+      const extrapolated = Math.round(firstPoint.lossPct * ratio * 10) / 10;
+      const extrapolatedLow = Math.round(firstPoint.lossPctLow * ratio * 10) / 10;
+      const extrapolatedHigh = Math.round(firstPoint.lossPctHigh * ratio * 10) / 10;
+      const delta = Math.round((userLossPct - extrapolated) * 10) / 10;
+      let status: BenchmarkStatus;
+      if (delta > 0.5) status = 'ahead';
+      else if (delta < -0.5) status = 'behind';
+      else status = 'on_track';
+      // Prepend (week 0, 0%) anchor so the chart band starts at the origin instead
+      // of floating at week 4.
+      const trajectoryWithOrigin = [
+        { week: 0, mean: 0, low: 0, high: 0 },
+        ...trialTrajectory,
+      ];
+      return {
+        hasEnoughData: true,
+        treatmentWeek,
+        userLossPct,
+        trialLossPct: extrapolated,
+        trialLabel: tier.label,
+        trialName: tier.trialName,
+        deltaVsTrial: delta,
+        status,
+        tooEarly: false,
+        isEarlyEstimate: true,
+        unknownMedication: false,
+        noTrialData: false,
+        userTrajectory,
+        trialTrajectory: trajectoryWithOrigin,
+        trialMaxWeek,
+      };
+    }
+    // Week 0 or no first datapoint — genuinely too early.
     return {
       ...EMPTY_BENCHMARK,
       hasEnoughData: true,
@@ -561,6 +604,7 @@ export function computeClinicalBenchmark(
     deltaVsTrial,
     status,
     tooEarly: false,
+    isEarlyEstimate: false,
     unknownMedication: false,
     noTrialData: false,
     userTrajectory,

@@ -3,13 +3,11 @@ import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop } 
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
-import { ScrollTitle } from '@/components/ui/scroll-title';
 import { SlidingTabs } from '@/components/ui/sliding-tabs';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
@@ -30,39 +28,38 @@ import { useBiometricStore } from '@/stores/biometric-store';
 import { getShotPhase, type DailyTargets } from '@/constants/scoring';
 import {
   computeCycleIntelligence,
-  computeMetabolicAdaptationScore,
   buildCycleBiometricContext,
 } from '@/lib/cycle-intelligence';
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
-import { MetabolicAdaptationCard } from '@/components/metabolic-adaptation-card';
-import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
-import { NutrientLogSheet, type NutrientKey } from '@/components/nutrient-log-sheet';
+import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
 import { LeanMassPreservationCard } from '@/components/lean-mass-preservation-card';
-import { PatternsCard } from '@/components/patterns-card';
-import { TopContributorsRow } from '@/components/top-contributors-row';
-import { computeFatToLeanRatio, computeLeanPreservation, bodyCompTrendData } from '@/lib/body-composition';
 import { PremiumGate } from '@/components/ui/premium-gate';
-import { useSubscriptionStore } from '@/stores/subscription-store';
+import { LifestyleInsightsCard } from '@/components/lifestyle-insights-card';
+import { CategoryRow } from '@/components/insights/category-row';
+import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
+import { computeFatToLeanRatio, bodyCompTrendData, computeLeanPreservation } from '@/lib/body-composition';
 import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
-import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Reanimated, { useAnimatedReaction, runOnJS as reanimatedRunOnJS, FadeIn } from 'react-native-reanimated';
 import { useChartScrub } from '@/hooks/useChartScrub';
 import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ScrollTitle } from '@/components/ui/scroll-title';
 
 const ORANGE = '#FF742A';
 
 // ─── Health Monitor types + helpers ──────────────────────────────────────────
 
-type HMStatus = 'good' | 'normal' | 'low' | 'elevated';
-type HealthMetric = {
+export type HMStatus = 'good' | 'normal' | 'low' | 'elevated';
+export type HealthMetric = {
   id: string; label: string; value: string; unit: string;
   status: HMStatus; iconName: string; iconSet: 'Ionicons' | 'MaterialIcons'; rangeLabel: string;
   gaugePosition: number | null;
+  /** True when we track this metric but have no data yet — rendered greyed out. */
+  noData?: boolean;
 };
 function hmRhrStatus(bpm: number): HMStatus { return bpm < 55 ? 'good' : bpm < 70 ? 'normal' : 'elevated'; }
 function hmRhrLabel(bpm: number): string { return bpm < 55 ? 'Optimal' : bpm < 70 ? 'Normal' : 'Elevated'; }
@@ -204,15 +201,45 @@ function GaugeBar({ position, color }: { position: number | null; color: string 
     </View>
   );
 }
-function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWidth?: boolean }) {
+export function HealthMonitorCard({ metric, fullWidth }: { metric: HealthMetric; fullWidth?: boolean }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const ss = hmStatusStyle[metric.status];
-  const icon = metric.iconSet === 'Ionicons'
-    ? <Ionicons name={metric.iconName as any} size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-    : <MaterialIcons name={metric.iconName as any} size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />;
   const { openAiChat } = useUiStore();
+  const noData = metric.noData;
+  const mutedBg = colors.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+  const mutedText = colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+  const ss = noData ? { bg: mutedBg, text: mutedText } : hmStatusStyle[metric.status];
+  const iconColor = noData
+    ? (colors.isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)')
+    : (colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)');
+  const icon = metric.iconSet === 'Ionicons'
+    ? <Ionicons name={metric.iconName as any} size={16} color={iconColor} />
+    : <MaterialIcons name={metric.iconName as any} size={16} color={iconColor} />;
   const contextValue = `${metric.value}${metric.unit ? ' ' + metric.unit : ''} · ${metric.rangeLabel}`;
+
+  // No-data cards are passive placeholders — no AI long-press, dimmed styling.
+  if (noData) {
+    return (
+      <View style={[s.hmWrap, fullWidth && { flexBasis: '100%' }, { opacity: 0.55 }]} accessibilityLabel={`${metric.label}, no data yet`}>
+        <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
+          <View style={[s.hmInner, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                {icon}
+                <Text style={[s.hmLabel, { marginBottom: 0 }]}>{metric.label}</Text>
+              </View>
+              <Text style={[s.hmValue, { color: mutedText }]}>—</Text>
+              <View style={[s.hmBadge, { backgroundColor: mutedBg, alignSelf: 'flex-start', marginTop: 10 }]}>
+                <Text style={[s.hmBadgeText, { color: mutedText }]}>No data</Text>
+              </View>
+            </View>
+            <GaugeBar position={null} color={mutedText} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <Pressable style={[s.hmWrap, fullWidth && { flexBasis: '100%' }]} onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: metric.label, contextValue, chips: JSON.stringify(['How can I improve this?', 'Is this normal for my phase?', `How does GLP-1 affect ${metric.label}?`, 'What trends should I watch?']) }); }} accessibilityRole="button" accessibilityLabel={`${metric.label}, ${metric.value} ${metric.unit}, ${metric.rangeLabel}. Long press to ask AI`}>
       <View style={[s.hmBody, { borderRadius: 20, backgroundColor: colors.surface }]}>
@@ -361,10 +388,10 @@ type MetricConfig = {
 // Phase 2 default targets for Premier metrics; Phase 3 wires these to user_goals.
 // Sodium 2300mg = FDA daily limit. Sugar 50g = FDA added-sugar daily value.
 // Sat fat 22g ≈ 10% of 2000 kcal (AHA). Cholesterol 300mg = general guidance.
-const DEFAULT_SODIUM_MG = 2300;
-const DEFAULT_SUGAR_G = 50;
-const DEFAULT_SAT_FAT_G = 22;
-const DEFAULT_CHOLESTEROL_MG = 300;
+export const DEFAULT_SODIUM_MG = 2300;
+export const DEFAULT_SUGAR_G = 50;
+export const DEFAULT_SAT_FAT_G = 22;
+export const DEFAULT_CHOLESTEROL_MG = 300;
 
 const LIFESTYLE_METRICS: MetricConfig[] = [
   { id: 'protein',     label: 'Protein',    unit: 'g',     color: '#FF742A', getTarget: t => t.proteinG,             getValue: (f, _, d) => f[d]?.protein ?? null },
@@ -659,7 +686,7 @@ function MetricCard({ value, label, ringColor, emptyCtaLabel, onEmptyCta }: {
 
 // ─── Activity daily card (fits in dailyGrid, ring replaces icon) ─────────────
 
-function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, unit = '', emptyCtaLabel, onEmptyCta, onIncrement, onDecrement }: {
+export function ActivityDailyCard({ value, label, ringColor, current = 0, target = 0, unit = '', emptyCtaLabel, onEmptyCta, onIncrement, onDecrement }: {
   value: string; label: string; ringColor: string;
   current?: number; target?: number; unit?: string;
   emptyCtaLabel?: string; onEmptyCta?: () => void;
@@ -756,7 +783,7 @@ const statusStyle: Record<Status, { bg: string; text: string }> = {
   neutral: { bg: 'rgba(150,150,150,0.10)', text: '#9A9490' },
 };
 
-function DailyMetricCard({
+export function DailyMetricCard({
   icon, label, value, change, status, pct, onIncrement, onDecrement, onPress,
 }: {
   icon: React.ReactNode; label: string; value: string; change: string; status: Status; pct: number;
@@ -816,7 +843,7 @@ function DailyMetricCard({
 
 // ─── Combined Premier Nutrition Card ─────────────────────────────────────────
 
-function PremierNutritionCard({
+export function PremierNutritionCard({
   metrics,
 }: {
   metrics: { label: string; current: number; target: number; unit: string; color: string; onIncrement: () => void; onDecrement: () => void }[];
@@ -881,7 +908,7 @@ function PremierNutritionCard({
 
 // ─── Health Data connect prompt ──────────────────────────────────────────────────
 
-function HealthDataConnectPrompt() {
+export function HealthDataConnectPrompt() {
   const { colors } = useAppTheme();
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
@@ -902,26 +929,33 @@ function HealthDataConnectPrompt() {
   );
 }
 
-function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getState>): { category: string; metrics: HealthMetric[] }[] {
+/** Placeholder card for a tracked-but-unavailable metric (rendered greyed out). */
+function hmEmpty(id: string, label: string, iconSet: 'Ionicons' | 'MaterialIcons', iconName: string): HealthMetric {
+  return { id, label, value: '—', unit: '', status: 'normal', iconSet, iconName, rangeLabel: 'No data', gaugePosition: null, noData: true };
+}
+
+export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getState>): { category: string; metrics: HealthMetric[] }[] {
   const groups: { category: string; metrics: HealthMetric[] }[] = [];
 
-  // ── Vitals ──
-  const vitals: HealthMetric[] = [];
+  // ── Vitals ── (always show the full set we track; greyed when no data)
   const rhr = hkStore.restingHR;
-  if (rhr != null) vitals.push({ id: 'rhr', label: 'Resting HR', value: String(rhr), unit: 'bpm', status: hmRhrStatus(rhr), iconSet: 'Ionicons', iconName: 'heart-outline', rangeLabel: hmRhrLabel(rhr), gaugePosition: hmGaugePos('rhr', rhr) });
   const hrv = hkStore.hrv;
-  if (hrv != null) vitals.push({ id: 'hrv', label: 'HRV', value: String(hrv), unit: 'ms', status: hmHrvStatus(hrv), iconSet: 'MaterialIcons', iconName: 'show-chart', rangeLabel: hmHrvLabel(hrv), gaugePosition: hmGaugePos('hrv', hrv) });
   const sleep = hkStore.sleepHours;
-  if (sleep != null) { const min = Math.round(sleep * 60); vitals.push({ id: 'sleep', label: 'Sleep', value: fmtSleep(min), unit: '', status: hmSleepStatus(min), iconSet: 'Ionicons', iconName: 'moon-outline', rangeLabel: hmSleepLabel(min), gaugePosition: hmGaugePos('sleep', min) }); }
+  const sleepMin = sleep != null ? Math.round(sleep * 60) : null;
   const glucose = hkStore.bloodGlucose;
-  if (glucose != null) vitals.push({ id: 'glucose', label: 'Blood Glucose', value: String(glucose), unit: 'mg/dL', status: glucose < 100 ? 'good' : glucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: glucose < 100 ? 'Normal' : glucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', glucose) });
   const spo2 = hkStore.spo2;
-  if (spo2 != null) vitals.push({ id: 'spo2', label: 'SpO2', value: `${spo2}`, unit: '%', status: hmSpo2Status(spo2), iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: hmSpo2Label(spo2), gaugePosition: hmGaugePos('spo2', spo2) });
   const bp = hkStore.bloodPressure;
-  if (bp != null) vitals.push({ id: 'bp', label: 'Blood Pressure', value: `${bp.systolic}/${bp.diastolic}`, unit: 'mmHg', status: hmBpStatus(bp.systolic), iconSet: 'Ionicons', iconName: 'pulse-outline', rangeLabel: hmBpLabel(bp.systolic), gaugePosition: hmGaugePos('bp', bp.systolic) });
   const respRate = hkStore.respiratoryRate;
-  if (respRate != null) vitals.push({ id: 'respRate', label: 'Resp. Rate', value: `${respRate}`, unit: 'bpm', status: hmRespRateStatus(respRate), iconSet: 'Ionicons', iconName: 'leaf-outline', rangeLabel: hmRespRateLabel(respRate), gaugePosition: hmGaugePos('respRate', respRate) });
-  if (vitals.length > 0) groups.push({ category: 'Vitals', metrics: vitals });
+  const vitals: HealthMetric[] = [
+    rhr != null ? { id: 'rhr', label: 'Resting HR', value: String(rhr), unit: 'bpm', status: hmRhrStatus(rhr), iconSet: 'Ionicons', iconName: 'heart-outline', rangeLabel: hmRhrLabel(rhr), gaugePosition: hmGaugePos('rhr', rhr) } : hmEmpty('rhr', 'Resting HR', 'Ionicons', 'heart-outline'),
+    hrv != null ? { id: 'hrv', label: 'HRV', value: String(hrv), unit: 'ms', status: hmHrvStatus(hrv), iconSet: 'MaterialIcons', iconName: 'show-chart', rangeLabel: hmHrvLabel(hrv), gaugePosition: hmGaugePos('hrv', hrv) } : hmEmpty('hrv', 'HRV', 'MaterialIcons', 'show-chart'),
+    sleepMin != null ? { id: 'sleep', label: 'Sleep', value: fmtSleep(sleepMin), unit: '', status: hmSleepStatus(sleepMin), iconSet: 'Ionicons', iconName: 'moon-outline', rangeLabel: hmSleepLabel(sleepMin), gaugePosition: hmGaugePos('sleep', sleepMin) } : hmEmpty('sleep', 'Sleep', 'Ionicons', 'moon-outline'),
+    glucose != null ? { id: 'glucose', label: 'Blood Glucose', value: String(glucose), unit: 'mg/dL', status: glucose < 100 ? 'good' : glucose < 125 ? 'normal' : 'elevated', iconSet: 'MaterialIcons', iconName: 'water-drop', rangeLabel: glucose < 100 ? 'Normal' : glucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', glucose) } : hmEmpty('glucose', 'Blood Glucose', 'MaterialIcons', 'water-drop'),
+    spo2 != null ? { id: 'spo2', label: 'SpO2', value: `${spo2}`, unit: '%', status: hmSpo2Status(spo2), iconSet: 'MaterialIcons', iconName: 'air', rangeLabel: hmSpo2Label(spo2), gaugePosition: hmGaugePos('spo2', spo2) } : hmEmpty('spo2', 'SpO2', 'MaterialIcons', 'air'),
+    bp != null ? { id: 'bp', label: 'Blood Pressure', value: `${bp.systolic}/${bp.diastolic}`, unit: 'mmHg', status: hmBpStatus(bp.systolic), iconSet: 'Ionicons', iconName: 'pulse-outline', rangeLabel: hmBpLabel(bp.systolic), gaugePosition: hmGaugePos('bp', bp.systolic) } : hmEmpty('bp', 'Blood Pressure', 'Ionicons', 'pulse-outline'),
+    respRate != null ? { id: 'respRate', label: 'Resp. Rate', value: `${respRate}`, unit: 'bpm', status: hmRespRateStatus(respRate), iconSet: 'Ionicons', iconName: 'leaf-outline', rangeLabel: hmRespRateLabel(respRate), gaugePosition: hmGaugePos('respRate', respRate) } : hmEmpty('respRate', 'Resp. Rate', 'Ionicons', 'leaf-outline'),
+  ];
+  groups.push({ category: 'Vitals', metrics: vitals });
 
   // ── Body Composition ──
   // Note: Weight is omitted here — Titra tracks it directly (logStore syncs from
@@ -937,26 +971,24 @@ function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.getStat
   if (bmi != null) body.push({ id: 'bmi', label: 'BMI', value: `${bmi}`, unit: '', status: hmBmiStatus(bmi), iconSet: 'MaterialIcons', iconName: 'monitor-weight', rangeLabel: hmBmiLabel(bmi), gaugePosition: hmGaugePos('bmi', bmi) });
   if (body.length > 0) groups.push({ category: 'Body Composition', metrics: body });
 
-  // ── Activity ──
+  // ── Activity ── (always show the full set we track; greyed when no data)
   // Note: Steps + Active Calories live in the Daily Metrics row above (with HK
   // fallback). We keep TDEE/exMin/VO2/etc. here since those are HK-only.
-  const activity: HealthMetric[] = [];
   const cal = hkStore.activeCalories; // used for TDEE calc below
   const exMin = hkStore.exerciseMinutes;
-  if (exMin != null && exMin > 0) activity.push({ id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) });
   const vo2 = hkStore.vo2max;
-  if (vo2 != null) activity.push({ id: 'vo2max', label: 'VO2 Max', value: `${vo2}`, unit: 'mL/kg/min', status: hmVo2Status(vo2), iconSet: 'Ionicons', iconName: 'speedometer-outline', rangeLabel: hmVo2Label(vo2), gaugePosition: hmGaugePos('vo2max', vo2) });
   const dist = hkStore.distance;
-  if (dist != null) activity.push({ id: 'distance', label: 'Distance', value: `${dist}`, unit: 'mi', status: hmDistanceStatus(dist), iconSet: 'Ionicons', iconName: 'map-outline', rangeLabel: hmDistanceLabel(dist), gaugePosition: hmGaugePos('distance', dist) });
   const flights = hkStore.flightsClimbed;
-  if (flights != null) activity.push({ id: 'flights', label: 'Flights', value: `${flights}`, unit: '', status: hmFlightsStatus(flights), iconSet: 'Ionicons', iconName: 'trending-up-outline', rangeLabel: hmFlightsLabel(flights), gaugePosition: hmGaugePos('flights', flights) });
-  // TDEE = basal + active energy
   const basal = hkStore.basalEnergy;
-  if (basal != null && cal != null) {
-    const tdee = basal + cal;
-    activity.push({ id: 'tdee', label: 'TDEE', value: tdee.toLocaleString(), unit: 'cal', status: hmTdeeStatus(tdee), iconSet: 'Ionicons', iconName: 'flash-outline', rangeLabel: hmTdeeLabel(tdee), gaugePosition: hmGaugePos('tdee', tdee) });
-  }
-  if (activity.length > 0) groups.push({ category: 'Activity', metrics: activity });
+  const tdee = basal != null && cal != null ? basal + cal : null;
+  const activity: HealthMetric[] = [
+    exMin != null && exMin > 0 ? { id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), iconSet: 'Ionicons', iconName: 'timer-outline', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) } : hmEmpty('exMin', 'Exercise', 'Ionicons', 'timer-outline'),
+    dist != null ? { id: 'distance', label: 'Distance', value: `${dist}`, unit: 'mi', status: hmDistanceStatus(dist), iconSet: 'Ionicons', iconName: 'map-outline', rangeLabel: hmDistanceLabel(dist), gaugePosition: hmGaugePos('distance', dist) } : hmEmpty('distance', 'Distance', 'Ionicons', 'map-outline'),
+    flights != null ? { id: 'flights', label: 'Flights', value: `${flights}`, unit: '', status: hmFlightsStatus(flights), iconSet: 'Ionicons', iconName: 'trending-up-outline', rangeLabel: hmFlightsLabel(flights), gaugePosition: hmGaugePos('flights', flights) } : hmEmpty('flights', 'Flights', 'Ionicons', 'trending-up-outline'),
+    vo2 != null ? { id: 'vo2max', label: 'VO2 Max', value: `${vo2}`, unit: 'mL/kg/min', status: hmVo2Status(vo2), iconSet: 'Ionicons', iconName: 'speedometer-outline', rangeLabel: hmVo2Label(vo2), gaugePosition: hmGaugePos('vo2max', vo2) } : hmEmpty('vo2max', 'VO2 Max', 'Ionicons', 'speedometer-outline'),
+    tdee != null ? { id: 'tdee', label: 'TDEE', value: tdee.toLocaleString(), unit: 'cal', status: hmTdeeStatus(tdee), iconSet: 'Ionicons', iconName: 'flash-outline', rangeLabel: hmTdeeLabel(tdee), gaugePosition: hmGaugePos('tdee', tdee) } : hmEmpty('tdee', 'TDEE', 'Ionicons', 'flash-outline'),
+  ];
+  groups.push({ category: 'Activity', metrics: activity });
 
   // ── Workouts ──
   const workouts = hkStore.workouts;
@@ -2526,45 +2558,13 @@ function SideEffectInsightsEntryCard({ count }: { count: number }) {
   );
 }
 
-// ─── Recent Logs card ─────────────────────────────────────────────────────────
+// ─── Today's Logs card ────────────────────────────────────────────────────────
 
-function formatGroupDate(dateStr: string): string {
-  const today = localDateStr();
-  if (dateStr === today) return 'Today';
-  const yesterday = localDateStr(new Date(Date.now() - 86400000));
-  if (dateStr === yesterday) return 'Yesterday';
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
-  entries: LogEntry[];
-  onDelete?: (id: string) => void;
-  grouped?: boolean;
-  onViewAll?: () => void;
-}) {
+// Itemized list of the day's entries (all log types), with a link to the full
+// cross-day history. Shared by all three Insights tabs so they behave like Home.
+function TodayLogsCard({ entries }: { entries: LogEntry[] }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const [expanded, setExpanded] = useState(false);
-
-  const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(e => !e);
-  };
-
-  const capped = entries.slice(0, 20);
-
-  // Group entries by date when grouped mode is on
-  const sections = useMemo(() => {
-    if (!grouped) return null;
-    const map = new Map<string, LogEntry[]>();
-    for (const e of capped) {
-      const list = map.get(e.rawDate) ?? [];
-      list.push(e);
-      map.set(e.rawDate, list);
-    }
-    return Array.from(map.entries()).map(([date, items]) => ({ date, label: formatGroupDate(date), items }));
-  }, [grouped, capped]);
 
   const renderEntry = (entry: LogEntry, isLast: boolean) => (
     <View key={entry.id}>
@@ -2573,19 +2573,7 @@ function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Text style={s.logEntryTitle} numberOfLines={1}>{entry.title}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={s.logEntryTime}>{entry.timestamp}</Text>
-              {onDelete && (
-                <TouchableOpacity
-                  onPress={() => onDelete(entry.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete ${entry.title} log entry`}
-                >
-                  <IconSymbol name="trash.fill" size={14} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                </TouchableOpacity>
-              )}
-            </View>
+            <Text style={s.logEntryTime}>{entry.timestamp}</Text>
           </View>
           <Text style={s.logEntryDetails}>{entry.details}</Text>
           <View style={[s.logImpactTag, { backgroundColor: statusStyle[entry.impactStatus].bg, marginTop: 6, alignSelf: 'flex-start' }]}>
@@ -2603,42 +2591,30 @@ function RecentLogsCard({ entries, onDelete, grouped, onViewAll }: {
     <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
       <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
 
-        <TouchableOpacity style={s.logHeader} onPress={toggle} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`Recent Logs, ${entries.length} entries, ${expanded ? 'expanded' : 'collapsed'}`} accessibilityState={{ expanded }}>
+        <View style={s.logHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={s.logHeaderText}>Recent Logs</Text>
-            <View style={s.logCountBadge}>
-              <Text style={s.logCountText}>{entries.length}</Text>
-            </View>
-          </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
-        </TouchableOpacity>
-
-        {expanded && (
-          <View style={s.logEntryList}>
-            <View style={s.logDivider} />
-            {capped.length === 0 ? (
-              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>No entries yet</Text>
+            <Text style={s.logHeaderText}>Today&apos;s Logs</Text>
+            {entries.length > 0 && (
+              <View style={s.logCountBadge}>
+                <Text style={s.logCountText}>{entries.length}</Text>
               </View>
-            ) : grouped && sections ? (
-              sections.map((section, si) => (
-                <View key={section.date}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textMuted, paddingHorizontal: 16, paddingTop: si === 0 ? 8 : 16, paddingBottom: 6, fontFamily: 'System' }}>
-                    {section.label}
-                  </Text>
-                  {section.items.map((entry, i) => renderEntry(entry, si === sections.length - 1 && i === section.items.length - 1))}
-                </View>
-              ))
-            ) : (
-              capped.map((entry, i) => renderEntry(entry, i === capped.length - 1))
-            )}
-            {onViewAll && capped.length > 0 && (
-              <TouchableOpacity onPress={onViewAll} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="View all logs">
-                <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>View All Logs</Text>
-              </TouchableOpacity>
             )}
           </View>
-        )}
+        </View>
+
+        <View style={s.logEntryList}>
+          <View style={s.logDivider} />
+          {entries.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>Nothing logged today</Text>
+            </View>
+          ) : (
+            entries.map((entry, i) => renderEntry(entry, i === entries.length - 1))
+          )}
+          <TouchableOpacity onPress={() => router.push('/log-history')} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="See full log history">
+            <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>See Full History →</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -3304,29 +3280,16 @@ export default function InsightsScreen() {
   const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
   const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
-  const { actuals, targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, userGoals, deleteInjectionLog, deleteWeightLog, weeklyCheckins, fetchInsightsData } = useLogStore();
+  const { targets } = health;
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, fetchInsightsData } = useLogStore();
   const hkStore = useHealthKitStore();
-  const isPremiumUser = useSubscriptionStore(s => s.isPremium);
-  // Route Apple Health metric groups by domain so they render under
-  // Activity Metrics / Vitals / (Progress tab) Body Composition instead of
-  // a single grab-bag "Health Data" block.
-  const routedHealthGroups = useMemo(() => {
-    if (!appleHealthEnabled) return { activity: [], vitals: [], bodyComp: [] };
-    const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'glucose', 'bp', 'respRate', 'vo2max']);
-    const rawGroups = buildHealthMetrics(hkStore);
-    const filtered = isPremiumUser
-      ? rawGroups
-      : rawGroups.map(g => ({ ...g, metrics: g.metrics.filter(m => !PREMIUM_METRIC_IDS.has(m.id)) })).filter(g => g.metrics.length > 0);
-    return {
-      activity: filtered.filter(g => g.category === 'Activity' || g.category === 'Workouts'),
-      vitals:   filtered.filter(g => g.category === 'Vitals' || g.category === 'Mindfulness' || g.category === 'Glucose (24h)'),
-      bodyComp: filtered.filter(g => g.category === 'Body Composition'),
-    };
-  }, [appleHealthEnabled, hkStore, isPremiumUser]);
+  // Shared lifestyle data. The same hook powers the three /insights detail
+  // screens so the row preview and detail cards never diverge.
+  const { todayCalories, todaySteps, routedHealthGroups } = useLifestyleMetrics();
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
   const onTreatment = isOnTreatment(fullProfile);
@@ -3351,60 +3314,7 @@ export default function InsightsScreen() {
     openAiChat({ chips: JSON.stringify(tabChips[activeTab] ?? tabChips.medication) });
   }, [openAiChat, activeTab]);
 
-  // ── Quick-adjust state (local +/- offsets, persisted per day) ───────────────
-  type QuickAdj = { proteinG: number; fiberG: number; carbsG: number; fatG: number; calories: number; steps: number; activeCal: number; sodiumMg: number; sugarG: number; satFatG: number; cholesterolMg: number };
-  const ZERO_ADJ: QuickAdj = { proteinG: 0, fiberG: 0, carbsG: 0, fatG: 0, calories: 0, steps: 0, activeCal: 0, sodiumMg: 0, sugarG: 0, satFatG: 0, cholesterolMg: 0 };
-  const qaKey = `@titrahealth_quickadjust_${localDateStr()}`;
-  const [qa, setQa] = useState<QuickAdj>(ZERO_ADJ);
-  useEffect(() => {
-    AsyncStorage.getItem(qaKey).then(v => { if (v) setQa(JSON.parse(v)); });
-  }, [qaKey]);
-  const adjustMetric = useCallback((field: keyof QuickAdj, delta: number) => {
-    setQa(prev => {
-      const next = { ...prev, [field]: Math.max(0, prev[field] + delta) };
-      AsyncStorage.setItem(qaKey, JSON.stringify(next));
-      return next;
-    });
-    // Sync to health context so daily focuses update in real time
-    if (field === 'proteinG') health.dispatch({ type: 'LOG_PROTEIN', grams: delta });
-    else if (field === 'fiberG') health.dispatch({ type: 'FETCH_ACTUALS', actuals: { ...health.actuals, fiberG: health.actuals.fiberG + delta } });
-    else if (field === 'steps') health.dispatch({ type: 'LOG_STEPS', steps: delta });
-  }, [qaKey, health]);
-
-  const [nutrientSheet, setNutrientSheet] = useState<NutrientKey | null>(null);
-
-  // ── Today filters ──────────────────────────────────────────────────────────
   const todayStr = localDateStr();
-  const todayFoodLogs = foodLogs.filter(f => localDateStr(new Date(f.logged_at)) === todayStr);
-  const todayActivityLogs = activityLogs.filter(a => a.date === todayStr);
-
-  // ── Lifestyle metrics ──────────────────────────────────────────────────────
-  // For nutrition + activity metrics, prefer in-app logs but fall back to
-  // Apple Health when nothing is logged today (e.g. user logs food in
-  // MyFitnessPal, walks via iPhone). Keeps a single number per metric.
-  // Quick-adjust offsets are added on top of logged/HK values.
-  const loggedProteinG = Math.round(todayFoodLogs.reduce((s, f) => s + f.protein_g, 0));
-  const loggedFiberG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fiber_g, 0));
-  const loggedCarbsG = Math.round(todayFoodLogs.reduce((s, f) => s + f.carbs_g, 0));
-  const loggedFatG = Math.round(todayFoodLogs.reduce((s, f) => s + f.fat_g, 0));
-  const loggedCalories = Math.round(todayFoodLogs.reduce((s, f) => s + f.calories, 0));
-  // Premier nutrition metrics (only populated when food was logged via FatSecret with Premier flags)
-  const todaySodiumMg       = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sodium_mg ?? 0), 0)) + qa.sodiumMg;
-  const todaySugarG         = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sugar_g ?? 0), 0)) + qa.sugarG;
-  const todaySaturatedFatG  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.saturated_fat_g ?? 0), 0)) + qa.satFatG;
-  const todayCholesterolMg  = Math.round(todayFoodLogs.reduce((s, f) => s + (f.cholesterol_mg ?? 0), 0)) + qa.cholesterolMg;
-  const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
-  const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
-  const todayProteinG = (loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0)) + qa.proteinG;
-  const todayFiberG = (loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0)) + qa.fiberG;
-  const todayCarbsG = (loggedCarbsG > 0 ? loggedCarbsG : Math.round(hkStore.todayNutrition?.carbs ?? 0)) + qa.carbsG;
-  const todayFatG = (loggedFatG > 0 ? loggedFatG : Math.round(hkStore.todayNutrition?.fat ?? 0)) + qa.fatG;
-  const todayCalories = (loggedCalories > 0 ? loggedCalories : Math.round(hkStore.todayNutrition?.calories ?? 0)) + qa.calories;
-  const todayActiveCalories = (loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0)) + qa.activeCal;
-  const todaySteps = (loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0)) + qa.steps;
-  // Hydration: actuals.waterMl is from in-app logs; HK waterToday is in fl oz.
-  const hkWaterMl = hkStore.waterToday != null ? Math.round(hkStore.waterToday * 29.5735) : 0;
-  const resolvedWaterMl = actuals.waterMl > 0 ? actuals.waterMl : hkWaterMl;
 
   // ── Historical aggregations ────────────────────────────────────────────────
   const foodByDate: FoodByDate = useMemo(() => {
@@ -3437,37 +3347,6 @@ export default function InsightsScreen() {
     });
     return map;
   }, [activityLogs]);
-
-  const proteinPct = targets.proteinG > 0 ? Math.round((todayProteinG / targets.proteinG) * 100) : 0;
-  const fiberPct = targets.fiberG > 0 ? Math.round((todayFiberG / targets.fiberG) * 100) : 0;
-  const waterOz = Math.round(resolvedWaterMl / 29.57);
-  const waterTargetOz = Math.round(targets.waterMl / 29.57);
-  const waterPct = targets.waterMl > 0 ? Math.round((resolvedWaterMl / targets.waterMl) * 100) : 0;
-  const carbsPct = targets.carbsG > 0 ? Math.round((todayCarbsG / targets.carbsG) * 100) : 0;
-  const fatPct = targets.fatG > 0 ? Math.round((todayFatG / targets.fatG) * 100) : 0;
-  const caloriesPct = targets.caloriesTarget > 0 ? Math.round((todayCalories / targets.caloriesTarget) * 100) : 0;
-
-  // Premier nutrition target ceilings (read from user_goals; sensible defaults when null)
-  const sodiumTargetMg = userGoals?.daily_sodium_mg_target ?? DEFAULT_SODIUM_MG;
-  const sugarTargetG = userGoals?.daily_sugar_g_target ?? DEFAULT_SUGAR_G;
-  const satFatTargetG = userGoals?.daily_saturated_fat_g_target ?? DEFAULT_SAT_FAT_G;
-  const cholesterolTargetMg = userGoals?.daily_cholesterol_mg_target ?? DEFAULT_CHOLESTEROL_MG;
-  const sodiumPct = sodiumTargetMg > 0 ? Math.round((todaySodiumMg / sodiumTargetMg) * 100) : 0;
-  const sugarPct = sugarTargetG > 0 ? Math.round((todaySugarG / sugarTargetG) * 100) : 0;
-  const satFatPct = satFatTargetG > 0 ? Math.round((todaySaturatedFatG / satFatTargetG) * 100) : 0;
-  const cholesterolPct = cholesterolTargetMg > 0 ? Math.round((todayCholesterolMg / cholesterolTargetMg) * 100) : 0;
-  // Inverse-goal status: green when under 80%, neutral 80-100%, red over 100%
-  const inverseStatus = (pct: number): 'positive' | 'neutral' | 'negative' =>
-    pct <= 80 ? 'positive' : pct <= 100 ? 'neutral' : 'negative';
-  const inversePct = (pct: number) => Math.min(pct / 100, 1);
-
-  // ── Lifestyle logs (past 7 days) ────────────────────────────────────────────
-  const sevenDaysAgo = localDateStr(new Date(Date.now() - 7 * 86400000));
-  const lifestyleLogs: LogEntry[] = [
-    ...foodLogs.filter(f => localDateStr(new Date(f.logged_at)) >= sevenDaysAgo).map(foodToEntry),
-    ...activityLogs.filter(a => a.date >= sevenDaysAgo).map(activityToEntry),
-    ...sideEffectLogs.filter(se => localDateStr(new Date(se.logged_at)) >= sevenDaysAgo).map(sideEffectToEntry),
-  ].sort((a, b) => b.rawDate.localeCompare(a.rawDate) || b.timestamp.localeCompare(a.timestamp));
 
   // ── Medication data ────────────────────────────────────────────────────────
   const lastInj = injectionLogs[0] ?? null;
@@ -3565,17 +3444,6 @@ export default function InsightsScreen() {
     [cycleIntelligenceResult, lastDaysSince, currentShotPhase, health.profile.glp1Type],
   );
 
-  // ── Metabolic adaptation ───────────────────────────────────────────────────
-  let metabolicAdaptationResult = useMemo(
-    () => computeMetabolicAdaptationScore(
-      activityLogs,
-      weightLogs,
-      biometricStore.history.map(h => ({ dateStr: h.dateStr, restingHR: h.restingHR })),
-    ),
-    [activityLogs, weightLogs, biometricStore.history],
-  );
-
-
   // ── Progress data ──────────────────────────────────────────────────────────
   // Prefer Supabase-persisted profile fields; fall back to in-memory onboarding profile
   const heightIn    = (profile?.height_inches
@@ -3607,8 +3475,17 @@ export default function InsightsScreen() {
 
   // Body composition analytics
   const fatToLeanResult = useMemo(() => computeFatToLeanRatio(weightLogs), [weightLogs]);
-  const leanPreservationResult = useMemo(() => computeLeanPreservation(weightLogs), [weightLogs]);
   const bodyCompTrend = useMemo(() => bodyCompTrendData(weightLogs), [weightLogs]);
+
+  // Advanced trends (clinical benchmark, lean preservation)
+  const benchmarkResult = useMemo(
+    () => computeClinicalBenchmark(weightLogs, profile?.program_start_date ?? null, health.profile.glp1Type),
+    [weightLogs, profile?.program_start_date, health.profile.glp1Type],
+  );
+  const leanPreservationResult = useMemo(
+    () => computeLeanPreservation(weightLogs),
+    [weightLogs],
+  );
 
   // Latest body comp values for stat cards
   const latestBodyFatLog = useMemo(() => {
@@ -3660,25 +3537,18 @@ export default function InsightsScreen() {
     });
   }, [weightLogs, startWeight, currentWeight, goalWeight, programWeek, health.profile]);
 
-  // ── Clinical trial benchmark ──────────────────────────────────────────────
-  let benchmarkResult = useMemo(
-    () => computeClinicalBenchmark(weightLogs, programStartDate, health.profile.glp1Type),
-    [weightLogs, programStartDate, health.profile.glp1Type],
-  );
 
-
-  const progressLogs: LogEntry[] = weightLogs.slice(0, 5).map((log, i) =>
-    weightToEntry(log, weightLogs[i + 1])
-  );
-
-  // Weekly check-in last completed date
-  const lastCheckinLoggedAt = useMemo(() => {
-    if (!weeklyCheckins) return null;
-    const allEntries = Object.values(weeklyCheckins).flat();
-    if (allEntries.length === 0) return null;
-    const allDates = allEntries.map((c: any) => c.logged_at as string).filter(Boolean);
-    return allDates.length > 0 ? allDates.reduce((a: string, b: string) => (a > b ? a : b)) : null;
-  }, [weeklyCheckins]);
+  // ── Today's logs (all types, for the shared Today's Logs card) ──────────────
+  const todayLogs: LogEntry[] = [
+    ...foodLogs.filter(f => localDateStr(new Date(f.logged_at)) === todayStr).map(foodToEntry),
+    ...activityLogs.filter(a => a.date === todayStr).map(activityToEntry),
+    ...weightLogs
+      .map((log, i) => [log, weightLogs[i + 1]] as const)
+      .filter(([log]) => localDateStr(new Date(log.logged_at)) === todayStr)
+      .map(([log, prev]) => weightToEntry(log, prev)),
+    ...injectionLogs.filter(inj => inj.injection_date === todayStr).map(inj => injectionToEntry(inj, oral)),
+    ...sideEffectLogs.filter(se => localDateStr(new Date(se.logged_at)) === todayStr).map(sideEffectToEntry),
+  ].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   const startDate = profile?.program_start_date
     ? new Date(profile.program_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -3690,7 +3560,6 @@ export default function InsightsScreen() {
     : '-';
 
   return (
-    <>
     <TabScreenWrapper>
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -3703,10 +3572,12 @@ export default function InsightsScreen() {
           scrollEventThrottle={16}
         >
           <GradientBackground />
+          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
+
+          {/* ── Hero title ── */}
           <View style={s.heroHeader}>
             <Text style={s.heroTitle}>Insights</Text>
           </View>
-          <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
           {/* ── Segmented Control ── */}
           <View style={{ marginTop: 16, marginBottom: 12 }}>
@@ -3741,160 +3612,43 @@ export default function InsightsScreen() {
                 profile={profile}
               />
 
-              {/* ── Patterns: side-effect ↔ nutrition correlation ── */}
-              <PatternsCard />
+              {/* ── Lifestyle Insights: priority-ranked insight carousel ── */}
+              <LifestyleInsightsCard />
 
               <View style={{ height: 12 }} />
-              <View style={s.dailyGrid}>
-                <DailyMetricCard
-                  icon={<IconSymbol name="fork.knife" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
-                  label="Protein" value={`${todayProteinG}/${targets.proteinG}g`}
-                  change={`${proteinPct}%`}
-                  status={proteinPct >= 80 ? 'positive' : proteinPct >= 40 ? 'neutral' : 'negative'}
-                  pct={proteinPct / 100}
-                  onPress={() => setNutrientSheet('protein')}
-                  onIncrement={() => adjustMetric('proteinG', 1)}
-                  onDecrement={() => adjustMetric('proteinG', -1)}
+              <View style={{ gap: 12 }}>
+                <CategoryRow
+                  icon={<IconSymbol name="fork.knife" size={18} color={categoryColor(colors.isDark, 'nutrition')} />}
+                  label="Nutrition"
+                  categoryKey="nutrition"
+                  todayValue={`${todayCalories.toLocaleString()} cal`}
+                  onPress={() => router.push('/insights/nutrition')}
+                  aiChips={['How am I doing on nutrition?', 'Is my protein intake on track?', 'What should I eat next?', 'How does GLP-1 affect appetite?']}
                 />
-                <DailyMetricCard
-                  icon={<IconSymbol name="leaf.fill" size={20} color={categoryColor(colors.isDark, 'nutrition')} />}
-                  label="Fiber" value={`${todayFiberG}/${targets.fiberG}g`}
-                  change={`${fiberPct}%`}
-                  status={fiberPct >= 80 ? 'positive' : fiberPct >= 40 ? 'neutral' : 'negative'}
-                  pct={fiberPct / 100}
-                  onPress={() => setNutrientSheet('fiber')}
-                  onIncrement={() => adjustMetric('fiberG', 1)}
-                  onDecrement={() => adjustMetric('fiberG', -1)}
+                <CategoryRow
+                  icon={<IconSymbol name="bolt.fill" size={18} color={categoryColor(colors.isDark, 'activity')} />}
+                  label="Activity"
+                  categoryKey="activity"
+                  todayValue={todaySteps > 0 ? `${todaySteps.toLocaleString()} steps` : '—'}
+                  onPress={() => router.push('/insights/activity')}
+                  aiChips={['Am I active enough today?', 'How can I move more?', 'How does activity affect GLP-1 results?', 'What workout fits my phase?']}
                 />
-                <DailyMetricCard
-                  icon={<IconSymbol name="drop.fill" size={20} color={categoryColor(colors.isDark, 'hydration')} />}
-                  label="Hydration" value={`${waterOz}/${waterTargetOz}oz`}
-                  change={`${waterPct}%`}
-                  status={waterPct >= 80 ? 'positive' : waterPct >= 40 ? 'neutral' : 'negative'}
-                  pct={waterPct / 100}
-                  onPress={() => setNutrientSheet('hydration')}
-                  onIncrement={() => health.dispatch({ type: 'LOG_WATER', ml: 30 })}
-                  onDecrement={() => { if (actuals.waterMl >= 30) health.dispatch({ type: 'LOG_WATER', ml: -30 }); }}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="bolt.fill" size={20} color={categoryColor(colors.isDark, 'activity')} />}
-                  label="Carbs" value={`${todayCarbsG}/${targets.carbsG}g`}
-                  change={`${carbsPct}%`}
-                  status={carbsPct >= 80 ? 'positive' : carbsPct >= 40 ? 'neutral' : 'negative'}
-                  pct={carbsPct / 100}
-                  onPress={() => setNutrientSheet('carbs')}
-                  onIncrement={() => adjustMetric('carbsG', 1)}
-                  onDecrement={() => adjustMetric('carbsG', -1)}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="circle.dotted" size={20} color="#F6CB45" />}
-                  label="Fat" value={`${todayFatG}/${targets.fatG}g`}
-                  change={`${fatPct}%`}
-                  status={fatPct >= 80 ? 'positive' : fatPct >= 40 ? 'neutral' : 'negative'}
-                  pct={fatPct / 100}
-                  onPress={() => setNutrientSheet('fat')}
-                  onIncrement={() => adjustMetric('fatG', 1)}
-                  onDecrement={() => adjustMetric('fatG', -1)}
-                />
-                <DailyMetricCard
-                  icon={<IconSymbol name="flame.fill" size={20} color="#C084FC" />}
-                  label="Calories" value={`${todayCalories}/${targets.caloriesTarget} cal`}
-                  change={`${caloriesPct}%`}
-                  status={caloriesPct >= 80 ? 'positive' : caloriesPct >= 40 ? 'neutral' : 'negative'}
-                  pct={caloriesPct / 100}
-                  onPress={() => setNutrientSheet('calories')}
-                  onIncrement={() => adjustMetric('calories', 1)}
-                  onDecrement={() => adjustMetric('calories', -1)}
-                />
-                {/* Premier nutrition metrics — combined card with progress bars */}
-                <PremierNutritionCard metrics={[
-                  { label: 'Sodium', current: todaySodiumMg, target: sodiumTargetMg, unit: 'mg', color: '#FF6B6B', onIncrement: () => adjustMetric('sodiumMg', 50), onDecrement: () => adjustMetric('sodiumMg', -50) },
-                  { label: 'Sugar', current: todaySugarG, target: sugarTargetG, unit: 'g', color: '#E879F9', onIncrement: () => adjustMetric('sugarG', 1), onDecrement: () => adjustMetric('sugarG', -1) },
-                  { label: 'Sat Fat', current: todaySaturatedFatG, target: satFatTargetG, unit: 'g', color: '#F59E0B', onIncrement: () => adjustMetric('satFatG', 1), onDecrement: () => adjustMetric('satFatG', -1) },
-                  { label: 'Cholesterol', current: todayCholesterolMg, target: cholesterolTargetMg, unit: 'mg', color: '#A78BFA', onIncrement: () => adjustMetric('cholesterolMg', 10), onDecrement: () => adjustMetric('cholesterolMg', -10) },
-                ]} />
-              </View>
-
-              {/* ── Top Contributors row → full page ── */}
-              <TopContributorsRow />
-
-              <View style={{ height: 24 }} />
-              <View style={s.dailyGrid}>
-                <ActivityDailyCard
-                  value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '-'}
-                  label="Calories Burned"
-                  ringColor={categoryColor(colors.isDark, 'activity')}
-                  current={todayActiveCalories}
-                  target={targets.activeCaloriesTarget}
-                  unit=" cal"
-                  emptyCtaLabel="Log Activity"
-                  onEmptyCta={() => router.push('/entry/log-activity')}
-                  onIncrement={() => adjustMetric('activeCal', 50)}
-                  onDecrement={() => adjustMetric('activeCal', -50)}
-                />
-                <ActivityDailyCard
-                  value={todaySteps > 0 ? todaySteps.toLocaleString() : '-'}
-                  label="Daily Steps"
-                  ringColor={colors.textPrimary}
-                  current={todaySteps}
-                  target={targets.steps}
-                  unit=" steps"
-                  emptyCtaLabel="Log Activity"
-                  onEmptyCta={() => router.push('/entry/log-activity')}
-                  onIncrement={() => adjustMetric('steps', 1000)}
-                  onDecrement={() => adjustMetric('steps', -1000)}
+                <CategoryRow
+                  icon={<Ionicons name="heart-outline" size={18} color={healthCategoryColor(colors.isDark, 'Vitals')} />}
+                  label="Vitals"
+                  categoryKey="vitals"
+                  todayValue={
+                    hkStore.hrv != null ? `${hkStore.hrv} ms HRV`
+                    : hkStore.restingHR != null ? `${hkStore.restingHR} bpm RHR`
+                    : hkStore.sleepHours != null ? `${hkStore.sleepHours.toFixed(1)} h sleep`
+                    : '—'
+                  }
+                  onPress={() => router.push('/insights/vitals')}
+                  aiChips={['What do my biometrics show?', 'How is GLP-1 affecting my HRV?', 'How was my sleep last night?', 'What should I watch for?']}
                 />
               </View>
 
-              {/* ── Activity HK groups (Activity, Workouts) appended to Activity Metrics ── */}
-              {appleHealthEnabled && routedHealthGroups.activity.map((group) => (
-                <View key={group.category} style={{ marginTop: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
-                      {group.category}
-                    </Text>
-                  </View>
-                  <View style={s.hmGrid}>
-                    {(() => {
-                      const isOdd = group.metrics.length % 2 !== 0;
-                      return group.metrics.map((m, i) => (
-                        <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
-                      ));
-                    })()}
-                  </View>
-                </View>
-              ))}
-
-              {/* ── Vitals (HRV / sleep / glucose / mindfulness) ── */}
-              <View style={{ height: 24 }} />
-              {!appleHealthEnabled ? (
-                <HealthDataConnectPrompt />
-              ) : routedHealthGroups.vitals.length === 0 ? (
-                <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', fontFamily: 'System', paddingVertical: 8 }}>
-                  No vitals data yet. Apple Health will populate this as it collects readings.
-                </Text>
-              ) : (
-                routedHealthGroups.vitals.map((group) => (
-                  <View key={group.category} style={{ marginBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
-                        {group.category}
-                      </Text>
-                    </View>
-                    <View style={s.hmGrid}>
-                      {(() => {
-                        const isOdd = group.metrics.length % 2 !== 0;
-                        return group.metrics.map((m, i) => (
-                          <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
-                        ));
-                      })()}
-                    </View>
-                  </View>
-                ))
-              )}
-              <RecentLogsCard entries={lifestyleLogs} grouped onViewAll={() => router.push('/log-history')} />
+              <TodayLogsCard entries={todayLogs} />
             </Reanimated.View>
           )}
 
@@ -3936,6 +3690,7 @@ export default function InsightsScreen() {
                 lastDaysSince={lastDaysSince}
                 oral={oral}
               />
+              <TodayLogsCard entries={todayLogs} />
             </Reanimated.View>
           )}
 
@@ -4059,29 +3814,28 @@ export default function InsightsScreen() {
 
               {onTreatment && (
                 <>
-                  <PremiumGate feature="clinical_benchmark" variant="hard" title="Clinical Benchmark" teaser="See how your progress compares to others on the same medication.">
+                  <PremiumGate
+                    feature="clinical_benchmark"
+                    variant="hard"
+                    title="Clinical Benchmark"
+                    teaser="See how your progress compares to others on the same medication."
+                  >
                     <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
                   </PremiumGate>
-                  <PremiumGate feature="metabolic_adaptation" variant="hard" title="Metabolic Adaptation" teaser="Track how your metabolism adapts to weight loss over time.">
-                    <MetabolicAdaptationCard result={metabolicAdaptationResult} />
-                  </PremiumGate>
+
                   {leanPreservationResult && (
-                    <PremiumGate feature="lean_preservation" variant="hard" title="Lean Mass Preservation" teaser="Track how well you're preserving muscle during weight loss.">
+                    <PremiumGate
+                      feature="lean_preservation"
+                      variant="hard"
+                      title="Lean Mass Preservation"
+                      teaser="Track how well you're preserving muscle during weight loss."
+                    >
                       <LeanMassPreservationCard result={leanPreservationResult} medicationBrand={health.profile.medicationBrand} />
                     </PremiumGate>
                   )}
                 </>
               )}
-              <RecentLogsCard entries={progressLogs} onDelete={(id) => {
-                Alert.alert('Delete Weight Log', 'Remove this weight entry?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => deleteWeightLog(id) },
-                ]);
-              }} onViewAll={() => router.push('/log-history')} />
-              <View style={{ marginTop: 16 }}>
-                <Text style={[s.sectionTitle, { marginBottom: 12 }]}>Weekly Check-In</Text>
-                <WeeklyCheckinCard lastLoggedAt={lastCheckinLoggedAt} />
-              </View>
+              <TodayLogsCard entries={todayLogs} />
             </Reanimated.View>
           )}
 
@@ -4091,41 +3845,6 @@ export default function InsightsScreen() {
       <ScrollTitle title="Insights" scrollY={scrollY} />
     </View>
     </TabScreenWrapper>
-
-    <NutrientLogSheet
-      visible={nutrientSheet != null}
-      onClose={() => setNutrientSheet(null)}
-      nutrient={nutrientSheet ?? 'protein'}
-      currentValue={
-        nutrientSheet === 'protein' ? todayProteinG
-        : nutrientSheet === 'fiber' ? todayFiberG
-        : nutrientSheet === 'hydration' ? waterOz
-        : nutrientSheet === 'carbs' ? todayCarbsG
-        : nutrientSheet === 'fat' ? todayFatG
-        : nutrientSheet === 'calories' ? todayCalories
-        : 0
-      }
-      targetValue={
-        nutrientSheet === 'protein' ? targets.proteinG
-        : nutrientSheet === 'fiber' ? targets.fiberG
-        : nutrientSheet === 'hydration' ? waterTargetOz
-        : nutrientSheet === 'carbs' ? targets.carbsG
-        : nutrientSheet === 'fat' ? targets.fatG
-        : nutrientSheet === 'calories' ? targets.caloriesTarget
-        : 0
-      }
-      onUpdate={(delta) => {
-        if (nutrientSheet === 'hydration') {
-          health.dispatch({ type: 'LOG_WATER', ml: Math.round(delta * 29.5735) });
-        } else {
-          const fieldMap: Record<string, keyof typeof qa> = {
-            protein: 'proteinG', fiber: 'fiberG', carbs: 'carbsG', fat: 'fatG', calories: 'calories',
-          };
-          adjustMetric(fieldMap[nutrientSheet!], delta);
-        }
-      }}
-    />
-    </>
   );
 }
 
@@ -4136,9 +3855,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
-  // Hero header background
-  heroBg: { backgroundColor: c.isDark ? '#C44A10' : '#E8652A' },
-  heroCurve: { height: 28, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -1 },
+  // Hero title (matches Education / Home)
   heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   heroTitle: { fontSize: 36, fontWeight: '800', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },
 

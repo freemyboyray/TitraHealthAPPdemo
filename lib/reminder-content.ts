@@ -26,6 +26,8 @@ export type ReminderContent = {
   deepLink: string;
 } | null;
 
+export type EngagementTier = 'engaged' | 'slipping' | 'dormant';
+
 export type ReminderContext = {
   foodLogs: FoodLog[];
   weightLogs: WeightLog[];
@@ -35,6 +37,8 @@ export type ReminderContext = {
   profile: ProfileRow | null;
   userGoals: UserGoalsRow | null;
   todayProteinG?: number;
+  /** Coarse engagement signal, set by syncNotifications to drive copy tone / back-off. */
+  tier?: EngagementTier;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -108,6 +112,86 @@ function weightProgress(weightLogs: WeightLog[], profile: ProfileRow | null): st
   return `${diff.toFixed(1)} lbs`;
 }
 
+// ─── Variety + engagement helpers ─────────────────────────────────────────────
+
+/** Day-of-year (0–365). Stable within a calendar day; advances daily. */
+function dayOfYear(): number {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  return Math.floor((now.getTime() - start.getTime()) / 86400000);
+}
+
+/**
+ * Deterministic daily rotation through a pool — same result all day, different copy
+ * day to day. `salt` de-syncs different slots so two slots don't rotate in lockstep.
+ */
+function pickVariant<T>(pool: T[], salt = 0): T {
+  return pool[(dayOfYear() + salt) % pool.length];
+}
+
+/**
+ * Coarse engagement signal from how recently the user logged anything. Drives
+ * anti-fatigue back-off (in syncNotifications) and copy tone. A brand-new user with
+ * no logs is treated as `slipping` (gentle), never `dormant`.
+ */
+export function getEngagementTier(ctx: ReminderContext): EngagementTier {
+  const recent = Math.min(
+    daysSinceLastLog(ctx.foodLogs),
+    daysSinceLastLog(ctx.weightLogs),
+    daysSinceLastLog(ctx.sideEffectLogs),
+    daysSinceLastLog(ctx.activityLogs),
+  );
+  if (!isFinite(recent)) return 'slipping';
+  if (recent <= 2) return 'engaged';
+  if (recent <= 6) return 'slipping';
+  return 'dormant';
+}
+
+// Rotation pools for each slot's default copy. Data-driven branches
+// (protein / streak / gap / phase) already vary and are left untouched; these cover
+// the terminal fallback so a disengaged user doesn't see the identical line every day.
+const MEALS_MORNING_VARIANTS = [
+  { title: 'Log Your Breakfast', body: 'Tap to log what you had this morning.' },
+  { title: 'Breakfast Time', body: 'A quick log keeps your day on track.' },
+  { title: 'Morning Fuel', body: 'What did you have this morning? Log it in seconds.' },
+  { title: 'Start the Day Logged', body: 'Capture breakfast while it’s fresh.' },
+];
+
+const MEALS_EVENING_VARIANTS = [
+  { title: 'Log Your Dinner', body: 'End the day strong — log your evening meal.' },
+  { title: 'Dinner Check-In', body: 'A few taps to round out today’s log.' },
+  { title: 'Evening Meal', body: 'Log dinner to keep your day complete.' },
+  { title: 'Wind Down Logged', body: 'What’s for dinner tonight? Log it before bed.' },
+];
+
+const WEIGHT_MORNING_VARIANTS = [
+  { title: 'Morning Weigh-In', body: 'Log your weight to track your progress.' },
+  { title: 'Step on the Scale', body: 'A morning weigh-in keeps your trend honest.' },
+  { title: 'Daily Weigh-In', body: 'Quick weight log — best taken first thing.' },
+  { title: 'Track Your Trend', body: 'Log today’s weight to see the bigger picture.' },
+];
+
+const SIDE_EFFECTS_VARIANTS = [
+  { title: 'How Are You Feeling?', body: 'Log any side effects from today.' },
+  { title: 'Symptom Check-In', body: 'Noticed anything today? A quick log helps spot patterns.' },
+  { title: 'Daily Wellness Note', body: 'How did your body feel today? Jot it down.' },
+  { title: 'Side Effect Tracker', body: 'Logging how you feel builds a clearer picture over time.' },
+];
+
+const DAILY_PLAN_VARIANTS = [
+  { title: 'Your Daily Focus', body: 'Open TitraHealth to see today’s priorities.' },
+  { title: 'Today’s Plan', body: 'A quick look at what matters today.' },
+  { title: 'Start Your Day', body: 'Check your focus areas for today.' },
+  { title: 'Daily Check-In', body: 'See where to put your energy today.' },
+];
+
+// Low-pressure copy for users who have gone quiet (dormant tier).
+const DAILY_PLAN_DORMANT_VARIANTS = [
+  { title: 'No pressure', body: 'We’re here whenever you’re ready to pick back up.' },
+  { title: 'Still here for you', body: 'One small log is enough to get going again.' },
+  { title: 'Whenever you’re ready', body: 'No rush — your progress is waiting when you are.' },
+];
+
 // ─── Content builders per slot ───────────────────────────────────────────────
 
 export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
@@ -167,11 +251,7 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
     };
   }
 
-  return {
-    title: 'Log Your Breakfast',
-    body: 'Tap to log what you had this morning.',
-    deepLink: '/entry/log-food',
-  };
+  return { ...pickVariant(MEALS_MORNING_VARIANTS, 0), deepLink: '/entry/log-food' };
 }
 
 export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
@@ -219,11 +299,7 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
     }
   }
 
-  return {
-    title: 'Log Your Dinner',
-    body: 'End the day strong — log your evening meal.',
-    deepLink: '/entry/log-food',
-  };
+  return { ...pickVariant(MEALS_EVENING_VARIANTS, 1), deepLink: '/entry/log-food' };
 }
 
 export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
@@ -260,11 +336,7 @@ export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
     };
   }
 
-  return {
-    title: 'Morning Weigh-In',
-    body: 'Log your weight to track your progress.',
-    deepLink: '/entry/log-weight',
-  };
+  return { ...pickVariant(WEIGHT_MORNING_VARIANTS, 2), deepLink: '/entry/log-weight' };
 }
 
 export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderContent {
@@ -316,14 +388,15 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
     }
   }
 
-  return {
-    title: 'How Are You Feeling?',
-    body: 'Log any side effects from today.',
-    deepLink: '/entry/side-effects',
-  };
+  return { ...pickVariant(SIDE_EFFECTS_VARIANTS, 3), deepLink: '/entry/side-effects' };
 }
 
 export function getDailyPlanMorningContent(ctx: ReminderContext): ReminderContent {
+  // Dormant users get a single low-pressure nudge (back-off handled in syncNotifications).
+  if (ctx.tier === 'dormant') {
+    return { ...pickVariant(DAILY_PLAN_DORMANT_VARIANTS, 4), deepLink: '/(tabs)' };
+  }
+
   // Phase-specific daily plan messages (only for medication users)
   if (ctx.profile?.medication_brand && ctx.injectionLogs.length > 0) {
     const phase = getInjectionPhase(ctx.injectionLogs, ctx.profile);

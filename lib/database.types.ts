@@ -1579,6 +1579,36 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_summaries: {
+        Row: {
+          ai_insight: string | null
+          created_at: string
+          id: string
+          summary_data: Json
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          ai_insight?: string | null
+          created_at?: string
+          id?: string
+          summary_data: Json
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          ai_insight?: string | null
+          created_at?: string
+          id?: string
+          summary_data?: Json
+          user_id?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       weight_logs: {
         Row: {
           bmr_kcal: number | null

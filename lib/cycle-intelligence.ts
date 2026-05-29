@@ -6,7 +6,6 @@ import {
 import { pkConcentrationPct, DRUG_DOSE_APPETITE_RANGE } from '@/constants/drug-pk';
 import type { Glp1Type } from '@/constants/user-profile';
 import { localDateStr } from '@/lib/date-utils';
-import type { ActivityLog, WeightLog } from '@/stores/log-store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,17 +105,6 @@ export function generateIntradayForecast(
     };
   });
 }
-
-export type MetabolicAdaptationResult = {
-  hasEnoughData: boolean;
-  hasRhrData: boolean;
-  calPerStepTrend: number[];
-  rhrTrend: number[];
-  weekLabels: string[];
-  plateauRisk: 'none' | 'approaching' | 'detected';
-  adaptationMessage: string | null;
-  rhrImprovementBpm: number | null;
-};
 
 export type BiometricBaseline = {
   hrvMs: number | null;
@@ -357,119 +345,6 @@ export function computeCycleIntelligence(
   }
 
   return { hrv, rhr, sleep, cycleDay, shotPhase: phase, headerLabel };
-}
-
-// ─── Metabolic adaptation score ───────────────────────────────────────────────
-
-function getISOWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  const dayOfWeek = d.getDay();
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7));
-  return localDateStr(monday);
-}
-
-export function computeMetabolicAdaptationScore(
-  activityLogs: ActivityLog[],
-  weightLogs: WeightLog[],
-  biometricHistory: Array<{ dateStr: string; restingHR: number | null }>,
-): MetabolicAdaptationResult {
-  const weekMap = new Map<string, { cals: number[]; steps: number[]; rhrValues: number[] }>();
-
-  for (const log of activityLogs) {
-    if (!log.date) continue;
-    const week = getISOWeekLabel(log.date);
-    if (!weekMap.has(week)) weekMap.set(week, { cals: [], steps: [], rhrValues: [] });
-    const entry = weekMap.get(week)!;
-    if (log.active_calories > 0) entry.cals.push(log.active_calories);
-    if (log.steps > 0) entry.steps.push(log.steps);
-  }
-
-  for (const entry of biometricHistory) {
-    if (!entry.restingHR) continue;
-    const week = getISOWeekLabel(entry.dateStr);
-    if (weekMap.has(week)) {
-      weekMap.get(week)!.rhrValues.push(entry.restingHR);
-    }
-  }
-
-  const sortedWeeks = Array.from(weekMap.entries()).sort(([a], [b]) => a.localeCompare(b));
-
-  if (sortedWeeks.length < 4) {
-    return {
-      hasEnoughData: false,
-      hasRhrData: false,
-      calPerStepTrend: [],
-      rhrTrend: [],
-      weekLabels: [],
-      plateauRisk: 'none',
-      adaptationMessage: null,
-      rhrImprovementBpm: null,
-    };
-  }
-
-  type WeekData = { calPerStep: number | null; avgRhr: number | null; weekLabel: string };
-
-  const weekData: WeekData[] = sortedWeeks.map(([weekLabel, data]) => {
-    const totalCals  = data.cals.reduce((s, v) => s + v, 0);
-    const totalSteps = data.steps.reduce((s, v) => s + v, 0);
-    const calPerStep = totalSteps > 0 ? (totalCals / totalSteps) * 1000 : null;
-    const avgRhr     = data.rhrValues.length > 0
-      ? Math.round(data.rhrValues.reduce((s, v) => s + v, 0) / data.rhrValues.length)
-      : null;
-    return { calPerStep, avgRhr, weekLabel };
-  });
-
-  const calPerStepTrend = weekData.map(w => w.calPerStep ?? 0);
-  const rhrTrend        = weekData.map(w => w.avgRhr ?? 0);
-  const weekLabels      = weekData.map(w => {
-    const d = new Date(w.weekLabel + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  });
-
-  // Plateau detection: recent 2 weeks vs prior 6-week average
-  let plateauRisk: MetabolicAdaptationResult['plateauRisk'] = 'none';
-  let adaptationMessage: string | null = null;
-
-  const validCalSteps = calPerStepTrend.filter(v => v > 0);
-  if (validCalSteps.length >= 8) {
-    const recent    = validCalSteps.slice(-2);
-    const prior     = validCalSteps.slice(-8, -2);
-    const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
-    const priorAvg  = prior.reduce((s, v) => s + v, 0) / prior.length;
-    const declinePct = priorAvg > 0 ? (priorAvg - recentAvg) / priorAvg : 0;
-
-    // Weight stall: last 3+ weeks within 1 lb
-    const recentWeights = weightLogs.slice(0, 21).map(l => l.weight_lbs);
-    const weightStalled = recentWeights.length >= 3 &&
-      Math.abs(recentWeights[0] - recentWeights[recentWeights.length - 1]) < 1.0;
-
-    if (declinePct > 0.15 && weightStalled) {
-      plateauRisk = 'detected';
-      adaptationMessage = 'Metabolic adaptation detected — calorie efficiency is declining and weight has stalled. Consider adjusting calorie targets or increasing activity variety.';
-    } else if (declinePct > 0.10) {
-      plateauRisk = 'approaching';
-      adaptationMessage = 'Early metabolic adaptation signal — calorie efficiency is declining. Watch for weight stalling.';
-    }
-  }
-
-  // RHR improvement vs program start
-  const firstRhr = weekData.find(w => w.avgRhr != null)?.avgRhr ?? null;
-  const lastRhr  = [...weekData].reverse().find(w => w.avgRhr != null)?.avgRhr ?? null;
-  const rhrImprovementBpm = (firstRhr != null && lastRhr != null && weekData.length >= 4)
-    ? Math.round(firstRhr - lastRhr)
-    : null;
-
-  return {
-    hasEnoughData: true,
-    hasRhrData: rhrTrend.some(v => v > 0),
-    calPerStepTrend,
-    rhrTrend,
-    weekLabels,
-    plateauRisk,
-    adaptationMessage,
-    rhrImprovementBpm,
-  };
 }
 
 // ─── AI context builder ───────────────────────────────────────────────────────

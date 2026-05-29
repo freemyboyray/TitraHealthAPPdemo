@@ -7,7 +7,7 @@ import {
   computeProfileDerivedMetrics,
 } from '@/constants/user-profile';
 import { computeBaseTargets } from '@/lib/targets';
-import { scheduleDoseReminder } from '@/lib/notifications';
+import { syncDoseReminder } from '@/stores/reminders-store';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import { usePreferencesStore } from '@/stores/preferences-store';
@@ -429,12 +429,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           : complete.medicationBrand
             ? (complete.medicationBrand.charAt(0).toUpperCase() + complete.medicationBrand.slice(1))
             : 'GLP-1';
-        await scheduleDoseReminder(
-          complete.injectionFrequencyDays ?? 7,
-          complete.doseTime || '09:00',
-          brandDisplay,
-          complete.lastInjectionDate || null,
-        ).catch(() => {});
+        await syncDoseReminder({
+          injFreqDays: complete.injectionFrequencyDays ?? 7,
+          doseTime: complete.doseTime || '09:00',
+          drugName: brandDisplay,
+          lastInjectionDate: complete.lastInjectionDate || null,
+        }).catch(() => {});
       }
 
       // Reload user store so the home screen greeting picks up the saved username

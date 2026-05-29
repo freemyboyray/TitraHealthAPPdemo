@@ -105,9 +105,12 @@ function SegmentedBar({ result, isDark }: { result: EnergyBankResult; isDark: bo
 type Props = {
   result: EnergyBankResult;
   phase: string;
+  /** When true, render inner content only (no TouchableOpacity wrapper, no outer chrome).
+   *  Caller is responsible for providing its own container and tap handler. */
+  bare?: boolean;
 };
 
-export function EnergyBankCard({ result, phase }: Props) {
+export function EnergyBankCard({ result, phase, bare = false }: Props) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -122,6 +125,35 @@ export function EnergyBankCard({ result, phase }: Props) {
 
   // ── Locked state for free users ──────────────────────────────────────────
   if (!isPremium) {
+    const lockedInner = (
+      <View style={s.inner}>
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={[s.sectionLabel, { color: w(0.35) }]}>ENERGY BANK</Text>
+          <View style={s.phasePill}>
+            <Text style={s.phaseText}>Premium Feature</Text>
+          </View>
+        </View>
+
+        {/* Hero row */}
+        <View style={s.heroRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="lock-closed" size={18} color={w(0.25)} />
+            <Text style={[s.scoreText, { color: w(0.15) }]}>
+              --<Text style={s.pctSuffix}>%</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* Empty bar */}
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: w(0.06) }} />
+
+        <Text style={{ fontSize: 12, color: w(0.35), fontFamily: FF, lineHeight: 17 }}>
+          Unlock to see your computed energy level based on sleep, nutrition, and medication phase.
+        </Text>
+      </View>
+    );
+    if (bare) return lockedInner;
     return (
       <TouchableOpacity
         style={s.wrap}
@@ -130,37 +162,39 @@ export function EnergyBankCard({ result, phase }: Props) {
         accessibilityLabel="Energy Bank — premium feature, tap to unlock"
         accessibilityRole="button"
       >
-        <View style={s.inner}>
-          {/* Header */}
-          <View style={s.header}>
-            <Text style={[s.sectionLabel, { color: w(0.35) }]}>ENERGY BANK</Text>
-            <View style={s.phasePill}>
-              <Text style={s.phaseText}>Premium Feature</Text>
-            </View>
-          </View>
-
-          {/* Hero row */}
-          <View style={s.heroRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="lock-closed" size={18} color={w(0.25)} />
-              <Text style={[s.scoreText, { color: w(0.15) }]}>
-                --<Text style={s.pctSuffix}>%</Text>
-              </Text>
-            </View>
-          </View>
-
-          {/* Empty bar */}
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: w(0.06) }} />
-
-          <Text style={{ fontSize: 12, color: w(0.35), fontFamily: FF, lineHeight: 17 }}>
-            Unlock to see your computed energy level based on sleep, nutrition, and medication phase.
-          </Text>
-        </View>
+        {lockedInner}
       </TouchableOpacity>
     );
   }
 
   // ── Premium state ────────────────────────────────────────────────────────
+  const premiumInner = (
+    <View style={s.inner}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.sectionLabel}>ENERGY BANK</Text>
+        <View style={s.phasePill}>
+          <Text style={s.phaseText}>{phaseLabels[phase] ?? 'Active'}</Text>
+        </View>
+      </View>
+
+      {/* Hero row */}
+      <View style={s.heroRow}>
+        <BatteryIcon pct={result.score} color={color} isDark={colors.isDark} />
+        <View style={{ gap: 2 }}>
+          <Text style={[s.scoreText, { color }]}>
+            {result.score}<Text style={[s.pctSuffix, { color }]}>%</Text>
+          </Text>
+          <Text style={{ fontSize: 14, fontWeight: '600', color, fontFamily: FF }}>
+            {result.label}
+          </Text>
+        </View>
+      </View>
+
+      <SegmentedBar result={result} isDark={colors.isDark} />
+    </View>
+  );
+  if (bare) return premiumInner;
   return (
     <TouchableOpacity
       style={s.wrap}
@@ -170,30 +204,7 @@ export function EnergyBankCard({ result, phase }: Props) {
       accessibilityRole="button"
       accessibilityHint="View energy bank details"
     >
-      <View style={s.inner}>
-        {/* Header */}
-        <View style={s.header}>
-          <Text style={s.sectionLabel}>ENERGY BANK</Text>
-          <View style={s.phasePill}>
-            <Text style={s.phaseText}>{phaseLabels[phase] ?? 'Active'}</Text>
-          </View>
-        </View>
-
-        {/* Hero row */}
-        <View style={s.heroRow}>
-          <BatteryIcon pct={result.score} color={color} isDark={colors.isDark} />
-          <View style={{ gap: 2 }}>
-            <Text style={[s.scoreText, { color }]}>
-              {result.score}<Text style={[s.pctSuffix, { color }]}>%</Text>
-            </Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color, fontFamily: FF }}>
-              {result.label}
-            </Text>
-          </View>
-        </View>
-
-        <SegmentedBar result={result} isDark={colors.isDark} />
-      </View>
+      {premiumInner}
     </TouchableOpacity>
   );
 }
@@ -210,7 +221,9 @@ const createStyles = (c: AppColors) => {
       ...cardElevation(c.isDark),
     },
     inner: {
-      padding: 20,
+      paddingHorizontal: 20,
+      paddingTop: 14,
+      paddingBottom: 12,
       gap: 16,
     },
     header: {

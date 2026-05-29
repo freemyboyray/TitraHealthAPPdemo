@@ -26,7 +26,7 @@ export default function Index() {
 
   const { isLoading, profile } = useProfile();
   const { session, sessionLoaded, demoMode } = useUserStore();
-  const { injectionLogs } = useLogStore();
+  const { injectionLogs, weeklySummaries } = useLogStore();
   const logStoreHydrated = useLogStore((s) => s.hydrated);
   const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
   const { lastWeeklySummaryDate, lastDailyStreakDate } = usePreferencesStore();
@@ -73,7 +73,10 @@ export default function Index() {
     // with real data immediately — no flash of stale state
     if (!logStoreHydrated) return;
 
-    // Shot-day gate: show weekly summary once per calendar day on injection day
+    // Weekly summary gate.
+    // - Weekly+ users (freq >= 7): trigger on shot day, once per calendar day.
+    // - Daily users (freq < 7): rolling 7-day cadence keyed off the most recent
+    //   persisted snapshot (or first eligible open if none exists).
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const freq = profile.injectionFrequencyDays ?? 7;
@@ -86,14 +89,22 @@ export default function Index() {
     const isShotDay = !inWashout && nextShotStr === today;
     const alreadyShown = lastWeeklySummaryDate === today;
 
-    if (freq >= 7 && isShotDay && !alreadyShown) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+    const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
+    const lastSummaryEnd = weeklySummaries[0]?.window_end ?? null;
+    const dailyDue = !inWashout
+      && freq < 7
+      && !alreadyShown
+      && (!lastSummaryEnd || lastSummaryEnd < sevenDaysAgoStr);
+
+    if ((freq >= 7 && isShotDay && !alreadyShown) || dailyDue) {
       router.replace('/entry/weekly-summary');
     } else if (lastDailyStreakDate !== today) {
       router.replace('/daily-streak');
     } else {
       router.replace('/(tabs)');
     }
-  }, [sessionLoaded, session, isLoading, profile, injectionLogs, logStoreHydrated]);
+  }, [sessionLoaded, session, isLoading, profile, injectionLogs, weeklySummaries, logStoreHydrated]);
 
   return (
     <View style={s.container}>
