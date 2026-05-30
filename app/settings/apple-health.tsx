@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -21,8 +20,9 @@ import { usePreferencesStore } from '@/stores/preferences-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { openHealthSettings } from '@/lib/healthkit';
 import type { HKCategoryKey } from '@/lib/healthkit';
+import { ChevronLeft, ExternalLink, Heart, RefreshCw, Settings } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const HEALTH_RED = '#FF3B30';
 
 // Grouped view of the categories we read. Group order = display order on the
@@ -32,7 +32,7 @@ type CategoryRow = {
   key: HKCategoryKey | HKCategoryKey[];
   label: string;
   sub: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
 };
 type Group = { title: string; rows: CategoryRow[] };
 
@@ -40,78 +40,78 @@ const GROUPS: Group[] = [
   {
     title: 'CORE VITALS',
     rows: [
-      { key: 'weight',       label: 'Weight',          sub: 'From your scale',            icon: 'scale-outline' },
-      { key: 'hrv',          label: 'Heart Rate Variability', sub: 'GLP-1 pharmacodynamic marker', icon: 'pulse-outline' },
-      { key: 'restingHR',    label: 'Resting Heart Rate', sub: '',                         icon: 'heart-outline' },
-      { key: 'sleep',        label: 'Sleep',           sub: 'Last night\u2019s duration',  icon: 'moon-outline' },
-      { key: 'steps',        label: 'Steps',           sub: 'Today',                       icon: 'footsteps-outline' },
-      { key: 'activeEnergy', label: 'Active Calories', sub: 'Today',                       icon: 'flame-outline' },
+      { key: 'weight',       label: 'Weight',          sub: 'From your scale',            icon: 'Scale' },
+      { key: 'hrv',          label: 'Heart Rate Variability', sub: 'GLP-1 pharmacodynamic marker', icon: 'HeartPulse' },
+      { key: 'restingHR',    label: 'Resting Heart Rate', sub: '',                         icon: 'Heart' },
+      { key: 'sleep',        label: 'Sleep',           sub: 'Last night\u2019s duration',  icon: 'Moon' },
+      { key: 'steps',        label: 'Steps',           sub: 'Today',                       icon: 'Footprints' },
+      { key: 'activeEnergy', label: 'Active Calories', sub: 'Today',                       icon: 'Flame' },
     ],
   },
   {
     title: 'BODY COMPOSITION',
     rows: [
-      { key: 'bodyFat',   label: 'Body Fat %',     sub: 'Lean mass preservation is the killer GLP-1 metric', icon: 'body-outline' },
-      { key: 'leanMass',  label: 'Lean Body Mass', sub: '',                    icon: 'barbell-outline' },
-      { key: 'waist',     label: 'Waist',          sub: '',                    icon: 'resize-outline' },
-      { key: 'bmi',       label: 'BMI',            sub: '',                    icon: 'stats-chart-outline' },
+      { key: 'bodyFat',   label: 'Body Fat %',     sub: 'Lean mass preservation is the killer GLP-1 metric', icon: 'PersonStanding' },
+      { key: 'leanMass',  label: 'Lean Body Mass', sub: '',                    icon: 'Dumbbell' },
+      { key: 'waist',     label: 'Waist',          sub: '',                    icon: 'Ruler' },
+      { key: 'bmi',       label: 'BMI',            sub: '',                    icon: 'BarChart3' },
     ],
   },
   {
     title: 'CARDIOVASCULAR',
     rows: [
-      { key: 'vo2max',           label: 'VO₂ Max',        sub: 'Cardiorespiratory fitness',        icon: 'fitness-outline' },
-      { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'water-outline' },
-      { key: ['bpSystolic', 'bpDiastolic'], label: 'Blood Pressure', sub: '', icon: 'heart-circle-outline' },
-      { key: 'respiratoryRate',  label: 'Respiratory Rate', sub: 'Recovery scoring signal',         icon: 'leaf-outline' },
+      { key: 'vo2max',           label: 'VO₂ Max',        sub: 'Cardiorespiratory fitness',        icon: 'Dumbbell' },
+      { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'Droplet' },
+      { key: ['bpSystolic', 'bpDiastolic'], label: 'Blood Pressure', sub: '', icon: 'HeartPulse' },
+      { key: 'respiratoryRate',  label: 'Respiratory Rate', sub: 'Recovery scoring signal',         icon: 'Leaf' },
     ],
   },
   {
     title: 'NUTRITION',
     rows: [
       { key: 'water',        label: 'Hydration',      sub: 'Common GLP-1 issue',                    icon: 'water' },
-      { key: 'calories',     label: 'Calories',       sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'flame-outline' },
-      { key: 'protein',      label: 'Protein',        sub: 'Critical for preserving lean mass',     icon: 'nutrition-outline' },
-      { key: 'saturatedFat', label: 'Saturated Fat',  sub: 'Cardiovascular health tracking',        icon: 'ellipse-outline' },
-      { key: 'cholesterol',  label: 'Cholesterol',    sub: 'Cardiovascular risk factor',            icon: 'analytics-outline' },
+      { key: 'calories',     label: 'Calories',       sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'Flame' },
+      { key: 'protein',      label: 'Protein',        sub: 'Critical for preserving lean mass',     icon: 'Apple' },
+      { key: 'saturatedFat', label: 'Saturated Fat',  sub: 'Cardiovascular health tracking',        icon: 'Circle' },
+      { key: 'cholesterol',  label: 'Cholesterol',    sub: 'Cardiovascular risk factor',            icon: 'BarChart3' },
     ],
   },
   {
     title: 'GI SYMPTOMS',
     rows: [
-      { key: 'symptomNausea',           label: 'Nausea',       sub: 'Auto-filled into your side-effects log', icon: 'sad-outline' },
-      { key: 'symptomVomiting',         label: 'Vomiting',     sub: '', icon: 'alert-circle-outline' },
-      { key: 'symptomDiarrhea',         label: 'Diarrhea',     sub: '', icon: 'warning-outline' },
-      { key: 'symptomConstipation',     label: 'Constipation', sub: '', icon: 'remove-circle-outline' },
-      { key: 'symptomHeartburn',        label: 'Heartburn',    sub: '', icon: 'flame-outline' },
-      { key: 'symptomBloating',         label: 'Bloating',     sub: '', icon: 'ellipse-outline' },
-      { key: 'symptomAbdominalCramps',  label: 'Stomach Pain', sub: '', icon: 'medkit-outline' },
-      { key: 'symptomFatigue',          label: 'Fatigue',      sub: '', icon: 'battery-dead-outline' },
-      { key: 'symptomHeadache',         label: 'Headache',     sub: '', icon: 'pulse-outline' },
-      { key: 'symptomDizziness',        label: 'Dizziness',    sub: '', icon: 'refresh-outline' },
-      { key: 'symptomAppetite',         label: 'Appetite Changes', sub: '', icon: 'restaurant-outline' },
-      { key: 'symptomMood',             label: 'Mood Changes', sub: '', icon: 'happy-outline' },
+      { key: 'symptomNausea',           label: 'Nausea',       sub: 'Auto-filled into your side-effects log', icon: 'Frown' },
+      { key: 'symptomVomiting',         label: 'Vomiting',     sub: '', icon: 'AlertCircle' },
+      { key: 'symptomDiarrhea',         label: 'Diarrhea',     sub: '', icon: 'TriangleAlert' },
+      { key: 'symptomConstipation',     label: 'Constipation', sub: '', icon: 'MinusCircle' },
+      { key: 'symptomHeartburn',        label: 'Heartburn',    sub: '', icon: 'Flame' },
+      { key: 'symptomBloating',         label: 'Bloating',     sub: '', icon: 'Circle' },
+      { key: 'symptomAbdominalCramps',  label: 'Stomach Pain', sub: '', icon: 'Hospital' },
+      { key: 'symptomFatigue',          label: 'Fatigue',      sub: '', icon: 'BatteryLow' },
+      { key: 'symptomHeadache',         label: 'Headache',     sub: '', icon: 'HeartPulse' },
+      { key: 'symptomDizziness',        label: 'Dizziness',    sub: '', icon: 'RefreshCw' },
+      { key: 'symptomAppetite',         label: 'Appetite Changes', sub: '', icon: 'Utensils' },
+      { key: 'symptomMood',             label: 'Mood Changes', sub: '', icon: 'Smile' },
     ],
   },
   {
     title: 'METABOLIC',
     rows: [
-      { key: 'glucose', label: 'Blood Glucose', sub: 'Dexcom, Libre, Stelo sync automatically', icon: 'analytics-outline' },
+      { key: 'glucose', label: 'Blood Glucose', sub: 'Dexcom, Libre, Stelo sync automatically', icon: 'BarChart3' },
     ],
   },
   {
     title: 'ACTIVITY',
     rows: [
-      { key: 'basalEnergy',    label: 'Basal Energy',     sub: 'Resting metabolism — combines with active cal for TDEE', icon: 'flash-outline' },
-      { key: 'distance',       label: 'Distance',         sub: 'Walking + running distance',        icon: 'map-outline' },
-      { key: 'flightsClimbed', label: 'Flights Climbed',  sub: 'From your iPhone sensors',          icon: 'trending-up-outline' },
-      { key: 'workouts',       label: 'Workouts',         sub: 'Peloton, Strava, Garmin, Nike Run', icon: 'barbell-outline' },
+      { key: 'basalEnergy',    label: 'Basal Energy',     sub: 'Resting metabolism — combines with active cal for TDEE', icon: 'Zap' },
+      { key: 'distance',       label: 'Distance',         sub: 'Walking + running distance',        icon: 'Map' },
+      { key: 'flightsClimbed', label: 'Flights Climbed',  sub: 'From your iPhone sensors',          icon: 'TrendingUp' },
+      { key: 'workouts',       label: 'Workouts',         sub: 'Peloton, Strava, Garmin, Nike Run', icon: 'Dumbbell' },
     ],
   },
   {
     title: 'MINDFULNESS',
     rows: [
-      { key: 'mindfulMinutes', label: 'Mindful Minutes', sub: 'Calm, Headspace, and other apps', icon: 'flower-outline' },
+      { key: 'mindfulMinutes', label: 'Mindful Minutes', sub: 'Calm, Headspace, and other apps', icon: 'Brain' },
     ],
   },
 ];
@@ -177,7 +177,7 @@ export default function AppleHealthSettingsScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>APPLE HEALTH</Text>
         <View style={{ width: 40 }} />
@@ -189,7 +189,7 @@ export default function AppleHealthSettingsScreen() {
         <View style={s.masterCard}>
           <View style={s.masterLeft}>
             <View style={s.masterIcon}>
-              <Ionicons name="heart" size={18} color={HEALTH_RED} />
+              <Heart size={18} color={HEALTH_RED} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.masterLabel}>Connect Apple Health</Text>
@@ -220,8 +220,8 @@ export default function AppleHealthSettingsScreen() {
                 activeOpacity={0.7}
               >
                 {refreshing
-                  ? <ActivityIndicator size="small" color={ORANGE} />
-                  : <Ionicons name="refresh" size={18} color={ORANGE} />
+                  ? <ActivityIndicator size="small" color={colors.orange} />
+                  : <RefreshCw size={18} color={colors.orange} />
                 }
               </TouchableOpacity>
             </View>
@@ -229,7 +229,7 @@ export default function AppleHealthSettingsScreen() {
             {/* "Manage in iOS Settings" — the only way to change a declined category */}
             <Pressable onPress={handleManageInSettings} style={s.manageCard}>
               <View style={s.manageIcon}>
-                <Ionicons name="settings-outline" size={18} color={ORANGE} />
+                <Settings size={18} color={colors.orange} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.manageLabel}>Manage in iOS Settings</Text>
@@ -238,7 +238,7 @@ export default function AppleHealthSettingsScreen() {
                   <Text style={{ fontWeight: '700' }}>Privacy → Health → Titra</Text>.
                 </Text>
               </View>
-              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+              <ExternalLink size={16} color={colors.textMuted} />
             </Pressable>
 
             {/* Grouped category status */}
@@ -258,11 +258,9 @@ export default function AppleHealthSettingsScreen() {
                           {i > 0 && <View style={s.divider} />}
                           <View style={s.row}>
                             <View style={[s.rowIconWrap, !live && s.rowIconWrapDormant]}>
-                              <Ionicons
-                                name={row.icon}
+                              <LucideIconByName name={row.icon}
                                 size={16}
-                                color={live ? ORANGE : colors.textMuted}
-                              />
+                                color={live ? colors.orange : colors.textMuted} />
                             </View>
                             <View style={{ flex: 1 }}>
                               <Text style={[s.rowLabel, !live && s.rowLabelDormant]}>{row.label}</Text>
@@ -342,7 +340,7 @@ const createStyles = (c: AppColors) => {
       marginTop: 8, marginBottom: 4,
     },
     summaryNumber: {
-      color: ORANGE, fontSize: 32, fontWeight: '800', letterSpacing: -1,
+      color: c.orange, fontSize: 32, fontWeight: '800', letterSpacing: -1,
     },
     summaryDenom: {
       color: c.textMuted, fontSize: 20, fontWeight: '600',

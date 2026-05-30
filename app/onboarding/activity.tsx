@@ -1,4 +1,3 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -11,12 +10,13 @@ import { ActivityLevel } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const OPTION_DATA: { value: ActivityLevel; label: string; iconName: string; subtitle: string }[] = [
-  { value: 'sedentary',   label: 'Sedentary',      iconName: 'event-seat',      subtitle: 'Mostly seated, little exercise' },
-  { value: 'light',       label: 'Lightly Active',  iconName: 'directions-walk', subtitle: 'Some walking or light movement' },
-  { value: 'active',      label: 'Active',           iconName: 'directions-run',  subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active',      iconName: 'flash-on',       subtitle: 'Intense exercise or very physical job' },
+  { value: 'sedentary',   label: 'Sedentary',      iconName: 'Armchair',      subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active',  iconName: 'Footprints', subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',           iconName: 'Activity',  subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',      iconName: 'Zap',       subtitle: 'Intense exercise or very physical job' },
 ];
 
 export default function ActivityScreen() {
@@ -51,7 +51,7 @@ export default function ActivityScreen() {
               <OptionPill
                 key={o.value}
                 label={o.label}
-                icon={<MaterialIcons name={o.iconName as any} size={20} color={iconColor} />}
+                icon={<LucideIconByName name={o.iconName as any} size={20} color={iconColor} />}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
                 onPress={() => {

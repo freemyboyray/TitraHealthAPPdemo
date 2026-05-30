@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -8,8 +7,8 @@ import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
+import { HeartPulse } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type FoodNoiseLog = {
   score: number;
@@ -71,7 +70,7 @@ export function FoodNoiseCard({ logs }: Props) {
         <View style={s.inner}>
           <View style={s.leftRow}>
             <View style={s.iconWrap}>
-              <Ionicons name="pulse-outline" size={20} color={ORANGE} />
+              <HeartPulse size={20} color={colors.orange} />
             </View>
             <View>
               <Text style={s.title}>Food Noise Check-In</Text>
@@ -104,7 +103,7 @@ export function FoodNoiseCard({ logs }: Props) {
       <View style={s.inner}>
         <View style={s.leftRow}>
           <View style={s.iconWrap}>
-            <Ionicons name="pulse-outline" size={20} color={ORANGE} />
+            <HeartPulse size={20} color={colors.orange} />
           </View>
           <View>
             <Text style={s.title}>Food Noise</Text>
@@ -157,7 +156,7 @@ const createStyles = (c: AppColors) => {
   labelBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start' },
   labelText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   ctaBtn: {
-    backgroundColor: ORANGE, borderRadius: 14,
+    backgroundColor: c.orange, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 8,
   },
   ctaText: { fontSize: 15, fontWeight: '700', color: '#FFF' },

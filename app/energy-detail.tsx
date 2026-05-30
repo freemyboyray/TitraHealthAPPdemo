@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -22,13 +21,13 @@ import {
   daysSinceInjection,
   type EnergyComponent,
 } from '@/constants/scoring';
-import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { pkConcentrationPct } from '@/constants/drug-pk';
 import { useUiStore } from '@/stores/ui-store';
 import { useBiometricStore } from '@/stores/biometric-store';
 import { buildEnergyTimeline } from '@/lib/energy-timeline';
 import { EnergyTimelineChart } from '@/components/energy-timeline-chart';
 import { localDateStr } from '@/lib/date-utils';
+import { ChevronLeft, MessageCircle, MinusCircle } from 'lucide-react-native';
 
 const FF = 'System';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -51,8 +50,8 @@ const COMPONENT_COLORS: Record<string, string> = {
 
 // ─── Animated Ring Gauge ────────────────────────────────────────────────────
 
-const HERO_RING_SIZE = 140;
-const HERO_RING_SW = 10;
+const HERO_RING_SIZE = 160;
+const HERO_RING_SW = 16;
 const HERO_RING_R = (HERO_RING_SIZE - HERO_RING_SW) / 2;
 const HERO_RING_C = 2 * Math.PI * HERO_RING_R;
 
@@ -87,6 +86,13 @@ function HeroRing({ score, color, isDark }: { score: number; color: string; isDa
         {/* Track */}
         <Circle cx={cx} cy={cy} r={HERO_RING_R} strokeWidth={HERO_RING_SW}
           stroke={w(0.08)} fill="none" />
+        {/* Glow layer behind arc */}
+        <AnimatedCircle cx={cx} cy={cy} r={HERO_RING_R} fill="none"
+          stroke={color} strokeWidth={HERO_RING_SW + 8} opacity={0.15}
+          strokeLinecap="round"
+          strokeDasharray={`${HERO_RING_C} ${HERO_RING_C}`}
+          animatedProps={arcProps}
+          rotation="-90" origin={`${cx}, ${cy}`} />
         {/* Animated arc */}
         <AnimatedCircle cx={cx} cy={cy} r={HERO_RING_R} fill="none"
           stroke={`url(#${gradId})`} strokeWidth={HERO_RING_SW}
@@ -157,7 +163,7 @@ function ComponentRow({ component, isDark }: { component: EnergyComponent; isDar
             {component.score}
           </Text>
         ) : (
-          <Ionicons name="remove-circle-outline" size={22} color={w(0.4)} />
+          <MinusCircle size={22} color={w(0.4)} />
         )}
       </View>
 
@@ -267,7 +273,7 @@ export default function EnergyDetailScreen() {
         paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 14,
       }}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Energy Bank</Text>
         <TouchableOpacity
@@ -284,7 +290,7 @@ export default function EnergyDetailScreen() {
           activeOpacity={0.7}
           hitSlop={12}
         >
-          <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textPrimary} />
+          <MessageCircle size={22} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -297,45 +303,19 @@ export default function EnergyDetailScreen() {
           <View style={{ alignItems: 'center', gap: 12 }}>
             <HeroRing score={result.score} color={color} isDark={colors.isDark} />
             <Text style={[s.heroLabel, { color }]}>{result.label}</Text>
-            <View style={s.phasePill}>
-              <Ionicons name="medical" size={12} color={w(0.4)} />
-              <Text style={s.phaseText}>{phaseLabels[phase] ?? 'Active'}</Text>
-            </View>
           </View>
         </View>
-
-        {/* Missing data disclaimer */}
-        {result.disclaimer && (
-          <View style={[s.disclaimerCard, { backgroundColor: colors.isDark ? 'rgba(255,149,0,0.08)' : 'rgba(255,149,0,0.06)' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-              <Ionicons name="information-circle" size={18} color="#FF9500" style={{ marginTop: 1 }} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF9500', fontFamily: FF }}>
-                  Incomplete Data
-                </Text>
-                <Text style={{ fontSize: 12, color: w(0.5), fontFamily: FF, lineHeight: 17 }}>
-                  {result.disclaimer}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Energy timeline chart */}
         <EnergyTimelineChart data={timelineData} />
 
         {/* Component breakdown */}
-        <Text style={s.breakdownTitle}>BREAKDOWN</Text>
         <View style={[s.breakdownCard, { backgroundColor: colors.surface }]}>
           {result.components.map(c => (
             <ComponentRow key={c.id} component={c} isDark={colors.isDark} />
           ))}
         </View>
 
-        {/* Disclaimer */}
-        <Text style={s.disclaimer}>
-          {MEDICAL_DISCLAIMER}
-        </Text>
       </ScrollView>
 
     </View>

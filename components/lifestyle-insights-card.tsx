@@ -8,7 +8,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -18,6 +17,7 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useHealthData } from '@/contexts/health-data';
 import { localDateStr } from '@/lib/date-utils';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 import {
   runLifestylePipeline,
   type InsightCard,
@@ -202,7 +202,7 @@ function CardBody({
           backgroundColor: `${card.iconColor}22`,
           alignItems: 'center', justifyContent: 'center',
         }}>
-          <Ionicons name={card.icon as never} size={18} color={card.iconColor} />
+          <LucideIconByName name={card.icon as never} size={18} color={card.iconColor} />
         </View>
         <Text style={{
           fontSize: 11, fontWeight: '800', color: card.iconColor,

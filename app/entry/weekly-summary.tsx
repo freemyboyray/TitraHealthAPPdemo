@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
@@ -28,8 +27,8 @@ import { generateWeeklyInsight } from '@/lib/openai';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useUiStore } from '@/stores/ui-store';
+import { ArrowRight, MessageCircle, Share2, TrendingDown, TrendingUp, X } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const GREEN  = '#27AE60';
 const RED    = '#E53E3E';
 const FF     = 'System';
@@ -225,7 +224,7 @@ export default function WeeklySummaryScreen() {
   if (!profile) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={ORANGE} />
+        <ActivityIndicator size="large" color={colors.orange} />
       </View>
     );
   }
@@ -404,7 +403,7 @@ export default function WeeklySummaryScreen() {
           {dateRange ? <Text style={s.headerSub}>{dateRange}</Text> : null}
         </View>
         <TouchableOpacity style={s.closeBtn} onPress={handleClose}>
-          <Ionicons name="close" size={22} color={colors.textPrimary} />
+          <X size={22} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -421,14 +420,14 @@ export default function WeeklySummaryScreen() {
               <Text style={s.aiLabel}>AI Insight</Text>
               {aiLoading ? (
                 <View style={s.shimmerRow}>
-                  <ActivityIndicator size="small" color={ORANGE} />
+                  <ActivityIndicator size="small" color={colors.orange} />
                   <Text style={s.shimmerText}>Analyzing your week…</Text>
                 </View>
               ) : (
                 <Text style={s.aiText}>{aiInsight || 'Tap "Chat with AI" for a personalized recap.'}</Text>
               )}
               <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi}>
-                <Ionicons name="chatbubble-ellipses-outline" size={14} color={ORANGE} />
+                <MessageCircle size={14} color={colors.orange} />
                 <Text style={s.askAiBtnText}>Ask AI</Text>
               </TouchableOpacity>
             </View>
@@ -446,17 +445,19 @@ export default function WeeklySummaryScreen() {
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '700', fontFamily: FF }}>
                     {summary.weight.start?.toFixed(1) ?? '—'}
                   </Text>
-                  <Ionicons name="arrow-forward" size={16} color={colors.textSecondary} />
+                  <ArrowRight size={16} color={colors.textSecondary} />
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '700', fontFamily: FF }}>
                     {summary.weight.end?.toFixed(1) ?? '—'} lbs
                   </Text>
                   {summary.weight.delta != null && (
                     <View style={[s.deltaBadge, { backgroundColor: summary.weight.delta <= 0 ? '#e8f8ef' : '#fdeaea' }]}>
-                      <Ionicons
-                        name={summary.weight.delta <= 0 ? 'trending-down' : 'trending-up'}
+                      {summary.weight.delta <= 0 ? <TrendingDown
                         size={12}
                         color={summary.weight.delta <= 0 ? GREEN : RED}
-                      />
+                      /> : <TrendingUp
+                        size={12}
+                        color={summary.weight.delta <= 0 ? GREEN : RED}
+                      />}
                       <Text style={[s.deltaBadgeText, { color: summary.weight.delta <= 0 ? GREEN : RED }]}>
                         {summary.weight.delta > 0 ? '+' : ''}{summary.weight.delta.toFixed(1)} lbs
                       </Text>
@@ -562,7 +563,7 @@ export default function WeeklySummaryScreen() {
                   </View>
                   <Text style={s.pkDeltaLabel}>{pkComparisonData.deltaLabel}</Text>
                   {pkComparisonData.adherenceStreak != null && (
-                    <Text style={[s.pkDeltaLabel, { marginTop: 4, fontStyle: 'normal', color: pkComparisonData.adherenceStreak >= 6 ? GREEN : ORANGE }]}>
+                    <Text style={[s.pkDeltaLabel, { marginTop: 4, fontStyle: 'normal', color: pkComparisonData.adherenceStreak >= 6 ? GREEN : colors.orange }]}>
                       {`Dose taken ${pkComparisonData.adherenceStreak} of 7 days this week`}
                     </Text>
                   )}
@@ -598,14 +599,14 @@ export default function WeeklySummaryScreen() {
       {/* Sticky Footer */}
       <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi}>
-          <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
+          <MessageCircle size={16} color="#fff" />
           <Text style={s.primaryBtnText}>Chat with AI</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading}>
           {pdfLoading
-            ? <ActivityIndicator size="small" color={ORANGE} />
+            ? <ActivityIndicator size="small" color={colors.orange} />
             : <>
-                <Ionicons name="share-outline" size={16} color={ORANGE} />
+                <Share2 size={16} color={colors.orange} />
                 <Text style={s.secondaryBtnText}>Export PDF</Text>
               </>
           }
@@ -645,7 +646,7 @@ function cardStyles(c: AppColors) {
       borderRadius: 4,
       overflow: 'hidden',
     },
-    barFill: { height: 5, backgroundColor: ORANGE, borderRadius: 4 },
+    barFill: { height: 5, backgroundColor: c.orange, borderRadius: 4 },
   });
 }
 
@@ -690,12 +691,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 12,
   },
   aiCardInner: { flexDirection: 'row' },
-  aiOrangeBorder: { width: 4, backgroundColor: ORANGE },
+  aiOrangeBorder: { width: 4, backgroundColor: c.orange },
   aiContent: { flex: 1, padding: 14 },
   aiLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: ORANGE,
+    color: c.orange,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 6,
@@ -716,7 +717,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 10,
     alignSelf: 'flex-start',
   },
-  askAiBtnText: { fontSize: 15, color: ORANGE, fontWeight: '600', fontFamily: FF },
+  askAiBtnText: { fontSize: 15, color: c.orange, fontWeight: '600', fontFamily: FF },
 
   // Weight
   deltaBadge: {
@@ -741,7 +742,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
   },
-  dayDotActive: { backgroundColor: ORANGE },
+  dayDotActive: { backgroundColor: c.orange },
   dayDotLabel: { fontSize: 12, color: c.textSecondary, fontFamily: FF },
   subNote: { fontSize: 14, color: c.textSecondary, fontFamily: FF },
 
@@ -814,7 +815,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     height: 46,
     borderRadius: 12,
   },
@@ -826,9 +827,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: ORANGE,
+    borderColor: c.orange,
     height: 46,
     borderRadius: 12,
   },
-  secondaryBtnText: { color: ORANGE, fontWeight: '700', fontSize: 17, fontFamily: FF },
+  secondaryBtnText: { color: c.orange, fontWeight: '700', fontSize: 17, fontFamily: FF },
 });

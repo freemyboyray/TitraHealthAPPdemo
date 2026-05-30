@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 // App Store ID — update this once the app is live on the App Store
 const APP_STORE_ID = '6746837369';
@@ -21,6 +20,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
+import { Star } from 'lucide-react-native';
 
 type Props = {
   onReview: () => void;
@@ -94,7 +94,7 @@ export function ReviewPrompt({ onReview, onDismiss }: Props) {
           {/* Icon */}
           <Animated.View style={iconStyle}>
             <View style={[styles.iconCircle, { backgroundColor: '#FF742A1F' }]}>
-              <Ionicons name="star" size={32} color="#FF742A" />
+              <Star size={32} color="#FF742A" />
             </View>
           </Animated.View>
 
@@ -117,7 +117,7 @@ export function ReviewPrompt({ onReview, onDismiss }: Props) {
               ]}
               onPress={handleReview}
             >
-              <Ionicons name="star" size={18} color="#FFF" style={{ marginRight: 6 }} />
+              <Star size={18} color="#FFF" style={{ marginRight: 6 }} />
               <Text style={styles.primaryBtnText}>Yes, Love It!</Text>
             </Pressable>
             <Pressable

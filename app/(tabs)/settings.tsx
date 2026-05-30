@@ -35,7 +35,6 @@ const ACTIVITY_DISPLAY: Record<string, string> = {
   sedentary: 'Sedentary', light: 'Light', active: 'Active', very_active: 'Very Active',
 };
 
-const ORANGE = '#FF742A';
 
 function computeNextDose(lastDate: string | undefined, freqDays: number | undefined): string | null {
   if (!lastDate || !freqDays) return null;
@@ -201,7 +200,7 @@ export default function SettingsScreen() {
             {editingName ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TextInput
-                  style={[s.profileName, { flex: 1, borderBottomWidth: 1, borderBottomColor: ORANGE, paddingBottom: 4 }]}
+                  style={[s.profileName, { flex: 1, borderBottomWidth: 1, borderBottomColor: colors.orange, paddingBottom: 4 }]}
                   value={nameInput}
                   onChangeText={setNameInput}
                   autoFocus
@@ -224,7 +223,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/plan' as any)} accessibilityLabel="My Plan" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
+                <IconSymbol name="syringe.fill" size={18} color={colors.orange} />
               </View>
               <Text style={s.rowLabel}>My Plan</Text>
             </View>
@@ -236,7 +235,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/subscription' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="bolt.fill" size={18} color={ORANGE} />
+                <IconSymbol name="bolt.fill" size={18} color={colors.orange} />
               </View>
               <Text style={s.rowLabel}>Subscription</Text>
             </View>
@@ -248,7 +247,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={() => router.push('/settings/preferences' as any)} accessibilityLabel="Preferences" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="gearshape.fill" size={18} color={ORANGE} />
+                <IconSymbol name="gearshape.fill" size={18} color={colors.orange} />
               </View>
               <Text style={s.rowLabel}>Preferences</Text>
             </View>
@@ -336,7 +335,7 @@ function createStyles(c: AppColors) {
     },
     avatar: {
       width: 48, height: 48, borderRadius: 24,
-      backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
     },
     avatarLetter: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
     profileName: { color: c.textPrimary, fontSize: 18, fontWeight: '600' },

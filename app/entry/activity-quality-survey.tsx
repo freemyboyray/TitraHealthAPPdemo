@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -15,8 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 const QUESTIONS = [
   'I completed intentional exercise sessions this week (walks, gym, sport, etc.).',
@@ -71,9 +70,9 @@ function DotScale({
           <View
             style={{
               width: 44, height: 44, borderRadius: 22,
-              backgroundColor: value === v ? ORANGE : (dotColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
+              backgroundColor: value === v ? dotColors.orange : (dotColors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
               borderWidth: 1.5,
-              borderColor: value === v ? ORANGE : (dotColors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'),
+              borderColor: value === v ? dotColors.orange : (dotColors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'),
               alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -155,7 +154,7 @@ export default function ActivityQualitySurveyScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
@@ -200,7 +199,7 @@ export default function ActivityQualitySurveyScreen() {
             <View style={{ padding: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 2 }}>
                 <View style={s.qNumber}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE }}>Q{idx + 1}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.orange }}>Q{idx + 1}</Text>
                 </View>
                 <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.textPrimary, lineHeight: 20 }}>
                   {q}
@@ -236,10 +235,10 @@ export default function ActivityQualitySurveyScreen() {
       >
         <TouchableOpacity
           style={{
-            backgroundColor: ORANGE,
+            backgroundColor: colors.orange,
             borderRadius: 28, paddingVertical: 17,
             alignItems: 'center', justifyContent: 'center',
-            shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
+            shadowColor: colors.orange, shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
           }}
           onPress={handleSave}

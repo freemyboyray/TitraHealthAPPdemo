@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -34,8 +33,8 @@ import { useLogStore } from '../../stores/log-store';
 import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ArrowRight, ChevronLeft, ChevronRight, Heart, Settings } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 // ─── Severity buckets ─────────────────────────────────────────────────────────
 // Storage stays 0–10 (DB, HealthKit, insights). UI cycles through 4 buckets.
@@ -194,7 +193,7 @@ export default function SideEffectsScreen() {
           accessibilityLabel="Go back"
           accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+          <ChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
@@ -210,7 +209,7 @@ export default function SideEffectsScreen() {
           accessibilityLabel="Customize side effects"
           accessibilityRole="button"
         >
-          <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+          <Settings size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </Animated.View>
 
@@ -260,7 +259,7 @@ export default function SideEffectsScreen() {
                       {effect.label}
                     </Text>
                     {fromHK && (
-                      <Ionicons name="heart" size={11} color="#FF3B30" />
+                      <Heart size={11} color="#FF3B30" />
                     )}
                   </View>
                   <View style={s.chipBottomRow}>
@@ -298,7 +297,7 @@ export default function SideEffectsScreen() {
             accessibilityRole="button"
           >
             <Text style={s.customizeText}>Customize effects</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            <ChevronRight size={16} color={colors.textMuted} />
           </TouchableOpacity>
 
           {[0, 1].includes(new Date().getDay()) && (
@@ -313,7 +312,7 @@ export default function SideEffectsScreen() {
                   Track how much you're thinking about food this week
                 </Text>
               </View>
-              <Ionicons name="arrow-forward" size={16} color={ORANGE} />
+              <ArrowRight size={16} color={colors.orange} />
             </TouchableOpacity>
           )}
         </Animated.View>
@@ -400,7 +399,7 @@ const createStyles = (c: AppColors) =>
     sectionLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
       marginBottom: 4,
@@ -487,7 +486,7 @@ const createStyles = (c: AppColors) =>
     },
     dot_0: {},
     dot_1: { backgroundColor: '#F5C850' },
-    dot_2: { backgroundColor: ORANGE },
+    dot_2: { backgroundColor: c.orange },
     dot_3: { backgroundColor: '#FF453A' },
 
     chipSev: {
@@ -497,7 +496,7 @@ const createStyles = (c: AppColors) =>
     },
     chipSev_0: {},
     chipSev_1: { color: '#F5C850' },
-    chipSev_2: { color: ORANGE },
+    chipSev_2: { color: c.orange },
     chipSev_3: { color: '#FF453A' },
 
 
@@ -529,7 +528,7 @@ const createStyles = (c: AppColors) =>
     foodNoiseTitle: {
       fontSize: 15,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       marginBottom: 3,
     },
     foodNoiseDesc: {
@@ -555,10 +554,10 @@ const createStyles = (c: AppColors) =>
     ctaBtn: {
       height: 56,
       borderRadius: 18,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.4,
       shadowRadius: 16,

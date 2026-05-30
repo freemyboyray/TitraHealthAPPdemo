@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -26,8 +25,8 @@ import {
   AI_SECTIONS,
   type LegalSection,
 } from '@/constants/legal';
+import { ChevronLeft } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type Tab = 'tos' | 'privacy' | 'ai';
 
@@ -55,7 +54,7 @@ export default function LegalScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Terms & Privacy</Text>
         <View style={{ width: 36 }} />

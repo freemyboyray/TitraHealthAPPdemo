@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useAnimatedStyle,
@@ -18,6 +17,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import { ACHIEVEMENT_ACCENT, type Achievement } from '@/constants/achievements';
+import { Camera } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 type Props = {
   lbs: number;
@@ -96,7 +97,7 @@ export function PhotoMilestonePrompt({ lbs, achievement, onTakePhoto, onDismiss 
           {/* Icon */}
           <Animated.View style={iconStyle}>
             <View style={[styles.iconCircle, { backgroundColor: accent + '1F' }]}>
-              <Ionicons name={iconName} size={32} color={accent} />
+              <LucideIconByName name={iconName} size={32} color={accent} />
             </View>
           </Animated.View>
 
@@ -124,7 +125,7 @@ export function PhotoMilestonePrompt({ lbs, achievement, onTakePhoto, onDismiss 
               ]}
               onPress={onTakePhoto}
             >
-              <Ionicons name="camera" size={18} color="#FFF" style={{ marginRight: 6 }} />
+              <Camera size={18} color="#FFF" style={{ marginRight: 6 }} />
               <Text style={styles.primaryBtnText}>Take a Photo</Text>
             </Pressable>
             <Pressable

@@ -1,12 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { Check, ChevronRight } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 type Props = {
   title: string;
@@ -35,13 +35,11 @@ export function LessonRow({ title, subtitle, estimatedMinutes, contentType, isCo
       {/* Status icon */}
       <View style={[s.statusCircle, isCompleted && s.statusDone]}>
         {isCompleted ? (
-          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+          <Check size={14} color="#FFFFFF" />
         ) : (
-          <Ionicons
-            name={(CONTENT_TYPE_ICONS[contentType] ?? 'document-text-outline') as any}
+          <LucideIconByName name={(CONTENT_TYPE_ICONS[contentType] ?? 'document-text-outline') as any}
             size={14}
-            color={w(0.4)}
-          />
+            color={w(0.4)} />
         )}
       </View>
 
@@ -55,7 +53,7 @@ export function LessonRow({ title, subtitle, estimatedMinutes, contentType, isCo
       <Text style={s.duration}>{estimatedMinutes} min</Text>
 
       {/* Chevron */}
-      <Ionicons name="chevron-forward" size={16} color={w(0.2)} />
+      <ChevronRight size={16} color={w(0.2)} />
     </Pressable>
   );
 }

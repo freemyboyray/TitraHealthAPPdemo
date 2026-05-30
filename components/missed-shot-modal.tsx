@@ -1,5 +1,4 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,8 +13,9 @@ import {
 } from 'react-native';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { ORANGE } from '@/constants/theme';
+import { Clock } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 type MissedShotModalProps = {
@@ -101,7 +101,7 @@ export function MissedShotModal({
 
           <View style={s.content}>
             {/* Icon + header */}
-            <Ionicons name="time-outline" size={40} color={ORANGE} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <Clock size={40} color={ORANGE} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={s.title}>{isOral ? 'MISSED DOSE' : 'MISSED SHOT'}</Text>
             <Text style={s.body}>
               Your {isOral ? 'dose' : 'injection'} was due {overdueDays} day{overdueDays !== 1 ? 's' : ''} ago

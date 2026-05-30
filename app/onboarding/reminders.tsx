@@ -1,21 +1,20 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { requestNotificationPermission } from '@/lib/notifications';
 import { useAppTheme } from '@/contexts/theme-context';
 import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
+import { Bell } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const BENEFITS = [
-  { icon: 'medical-outline' as const, text: 'Dose day reminders so you never miss a shot' },
-  { icon: 'restaurant-outline' as const, text: 'Daily nudges to log food and water' },
+  { icon: 'Hospital' as const, text: 'Dose day reminders so you never miss a shot' },
+  { icon: 'Utensils' as const, text: 'Daily nudges to log food and water' },
   { icon: 'bar-chart-outline' as const, text: 'Weekly check-in prompts to track progress' },
 ];
 
@@ -45,7 +44,7 @@ export default function RemindersScreen() {
         <View style={s.content}>
           {/* Bell icon */}
           <View style={s.iconCircle}>
-            <Ionicons name="notifications-outline" size={40} color={ORANGE} />
+            <Bell size={40} color={colors.orange} />
           </View>
 
           <Text style={s.title}>Stay on track with{'\n'}gentle reminders</Text>
@@ -58,7 +57,7 @@ export default function RemindersScreen() {
             {BENEFITS.map((b) => (
               <View key={b.text} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
-                  <Ionicons name={b.icon} size={20} color={ORANGE} />
+                  <LucideIconByName name={b.icon} size={20} color={colors.orange} />
                 </View>
                 <Text style={s.benefitText}>{b.text}</Text>
               </View>

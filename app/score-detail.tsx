@@ -1,4 +1,3 @@
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -30,6 +29,7 @@ import { isOralDrug, doseNoun, doseIconName } from '@/constants/drug-pk';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useUiStore } from '@/stores/ui-store';
 import { MEDICAL_DISCLAIMER, PK_DISCLAIMER } from '@/constants/medical-sources';
+import { ChevronLeft, Droplet, Dumbbell, FileText, Footprints, Heart, HeartPulse, Leaf, MessageCircle, Moon, Pill, Syringe, TrendingUp } from 'lucide-react-native';
 
 const FF = 'System';
 
@@ -376,10 +376,10 @@ export default function ScoreDetailScreen() {
       // No wearable data - show suppressed state cards
       const suppressedNote = 'Connect Apple Health in Settings to enable this metric.';
       const rowDefs = [
-        { icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={dimColor} />, label: 'Sleep', max: 40 },
-        { icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color={dimColor} />, label: 'HRV', max: 35 },
-        { icon: <Ionicons name="heart-outline" size={ICON_SIZE} color={dimColor} />, label: 'Resting HR', max: 15 },
-        { icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color={dimColor} />, label: 'SpO\u2082', max: 10 },
+        { icon: <Moon size={ICON_SIZE} color={dimColor} />, label: 'Sleep', max: 40 },
+        { icon: <TrendingUp size={ICON_SIZE} color={dimColor} />, label: 'HRV', max: 35 },
+        { icon: <Heart size={ICON_SIZE} color={dimColor} />, label: 'Resting HR', max: 15 },
+        { icon: <Droplet size={ICON_SIZE} color={dimColor} />, label: 'SpO\u2082', max: 10 },
       ];
       cards = rowDefs.map(rd => ({
         icon: rd.icon,
@@ -397,7 +397,7 @@ export default function ScoreDetailScreen() {
       const m = (wearable.sleepMinutes ?? 0) % 60;
       cards = [
         {
-          icon: <Ionicons name="moon-outline" size={ICON_SIZE} color={rows[0].available ? accent : dimColor} />,
+          icon: <Moon size={ICON_SIZE} color={rows[0].available ? accent : dimColor} />,
           label: 'Sleep',
           pts: rows[0].actual, maxPts: rows[0].max,
           value: rows[0].available ? `${h}h ${m}m` : '-',
@@ -406,7 +406,7 @@ export default function ScoreDetailScreen() {
           note: rows[0].available ? recoveryNotes[0] : 'Connect Apple Health to track sleep.',
         },
         {
-          icon: <MaterialIcons name="show-chart" size={ICON_SIZE} color={rows[1].available ? accent : dimColor} />,
+          icon: <TrendingUp size={ICON_SIZE} color={rows[1].available ? accent : dimColor} />,
           label: 'HRV',
           pts: rows[1].actual, maxPts: rows[1].max,
           value: rows[1].available ? `${wearable.hrvMs} ms` : '-',
@@ -415,7 +415,7 @@ export default function ScoreDetailScreen() {
           note: rows[1].available ? recoveryNotes[1] : 'Connect Apple Health to track HRV.',
         },
         {
-          icon: <Ionicons name="heart-outline" size={ICON_SIZE} color={rows[2].available ? accent : dimColor} />,
+          icon: <Heart size={ICON_SIZE} color={rows[2].available ? accent : dimColor} />,
           label: 'Resting HR',
           pts: rows[2].actual, maxPts: rows[2].max,
           value: rows[2].available ? `${wearable.restingHR} bpm` : '-',
@@ -424,7 +424,7 @@ export default function ScoreDetailScreen() {
           note: rows[2].available ? recoveryNotes[2] : 'Connect Apple Health to track resting heart rate.',
         },
         {
-          icon: <MaterialIcons name="bloodtype" size={ICON_SIZE} color={rows[3].available ? accent : dimColor} />,
+          icon: <Droplet size={ICON_SIZE} color={rows[3].available ? accent : dimColor} />,
           label: 'SpO\u2082',
           pts: rows[3].actual, maxPts: rows[3].max,
           value: rows[3].available ? `${wearable.spo2Pct}%` : '-',
@@ -439,7 +439,7 @@ export default function ScoreDetailScreen() {
     const rows = adherenceBreakdown(actuals, targets, sideEffectBurden);
     cards = [
       {
-        icon: <FontAwesome5 name={doseIconName(oral)} size={ICON_SIZE - 2} color={accent} />,
+        icon: (oral ? <Pill size={ICON_SIZE - 2} color={accent} /> : <Syringe size={ICON_SIZE - 2} color={accent} />),
         label: 'Medication',
         pts: rows[0].actual, maxPts: rows[0].max,
         value: actuals.injectionLogged ? 'Logged ✓' : 'Not logged',
@@ -448,7 +448,7 @@ export default function ScoreDetailScreen() {
         note: `Logging your ${doseNoun(oral)} unlocks the full 35-point medication bonus and enables phase-aware coaching.`,
       },
       {
-        icon: <Ionicons name="pulse-outline" size={ICON_SIZE} color={accent} />,
+        icon: <HeartPulse size={ICON_SIZE} color={accent} />,
         label: 'Side Effects',
         pts: rows[1].actual, maxPts: rows[1].max,
         value: `${sideEffectBurden}% burden`,
@@ -457,7 +457,7 @@ export default function ScoreDetailScreen() {
         note: 'Lower side effect burden means your body is tolerating the medication well. Phase-expected GI effects are discounted.',
       },
       {
-        icon: <MaterialIcons name="fitness-center" size={ICON_SIZE} color={rows[2].included ? accent : dimColor} />,
+        icon: <Dumbbell size={ICON_SIZE} color={rows[2].included ? accent : dimColor} />,
         label: 'Protein',
         pts: rows[2].actual, maxPts: rows[2].max,
         value: rows[2].included ? `${actuals.proteinG}g / ${targets.proteinG}g` : '-',
@@ -466,7 +466,7 @@ export default function ScoreDetailScreen() {
         note: rows[2].note ?? glp1Notes[0],
       },
       {
-        icon: <Ionicons name="walk-outline" size={ICON_SIZE} color={rows[3].included ? accent : dimColor} />,
+        icon: <Footprints size={ICON_SIZE} color={rows[3].included ? accent : dimColor} />,
         label: 'Movement',
         pts: rows[3].actual, maxPts: rows[3].max,
         value: rows[3].included ? `${actuals.steps.toLocaleString()} steps` : '-',
@@ -483,7 +483,7 @@ export default function ScoreDetailScreen() {
         {/* Nav bar */}
         <View style={s.navBar}>
           <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
           <View style={s.navCenter}>
             <Text style={s.navTitle}>{title}</Text>
@@ -501,7 +501,7 @@ export default function ScoreDetailScreen() {
             style={s.chatBtn}
             hitSlop={12}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.textPrimary} />
+            <MessageCircle size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
 
@@ -559,7 +559,7 @@ export default function ScoreDetailScreen() {
                   <View style={cStyles.topRow}>
                     <View style={cStyles.iconLabel}>
                       <View style={cStyles.iconWrap}>
-                        <MaterialIcons name="eco" size={ICON_SIZE} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                        <Leaf size={ICON_SIZE} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
                       </View>
                       <Text style={[cStyles.label, { color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }]}>Fiber (Informational)</Text>
                     </View>
@@ -609,7 +609,7 @@ export default function ScoreDetailScreen() {
             style={s.sourcesLink}
             onPress={() => router.push('/settings/medical-sources' as any)}
           >
-            <Ionicons name="document-text-outline" size={16} color="#FF742A" />
+            <FileText size={16} color="#FF742A" />
             <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
           </Pressable>
 

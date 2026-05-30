@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ORANGE } from '@/constants/theme';
+import { X } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type Props = {
   label: string;
@@ -18,7 +18,7 @@ export function ContextPill({ label, value, onDismiss }: Props) {
         {value ? <Text style={s.value}> · {value}</Text> : null}
       </Text>
       <Pressable onPress={onDismiss} hitSlop={10} style={s.closeBtn}>
-        <Ionicons name="close" size={13} color={ORANGE} />
+        <X size={13} color={ORANGE} />
       </Pressable>
     </View>
   );

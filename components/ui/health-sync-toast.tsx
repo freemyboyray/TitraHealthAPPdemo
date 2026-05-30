@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { useUiStore } from '@/stores/ui-store';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
 
@@ -52,11 +52,9 @@ export function HealthSyncToast() {
           },
         ]}
       >
-        <Ionicons
-          name={Platform.OS === 'ios' ? 'heart' : 'fitness'}
+        <LucideIconByName name={Platform.OS === 'ios' ? 'heart' : 'fitness'}
           size={15}
-          color="#FF2D55"
-        />
+          color="#FF2D55" />
         <Text
           style={[styles.text, { color: colors.textPrimary }]}
           numberOfLines={1}

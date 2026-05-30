@@ -1,4 +1,3 @@
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -6,13 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { AppColors } from '@/constants/theme';
-import { isOralDrug, doseIconName, doseNoun } from '@/constants/drug-pk';
+import { isOralDrug, doseNoun } from '@/constants/drug-pk';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import { supabase } from '@/lib/supabase';
+import { ChevronLeft, Pill, Syringe } from 'lucide-react-native';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 const PAGE_SIZE = 20;
 
 const SITE_ROTATION = [
@@ -127,7 +126,7 @@ function InjectionCard({
             </Text>
           </View>
           <View style={s.doseBadge}>
-            <FontAwesome5 name={doseIconName(oral)} size={11} color={ORANGE} />
+            {oral ? <Pill size={11} color={colors.orange} /> : <Syringe size={11} color={colors.orange} />}
             <Text style={s.doseBadgeText}>{row.dose_mg}mg</Text>
           </View>
         </View>
@@ -159,7 +158,7 @@ function InjectionCard({
               <View style={s.footerRow}>
                 <IconSymbol name="arrow.triangle.2.circlepath" size={14} color={w(0.5)} />
                 <Text style={s.footerText}>
-                  Rotate to <Text style={{ color: ORANGE, fontWeight: '700' }}>{rotation}</Text>
+                  Rotate to <Text style={{ color: colors.orange, fontWeight: '700' }}>{rotation}</Text>
                 </Text>
               </View>
             )}
@@ -244,7 +243,7 @@ export default function InjectionHistoryScreen() {
       {/* ── Top bar ── */}
       <View style={s.topBar}>
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-          <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+          <ChevronLeft size={26} color={colors.textPrimary} />
         </Pressable>
         <Text style={s.topTitle}>{title}</Text>
         <View style={{ width: 26 }} />
@@ -253,11 +252,11 @@ export default function InjectionHistoryScreen() {
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ paddingTop: 60, alignItems: 'center' }}>
-            <ActivityIndicator color={ORANGE} />
+            <ActivityIndicator color={colors.orange} />
           </View>
         ) : rows.length === 0 ? (
           <View style={s.emptyWrap}>
-            <FontAwesome5 name={doseIconName(oral)} size={28} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)'} />
+            {oral ? <Pill size={28} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)'} /> : <Syringe size={28} color={colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)'} />}
             <Text style={s.emptyTitle}>No {doseNoun(oral)}s logged yet</Text>
             <Text style={s.emptySub}>Your {doseNoun(oral)} history will appear here.</Text>
           </View>
@@ -283,7 +282,7 @@ export default function InjectionHistoryScreen() {
                 accessibilityRole="button"
               >
                 {loadingMore
-                  ? <ActivityIndicator color={ORANGE} />
+                  ? <ActivityIndicator color={colors.orange} />
                   : <Text style={s.loadMoreText}>Load More</Text>
                 }
               </Pressable>
@@ -318,13 +317,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: 'rgba(255,116,42,0.13)',
     borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
   },
-  latestBadgeText: { fontSize: 10, fontWeight: '800', color: ORANGE, letterSpacing: 0.8, fontFamily: FF },
+  latestBadgeText: { fontSize: 10, fontWeight: '800', color: c.orange, letterSpacing: 0.8, fontFamily: FF },
   doseBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(255,116,42,0.10)',
     borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5,
   },
-  doseBadgeText: { fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: FF },
+  doseBadgeText: { fontSize: 14, fontWeight: '700', color: c.orange, fontFamily: FF },
   footer: {
     marginTop: 14,
     paddingTop: 12,
@@ -340,7 +339,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
     alignItems: 'center',
   },
-  loadMoreText: { fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: FF, letterSpacing: 0.3 },
+  loadMoreText: { fontSize: 15, fontWeight: '700', color: c.orange, fontFamily: FF, letterSpacing: 0.3 },
   emptyWrap: {
     marginTop: 60, alignItems: 'center', gap: 12,
     padding: 24,

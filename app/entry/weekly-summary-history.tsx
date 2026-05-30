@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import {
@@ -13,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore, type WeeklySummaryRow } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { WeeklySummaryData } from '@/lib/weekly-summary';
+import { ChevronLeft, ChevronRight, Sparkles, TrendingDown, TrendingUp } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const GREEN  = '#27AE60';
 const RED    = '#E53E3E';
 const FF     = 'System';
@@ -58,7 +57,7 @@ export default function WeeklySummaryHistoryScreen() {
           <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' }]} />
           <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <ChevronLeft size={22} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
 
         <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: FF }}>Past Summaries</Text>
@@ -68,7 +67,7 @@ export default function WeeklySummaryHistoryScreen() {
 
       {weeklySummaries.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 }}>
-          <Ionicons name="sparkles-outline" size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 14 }} />
+          <Sparkles size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 14 }} />
           <Text style={{ fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: FF }}>
             No past summaries yet
           </Text>
@@ -92,6 +91,7 @@ export default function WeeklySummaryHistoryScreen() {
 }
 
 function SummaryRowCard({ row }: { row: WeeklySummaryRow }) {
+  const { colors } = useAppTheme();
   const data = row.summary_data as unknown as WeeklySummaryData;
   const range = `${formatDateShort(row.window_start)} – ${formatDateShort(row.window_end)}`;
   const delta = data?.weight?.delta ?? null;
@@ -123,11 +123,13 @@ function SummaryRowCard({ row }: { row: WeeklySummaryRow }) {
               backgroundColor: delta <= 0 ? 'rgba(39,174,96,0.12)' : 'rgba(229,62,62,0.12)',
               borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
             }}>
-              <Ionicons
-                name={delta <= 0 ? 'trending-down' : 'trending-up'}
+              {delta <= 0 ? <TrendingDown
                 size={12}
                 color={delta <= 0 ? GREEN : RED}
-              />
+              /> : <TrendingUp
+                size={12}
+                color={delta <= 0 ? GREEN : RED}
+              />}
               <Text style={{ fontSize: 13, fontWeight: '700', color: delta <= 0 ? GREEN : RED, fontFamily: FF }}>
                 {delta > 0 ? '+' : ''}{delta.toFixed(1)} lbs
               </Text>
@@ -146,8 +148,8 @@ function SummaryRowCard({ row }: { row: WeeklySummaryRow }) {
         )}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: ORANGE, fontFamily: FF }}>View summary</Text>
-          <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.orange, fontFamily: FF }}>View summary</Text>
+          <ChevronRight size={14} color={colors.orange} />
         </View>
       </View>
     </TouchableOpacity>

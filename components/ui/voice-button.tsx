@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, Text, View, ViewStyle } from 'react-native';
 import Animated, {
@@ -9,6 +8,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useVoiceInput } from '../../hooks/useVoiceInput';
+import { Mic } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 type Props = {
   onTranscription(text: string): void;
@@ -90,11 +91,9 @@ export function VoiceButton({ onTranscription, onProcessingChange, size = 'md', 
             justifyContent: 'center',
           })}
         >
-          <Ionicons
-            name={isProcessing ? 'hourglass-outline' : 'mic-outline'}
+          <LucideIconByName name={isProcessing ? 'hourglass-outline' : 'mic-outline'}
             size={size === 'sm' ? 18 : 22}
-            color={isProcessing ? 'rgba(255,255,255,0.3)' : TERRACOTTA}
-          />
+            color={isProcessing ? 'rgba(255,255,255,0.3)' : TERRACOTTA} />
         </Pressable>
         <Text
           style={{
@@ -127,7 +126,7 @@ export function VoiceButton({ onTranscription, onProcessingChange, size = 'md', 
             borderWidth: 2,
             borderColor: RED,
           }, animStyle]}>
-            <Ionicons name="mic" size={56} color={RED} />
+            <Mic size={56} color={RED} />
           </Animated.View>
 
           <Text style={{

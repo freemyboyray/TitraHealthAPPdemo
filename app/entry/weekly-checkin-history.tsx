@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
@@ -15,8 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore, type WeeklyCheckinRow } from '@/stores/log-store';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import { useAppTheme } from '@/contexts/theme-context';
+import { ChevronLeft, ClipboardList, Trash2 } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 // ─── Domain config (mirrors weekly-checkin.tsx) ────────────────────────────────
@@ -44,42 +44,42 @@ function makeStatus(
 const DOMAINS: {
   key: DomainKey;
   label: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: string;
   higherIsBetter: boolean;
   getStatus: (sum: number) => { label: string; color: string };
 }[] = [
   {
-    key: 'gi_burden', label: 'GI Symptoms', icon: 'medical-outline',
+    key: 'gi_burden', label: 'GI Symptoms', icon: 'Hospital',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Minimal', 'Mild', 'Moderate', 'Severe'], ['#27AE60', '#F6CB45', '#E8960C', '#E53E3E']),
   },
   {
-    key: 'energy_mood', label: 'Energy & Mood', icon: 'flash-outline',
+    key: 'energy_mood', label: 'Energy & Mood', icon: 'Zap',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Excellent', 'Good', 'Fair', 'Low'], ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E']),
   },
   {
-    key: 'appetite', label: 'Appetite', icon: 'restaurant-outline',
+    key: 'appetite', label: 'Appetite', icon: 'Utensils',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Excellent', 'Good', 'Fair', 'Low'], ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E']),
   },
   {
-    key: 'food_noise', label: 'Food Noise', icon: 'volume-medium-outline',
+    key: 'food_noise', label: 'Food Noise', icon: 'Volume2',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Quiet', 'Mild', 'Moderate', 'High'], ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E']),
   },
   {
-    key: 'sleep_quality', label: 'Sleep', icon: 'moon-outline',
+    key: 'sleep_quality', label: 'Sleep', icon: 'Moon',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Excellent', 'Good', 'Fair', 'Poor'], ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E']),
   },
   {
-    key: 'activity_quality', label: 'Activity', icon: 'barbell-outline',
+    key: 'activity_quality', label: 'Activity', icon: 'Dumbbell',
     higherIsBetter: true,
     getStatus: (s) => makeStatus(s, ['Low', 'Fair', 'Good', 'Excellent'], ['#E53E3E', '#F6CB45', '#5AC8FA', '#27AE60']),
   },
   {
-    key: 'mental_health', label: 'Mental Health', icon: 'heart-outline',
+    key: 'mental_health', label: 'Mental Health', icon: 'Heart',
     higherIsBetter: false,
     getStatus: (s) => makeStatus(s, ['Stable', 'Mild', 'Moderate', 'High'], ['#27AE60', '#5AC8FA', '#F6CB45', '#E53E3E']),
   },
@@ -164,7 +164,7 @@ export default function WeeklyCheckinHistoryScreen() {
           <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' }]} />
           <GlassBorder r={20} />
-          <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.6)" />
+          <ChevronLeft size={22} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
 
         <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: FF }}>Past Check-Ins</Text>
@@ -174,7 +174,7 @@ export default function WeeklyCheckinHistoryScreen() {
 
       {sessions.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 }}>
-          <Ionicons name="clipboard-outline" size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 14 }} />
+          <ClipboardList size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 14 }} />
           <Text style={{ fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.35)', fontFamily: FF }}>
             No past check-ins yet
           </Text>
@@ -213,6 +213,7 @@ function SessionCard({
   rows: WeeklyCheckinRow[];
   onDelete: () => void;
 }) {
+  const { colors } = useAppTheme();
   const rowsByType = useMemo(() => {
     const map: Record<string, WeeklyCheckinRow> = {};
     for (const r of rows) {
@@ -243,7 +244,7 @@ function SessionCard({
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <Ionicons name="trash-outline" size={16} color="#E53E3E" />
+            <Trash2 size={16} color="#E53E3E" />
           </TouchableOpacity>
         </View>
 
@@ -273,7 +274,7 @@ function SessionCard({
                   backgroundColor: 'rgba(255,116,42,0.12)',
                   alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Ionicons name={domain.icon} size={14} color={ORANGE} />
+                  <LucideIconByName name={domain.icon} size={14} color={colors.orange} />
                 </View>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.85)', fontFamily: FF }}>
                   {domain.label}

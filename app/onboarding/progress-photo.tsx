@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -11,8 +10,8 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
+import { Camera, Images } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 export default function ProgressPhotoScreen() {
@@ -86,7 +85,7 @@ export default function ProgressPhotoScreen() {
               <Image source={{ uri: photoUri }} style={s.preview} />
               <Text style={s.capturedLabel}>Looking great!</Text>
               <TouchableOpacity onPress={takePhoto} activeOpacity={0.7} style={s.retakeBtn}>
-                <Ionicons name="camera-outline" size={16} color={ORANGE} />
+                <Camera size={16} color={colors.orange} />
                 <Text style={s.retakeText}>Retake</Text>
               </TouchableOpacity>
             </View>
@@ -95,7 +94,7 @@ export default function ProgressPhotoScreen() {
             <View style={s.center}>
               {/* Icon */}
               <View style={s.iconCircle}>
-                <Ionicons name="camera" size={32} color={ORANGE} />
+                <Camera size={32} color={colors.orange} />
               </View>
 
               <Text style={s.title}>Starting Photo</Text>
@@ -106,11 +105,11 @@ export default function ProgressPhotoScreen() {
               {/* Action buttons */}
               <View style={s.actions}>
                 <TouchableOpacity style={s.primaryBtn} onPress={takePhoto} activeOpacity={0.8}>
-                  <Ionicons name="camera" size={20} color="#FFFFFF" />
+                  <Camera size={20} color="#FFFFFF" />
                   <Text style={s.primaryBtnLabel}>Take Photo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.secondaryBtn, { backgroundColor: w(0.06) }]} onPress={chooseFromGallery} activeOpacity={0.8}>
-                  <Ionicons name="images-outline" size={20} color={colors.textPrimary} />
+                  <Images size={20} color={colors.textPrimary} />
                   <Text style={[s.secondaryBtnLabel, { color: colors.textPrimary }]}>Choose from Gallery</Text>
                 </TouchableOpacity>
               </View>
@@ -159,7 +158,7 @@ const createStyles = (c: AppColors) => {
     // Buttons
     actions: { width: '100%', gap: 12 },
     primaryBtn: {
-      backgroundColor: ORANGE, borderRadius: 16,
+      backgroundColor: c.orange, borderRadius: 16,
       paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
       flexDirection: 'row', gap: 8,
     },
@@ -189,7 +188,7 @@ const createStyles = (c: AppColors) => {
       borderRadius: 10, backgroundColor: w(0.06),
     },
     retakeText: {
-      fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF,
+      fontSize: 15, fontWeight: '600', color: c.orange, fontFamily: FF,
     },
 
     // Skip

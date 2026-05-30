@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -17,8 +16,8 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { computeBaseTargets } from '@/lib/targets';
 import { useLogStore } from '@/stores/log-store';
+import { Activity, Armchair, ChevronLeft, Footprints, Zap } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 // ─── Picker data ───────────────────────────────────────────────────────────
 const FEET = Array.from({ length: 4 }, (_, i) => `${i + 4} ft`);
@@ -46,10 +45,10 @@ const ACTIVITY_DISPLAY: Record<string, string> = {
 };
 const ACTIVITY_ICON_COLOR = 'rgba(255,255,255,0.7)';
 const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; icon: React.ReactNode; subtitle: string }[] = [
-  { value: 'sedentary',   label: 'Sedentary',      icon: <MaterialIcons name="event-seat"      size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Mostly seated, little exercise' },
-  { value: 'light',       label: 'Lightly Active',  icon: <MaterialIcons name="directions-walk" size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Some walking or light movement' },
-  { value: 'active',      label: 'Active',           icon: <MaterialIcons name="directions-run"  size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active',      icon: <MaterialIcons name="flash-on"        size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Intense exercise or very physical job' },
+  { value: 'sedentary',   label: 'Sedentary',      icon: <Armchair      size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active',  icon: <Footprints size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',           icon: <Activity  size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',      icon: <Zap        size={20} color={ACTIVITY_ICON_COLOR} />, subtitle: 'Intense exercise or very physical job' },
 ];
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -99,7 +98,7 @@ export default function EditProfileScreen() {
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
 
   if (isLoading) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><ActivityIndicator color={ORANGE} style={{ flex: 1 }} /></SafeAreaView>;
+    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><ActivityIndicator color={colors.orange} style={{ flex: 1 }} /></SafeAreaView>;
   }
   if (!profile) { router.back(); return null; }
 
@@ -254,7 +253,7 @@ export default function EditProfileScreen() {
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={s.headerTitle}>Body & Goals</Text>
         <View style={{ width: 40 }} />
@@ -414,7 +413,7 @@ const createStyles = (c: AppColors) => {
       borderRadius: 12, padding: 3, marginBottom: 20, alignSelf: 'center',
     },
     unitBtn: { paddingHorizontal: 24, paddingVertical: 9, borderRadius: 10 },
-    unitBtnActive: { backgroundColor: ORANGE },
+    unitBtnActive: { backgroundColor: c.orange },
     unitText: { fontSize: 15, fontWeight: '600', color: w(0.5) },
     unitTextActive: { color: '#FFFFFF' },
 
@@ -439,7 +438,7 @@ const createStyles = (c: AppColors) => {
     rowLabel: { fontSize: 17, fontWeight: '500', color: c.textPrimary },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rowValue: { fontSize: 17, fontWeight: '500', color: c.textSecondary },
-    rowValueComputed: { fontSize: 17, fontWeight: '500', color: ORANGE },
+    rowValueComputed: { fontSize: 17, fontWeight: '500', color: c.orange },
     divider: {
       height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle,
       marginLeft: 16,
@@ -447,7 +446,7 @@ const createStyles = (c: AppColors) => {
 
     footer: { padding: 16, paddingBottom: 8 },
     saveBtn: {
-      backgroundColor: ORANGE, borderRadius: 14, paddingVertical: 16,
+      backgroundColor: c.orange, borderRadius: 14, paddingVertical: 16,
       alignItems: 'center', justifyContent: 'center',
     },
     saveBtnDisabled: { opacity: 0.5 },
@@ -475,7 +474,7 @@ const createStyles = (c: AppColors) => {
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
     sheetTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
-    sheetDone: { fontSize: 17, fontWeight: '600', color: ORANGE },
+    sheetDone: { fontSize: 17, fontWeight: '600', color: c.orange },
     sheetBody: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
 
     // ─── Picker layout ─────────────────────────────────────────────────────

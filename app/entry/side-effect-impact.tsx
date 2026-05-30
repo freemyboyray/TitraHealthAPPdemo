@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -26,8 +25,9 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { computeBaseTargets, applyAdjustments, SIDE_EFFECT_RULES } from '@/lib/targets';
 import { useUiStore } from '@/stores/ui-store';
+import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, CircleCheck, Clock, Droplet, Dumbbell, ExternalLink, Footprints, Grip, Leaf, MessageCircle, ShieldCheck, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const RED    = '#FF3B30';
 const BLUE   = '#5AC8FA';
@@ -92,8 +92,8 @@ type MetricRowProps = {
 
 function MetricRow({ icon, label, before, after, delta, increased, reason, colors, citations, expanded, onToggle, openAiChat, aiContext }: MetricRowProps) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const arrowColor = increased ? ORANGE : BLUE;
-  const deltaColor = increased ? ORANGE : BLUE;
+  const arrowColor = increased ? colors.orange : BLUE;
+  const deltaColor = increased ? colors.orange : BLUE;
 
   return (
     <Pressable
@@ -116,17 +116,17 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
             paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20,
             backgroundColor: increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)',
           }}>
-            <Ionicons name={increased ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
+            {increased ? <ArrowUp size={11} color={arrowColor} /> : <ArrowDown size={11} color={arrowColor} />}
             <Text style={{ fontSize: 14, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={w(0.25)} />
+          {expanded ? <ChevronUp size={14} color={w(0.25)} /> : <ChevronDown size={14} color={w(0.25)} />}
         </View>
       </View>
 
       {/* Before → After */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Text style={{ fontSize: 20, fontWeight: '300', color: w(0.35), fontFamily: FF }}>{before}</Text>
-        <Ionicons name="arrow-forward" size={14} color={w(0.25)} />
+        <ArrowRight size={14} color={w(0.25)} />
         <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>{after}</Text>
       </View>
 
@@ -138,7 +138,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
           {citations && citations.length > 0 && (
             <View style={{ marginTop: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                <Ionicons name="shield-checkmark-outline" size={13} color={w(0.30)} />
+                <ShieldCheck size={13} color={w(0.30)} />
                 <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.30), fontFamily: FF, letterSpacing: 0.5 }}>
                   INFORMED BY
                 </Text>
@@ -165,7 +165,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
                     }}
                   >
                     <Text style={{ fontSize: 12, fontWeight: '600', color: w(0.45), fontFamily: FF }}>{c.label}</Text>
-                    <Ionicons name="open-outline" size={10} color={w(0.30)} />
+                    <ExternalLink size={10} color={w(0.30)} />
                   </Pressable>
                 ))}
               </View>
@@ -250,7 +250,7 @@ export default function SideEffectImpactScreen() {
     const proteinDiff = adjusted.proteinG - base.proteinG;
     if (Math.abs(proteinDiff) >= 1) {
       rows.push({
-        icon: <MaterialIcons name="restaurant" size={18} color={ORANGE} />,
+        icon: <Utensils size={18} color={colors.orange} />,
         label: 'Daily Protein',
         before: `${base.proteinG}g`,
         after: `${adjusted.proteinG}g`,
@@ -268,7 +268,7 @@ export default function SideEffectImpactScreen() {
     const waterDiffOz = mlToOz(Math.abs(waterDiffMl));
     if (waterDiffOz >= 1) {
       rows.push({
-        icon: <Ionicons name="water-outline" size={18} color={BLUE} />,
+        icon: <Droplet size={18} color={BLUE} />,
         label: 'Daily Water',
         before: `${mlToOz(base.waterMl)}oz`,
         after: `${mlToOz(adjusted.waterMl)}oz`,
@@ -285,7 +285,7 @@ export default function SideEffectImpactScreen() {
     const fiberDiff = adjusted.fiberG - base.fiberG;
     if (Math.abs(fiberDiff) >= 1) {
       rows.push({
-        icon: <MaterialIcons name="eco" size={18} color={GREEN} />,
+        icon: <Leaf size={18} color={GREEN} />,
         label: 'Daily Fiber',
         before: `${base.fiberG}g`,
         after: `${adjusted.fiberG}g`,
@@ -302,7 +302,7 @@ export default function SideEffectImpactScreen() {
     const carbsDiff = adjusted.carbsG - base.carbsG;
     if (Math.abs(carbsDiff) >= 3) {
       rows.push({
-        icon: <MaterialIcons name="grain" size={18} color="#F6CB45" />,
+        icon: <Grip size={18} color="#F6CB45" />,
         label: 'Daily Carbs',
         before: `${base.carbsG}g`,
         after: `${adjusted.carbsG}g`,
@@ -319,7 +319,7 @@ export default function SideEffectImpactScreen() {
     const fatDiff = adjusted.fatG - base.fatG;
     if (Math.abs(fatDiff) >= 2) {
       rows.push({
-        icon: <MaterialIcons name="opacity" size={18} color="#FF9F0A" />,
+        icon: <Droplet size={18} color="#FF9F0A" />,
         label: 'Daily Fat',
         before: `${base.fatG}g`,
         after: `${adjusted.fatG}g`,
@@ -336,7 +336,7 @@ export default function SideEffectImpactScreen() {
     const stepsDiff = adjusted.steps - base.steps;
     if (Math.abs(stepsDiff) >= 100) {
       rows.push({
-        icon: <MaterialIcons name="directions-walk" size={18} color={GREEN} />,
+        icon: <Footprints size={18} color={GREEN} />,
         label: 'Daily Steps',
         before: `${base.steps.toLocaleString()}`,
         after: `${adjusted.steps.toLocaleString()}`,
@@ -412,14 +412,14 @@ export default function SideEffectImpactScreen() {
     if (metricRows.some(r => r.label === 'Daily Water' && r.increased)) {
       actions.push({
         label: 'Set hydration reminders',
-        icon: 'notifications-outline',
+        icon: 'Bell',
         onPress: () => { router.dismissAll(); setTimeout(() => router.push('/settings/reminders'), 300); },
       });
     }
     if (metricRows.some(r => r.label === 'Daily Protein' && r.increased)) {
       actions.push({
         label: 'Find high-protein meals',
-        icon: 'restaurant-outline',
+        icon: 'Utensils',
         onPress: () => openAiChat({
           type: 'focus',
           contextLabel: 'Side Effect Adjustments',
@@ -432,7 +432,7 @@ export default function SideEffectImpactScreen() {
     if (hasMealFreq) {
       actions.push({
         label: "See today's meal schedule",
-        icon: 'time-outline',
+        icon: 'Clock',
         onPress: () => openAiChat({
           type: 'focus',
           contextLabel: 'Side Effect Adjustments',
@@ -445,7 +445,7 @@ export default function SideEffectImpactScreen() {
     if (adjusted.resistanceTrainingRecommended) {
       actions.push({
         label: 'See exercise suggestions',
-        icon: 'barbell-outline',
+        icon: 'Dumbbell',
         onPress: () => openAiChat({
           type: 'focus',
           contextLabel: 'Side Effect Adjustments',
@@ -490,7 +490,7 @@ export default function SideEffectImpactScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={20} />
-          <Ionicons name="close" size={20} color={w(0.6)} />
+          <X size={20} color={w(0.6)} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Target Adjustments</Text>
         <View style={{ width: 40 }} />
@@ -507,7 +507,7 @@ export default function SideEffectImpactScreen() {
           <GlassBorder r={20} />
           <View style={{ padding: 20, alignItems: 'center' }}>
             <View style={s.checkCircle}>
-              <Ionicons name="checkmark" size={22} color="#FFF" />
+              <Check size={22} color="#FFF" />
             </View>
             <Text style={s.bannerTitle}>{bannerTitle}</Text>
             <Text style={s.bannerSub}>{bannerSub}</Text>
@@ -515,7 +515,7 @@ export default function SideEffectImpactScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 12 }}>
               {loggedEffects.map(e => {
                 const t = severityTier(e.severity);
-                const pillColor = t === 'severe' ? RED : t === 'moderate' ? ORANGE : GREEN;
+                const pillColor = t === 'severe' ? RED : t === 'moderate' ? colors.orange : GREEN;
                 return (
                   <View key={e.type} style={[s.effectPill, {
                     backgroundColor: `${pillColor}15`,
@@ -574,7 +574,7 @@ export default function SideEffectImpactScreen() {
               <GlassBorder r={20} />
               <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <View style={[s.iconCircle, { backgroundColor: 'rgba(255,116,42,0.12)' }]}>
-                  <Ionicons name="time-outline" size={20} color={ORANGE} />
+                  <Clock size={20} color={colors.orange} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.sectionTitle}>MEAL TIMING</Text>
@@ -597,7 +597,7 @@ export default function SideEffectImpactScreen() {
               <GlassBorder r={20} />
               <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <View style={[s.iconCircle, { backgroundColor: 'rgba(52,199,89,0.12)' }]}>
-                  <MaterialIcons name="fitness-center" size={20} color={GREEN} />
+                  <Dumbbell size={20} color={GREEN} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.sectionTitle}>STRENGTH TRAINING</Text>
@@ -624,7 +624,7 @@ export default function SideEffectImpactScreen() {
                 {adjusted.foodsToPrioritize.length > 0 && (
                   <View style={{ marginTop: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                      <Ionicons name="checkmark-circle" size={16} color={GREEN} />
+                      <CircleCheck size={16} color={GREEN} />
                       <Text style={{ fontSize: 14, fontWeight: '700', color: GREEN, fontFamily: FF, letterSpacing: 0.5 }}>
                         PRIORITIZE
                       </Text>
@@ -642,7 +642,7 @@ export default function SideEffectImpactScreen() {
                 {adjusted.foodsToAvoid.length > 0 && (
                   <View style={{ marginTop: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                      <Ionicons name="close-circle" size={16} color={RED} />
+                      <XCircle size={16} color={RED} />
                       <Text style={{ fontSize: 14, fontWeight: '700', color: RED, fontFamily: FF, letterSpacing: 0.5 }}>
                         AVOID
                       </Text>
@@ -683,7 +683,7 @@ export default function SideEffectImpactScreen() {
               {/* Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <View style={s.aiIconWrap}>
-                  <MaterialIcons name="auto-awesome" size={16} color={ORANGE} />
+                  <Sparkles size={16} color={colors.orange} />
                 </View>
                 <Text style={s.aiCardLabel}>AI COACH</Text>
               </View>
@@ -713,7 +713,7 @@ export default function SideEffectImpactScreen() {
                     })}
                   >
                     <Text style={s.chipText}>{chip}</Text>
-                    <Ionicons name="arrow-forward" size={13} color={ORANGE} style={{ marginLeft: 2 }} />
+                    <ArrowRight size={13} color={colors.orange} style={{ marginLeft: 2 }} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -735,7 +735,7 @@ export default function SideEffectImpactScreen() {
                   ]),
                 })}
               >
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFF" />
+                <MessageCircle size={18} color="#FFF" />
                 <Text style={s.askBtnText}>Ask anything</Text>
               </TouchableOpacity>
             </View>
@@ -760,7 +760,7 @@ export default function SideEffectImpactScreen() {
                 activeOpacity={0.75}
                 onPress={action.onPress}
               >
-                <Ionicons name={action.icon as any} size={18} color={ORANGE} />
+                <LucideIconByName name={action.icon as any} size={18} color={colors.orange} />
                 <Text style={s.secondaryBtnText}>{action.label}</Text>
               </TouchableOpacity>
             ))}
@@ -805,9 +805,9 @@ const createStyles = (c: AppColors) => {
     },
     checkCircle: {
       width: 48, height: 48, borderRadius: 24,
-      backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
       marginBottom: 12,
-      shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 },
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.4, shadowRadius: 12,
     },
     bannerTitle: {
@@ -857,7 +857,7 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     aiCardLabel: {
-      fontSize: 12, fontWeight: '800', color: ORANGE,
+      fontSize: 12, fontWeight: '800', color: c.orange,
       fontFamily: FF, letterSpacing: 1.5,
     },
     aiCardTitle: {
@@ -884,8 +884,8 @@ const createStyles = (c: AppColors) => {
     askBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       gap: 8, height: 48, borderRadius: 24,
-      backgroundColor: ORANGE,
-      shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 },
+      backgroundColor: c.orange,
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
     },
     askBtnText: {
@@ -901,16 +901,16 @@ const createStyles = (c: AppColors) => {
     secondaryBtn: {
       height: 48, borderRadius: 24,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      borderWidth: 1.5, borderColor: `${ORANGE}40`,
-      backgroundColor: `${ORANGE}08`,
+      borderWidth: 1.5, borderColor: `${c.orange}40`,
+      backgroundColor: `${c.orange}08`,
     },
     secondaryBtnText: {
-      fontSize: 16, fontWeight: '700', color: ORANGE, fontFamily: FF,
+      fontSize: 16, fontWeight: '700', color: c.orange, fontFamily: FF,
     },
     doneBtn: {
-      height: 54, borderRadius: 27, backgroundColor: ORANGE,
+      height: 54, borderRadius: 27, backgroundColor: c.orange,
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.4, shadowRadius: 18, elevation: 8,
     },
     doneBtnText: {

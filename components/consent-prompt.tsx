@@ -7,16 +7,9 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
+import { ShieldCheck } from 'lucide-react-native';
 
 type Props = {
   missingAi: boolean;
@@ -28,34 +21,9 @@ type Props = {
 export function ConsentPrompt({ missingAi, missingFood, onReview, onDismiss }: Props) {
   const { colors, isDark } = useAppTheme();
 
-  const backdropOpacity = useSharedValue(0);
-  const iconScale = useSharedValue(0.5);
-  const contentOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(12);
-  const btnOpacity = useSharedValue(0);
-  const btnTranslateY = useSharedValue(16);
-
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    backdropOpacity.value = withTiming(1, { duration: 200 });
-    iconScale.value = withDelay(100, withSpring(1, { damping: 14, stiffness: 150 }));
-    contentOpacity.value = withDelay(250, withTiming(1, { duration: 300 }));
-    contentTranslateY.value = withDelay(250, withTiming(0, { duration: 300 }));
-    btnOpacity.value = withDelay(450, withTiming(1, { duration: 250 }));
-    btnTranslateY.value = withDelay(450, withSpring(0, { damping: 14, stiffness: 120 }));
   }, []);
-
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
-  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: iconScale.value }] }));
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
-  }));
-  const btnStyle = useAnimatedStyle(() => ({
-    opacity: btnOpacity.value,
-    transform: [{ translateY: btnTranslateY.value }],
-  }));
 
   const subtitle = missingAi && missingFood
     ? 'AI features and the food database are currently disabled. Enable data sharing to log meals with AI and search the food database.'
@@ -64,8 +32,8 @@ export function ConsentPrompt({ missingAi, missingFood, onReview, onDismiss }: P
       : 'The food database is currently disabled. Enable it to search foods and scan barcodes.';
 
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onDismiss}>
-      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+    <Modal transparent visible animationType="fade" onRequestClose={onDismiss}>
+      <View style={StyleSheet.absoluteFill}>
         <BlurView
           intensity={40}
           tint={isDark ? 'dark' : 'light'}
@@ -77,26 +45,24 @@ export function ConsentPrompt({ missingAi, missingFood, onReview, onDismiss }: P
             { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.25)' },
           ]}
         />
-      </Animated.View>
+      </View>
 
       <Pressable style={styles.centerer} onPress={onDismiss}>
         <Pressable style={[styles.card, { backgroundColor: colors.cardBg }]} onPress={() => {}}>
-          <Animated.View style={iconStyle}>
-            <View style={[styles.iconCircle, { backgroundColor: '#FF742A1F' }]}>
-              <Ionicons name="shield-checkmark" size={32} color="#FF742A" />
-            </View>
-          </Animated.View>
+          <View style={[styles.iconCircle, { backgroundColor: '#FF742A1F' }]}>
+            <ShieldCheck size={32} color="#FF742A" />
+          </View>
 
-          <Animated.View style={[styles.textWrap, contentStyle]}>
+          <View style={styles.textWrap}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
               Enable data sharing
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {subtitle}
             </Text>
-          </Animated.View>
+          </View>
 
-          <Animated.View style={[styles.btnWrap, btnStyle]}>
+          <View style={styles.btnWrap}>
             <Pressable
               style={({ pressed }) => [
                 styles.primaryBtn,
@@ -117,7 +83,7 @@ export function ConsentPrompt({ missingAi, missingFood, onReview, onDismiss }: P
                 Not now
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         </Pressable>
       </Pressable>
     </Modal>

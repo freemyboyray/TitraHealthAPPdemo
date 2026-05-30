@@ -1,28 +1,26 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   Animated,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { ScrollTitle } from '@/components/ui/scroll-title';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { contentCategoryColor } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { ARTICLES, type Article } from '@/constants/articles';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 const DISCLAIMER_TEXT =
@@ -33,10 +31,6 @@ const DISCLAIMER_TEXT =
 function ArticleCard({ article }: { article: Article }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createCardStyles(colors), [colors]);
-  const chipColor = contentCategoryColor(colors.isDark, article.category);
-  const categoryLabel =
-    article.category.charAt(0).toUpperCase() + article.category.slice(1);
-
   return (
     <Pressable
       style={({ pressed }) => [s.card, pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] }]}
@@ -48,18 +42,13 @@ function ArticleCard({ article }: { article: Article }) {
       <Image
         source={article.coverImage}
         style={s.coverImage}
-        resizeMode="cover"
+        contentFit="cover"
         accessibilityIgnoresInvertColors
       />
 
       {/* Text content below image */}
       <View style={s.textArea}>
-        <View style={s.metaRow}>
-          <View style={[s.chip, { backgroundColor: chipColor + '18' }]}>
-            <Text style={[s.chipText, { color: chipColor }]}>{categoryLabel}</Text>
-          </View>
-          <Text style={s.readTime}>{article.readingTime} MIN READ</Text>
-        </View>
+        <Text style={s.readTime}>{article.readingTime} MIN READ</Text>
         <Text style={s.title}>{article.title}</Text>
         <Text style={s.subtitle} numberOfLines={2}>{article.subtitle}</Text>
       </View>
@@ -93,28 +82,12 @@ const createCardStyles = (c: AppColors) => {
       padding: 16,
       paddingTop: 14,
     },
-    metaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 10,
-    },
-    chip: {
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-    },
-    chipText: {
-      fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 0.5,
-      fontFamily: FF,
-    },
     readTime: {
       fontSize: 11,
       fontWeight: '600',
       color: w(0.35),
       letterSpacing: 0.5,
+      marginBottom: 8,
       fontFamily: FF,
     },
     title: {
@@ -170,9 +143,6 @@ export default function EducationScreen() {
               <Text style={s.heroTitle}>Education</Text>
             </View>
 
-            {/* Section label */}
-            <Text style={s.sectionLabel}>ARTICLES</Text>
-
             {/* Article cards */}
             {ARTICLES.map((article) => (
               <ArticleCard key={article.id} article={article} />
@@ -186,7 +156,7 @@ export default function EducationScreen() {
               accessibilityRole="button"
               accessibilityLabel="View Medical Sources and Citations"
             >
-              <Ionicons name="document-text-outline" size={14} color={ORANGE} />
+              <FileText size={14} color={colors.orange} />
               <Text style={s.sourcesLinkText}>View Medical Sources & Citations</Text>
             </Pressable>
           </ScrollView>
@@ -213,14 +183,6 @@ const createScreenStyles = (c: AppColors, minimalHeader = false) => {
       marginBottom: 4,
       fontFamily: FF,
     },
-    sectionLabel: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: ORANGE,
-      letterSpacing: 1.5,
-      marginBottom: 16,
-      fontFamily: FF,
-    },
     disclaimer: {
       fontSize: 13,
       color: w(0.3),
@@ -241,7 +203,7 @@ const createScreenStyles = (c: AppColors, minimalHeader = false) => {
     sourcesLinkText: {
       fontSize: 13,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
       fontFamily: FF,
     },
   });

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
@@ -24,7 +23,6 @@ import { useUiStore } from '@/stores/ui-store';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
 import { buildEnergySnapshot } from '@/lib/openai';
 
-const ORANGE = '#FF742A';
 
 type CustomTabBarProps = BottomTabBarProps & {
   fabOpen: boolean;
@@ -256,7 +254,7 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
   tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 46 },
   activeIconWrap: {
     width: 46, height: 46, borderRadius: 23,
-    backgroundColor: ORANGE,
+    backgroundColor: _c.orange,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -273,5 +271,5 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
 
   // FAB - solid orange
   fab: { width: 62, height: 62, borderRadius: 31, marginBottom: 2 },
-  fabInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  fabInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: _c.orange, alignItems: 'center', justifyContent: 'center' },
 });

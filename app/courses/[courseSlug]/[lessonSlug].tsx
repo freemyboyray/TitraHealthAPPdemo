@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
@@ -10,9 +9,9 @@ import type { AppColors } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { LessonContentRenderer } from '@/components/courses/lesson-content-renderer';
 import { usePostHog } from '@/lib/posthog';
+import { ChevronLeft, ChevronRight, CircleCheck, Info } from 'lucide-react-native';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 export default function LessonScreen() {
   const { courseSlug, lessonSlug } = useLocalSearchParams<{ courseSlug: string; lessonSlug: string }>();
@@ -59,7 +58,7 @@ export default function LessonScreen() {
   if (!course || !lesson) {
     return (
       <SafeAreaView style={s.root}>
-        <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 100 }} />
+        <ActivityIndicator size="large" color={colors.orange} style={{ marginTop: 100 }} />
       </SafeAreaView>
     );
   }
@@ -70,7 +69,7 @@ export default function LessonScreen() {
         {/* Header */}
         <View style={s.headerRow}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+            <ChevronLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={s.headerMeta}>
             <Text style={s.lessonNumber}>
@@ -82,7 +81,7 @@ export default function LessonScreen() {
 
         {/* Education disclaimer */}
         <View style={s.disclaimerBanner}>
-          <Ionicons name="information-circle-outline" size={14} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+          <Info size={14} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
           <Text style={s.disclaimerText}>
             Educational content only — not medical advice. Always consult your healthcare provider.
           </Text>
@@ -106,19 +105,19 @@ export default function LessonScreen() {
           {isCompleted ? (
             <>
               <View style={s.completedBadge}>
-                <Ionicons name="checkmark-circle" size={20} color="#27AE60" />
+                <CircleCheck size={20} color="#27AE60" />
                 <Text style={s.completedText}>Lesson completed</Text>
               </View>
               {nextLesson && (
                 <TouchableOpacity style={s.nextBtn} onPress={handleNext} activeOpacity={0.8}>
                   <Text style={s.nextBtnText}>Next: {nextLesson.title}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+                  <ChevronRight size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               )}
             </>
           ) : (
             <TouchableOpacity style={s.completeBtn} onPress={handleComplete} activeOpacity={0.8}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+              <CircleCheck size={20} color="#FFFFFF" />
               <Text style={s.completeBtnText}>Mark as Complete</Text>
             </TouchableOpacity>
           )}
@@ -159,7 +158,7 @@ const createStyles = (c: AppColors) => {
     lessonNumber: {
       fontSize: 14,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       fontFamily: FF,
       letterSpacing: 0.5,
     },
@@ -213,7 +212,7 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       borderRadius: 16,
       paddingVertical: 16,
     },

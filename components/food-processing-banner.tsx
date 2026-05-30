@@ -8,14 +8,13 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFoodTaskStore, type FoodTask } from '../stores/food-task-store';
 import { useAppTheme } from '@/contexts/theme-context';
+import { AlertCircle, CircleCheck, X } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 export function FoodProcessingBanner() {
   const { colors } = useAppTheme();
@@ -95,7 +94,7 @@ export function FoodProcessingBanner() {
             <View style={styles.content}>
               {isProcessing && (
                 <>
-                  <ActivityIndicator size="small" color={ORANGE} />
+                  <ActivityIndicator size="small" color={colors.orange} />
                   <Text style={[styles.text, { color: colors.textPrimary }]}>
                     Analyzing your food...
                   </Text>
@@ -103,7 +102,7 @@ export function FoodProcessingBanner() {
               )}
               {isReady && (
                 <>
-                  <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
+                  <CircleCheck size={18} color="#27AE60" />
                   <Text style={[styles.text, { color: colors.textPrimary }]}>
                     Food analysis ready
                   </Text>
@@ -114,7 +113,7 @@ export function FoodProcessingBanner() {
               )}
               {isFailed && (
                 <>
-                  <Ionicons name="alert-circle" size={18} color="#E74C3C" />
+                  <AlertCircle size={18} color="#E74C3C" />
                   <Text style={[styles.text, { color: colors.textPrimary }]}>
                     Analysis failed
                   </Text>
@@ -128,11 +127,9 @@ export function FoodProcessingBanner() {
             {/* Dismiss button for ready/failed */}
             {!isProcessing && (
               <Pressable onPress={handleDismiss} hitSlop={12} style={styles.dismiss}>
-                <Ionicons
-                  name="close"
+                <X
                   size={14}
-                  color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'}
-                />
+                  color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
               </Pressable>
             )}
           </View>

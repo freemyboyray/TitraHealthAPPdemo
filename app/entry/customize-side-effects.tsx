@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -25,8 +24,8 @@ import {
 } from '../../constants/side-effects';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, Plus, Trash2 } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const GREEN = '#5DB87B';
 
 const CATEGORIES: SideEffectCategory[] = ['digestive', 'appetite', 'physical', 'mental'];
@@ -144,7 +143,7 @@ export default function CustomizeSideEffectsScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GB r={20} />
-          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
         <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Customize Side Effects</Text>
@@ -157,7 +156,7 @@ export default function CustomizeSideEffectsScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
           <GB r={20} />
-          <Ionicons name="add" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <Plus size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
       </View>
 
@@ -248,7 +247,7 @@ export default function CustomizeSideEffectsScreen() {
                         activeOpacity={0.7}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Ionicons name="trash-outline" size={16} color="rgba(255,80,80,0.7)" />
+                        <Trash2 size={16} color="rgba(255,80,80,0.7)" />
                       </TouchableOpacity>
                     </View>
                   );
@@ -311,9 +310,9 @@ export default function CustomizeSideEffectsScreen() {
       >
         <TouchableOpacity
           style={{
-            backgroundColor: ORANGE, borderRadius: 28, paddingVertical: 17,
+            backgroundColor: colors.orange, borderRadius: 28, paddingVertical: 17,
             alignItems: 'center', justifyContent: 'center',
-            shadowColor: ORANGE, shadowOffset: { width: 0, height: 8 },
+            shadowColor: colors.orange, shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
           }}
           onPress={handleSave}
@@ -354,7 +353,7 @@ const createStyles = (c: AppColors) => {
     selectAllText: {
       fontSize: 13,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 0.3,
     },
     card: {
@@ -377,7 +376,7 @@ const createStyles = (c: AppColors) => {
     },
     addBtn: {
       height: 48, paddingHorizontal: 20, borderRadius: 14,
-      backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
     },
   });
 };

@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/contexts/theme-context';
 import {
   useLogStore,
@@ -16,10 +15,12 @@ import {
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { localDateStr } from '@/lib/date-utils';
+import { ORANGE } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, Frown, MoreHorizontal, Syringe, X } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
@@ -80,15 +81,15 @@ function foodToEntry(f: FoodLog): LogEntry {
 }
 
 function activityIcon(type: string | null) {
-  let name: string = 'directions-run';
+  let name: string = 'Activity';
   const t = (type ?? '').toLowerCase();
-  if (t.includes('walk')) name = 'directions-walk';
-  else if (t.includes('cycl') || t.includes('bike')) name = 'directions-bike';
-  else if (t.includes('swim')) name = 'pool';
-  else if (t.includes('yoga')) name = 'self-improvement';
-  else if (t.includes('strength') || t.includes('weight') || t.includes('lift')) name = 'fitness-center';
-  else if (t.includes('hike')) name = 'terrain';
-  return <MaterialIcons name={name as any} size={20} color={ORANGE} />;
+  if (t.includes('walk')) name = 'Footprints';
+  else if (t.includes('cycl') || t.includes('bike')) name = 'Bike';
+  else if (t.includes('swim')) name = 'Waves';
+  else if (t.includes('yoga')) name = 'Brain';
+  else if (t.includes('strength') || t.includes('weight') || t.includes('lift')) name = 'Dumbbell';
+  else if (t.includes('hike')) name = 'Mountain';
+  return <LucideIconByName name={name} size={20} color={ORANGE} />;
 }
 
 function activityToEntry(a: ActivityLog): LogEntry {
@@ -113,7 +114,7 @@ function injectionToEntry(inj: InjectionLog): LogEntry {
     id: inj.id, timestamp: fmtDateOnly(inj.injection_date), rawDate: inj.injection_date,
     title: `${medName} ${inj.dose_mg}mg`, details: `${siteStr}Dose: ${inj.dose_mg}mg`,
     impact: 'Dose logged', impactStatus: 'neutral',
-    icon: <FontAwesome5 name="syringe" size={18} color={ORANGE} />,
+    icon: <Syringe size={18} color={ORANGE} />,
     logType: 'medication',
   };
 }
@@ -138,7 +139,7 @@ function sideEffectToEntry(se: SideEffectLog): LogEntry {
     id: se.id, timestamp: fmtDateTime(se.logged_at), rawDate: localDateStr(new Date(se.logged_at)),
     title: label, details: `Severity: ${se.severity}/10${se.notes ? ` · ${se.notes}` : ''}`,
     impact: sevLabel, impactStatus: se.severity <= 3 ? 'neutral' : 'negative',
-    icon: <MaterialIcons name="sick" size={20} color={ORANGE} />,
+    icon: <Frown size={20} color={ORANGE} />,
     logType: 'side_effect',
   };
 }
@@ -242,7 +243,7 @@ function EditModal({ editState, onSave, onClose, colors }: {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>Edit {typeLabel}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Ionicons name="close" size={24} color={colors.textMuted} />
+              <X size={24} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -424,7 +425,7 @@ export default function LogHistoryScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+            <ChevronLeft size={26} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -457,7 +458,7 @@ export default function LogHistoryScreen() {
                         {item.impact}
                       </Text>
                     </View>
-                    <Ionicons name="ellipsis-horizontal" size={16} color={colors.textMuted} />
+                    <MoreHorizontal size={16} color={colors.textMuted} />
                   </View>
                 </View>
               </View>
@@ -512,7 +513,7 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 28, paddingVertical: 12, borderRadius: 22,
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
     },
-    loadMoreText: { fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: FF },
+    loadMoreText: { fontSize: 15, fontWeight: '600', color: c.orange, fontFamily: FF },
     listContent: { paddingHorizontal: 20, paddingBottom: 100 },
     sectionHeader: {
       fontSize: 15, fontWeight: '700', color: c.textPrimary,

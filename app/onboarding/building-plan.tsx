@@ -9,7 +9,6 @@ import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const STEPS = [
   'Analyzing your profile',
@@ -146,7 +145,7 @@ const createStyles = (c: AppColors) =>
     progressFill: {
       height: '100%',
       borderRadius: 2,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
     },
     dots: {
       flexDirection: 'row',
@@ -159,7 +158,7 @@ const createStyles = (c: AppColors) =>
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
     },
     dotActive: {
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
     },
 
     bottom: {

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -9,8 +8,10 @@ import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import type { EnergyBankResult } from '@/constants/scoring';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { BatteryCharging, Lock } from 'lucide-react-native';
 
 const FF = 'System';
+const TOTAL_SEGMENTS = 16;
 
 function energyColor(pct: number): string {
   if (pct >= 70) return '#27AE60';
@@ -19,83 +20,34 @@ function energyColor(pct: number): string {
   return '#E53E3E';
 }
 
-// ─── Battery Shape (SVG) ─────────────────────────────────────────────────────
+// ─── Segmented Block Bar (like the reference image) ─────────────────────────
 
-function BatteryIcon({ pct, color, isDark }: { pct: number; color: string; isDark: boolean }) {
-  const W = 72;
-  const H = 32;
-  const R = 8;
-  const tipW = 4;
-  const tipH = 12;
-  const pad = 3;
-  const fillW = Math.max(0, ((W - pad * 2) * pct) / 100);
-  const borderColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)';
-  const bgColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <Svg width={W} height={H}>
-        <Rect x={0} y={0} width={W} height={H} rx={R} ry={R}
-          stroke={borderColor} strokeWidth={1.5} fill={bgColor} />
-        {fillW > 0 && (
-          <Rect x={pad} y={pad} width={fillW} height={H - pad * 2}
-            rx={R - 2} ry={R - 2} fill={color} opacity={0.85} />
-        )}
-      </Svg>
-      <View style={{
-        width: tipW, height: tipH, borderTopRightRadius: 2, borderBottomRightRadius: 2,
-        backgroundColor: borderColor, marginLeft: 1.5,
-      }} />
-    </View>
-  );
-}
-
-// ─── Segmented Bar ───────────────────────────────────────────────────────────
-
-const COMPONENT_COLORS: Record<string, string> = {
-  sleep: '#5856D6',
-  drugLevel: '#FF742A',
-  recovery: '#AF52DE',
-  nutrition: '#34C759',
-  hydration: '#5AC8FA',
-  sideEffects: '#FF3B30',
-};
-
-function SegmentedBar({ result, isDark }: { result: EnergyBankResult; isDark: boolean }) {
+function SegmentBlockBar({ pct, color, isDark }: { pct: number; color: string; isDark: boolean }) {
   const w = (a: number) => isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const sorted = [...result.components]
-    .filter(c => c.available)
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 3);
-  const total = sorted.reduce((s, c) => s + c.score * c.weight, 0) || 1;
+  const filledCount = Math.round((pct / 100) * TOTAL_SEGMENTS);
 
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{
-        flexDirection: 'row', height: 8, borderRadius: 4,
-        backgroundColor: w(0.06), overflow: 'hidden',
-      }}>
-        {sorted.map((c, i) => (
-          <View key={c.id} style={{
-            flex: Math.max(c.score * c.weight, 0.01) / total,
-            backgroundColor: COMPONENT_COLORS[c.id] ?? '#999',
-            marginRight: i < sorted.length - 1 ? 1.5 : 0,
-          }} />
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', gap: 14 }}>
-        {sorted.map(c => (
-          <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <View style={{
-              width: 2, height: 10, borderRadius: 1,
-              backgroundColor: COMPONENT_COLORS[c.id] ?? '#999',
-            }} />
-            <Text style={{ fontSize: 10, color: w(0.35), fontFamily: FF, fontWeight: '600', letterSpacing: 0.3 }}>
-              {c.label}
-            </Text>
-          </View>
-        ))}
-      </View>
+    <View style={{ flexDirection: 'row', gap: 3 }}>
+      {Array.from({ length: TOTAL_SEGMENTS }, (_, i) => {
+        const filled = i < filledCount;
+        // Gradient: lighter on the left, full color on the right
+        const opacity = filled
+          ? 0.45 + (0.55 * (i / Math.max(filledCount - 1, 1)))
+          : 1;
+
+        return (
+          <View
+            key={i}
+            style={{
+              flex: 1,
+              height: 22,
+              borderRadius: 4,
+              backgroundColor: filled ? color : w(0.08),
+              opacity,
+            }}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -105,8 +57,6 @@ function SegmentedBar({ result, isDark }: { result: EnergyBankResult; isDark: bo
 type Props = {
   result: EnergyBankResult;
   phase: string;
-  /** When true, render inner content only (no TouchableOpacity wrapper, no outer chrome).
-   *  Caller is responsible for providing its own container and tap handler. */
   bare?: boolean;
 };
 
@@ -119,34 +69,22 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
   const color = energyColor(result.score);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
-  const phaseLabels: Record<string, string> = {
-    shot: 'Dose Day', peak: 'Peak Phase', balance: 'Balance', reset: 'Reset Phase',
-  };
-
   // ── Locked state for free users ──────────────────────────────────────────
   if (!isPremium) {
     const lockedInner = (
       <View style={s.inner}>
-        {/* Header */}
         <View style={s.header}>
-          <Text style={[s.sectionLabel, { color: w(0.35) }]}>ENERGY BANK</Text>
-          <View style={s.phasePill}>
-            <Text style={s.phaseText}>Premium Feature</Text>
+          <Text style={[s.title, { color: w(0.35) }]}>Energy Bank</Text>
+          <View style={s.iconCircle}>
+            <Lock size={16} color={w(0.3)} />
           </View>
         </View>
 
-        {/* Hero row */}
-        <View style={s.heroRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="lock-closed" size={18} color={w(0.25)} />
-            <Text style={[s.scoreText, { color: w(0.15) }]}>
-              --<Text style={s.pctSuffix}>%</Text>
-            </Text>
-          </View>
-        </View>
+        <Text style={[s.scoreText, { color: w(0.15) }]}>
+          --<Text style={s.pctSuffix}>%</Text>
+        </Text>
 
-        {/* Empty bar */}
-        <View style={{ height: 8, borderRadius: 4, backgroundColor: w(0.06) }} />
+        <SegmentBlockBar pct={0} color={w(0.12)} isDark={colors.isDark} />
 
         <Text style={{ fontSize: 12, color: w(0.35), fontFamily: FF, lineHeight: 17 }}>
           Unlock to see your computed energy level based on sleep, nutrition, and medication phase.
@@ -170,28 +108,21 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
   // ── Premium state ────────────────────────────────────────────────────────
   const premiumInner = (
     <View style={s.inner}>
-      {/* Header */}
+      {/* Header: title + battery icon */}
       <View style={s.header}>
-        <Text style={s.sectionLabel}>ENERGY BANK</Text>
-        <View style={s.phasePill}>
-          <Text style={s.phaseText}>{phaseLabels[phase] ?? 'Active'}</Text>
+        <Text style={s.title}>Energy Bank</Text>
+        <View style={[s.iconCircle, { backgroundColor: w(0.06) }]}>
+          <BatteryCharging size={16} color={w(0.4)} />
         </View>
       </View>
 
-      {/* Hero row */}
-      <View style={s.heroRow}>
-        <BatteryIcon pct={result.score} color={color} isDark={colors.isDark} />
-        <View style={{ gap: 2 }}>
-          <Text style={[s.scoreText, { color }]}>
-            {result.score}<Text style={[s.pctSuffix, { color }]}>%</Text>
-          </Text>
-          <Text style={{ fontSize: 14, fontWeight: '600', color, fontFamily: FF }}>
-            {result.label}
-          </Text>
-        </View>
-      </View>
+      {/* Score */}
+      <Text style={[s.scoreText, { color }]}>
+        {result.score}<Text style={[s.pctSuffix, { color }]}>%</Text>
+      </Text>
 
-      <SegmentedBar result={result} isDark={colors.isDark} />
+      {/* Segmented block bar */}
+      <SegmentBlockBar pct={result.score} color={color} isDark={colors.isDark} />
     </View>
   );
   if (bare) return premiumInner;
@@ -221,40 +152,30 @@ const createStyles = (c: AppColors) => {
       ...cardElevation(c.isDark),
     },
     inner: {
-      paddingHorizontal: 20,
-      paddingTop: 14,
-      paddingBottom: 12,
-      gap: 16,
+      paddingHorizontal: 18,
+      paddingTop: 16,
+      paddingBottom: 16,
+      gap: 14,
     },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    sectionLabel: {
-      fontSize: 13, fontWeight: '700', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: 0.8,
+    title: {
+      fontSize: 17, fontWeight: '700', color: c.textPrimary,
+      fontFamily: FF, letterSpacing: -0.3,
     },
-    phasePill: {
+    iconCircle: {
+      width: 36, height: 36, borderRadius: 18,
       backgroundColor: w(0.06),
-      borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-    },
-    phaseText: {
-      fontSize: 11, fontWeight: '600', color: w(0.35),
-      fontFamily: FF,
-    },
-    heroRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
+      alignItems: 'center', justifyContent: 'center',
     },
     scoreText: {
-      fontSize: 32, fontWeight: '800', fontFamily: FF, letterSpacing: -1.5,
+      fontSize: 38, fontWeight: '800', fontFamily: FF, letterSpacing: -1.5,
     },
     pctSuffix: {
-      fontSize: 18, fontWeight: '700',
+      fontSize: 22, fontWeight: '700',
     },
   });
 };

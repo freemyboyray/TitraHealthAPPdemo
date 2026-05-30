@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -25,8 +24,9 @@ import { buildSystemPrompt, callOpenAI, UsageLimitError } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { UsageBadge } from '@/components/ui/usage-badge';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { ArrowUp, ChevronLeft, RefreshCw, X } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 
 // ─── Type-aware prompt chips ──────────────────────────────────────────────────
 
@@ -307,7 +307,7 @@ export default function AiChatScreen() {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Ask AI</Text>
           <UsageBadge feature="ai_chat" />
@@ -338,7 +338,7 @@ export default function AiChatScreen() {
             </View>
 
             <TouchableOpacity style={s.refreshRow} onPress={handleRefresh} activeOpacity={0.7}>
-              <Ionicons name="refresh-outline" size={16} color={ORANGE} />
+              <RefreshCw size={16} color={colors.orange} />
               <Text style={s.refreshText}>Refresh prompts</Text>
             </TouchableOpacity>
 
@@ -382,7 +382,7 @@ export default function AiChatScreen() {
                     {msg.content}
                   </Text>
                   {!isPremium && msg.content.includes('Upgrade to Titra Pro') && (
-                    <Text style={{ color: ORANGE, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
+                    <Text style={{ color: colors.orange, fontSize: 14, fontWeight: '600', marginTop: 8 }}>Tap to upgrade →</Text>
                   )}
                 </Pressable>
               </View>
@@ -393,7 +393,7 @@ export default function AiChatScreen() {
                   <View style={s.bubbleAvatar} />
                 </View>
                 <View style={[s.bubble, s.bubbleAssistant, s.bubbleLoading]}>
-                  <ActivityIndicator size="small" color={ORANGE} />
+                  <ActivityIndicator size="small" color={colors.orange} />
                 </View>
               </View>
             )}
@@ -417,7 +417,7 @@ export default function AiChatScreen() {
                       {contextLabel}{contextValue ? ` · ${contextValue}` : ''}
                     </Text>
                     <Pressable onPress={() => setPillVisible(false)} hitSlop={10} style={s.inputPillClose}>
-                      <Ionicons name="close" size={13} color="rgba(255,116,42,0.7)" />
+                      <X size={13} color="rgba(255,116,42,0.7)" />
                     </Pressable>
                   </View>
                 )}
@@ -439,8 +439,7 @@ export default function AiChatScreen() {
                       style={[s.iconBtn, s.sendBtn, inputText.trim().length > 0 && s.sendBtnActive]}
                       onPress={() => sendMessage(inputText)}
                     >
-                      <Ionicons
-                        name="arrow-up"
+                      <ArrowUp
                         size={18}
                         color={inputText.trim().length > 0 ? colors.bg : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
                       />
@@ -473,7 +472,7 @@ export default function AiChatScreen() {
               activeOpacity={0.7}
               style={{ position: 'absolute', top: insets.top + 8, right: 16, padding: 8, zIndex: 1 }}
             >
-              <Ionicons name="close" size={26} color={colors.textPrimary} />
+              <X size={26} color={colors.textPrimary} />
             </TouchableOpacity>
 
             <View style={{ alignItems: 'center', marginBottom: 28 }}>
@@ -482,7 +481,7 @@ export default function AiChatScreen() {
                 style={{ width: 72, height: 72, borderRadius: 18, marginBottom: 20 }}
                 resizeMode="cover"
               />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, letterSpacing: 1.5, marginBottom: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.orange, letterSpacing: 1.5, marginBottom: 12 }}>
                 TITRA PRO
               </Text>
               <Text style={{ fontSize: 28, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', lineHeight: 34, letterSpacing: -0.5, marginBottom: 12 }}>
@@ -495,16 +494,16 @@ export default function AiChatScreen() {
 
             <View style={{ gap: 14, marginBottom: 32, paddingHorizontal: 4 }}>
               {[
-                { icon: 'chatbubbles-outline', text: 'Unlimited AI coaching & insights' },
-                { icon: 'analytics-outline', text: 'Advanced weight projections & cycle intelligence' },
-                { icon: 'document-text-outline', text: 'Provider reports for your doctor' },
-                { icon: 'school-outline', text: 'All guided courses unlocked' },
-                { icon: 'camera-outline', text: 'Unlimited photo food logging' },
-                { icon: 'mic-outline', text: 'Unlimited voice logging' },
-                { icon: 'notifications-outline', text: 'Weekly AI summaries' },
+                { icon: 'MessagesSquare', text: 'Unlimited AI coaching & insights' },
+                { icon: 'BarChart3', text: 'Advanced weight projections & cycle intelligence' },
+                { icon: 'FileText', text: 'Provider reports for your doctor' },
+                { icon: 'GraduationCap', text: 'All guided courses unlocked' },
+                { icon: 'Camera', text: 'Unlimited photo food logging' },
+                { icon: 'Mic', text: 'Unlimited voice logging' },
+                { icon: 'Bell', text: 'Weekly AI summaries' },
               ].map((item, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Ionicons name={item.icon as any} size={20} color={ORANGE} />
+                  <LucideIconByName name={item.icon as any} size={20} color={colors.orange} />
                   <Text style={{ fontSize: 15, color: colors.textPrimary, flex: 1 }}>{item.text}</Text>
                 </View>
               ))}
@@ -512,9 +511,9 @@ export default function AiChatScreen() {
 
             <TouchableOpacity
               style={{
-                backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 18,
+                backgroundColor: colors.orange, borderRadius: 16, paddingVertical: 18,
                 alignItems: 'center', justifyContent: 'center',
-                shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
+                shadowColor: colors.orange, shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
               }}
               onPress={() => { setShowUpgradeCard(false); router.push('/settings/subscription' as any); }}
@@ -592,14 +591,14 @@ const createStyles = (c: AppColors) => {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     flexShrink: 0,
   },
   inputPillText: {
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: ORANGE,
+    color: c.orange,
     letterSpacing: 0.3,
   },
   inputPillClose: {
@@ -618,7 +617,7 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 24,
   },
   orbShadow: {
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,
@@ -711,7 +710,7 @@ const createStyles = (c: AppColors) => {
   refreshText: {
     fontSize: 15,
     fontWeight: '600',
-    color: ORANGE,
+    color: c.orange,
   },
 
   // Chat bubbles
@@ -739,7 +738,7 @@ const createStyles = (c: AppColors) => {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     opacity: 0.85,
   },
   bubble: {
@@ -749,7 +748,7 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 10,
   },
   bubbleUser: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
@@ -864,7 +863,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.borderSubtle,
   },
   sendBtnActive: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
   },
   disclaimer: {
     fontSize: 13,

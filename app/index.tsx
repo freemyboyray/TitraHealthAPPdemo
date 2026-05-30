@@ -29,7 +29,7 @@ export default function Index() {
   const { injectionLogs, weeklySummaries } = useLogStore();
   const logStoreHydrated = useLogStore((s) => s.hydrated);
   const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
-  const { lastWeeklySummaryDate, lastDailyStreakDate } = usePreferencesStore();
+  const { lastWeeklySummaryDate } = usePreferencesStore();
   const router = useRouter();
 
   // Safety timeout: if nothing resolves within 10s, go to sign-in
@@ -99,8 +99,6 @@ export default function Index() {
 
     if ((freq >= 7 && isShotDay && !alreadyShown) || dailyDue) {
       router.replace('/entry/weekly-summary');
-    } else if (lastDailyStreakDate !== today) {
-      router.replace('/daily-streak');
     } else {
       router.replace('/(tabs)');
     }

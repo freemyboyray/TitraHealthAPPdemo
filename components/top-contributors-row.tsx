@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLogStore } from '@/stores/log-store';
+import { ChevronRight } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 /**
  * Lifestyle-tab entry point that opens the full Top Contributors screen.
@@ -71,7 +70,7 @@ export function TopContributorsRow() {
             Where your protein, sodium, and fat come from
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={tc(0.35)} />
+        <ChevronRight size={20} color={tc(0.35)} />
       </View>
       {preview && (
         <View style={{ marginTop: 14 }}>

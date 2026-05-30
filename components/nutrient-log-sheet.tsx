@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,8 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { X } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 type NutrientConfig = {
@@ -145,7 +144,7 @@ export function NutrientLogSheet({ visible, onClose, nutrient, currentValue, tar
           {/* Header */}
           <View style={s.header}>
             <TouchableOpacity onPress={closeSheet} style={s.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
+              <X size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
             </TouchableOpacity>
             <Text style={s.title}>{config.label} Log</Text>
             <View style={{ width: 36 }} />
@@ -306,9 +305,9 @@ const createStyles = (c: AppColors) => {
 
     // Update CTA
     updateBtn: {
-      height: 54, borderRadius: 16, backgroundColor: ORANGE,
+      height: 54, borderRadius: 16, backgroundColor: c.orange,
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
     },
     updateBtnText: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2, fontFamily: FF },
   });

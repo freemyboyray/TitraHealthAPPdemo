@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
@@ -15,10 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogStore, type MealType } from '../../stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { AlertCircle, Camera, ChevronLeft } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -157,9 +156,9 @@ export default function ScanFoodScreen() {
     return (
       <View style={[s.root, s.centered, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { position: 'absolute', top: insets.top + 12, left: 20 }]}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Ionicons name="camera-outline" size={64} color={colors.textSecondary} />
+        <Camera size={64} color={colors.textSecondary} />
         <Text style={s.permTitle}>Camera Access Needed</Text>
         <Text style={s.permDesc}>Grant camera access to scan barcodes.</Text>
         <TouchableOpacity style={s.permBtn} onPress={requestPermission} activeOpacity={0.85}>
@@ -188,7 +187,7 @@ export default function ScanFoodScreen() {
           <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
             <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.75}>
               <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+              <ChevronLeft size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={s.scanTitle}>Scan Barcode</Text>
             <View style={{ width: 40 }} />
@@ -204,7 +203,7 @@ export default function ScanFoodScreen() {
               <View style={[s.corner, s.cornerBR]} />
             </View>
             {fetching ? (
-              <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color={colors.orange} style={{ marginTop: 20 }} />
             ) : (
               <Text style={s.scanHint}>Point at a barcode</Text>
             )}
@@ -219,7 +218,7 @@ export default function ScanFoodScreen() {
           <View style={s.panelOverlay} />
           <GlassBorder topOnly />
 
-          <Ionicons name="alert-circle-outline" size={36} color={ORANGE} style={{ marginBottom: 8 }} />
+          <AlertCircle size={36} color={colors.orange} style={{ marginBottom: 8 }} />
           <Text style={s.notFoundTitle}>Product Not Found</Text>
           <Text style={s.notFoundDesc}>This barcode isn't in the Open Food Facts database.</Text>
 
@@ -360,7 +359,7 @@ const createStyles = (c: AppColors) => {
     position: 'absolute',
     width: 28,
     height: 28,
-    borderColor: ORANGE,
+    borderColor: c.orange,
     borderWidth: 3,
   },
   cornerTL: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 4 },
@@ -470,7 +469,7 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'center',
     backgroundColor: c.glassOverlay,
   },
-  mealChipActive: { backgroundColor: ORANGE },
+  mealChipActive: { backgroundColor: c.orange },
   mealChipText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
   mealChipTextActive: { color: '#FFFFFF' },
 
@@ -480,10 +479,10 @@ const createStyles = (c: AppColors) => {
     flex: 1,
     height: 52,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
@@ -507,7 +506,7 @@ const createStyles = (c: AppColors) => {
     height: 52,
     paddingHorizontal: 32,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },

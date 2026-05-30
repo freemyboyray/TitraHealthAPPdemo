@@ -2,13 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLogStore, type FoodLog } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft } from 'lucide-react-native';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 type MetricKey = 'protein' | 'carbs' | 'fat' | 'calories' | 'sodium' | 'sat_fat';
 type PeriodKey = '7D' | '30D' | '90D';
@@ -68,7 +67,7 @@ export default function TopContributorsScreen() {
         {/* Minimal back-button-only header, no title bar */}
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={s.backButton}>
-            <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+            <ChevronLeft size={26} color={colors.textPrimary} />
           </Pressable>
         </View>
 
@@ -206,7 +205,7 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18,
       backgroundColor: inactivePillBg,
     },
-    chipActive: { backgroundColor: ORANGE },
+    chipActive: { backgroundColor: c.orange },
     chipLabel: { fontSize: 13, fontWeight: '600', color: muted, fontFamily: FF },
     chipLabelActive: { color: '#FFFFFF' },
 
@@ -215,7 +214,7 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
       backgroundColor: inactivePillBg,
     },
-    pillActive: { backgroundColor: ORANGE },
+    pillActive: { backgroundColor: c.orange },
     pillLabel: { fontSize: 13, fontWeight: '600', color: muted, fontFamily: FF },
     pillLabelActive: { color: '#FFFFFF' },
 
@@ -262,7 +261,7 @@ const createStyles = (c: AppColors) => {
     barName: { fontSize: 14, fontWeight: '600', color: c.textPrimary, flex: 1, fontFamily: FF },
     barValue: { fontSize: 12, color: muted, fontFamily: FF, marginLeft: 10, fontVariant: ['tabular-nums'] },
     barTrack: { height: 8, borderRadius: 4, backgroundColor: trackBg, overflow: 'hidden' },
-    barFill: { height: 8, borderRadius: 4, backgroundColor: ORANGE },
+    barFill: { height: 8, borderRadius: 4, backgroundColor: c.orange },
 
     // Empty state
     emptyWrap: { paddingVertical: 36, alignItems: 'center' },

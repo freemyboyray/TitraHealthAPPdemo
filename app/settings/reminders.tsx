@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,6 +32,8 @@ import {
   useRemindersStore,
   syncDoseReminder,
 } from '@/stores/reminders-store';
+import { Bell, ChevronLeft, Droplet, FlaskConical, PlusCircle, Trash2, Utensils } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
 
@@ -49,7 +50,7 @@ type SlotMeta = {
   slot: ReminderSlot;
   label: string;
   subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   color: string;
 };
 
@@ -61,10 +62,10 @@ type Category = {
 
 function getCategories(isOnMedication: boolean): Category[] {
   const healthSlots: SlotMeta[] = [
-    { slot: 'weight_morning', label: 'Morning Weigh-in', subtitle: 'Track daily weight trends', icon: 'scale-outline', color: '#AF52DE' },
+    { slot: 'weight_morning', label: 'Morning Weigh-in', subtitle: 'Track daily weight trends', icon: 'Scale', color: '#AF52DE' },
   ];
   if (isOnMedication) {
-    healthSlots.push({ slot: 'side_effects_evening', label: 'Side Effects Check-in', subtitle: 'Log how you\'re feeling', icon: 'medkit-outline', color: '#FF3B30' });
+    healthSlots.push({ slot: 'side_effects_evening', label: 'Side Effects Check-in', subtitle: 'Log how you\'re feeling', icon: 'Hospital', color: '#FF3B30' });
   }
 
   return [
@@ -72,8 +73,8 @@ function getCategories(isOnMedication: boolean): Category[] {
       title: 'Nutrition',
       subtitle: 'Stay on top of your meals',
       slots: [
-        { slot: 'meals_morning', label: 'Breakfast', subtitle: 'Start your day right', icon: 'sunny-outline', color: '#FF9500' },
-        { slot: 'meals_evening', label: 'Dinner', subtitle: 'End the day strong', icon: 'moon-outline', color: '#5856D6' },
+        { slot: 'meals_morning', label: 'Breakfast', subtitle: 'Start your day right', icon: 'Sun', color: '#FF9500' },
+        { slot: 'meals_evening', label: 'Dinner', subtitle: 'End the day strong', icon: 'Moon', color: '#5856D6' },
       ],
     },
     {
@@ -85,7 +86,7 @@ function getCategories(isOnMedication: boolean): Category[] {
       title: 'Daily Planning',
       subtitle: 'Set your daily intention',
       slots: [
-        { slot: 'daily_plan_morning', label: 'Daily Focus', subtitle: 'See today\'s priorities', icon: 'compass-outline', color: '#5AC8FA' },
+        { slot: 'daily_plan_morning', label: 'Daily Focus', subtitle: 'See today\'s priorities', icon: 'Compass', color: '#5AC8FA' },
       ],
     },
   ];
@@ -93,11 +94,11 @@ function getCategories(isOnMedication: boolean): Category[] {
 
 /* ── Custom reminder presets ── */
 const CUSTOM_PRESETS: { label: string; icon: string; color: string }[] = [
-  { label: 'Take supplements', icon: 'sunny-outline', color: '#FF9500' },
-  { label: 'Movement break', icon: 'walk-outline', color: '#34C759' },
-  { label: 'Drink electrolytes', icon: 'flash-outline', color: '#5AC8FA' },
-  { label: 'Mindful breathing', icon: 'leaf-outline', color: '#AF52DE' },
-  { label: 'Log progress photo', icon: 'camera-outline', color: '#FF2D55' },
+  { label: 'Take supplements', icon: 'Sun', color: '#FF9500' },
+  { label: 'Movement break', icon: 'Footprints', color: '#34C759' },
+  { label: 'Drink electrolytes', icon: 'Zap', color: '#5AC8FA' },
+  { label: 'Mindful breathing', icon: 'Leaf', color: '#AF52DE' },
+  { label: 'Log progress photo', icon: 'Camera', color: '#FF2D55' },
 ];
 
 /* ── Hydration interval options ── */
@@ -345,7 +346,7 @@ export default function RemindersScreen() {
       label: customLabel.trim(),
       enabled: true,
       time: '09:00',
-      icon: 'notifications-outline',
+      icon: 'Bell',
       color: colors.orange,
     });
     setCustomLabel('');
@@ -379,7 +380,7 @@ export default function RemindersScreen() {
       {/* Header */}
       <Animated.View style={[s.header, { opacity: headerOpacity, transform: [{ translateY: headerTranslate }] }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Reminders</Text>
         <View style={{ width: 40 }} />
@@ -390,7 +391,7 @@ export default function RemindersScreen() {
         {/* Master toggle card */}
         <Animated.View style={[s.masterCard, { opacity: masterOpacity, transform: [{ translateY: masterTranslate }] }]}>
           <View style={s.masterIconWrap}>
-            <Ionicons name="notifications" size={22} color={colors.orange} />
+            <Bell size={22} color={colors.orange} />
           </View>
           <View style={s.masterTextWrap}>
             <Text style={s.masterLabel}>Enable Reminders</Text>
@@ -426,7 +427,7 @@ export default function RemindersScreen() {
                         <View style={s.slotRow}>
                           <View style={s.slotLeft}>
                             <View style={[s.slotIconWrap, { backgroundColor: meta.color + '18' }]}>
-                              <Ionicons name={meta.icon} size={18} color={meta.color} />
+                              <LucideIconByName name={meta.icon} size={18} color={meta.color} />
                             </View>
                             <View style={s.slotTextWrap}>
                               <Text style={[s.slotLabel, !cfg.enabled && s.slotLabelDisabled]}>
@@ -474,7 +475,7 @@ export default function RemindersScreen() {
                 <View style={s.slotRow}>
                   <View style={s.slotLeft}>
                     <View style={[s.slotIconWrap, { backgroundColor: '#5AC8FA18' }]}>
-                      <Ionicons name="water-outline" size={18} color="#5AC8FA" />
+                      <Droplet size={18} color="#5AC8FA" />
                     </View>
                     <View style={[s.slotTextWrap, { flex: 1 }]}>
                       <Text style={[s.slotLabel, !store.hydration.enabled && s.slotLabelDisabled]}>
@@ -545,7 +546,7 @@ export default function RemindersScreen() {
                 <View style={s.slotRow}>
                   <View style={s.slotLeft}>
                     <View style={[s.slotIconWrap, { backgroundColor: '#FF742A18' }]}>
-                      <Ionicons name="restaurant-outline" size={18} color="#FF742A" />
+                      <Utensils size={18} color="#FF742A" />
                     </View>
                     <View style={[s.slotTextWrap, { flex: 1 }]}>
                       <Text style={[s.slotLabel, !store.protein.enabled && s.slotLabelDisabled]}>
@@ -601,7 +602,7 @@ export default function RemindersScreen() {
                         <View style={s.slotRow}>
                           <View style={s.slotLeft}>
                             <View style={[s.slotIconWrap, { backgroundColor: meta.color + '18' }]}>
-                              <Ionicons name={meta.icon} size={18} color={meta.color} />
+                              <LucideIconByName name={meta.icon} size={18} color={meta.color} />
                             </View>
                             <View style={s.slotTextWrap}>
                               <Text style={[s.slotLabel, !cfg.enabled && s.slotLabelDisabled]}>
@@ -648,7 +649,7 @@ export default function RemindersScreen() {
                   <View style={s.slotRow}>
                     <View style={s.slotLeft}>
                       <View style={[s.slotIconWrap, { backgroundColor: 'rgba(10,132,255,0.14)' }]}>
-                        <Ionicons name="flask-outline" size={18} color="#0A84FF" />
+                        <FlaskConical size={18} color="#0A84FF" />
                       </View>
                       <View style={[s.slotTextWrap, { flex: 1 }]}>
                         <Text style={[s.slotLabel, !doseReminderEnabled && s.slotLabelDisabled]}>
@@ -711,7 +712,7 @@ export default function RemindersScreen() {
                       activeOpacity={0.7}
                       style={s.presetChip}
                     >
-                      <Ionicons name={preset.icon as any} size={14} color={preset.color} />
+                      <LucideIconByName name={preset.icon as any} size={14} color={preset.color} />
                       <Text style={s.presetChipText}>{preset.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -727,7 +728,7 @@ export default function RemindersScreen() {
                       <View style={s.slotRow}>
                         <View style={s.slotLeft}>
                           <View style={[s.slotIconWrap, { backgroundColor: cr.color + '18' }]}>
-                            <Ionicons name={cr.icon as any} size={18} color={cr.color} />
+                            <LucideIconByName name={cr.icon as any} size={18} color={cr.color} />
                           </View>
                           <View style={[s.slotTextWrap, { flex: 1 }]}>
                             <Text style={[s.slotLabel, !cr.enabled && s.slotLabelDisabled]}>
@@ -750,7 +751,7 @@ export default function RemindersScreen() {
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           style={s.deleteBtn}
                         >
-                          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                          <Trash2 size={18} color="#FF3B30" />
                         </TouchableOpacity>
                         <Switch
                           value={cr.enabled}
@@ -800,7 +801,7 @@ export default function RemindersScreen() {
                   activeOpacity={0.7}
                   style={s.addCustomBtn}
                 >
-                  <Ionicons name="add-circle-outline" size={20} color={colors.orange} />
+                  <PlusCircle size={20} color={colors.orange} />
                   <Text style={s.addCustomBtnText}>Add Custom Reminder</Text>
                 </TouchableOpacity>
               )}

@@ -8,18 +8,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
-import { AnimatedFire } from '@/components/animated-fire';
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { ACHIEVEMENTS, ACHIEVEMENT_ACCENT, type Achievement } from '@/constants/achievements';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, ChevronRight, Lock } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -27,27 +26,6 @@ function sameDay(a: Date, b: Date) {
 
 function localDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-const WEEK_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function getWeekDays(today: Date, logDates: Set<string>) {
-  const todayDay = today.getDay(); // 0=Sun
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + (todayDay === 0 ? -6 : 1 - todayDay));
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const dateStr = localDateStr(d);
-    return {
-      date: d.getDate(),
-      label: WEEK_LABELS[i],
-      isToday: sameDay(d, today),
-      isFuture: d > today,
-      hasLog: logDates.has(dateStr),
-    };
-  });
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -144,65 +122,23 @@ export default function StreakScreen() {
           {/* Header */}
           <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+            <ChevronLeft size={26} color={colors.textPrimary} />
           </Pressable>
-          <Text style={s.headerTitle}>Streak & Schedule</Text>
+          <Text style={s.headerTitle}>Schedule</Text>
           <View style={{ width: 26 }} />
         </View>
 
-          {/* ── Streak Hero ── */}
-          <View style={s.streakCard}>
-            <AnimatedFire size={56} streak={streak} active={streak > 0} />
-            <Text style={s.streakTitle}>
-              {streak === 0 ? 'No Streak Yet' : `${streak} Day Streak`}
-            </Text>
-            <Text style={s.fireSubtext}>Log daily to build your streak</Text>
-
-            {/* Weekly day tracker */}
-            <View style={s.weekTracker}>
-              {getWeekDays(today, logDates).map((day) => (
-                <View key={day.label} style={s.weekDayCol}>
-                  <View
-                    style={[
-                      s.weekDayCircle,
-                      day.isToday && s.weekDayCircleToday,
-                      !day.isToday && day.hasLog && !day.isFuture && s.weekDayCircleLogged,
-                    ]}
-                  >
-                    {!day.isToday && day.hasLog && !day.isFuture ? (
-                      <Ionicons name="calendar-outline" size={16} color={ORANGE} />
-                    ) : (
-                      <Text
-                        style={[
-                          s.weekDayNum,
-                          day.isToday && s.weekDayNumToday,
-                          day.isFuture && !day.isToday && s.weekDayNumFuture,
-                        ]}
-                      >
-                        {day.date}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={[s.weekDayLabel, day.isToday && s.weekDayLabelToday]}>
-                    {day.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
           {/* ── Calendar ── */}
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Schedule</Text>
             <View style={s.calCard}>
               {/* Month nav */}
               <View style={s.monthRow}>
                 <Pressable onPress={prevMonth} hitSlop={10}>
-                  <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+                  <ChevronLeft size={20} color={colors.textPrimary} />
                 </Pressable>
                 <Text style={s.monthLabel}>{monthLabel}</Text>
                 <Pressable onPress={nextMonth} hitSlop={10}>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+                  <ChevronRight size={20} color={colors.textPrimary} />
                 </Pressable>
               </View>
 
@@ -266,11 +202,11 @@ export default function StreakScreen() {
               {/* Legend */}
               <View style={s.legend}>
                 <View style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: ORANGE }]} />
+                  <View style={[s.legendDot, { backgroundColor: colors.orange }]} />
                   <Text style={s.legendLabel}>{oral ? 'Dose day' : 'Injection'}</Text>
                 </View>
                 <View style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: ORANGE, opacity: 0.4 }]} />
+                  <View style={[s.legendDot, { backgroundColor: colors.orange, opacity: 0.4 }]} />
                   <Text style={s.legendLabel}>Scheduled</Text>
                 </View>
                 <View style={s.legendItem}>
@@ -283,7 +219,6 @@ export default function StreakScreen() {
 
           {/* ── Achievements ── */}
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Achievements</Text>
             <View style={s.achieveGrid}>
               {ACHIEVEMENTS.map((a) => {
                 const current = a.category === 'streak' ? streak
@@ -296,9 +231,9 @@ export default function StreakScreen() {
                   <View key={a.id} style={s.achieveItem}>
                     <View style={[s.achieveCircle, earned && { backgroundColor: accent + '1F' }]}>
                       {earned ? (
-                        <Ionicons name={a.icon as any} size={24} color={accent} />
+                        <LucideIconByName name={a.icon as any} size={24} color={accent} />
                       ) : (
-                        <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
+                        <Lock size={18} color={colors.textMuted} />
                       )}
                     </View>
                     <Text style={[s.achieveName, earned && s.achieveNameEarned]} numberOfLines={1}>{a.name}</Text>
@@ -338,63 +273,8 @@ const createStyles = (c: AppColors) => {
     },
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
-    // Streak hero
-    streakCard: {
-      alignItems: 'center', paddingVertical: 24,
-      backgroundColor: c.surface, borderRadius: 20,
-      borderWidth: 0.5, borderColor: c.border,
-      marginBottom: 24,
-    },
-    streakTitle: {
-      fontSize: 22, fontWeight: '800', color: c.textPrimary,
-      fontFamily: FF, letterSpacing: -0.3, marginTop: 8,
-    },
-    fireSubtext: {
-      fontSize: 14, color: c.textMuted, marginTop: 4, fontFamily: FF,
-    },
-
-    // Weekly day tracker
-    weekTracker: {
-      flexDirection: 'row', justifyContent: 'space-between',
-      alignItems: 'center', marginTop: 16,
-      paddingHorizontal: 12, width: '100%',
-    },
-    weekDayCol: {
-      alignItems: 'center', gap: 4,
-    },
-    weekDayCircle: {
-      width: 36, height: 36, borderRadius: 18,
-      alignItems: 'center', justifyContent: 'center',
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    },
-    weekDayCircleToday: {
-      backgroundColor: ORANGE,
-    },
-    weekDayCircleLogged: {
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)',
-    },
-    weekDayNum: {
-      fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF,
-    },
-    weekDayNumToday: {
-      fontWeight: '800', color: '#FFFFFF',
-    },
-    weekDayNumFuture: {
-      opacity: 0.4,
-    },
-    weekDayLabel: {
-      fontSize: 11, fontWeight: '500', color: c.textMuted, fontFamily: FF,
-    },
-    weekDayLabelToday: {
-      fontWeight: '700', color: ORANGE,
-    },
-
     // Sections
     section: { marginBottom: 24 },
-    sectionTitle: {
-      fontSize: 18, fontWeight: '800', color: c.textPrimary,
-      letterSpacing: -0.3, marginBottom: 10, fontFamily: FF,
-    },
 
     // Calendar
     calCard: {
@@ -424,24 +304,20 @@ const createStyles = (c: AppColors) => {
       alignItems: 'center', justifyContent: 'center',
     },
     dayToday: { backgroundColor: '#5AC8FA' },
-    dayInjLogged: { backgroundColor: ORANGE + '22' },
+    dayInjLogged: { backgroundColor: c.orange + '22' },
     dayNum: {
       fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF,
     },
     dayNumToday: { fontWeight: '800', color: '#FFFFFF' },
     dayNumInjLogged: { fontWeight: '700' },
     dayFaded: { opacity: 0.35 },
-    todayDot: {
-      width: 5, height: 5, borderRadius: 2.5,
-      backgroundColor: '#5AC8FA', marginTop: 1,
-    },
     injDot: {
       width: 5, height: 5, borderRadius: 2.5,
-      backgroundColor: ORANGE, marginTop: 1,
+      backgroundColor: c.orange, marginTop: 1,
     },
     scheduledDot: {
       width: 5, height: 5, borderRadius: 2.5,
-      backgroundColor: ORANGE, opacity: 0.4, marginTop: 1,
+      backgroundColor: c.orange, opacity: 0.4, marginTop: 1,
     },
     logDot: {
       width: 5, height: 5, borderRadius: 2.5,

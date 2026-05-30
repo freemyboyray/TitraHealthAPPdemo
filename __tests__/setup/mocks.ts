@@ -33,13 +33,15 @@ jest.mock('expo-router', () => ({
   Link: ({ children }: any) => children,
 }));
 
-// Mock @expo/vector-icons
-jest.mock('@expo/vector-icons', () => {
+// Mock lucide-react-native
+jest.mock('lucide-react-native', () => {
   const Text = require('react-native').Text;
-  return {
-    Ionicons: (props: any) => require('react').createElement(Text, props, props.name),
-    MaterialIcons: (props: any) => require('react').createElement(Text, props, props.name),
-  };
+  return new Proxy({}, {
+    get: (_target: any, prop: string) => {
+      if (prop === '__esModule') return true;
+      return (props: any) => require('react').createElement(Text, props, prop);
+    },
+  });
 });
 
 // Mock react-native-svg

@@ -26,8 +26,8 @@ export function GlassSurface({ fallbackColors: colors }: Props) {
             borderWidth: 1,
             borderTopColor: colors.border,
             borderLeftColor: colors.borderSubtle,
-            borderRightColor: colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-            borderBottomColor: colors.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+            borderRightColor: colors.isDark ? 'rgba(210,190,170,0.03)' : 'rgba(80,60,40,0.03)',
+            borderBottomColor: colors.isDark ? 'rgba(210,190,170,0.02)' : 'rgba(80,60,40,0.02)',
           },
         ]}
       />

@@ -14,7 +14,6 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const ORANGE = '#FF742A';
 
 type BreakdownRow = { label: string; actual: number; max: number };
 
@@ -204,7 +203,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   coachLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: ORANGE,
+    color: c.orange,
     letterSpacing: 1.5,
     marginBottom: 8,
   },

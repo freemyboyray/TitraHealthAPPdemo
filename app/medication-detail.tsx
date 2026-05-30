@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -23,8 +22,8 @@ import { supabase } from '@/lib/supabase';
 import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE } from '@/constants/user-profile';
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
 import type { AppColors } from '@/constants/theme';
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 const GLP1_DISPLAY: Record<string, string> = {
@@ -129,7 +128,7 @@ function MedicationCard({
         <TouchableOpacity onPress={onSetActive} activeOpacity={0.6} style={s.selectCircle}>
           {med.is_active ? (
             <View style={s.selectCircleFilled}>
-              <Ionicons name="checkmark" size={14} color="#FFF" />
+              <Check size={14} color="#FFF" />
             </View>
           ) : (
             <View style={s.selectCircleEmpty} />
@@ -143,7 +142,7 @@ function MedicationCard({
             {photoSignedUrl ? (
               <Image source={{ uri: photoSignedUrl }} style={s.medThumbImg} resizeMode="cover" />
             ) : (
-              <Ionicons name="medkit" size={22} color={colors.textMuted} />
+              <Hospital size={22} color={colors.textMuted} />
             )}
           </View>
 
@@ -154,11 +153,13 @@ function MedicationCard({
           </View>
 
           {/* Expand chevron */}
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
+          {expanded ? <ChevronUp
             size={18}
             color={colors.textMuted}
-          />
+          /> : <ChevronDown
+            size={18}
+            color={colors.textMuted}
+          />}
         </Pressable>
       </View>
 
@@ -171,7 +172,7 @@ function MedicationCard({
               <Image source={{ uri: photoSignedUrl }} style={s.medPhotoImg} resizeMode="cover" />
             ) : (
               <View style={s.medPhotoPlaceholder}>
-                <Ionicons name="camera-outline" size={28} color={colors.textMuted} />
+                <Camera size={28} color={colors.textMuted} />
                 <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: FF, marginTop: 4 }}>Add photo</Text>
               </View>
             )}
@@ -207,7 +208,7 @@ function MedicationCard({
               onPress={onDelete}
               activeOpacity={0.8}
             >
-              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              <Trash2 size={16} color="#FF3B30" />
               <Text style={[s.actionBtnText, { color: '#FF3B30' }]}>Remove</Text>
             </TouchableOpacity>
           </View>
@@ -407,24 +408,24 @@ export default function MedicationDetailScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>My Medications</Text>
         <TouchableOpacity onPress={handleAddNew} style={s.backBtn}>
-          <Ionicons name="add" size={26} color={ORANGE} />
+          <Plus size={26} color={colors.orange} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 60 }} />
+          <ActivityIndicator size="large" color={colors.orange} style={{ marginTop: 60 }} />
         ) : medications.length === 0 ? (
           <View style={s.emptyState}>
-            <Ionicons name="medkit-outline" size={48} color={colors.textMuted} />
+            <Hospital size={48} color={colors.textMuted} />
             <Text style={s.emptyTitle}>No medications yet</Text>
             <Text style={s.emptySub}>Add your first medication to get started</Text>
             <TouchableOpacity style={s.addBtn} onPress={handleAddNew} activeOpacity={0.8}>
-              <Ionicons name="add-circle" size={18} color="#FFF" style={{ marginRight: 6 }} />
+              <PlusCircle size={18} color="#FFF" style={{ marginRight: 6 }} />
               <Text style={s.addBtnText}>Add Medication</Text>
             </TouchableOpacity>
           </View>
@@ -446,7 +447,7 @@ export default function MedicationDetailScreen() {
             ))}
 
             <TouchableOpacity style={s.addNewBtn} onPress={handleAddNew} activeOpacity={0.8}>
-              <Ionicons name="add-circle-outline" size={18} color={ORANGE} style={{ marginRight: 8 }} />
+              <PlusCircle size={18} color={colors.orange} style={{ marginRight: 8 }} />
               <Text style={s.addNewBtnText}>Add New Medication</Text>
             </TouchableOpacity>
           </>
@@ -478,7 +479,7 @@ const createStyles = (c: AppColors) => {
       marginBottom: 12,
     },
     medCardActive: {
-      borderColor: ORANGE, borderWidth: 1,
+      borderColor: c.orange, borderWidth: 1,
     },
     medCardHeader: {
       flexDirection: 'row', alignItems: 'center',
@@ -489,7 +490,7 @@ const createStyles = (c: AppColors) => {
     },
     selectCircleFilled: {
       width: 24, height: 24, borderRadius: 12,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center', justifyContent: 'center',
     },
     selectCircleEmpty: {
@@ -529,7 +530,7 @@ const createStyles = (c: AppColors) => {
 
     // Notes
     notesLabel: {
-      fontSize: 12, fontWeight: '800', color: ORANGE,
+      fontSize: 12, fontWeight: '800', color: c.orange,
       letterSpacing: 2, fontFamily: FF, marginBottom: 6,
     },
     notesInput: {
@@ -543,7 +544,7 @@ const createStyles = (c: AppColors) => {
     actionBtn: {
       flex: 1,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: ORANGE, borderRadius: 12,
+      backgroundColor: c.orange, borderRadius: 12,
       paddingVertical: 10, gap: 6,
     },
     actionBtnText: {
@@ -553,11 +554,11 @@ const createStyles = (c: AppColors) => {
     // Add new
     addNewBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderColor: ORANGE, borderRadius: 16,
+      borderWidth: 1.5, borderColor: c.orange, borderRadius: 16,
       paddingVertical: 14, marginTop: 4,
     },
     addNewBtnText: {
-      fontSize: 16, fontWeight: '600', color: ORANGE, fontFamily: FF,
+      fontSize: 16, fontWeight: '600', color: c.orange, fontFamily: FF,
     },
 
     // Empty state
@@ -573,7 +574,7 @@ const createStyles = (c: AppColors) => {
     },
     addBtn: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: ORANGE, borderRadius: 14,
+      backgroundColor: c.orange, borderRadius: 14,
       paddingHorizontal: 20, paddingVertical: 12,
       marginTop: 16,
     },

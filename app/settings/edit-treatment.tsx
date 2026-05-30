@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
@@ -11,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DoseSelector } from '@/components/treatment/DoseSelector';
 import { MedicationPicker } from '@/components/treatment/MedicationPicker';
 import { ScheduleSelector } from '@/components/treatment/ScheduleSelector';
+import { ORANGE } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import {
   BRAND_DEFAULT_FREQ_DAYS, BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, BRAND_TO_ROUTE,
@@ -23,8 +23,8 @@ import { getDailyTargets, type DailyTargets } from '@/constants/scoring';
 import { syncDoseReminder } from '@/stores/reminders-store';
 import { supabase } from '@/lib/supabase';
 import { useLogStore } from '@/stores/log-store';
+import { ArrowLeftRight, ChevronLeft, ChevronRight, CircleCheck, Clock, PauseCircle, Pencil, PlusCircle, XCircle } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -180,7 +180,7 @@ export default function EditTreatmentScreen() {
   }, []);
 
   if (isLoading) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><ActivityIndicator color={ORANGE} style={{ flex: 1 }} /></SafeAreaView>;
+    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><ActivityIndicator color={colors.orange} style={{ flex: 1 }} /></SafeAreaView>;
   }
   useEffect(() => { if (!isLoading && !profile) router.back(); }, [isLoading, profile]);
   if (!profile) return null;
@@ -743,7 +743,7 @@ export default function EditTreatmentScreen() {
               marginTop: 12,
               height: 48,
               borderWidth: 1.5,
-              borderColor: ORANGE,
+              borderColor: colors.orange,
               borderRadius: 12,
               paddingHorizontal: 14,
               fontSize: 16,
@@ -774,7 +774,7 @@ export default function EditTreatmentScreen() {
           <TextInput
             style={{
               fontSize: 32, fontWeight: '700', color: '#FFFFFF', textAlign: 'center',
-              minWidth: 120, borderBottomWidth: 2, borderBottomColor: ORANGE, paddingBottom: 4,
+              minWidth: 120, borderBottomWidth: 2, borderBottomColor: colors.orange, paddingBottom: 4,
               fontFamily: 'System',
             }}
             keyboardType="decimal-pad"
@@ -822,7 +822,7 @@ export default function EditTreatmentScreen() {
                 <View style={{ width: 16, alignItems: 'center', marginRight: 10 }}>
                   <View style={{
                     width: 8, height: 8, borderRadius: 4, marginTop: 4,
-                    backgroundColor: isStopped ? '#FF4444' : isLast ? ORANGE : 'rgba(255,255,255,0.3)',
+                    backgroundColor: isStopped ? '#FF4444' : isLast ? colors.orange : 'rgba(255,255,255,0.3)',
                   }} />
                   {!isLast && (
                     <View style={{
@@ -850,11 +850,11 @@ export default function EditTreatmentScreen() {
           {brand && (
             <View style={{ flexDirection: 'row', minHeight: 28 }}>
               <View style={{ width: 16, alignItems: 'center', marginRight: 10 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 4, backgroundColor: ORANGE }} />
+                <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 4, backgroundColor: colors.orange }} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, color: ORANGE, fontFamily: 'System' }}>Now</Text>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: ORANGE, fontFamily: 'System' }}>
+                <Text style={{ fontSize: 13, color: colors.orange, fontFamily: 'System' }}>Now</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.orange, fontFamily: 'System' }}>
                   {wasOffTreatment ? '→ Starting' : '→ Switching to'} {BRAND_LABEL[brand] ?? brand} {doseMg}mg
                 </Text>
               </View>
@@ -929,7 +929,7 @@ export default function EditTreatmentScreen() {
           }}
           style={s.backBtn}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={s.headerTitle}>
           {view === 'wizard' ? wizardStepLabel.toUpperCase() : 'TREATMENT PLAN'}
@@ -979,7 +979,7 @@ export default function EditTreatmentScreen() {
               <>
                 <View style={s.offCard}>
                   <View style={s.summaryIconWrap}>
-                    <Ionicons name="time-outline" size={28} color={ORANGE} />
+                    <Clock size={28} color={colors.orange} />
                   </View>
                   <Text style={s.offTitle}>Starting Soon</Text>
                   <Text style={s.summaryMolecule}>Your treatment begins in {pendingDaysAway} day{pendingDaysAway !== 1 ? 's' : ''}</Text>
@@ -996,7 +996,7 @@ export default function EditTreatmentScreen() {
                   </View>
                   <View style={[s.summaryRow, { alignSelf: 'stretch' }]}>
                     <Text style={s.summaryLabel}>First dose</Text>
-                    <Text style={[s.summaryValue, { color: ORANGE }]}>{pendingDateStr}</Text>
+                    <Text style={[s.summaryValue, { color: colors.orange }]}>{pendingDateStr}</Text>
                   </View>
 
                   <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 17 }}>
@@ -1007,9 +1007,9 @@ export default function EditTreatmentScreen() {
 
                 {/* Edit / cancel actions */}
                 <TouchableOpacity style={[s.changeMedBtn, { marginTop: 20 }]} onPress={enterWizard} activeOpacity={0.8}>
-                  <Ionicons name="pencil-outline" size={18} color={ORANGE} style={{ marginRight: 10 }} />
+                  <Pencil size={18} color={colors.orange} style={{ marginRight: 10 }} />
                   <Text style={s.changeMedBtnText}>Change Plan</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+                  <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1041,7 +1041,7 @@ export default function EditTreatmentScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle-outline" size={18} color="#FF4444" style={{ marginRight: 10 }} />
+                  <XCircle size={18} color="#FF4444" style={{ marginRight: 10 }} />
                   <Text style={s.stopBtnText}>Cancel Upcoming Medication</Text>
                 </TouchableOpacity>
               </>
@@ -1054,7 +1054,7 @@ export default function EditTreatmentScreen() {
                   Start or resume a GLP-1 medication when you're ready.
                 </Text>
                 <TouchableOpacity style={s.startBtn} onPress={enterWizard} activeOpacity={0.8}>
-                  <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <PlusCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                   <Text style={s.startBtnText}>Start a GLP-1 Medication</Text>
                 </TouchableOpacity>
               </View>
@@ -1101,7 +1101,7 @@ export default function EditTreatmentScreen() {
             {/* Pending transition badge */}
             {profile?.pendingMedicationBrand && (
               <View style={s.pendingBadge}>
-                <Ionicons name="time-outline" size={14} color={ORANGE} style={{ marginRight: 6 }} />
+                <Clock size={14} color={colors.orange} style={{ marginRight: 6 }} />
                 <Text style={s.pendingText}>
                   Switching to {BRAND_LABEL[profile.pendingMedicationBrand] ?? profile.pendingMedicationBrand} {profile.pendingDoseMg}mg
                   {profile.pendingFirstDoseDate ? ` on ${new Date(profile.pendingFirstDoseDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
@@ -1112,9 +1112,9 @@ export default function EditTreatmentScreen() {
 
           {/* Action buttons */}
           <TouchableOpacity style={s.changeMedBtn} onPress={enterWizard} activeOpacity={0.8}>
-            <Ionicons name="swap-horizontal-outline" size={18} color={ORANGE} style={{ marginRight: 10 }} />
+            <ArrowLeftRight size={18} color={colors.orange} style={{ marginRight: 10 }} />
             <Text style={s.changeMedBtnText}>Change Medication</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
           <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 12 }} />
@@ -1125,7 +1125,7 @@ export default function EditTreatmentScreen() {
             activeOpacity={0.7}
             disabled={saving}
           >
-            <Ionicons name="pause-circle-outline" size={18} color="#FF4444" style={{ marginRight: 10 }} />
+            <PauseCircle size={18} color="#FF4444" style={{ marginRight: 10 }} />
             <Text style={s.stopBtnText}>Stop Medication</Text>
           </TouchableOpacity>
           <Text style={s.stopHint}>
@@ -1279,7 +1279,7 @@ export default function EditTreatmentScreen() {
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
 
               <ScrollView style={ms.cardScroll} contentContainerStyle={ms.cardContent} bounces={false}>
-                <Ionicons name="checkmark-circle" size={44} color={ORANGE} style={{ alignSelf: 'center', marginBottom: 12 }} />
+                <CircleCheck size={44} color={colors.orange} style={{ alignSelf: 'center', marginBottom: 12 }} />
                 <Text style={ms.modalTitle}>TARGETS UPDATED</Text>
                 <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 20, lineHeight: 21 }}>
                   Your daily targets have been adjusted for {postSaveMedLabel}.
@@ -1290,7 +1290,7 @@ export default function EditTreatmentScreen() {
                     <View key={d.label} style={ms.targetDiffRow}>
                       <Text style={ms.targetDiffLabel}>{d.label}</Text>
                       <Text style={ms.targetLine}>{d.old}</Text>
-                      <Text style={[ms.targetLine, { color: ORANGE, marginHorizontal: 6 }]}>{'\u2192'}</Text>
+                      <Text style={[ms.targetLine, { color: colors.orange, marginHorizontal: 6 }]}>{'\u2192'}</Text>
                       <Text style={[ms.targetLine, { color: '#FFFFFF' }]}>{d.new}</Text>
                     </View>
                   ))}
@@ -1299,7 +1299,7 @@ export default function EditTreatmentScreen() {
 
               <View style={{ paddingHorizontal: 28, paddingBottom: 28, paddingTop: 8 }}>
                 <TouchableOpacity
-                  style={{ borderRadius: 14, paddingVertical: 16, alignItems: 'center', backgroundColor: ORANGE }}
+                  style={{ borderRadius: 14, paddingVertical: 16, alignItems: 'center', backgroundColor: colors.orange }}
                   onPress={() => { setPostSaveVisible(false); router.back(); }}
                   activeOpacity={0.8}
                 >
@@ -1327,7 +1327,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, gap: 4 },
   footer: { padding: 16, paddingBottom: 8 },
   saveBtn: {
-    backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16,
+    backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
@@ -1368,7 +1368,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   startBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const,
-    backgroundColor: ORANGE, borderRadius: 16,
+    backgroundColor: c.orange, borderRadius: 16,
     paddingVertical: 16, paddingHorizontal: 24, width: '100%' as any,
   },
   startBtnText: {
@@ -1380,7 +1380,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     flexDirection: 'row' as const, gap: 4, paddingHorizontal: 20, paddingVertical: 8,
   },
   progressSegment: { flex: 1, height: 3, borderRadius: 1.5 },
-  progressSegmentActive: { backgroundColor: ORANGE },
+  progressSegmentActive: { backgroundColor: c.orange },
   progressSegmentInactive: { backgroundColor: 'rgba(255,255,255,0.1)' },
 
   // Summary card
@@ -1422,7 +1422,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: 'rgba(255,116,42,0.08)', borderRadius: 10, padding: 10,
     borderWidth: 1, borderColor: 'rgba(255,116,42,0.2)',
   },
-  pendingText: { fontSize: 14, color: ORANGE, fontFamily: 'System', flex: 1 },
+  pendingText: { fontSize: 14, color: c.orange, fontFamily: 'System', flex: 1 },
 
   // Change medication button
   changeMedBtn: {

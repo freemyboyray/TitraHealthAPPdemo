@@ -12,7 +12,6 @@ import {
 } from '@/lib/body-composition';
 import { smoothPath } from '@/lib/chart-utils';
 
-const ORANGE = '#FF742A';
 const CHART_H = 120;
 const ML = 36;
 const MR = 12;
@@ -117,14 +116,14 @@ export function BodyCompositionCard({ result, trend }: Props) {
                 stroke={w(0.06)} strokeWidth={1} strokeDasharray="4,4" />
             ))}
             {/* Body fat line */}
-            {fatPath ? <Path d={fatPath} stroke={ORANGE} strokeWidth={2} fill="none" /> : null}
+            {fatPath ? <Path d={fatPath} stroke={colors.orange} strokeWidth={2} fill="none" /> : null}
             {/* Lean mass line */}
             {leanPath ? <Path d={leanPath} stroke="#64B4FF" strokeWidth={2} fill="none" /> : null}
           </Svg>
           {/* Legend */}
           <View style={s.legendRow}>
             <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: ORANGE }]} />
+              <View style={[s.legendDot, { backgroundColor: colors.orange }]} />
               <Text style={s.legendText}>Body Fat %</Text>
             </View>
             <View style={s.legendItem}>
@@ -170,7 +169,7 @@ const createStyles = (c: AppColors) => {
     heroValue: {
       fontSize: 40,
       fontWeight: '800',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: -2,
       lineHeight: 44,
     },

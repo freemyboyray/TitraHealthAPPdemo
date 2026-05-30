@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useAppTheme } from '../../contexts/theme-context';
 import { useSubscriptionStore, type FeatureKey } from '../../stores/subscription-store';
 import { ORANGE } from '../../constants/theme';
+import { ChevronRight, Lock, LockOpen } from 'lucide-react-native';
 
 type GateVariant = 'hard' | 'soft' | 'usage';
 
@@ -84,7 +84,7 @@ export function PremiumGate({
               accessibilityRole="button"
               accessibilityHint="Opens the subscription upgrade screen"
             >
-              <Ionicons name="lock-open-outline" size={14} color="#FFF" />
+              <LockOpen size={14} color="#FFF" />
               <Text style={styles.upgradeButtonText}>Unlock with Pro</Text>
             </TouchableOpacity>
           </View>
@@ -105,7 +105,7 @@ export function PremiumGate({
     >
       <View style={styles.hardHeader}>
         <View style={[styles.iconCircle, { backgroundColor: colors.orangeDim }]}>
-          <Ionicons name="lock-closed" size={18} color={ORANGE} />
+          <Lock size={18} color={ORANGE} />
         </View>
         {title && (
           <Text style={[styles.hardTitle, { color: colors.textPrimary }]}>{title}</Text>
@@ -116,7 +116,7 @@ export function PremiumGate({
       )}
       <View style={styles.upgradeRow}>
         <Text style={styles.upgradeLink}>Unlock with Pro</Text>
-        <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+        <ChevronRight size={14} color={ORANGE} />
       </View>
     </TouchableOpacity>
   );

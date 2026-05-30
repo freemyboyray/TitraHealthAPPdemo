@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -24,8 +23,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { converseFoodLog, type ConverseFoodResult } from '@/lib/openai';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { ArrowUpCircle, ChevronLeft, Grid3x3, Mic } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -127,7 +126,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
       {/* Header */}
       <View style={[st.header, { borderBottomColor: w(0.08) }]}>
         <Pressable onPress={onCancel} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={[st.headerTitle, { color: colors.textPrimary }]}>Describe Your Meal</Text>
         <View style={{ width: 24 }} />
@@ -147,7 +146,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
             style={[
               st.bubble,
               msg.role === 'user'
-                ? [st.userBubble, { backgroundColor: ORANGE }]
+                ? [st.userBubble, { backgroundColor: colors.orange }]
                 : [st.aiBubble, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }],
             ]}
           >
@@ -161,7 +160,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
         ))}
         {loading && (
           <View style={[st.bubble, st.aiBubble, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-            <ActivityIndicator size="small" color={ORANGE} />
+            <ActivityIndicator size="small" color={colors.orange} />
           </View>
         )}
       </ScrollView>
@@ -183,22 +182,24 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
                       : pressed
                       ? 'rgba(255,116,42,0.2)'
                       : 'rgba(255,116,42,0.12)',
-                    borderColor: isRecording ? '#E53E3E' : ORANGE,
+                    borderColor: isRecording ? '#E53E3E' : colors.orange,
                   },
                 ]}
               >
-                <Ionicons
-                  name={isProcessing ? 'hourglass-outline' : isRecording ? 'mic' : 'mic-outline'}
+                {isProcessing ? 'hourglass-outline' : isRecording ? <Mic
                   size={32}
-                  color={isProcessing ? w(0.3) : isRecording ? '#E53E3E' : ORANGE}
-                />
+                  color={isProcessing ? w(0.3) : isRecording ? '#E53E3E' : colors.orange}
+                /> : <Mic
+                  size={32}
+                  color={isProcessing ? w(0.3) : isRecording ? '#E53E3E' : colors.orange}
+                />}
               </Pressable>
             </Animated.View>
             <Text style={[st.voiceHint, { color: w(0.5) }]}>
               {isProcessing ? 'Processing...' : isRecording ? 'Listening... tap to stop' : 'Tap to speak'}
             </Text>
             <Pressable onPress={() => setVoiceMode(false)} style={st.switchBtn}>
-              <Ionicons name="keypad-outline" size={18} color={w(0.4)} />
+              <Grid3x3 size={18} color={w(0.4)} />
               <Text style={[st.switchText, { color: w(0.4) }]}>Type instead</Text>
             </Pressable>
           </View>
@@ -206,7 +207,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
           /* Text mode — input bar */
           <View style={st.textInputRow}>
             <Pressable onPress={() => setVoiceMode(true)} style={st.micSmall}>
-              <Ionicons name="mic-outline" size={20} color={ORANGE} />
+              <Mic size={20} color={colors.orange} />
             </Pressable>
             <TextInput
               style={[st.textInput, { color: colors.textPrimary, borderColor: w(0.12) }]}
@@ -224,7 +225,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
               disabled={!inputText.trim() || loading}
               style={[st.sendBtn, (!inputText.trim() || loading) && { opacity: 0.3 }]}
             >
-              <Ionicons name="arrow-up-circle" size={34} color={ORANGE} />
+              <ArrowUpCircle size={34} color={colors.orange} />
             </Pressable>
           </View>
         )}

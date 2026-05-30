@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { categoryColor } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useUiStore } from '@/stores/ui-store';
+import { ChevronRight } from 'lucide-react-native';
 
 type CategoryKey = 'nutrition' | 'activity' | 'vitals';
 
@@ -75,7 +75,7 @@ export function CategoryRow({ icon, label, categoryKey, todayValue, onPress, aiC
           <Text style={[styles.value, { color: valueColor }]} numberOfLines={1}>
             {todayValue}
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={chevronColor} />
+          <ChevronRight size={18} color={chevronColor} />
         </View>
       </View>
     </Pressable>

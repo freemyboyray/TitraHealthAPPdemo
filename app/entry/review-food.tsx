@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,6 +19,8 @@ import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { GlassBorder } from '@/components/ui/glass-border';
+import { AlertCircle, Apple, ChevronLeft, Droplet, Dumbbell, Flame, Leaf, MessageCircle, Minus, Plus, RefreshCw } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 // ─── Macro icon colors (semantic, theme-independent) ────────────────────────
 const MACRO_COLORS = {
@@ -153,7 +154,7 @@ export default function ReviewFoodScreen() {
     return (
       <View style={[s.screen, { paddingTop: insets.top }]}>
         <View style={s.centered}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+          <AlertCircle size={48} color={colors.textMuted} />
           <Text style={s.emptyText}>Task not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Text style={s.backBtnText}>Go Back</Text>
@@ -168,7 +169,7 @@ export default function ReviewFoodScreen() {
       <View style={[s.screen, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={s.headerTitle}>Analyzing...</Text>
           <View style={{ width: 24 }} />
@@ -186,13 +187,13 @@ export default function ReviewFoodScreen() {
       <View style={[s.screen, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={s.headerTitle}>Analysis Failed</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={s.centered}>
-          <Ionicons name="alert-circle-outline" size={48} color="#E74C3C" />
+          <AlertCircle size={48} color="#E74C3C" />
           <Text style={[s.emptyText, { marginTop: 12 }]}>{task.error ?? 'Something went wrong'}</Text>
           <TouchableOpacity onPress={() => retryTask(taskId!)} style={[s.backBtn, { backgroundColor: colors.orange }]}>
             <Text style={s.backBtnText}>Try Again</Text>
@@ -210,7 +211,7 @@ export default function ReviewFoodScreen() {
     <View style={s.screen}>
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={s.headerTitle}>Review Food</Text>
         <View style={{ width: 24 }} />
@@ -230,7 +231,7 @@ export default function ReviewFoodScreen() {
             return (
               <View key={idx} style={[s.card, { borderColor: '#E74C3C' }]}>
                 <View style={s.unresolvedHeader}>
-                  <Ionicons name="alert-circle" size={20} color="#E74C3C" />
+                  <AlertCircle size={20} color="#E74C3C" />
                   <Text style={s.unresolvedTitle}>Couldn't find nutrition data</Text>
                 </View>
                 <Text style={s.unresolvedItemName}>{item.item}</Text>
@@ -242,7 +243,7 @@ export default function ReviewFoodScreen() {
                   onPress={() => retryTask(taskId!)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="refresh" size={16} color={colors.orange} />
+                  <RefreshCw size={16} color={colors.orange} />
                   <Text style={s.unresolvedRetryText}>Try Again</Text>
                 </TouchableOpacity>
               </View>
@@ -289,11 +290,9 @@ export default function ReviewFoodScreen() {
               {/* Food name + stepper row */}
               <View style={s.nameRow}>
                 <TouchableOpacity onPress={() => toggleCheck(idx)} style={{ marginTop: 2 }}>
-                  <Ionicons
-                    name={isChecked ? 'checkbox' : 'square-outline'}
+                  <LucideIconByName name={isChecked ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={isChecked ? colors.orange : colors.textMuted}
-                  />
+                    color={isChecked ? colors.orange : colors.textMuted} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                   <Text style={s.foodName} numberOfLines={2}>{food.name}</Text>
@@ -303,11 +302,11 @@ export default function ReviewFoodScreen() {
                 {/* +/- Stepper */}
                 <View style={s.stepper}>
                   <Pressable onPress={() => adjustQty(idx, -1)} style={s.stepperBtn} hitSlop={6}>
-                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
+                    <Minus size={18} color={colors.textPrimary} />
                   </Pressable>
                   <Text style={s.stepperValue}>{item.qty}</Text>
                   <Pressable onPress={() => adjustQty(idx, 1)} style={s.stepperBtn} hitSlop={6}>
-                    <Ionicons name="add" size={18} color={colors.textPrimary} />
+                    <Plus size={18} color={colors.textPrimary} />
                   </Pressable>
                 </View>
               </View>
@@ -333,7 +332,7 @@ export default function ReviewFoodScreen() {
               <View style={s.macroGrid}>
                 <View style={s.macroCell}>
                   <View style={[s.macroIcon, { backgroundColor: `${MACRO_COLORS.cal}15` }]}>
-                    <Ionicons name="flame-outline" size={18} color={MACRO_COLORS.cal} />
+                    <Flame size={18} color={MACRO_COLORS.cal} />
                   </View>
                   <View>
                     <Text style={s.macroCellLabel}>Calories</Text>
@@ -342,7 +341,7 @@ export default function ReviewFoodScreen() {
                 </View>
                 <View style={s.macroCell}>
                   <View style={[s.macroIcon, { backgroundColor: `${MACRO_COLORS.carbs}15` }]}>
-                    <Ionicons name="leaf-outline" size={18} color={MACRO_COLORS.carbs} />
+                    <Leaf size={18} color={MACRO_COLORS.carbs} />
                   </View>
                   <View>
                     <Text style={s.macroCellLabel}>Carbs</Text>
@@ -351,7 +350,7 @@ export default function ReviewFoodScreen() {
                 </View>
                 <View style={s.macroCell}>
                   <View style={[s.macroIcon, { backgroundColor: `${MACRO_COLORS.protein}15` }]}>
-                    <Ionicons name="fitness-outline" size={18} color={MACRO_COLORS.protein} />
+                    <Dumbbell size={18} color={MACRO_COLORS.protein} />
                   </View>
                   <View>
                     <Text style={s.macroCellLabel}>Protein</Text>
@@ -360,7 +359,7 @@ export default function ReviewFoodScreen() {
                 </View>
                 <View style={s.macroCell}>
                   <View style={[s.macroIcon, { backgroundColor: `${MACRO_COLORS.fat}15` }]}>
-                    <Ionicons name="water-outline" size={18} color={MACRO_COLORS.fat} />
+                    <Droplet size={18} color={MACRO_COLORS.fat} />
                   </View>
                   <View>
                     <Text style={s.macroCellLabel}>Fats</Text>
@@ -372,7 +371,7 @@ export default function ReviewFoodScreen() {
               {/* Fiber row (5th macro, spans full width) */}
               <View style={s.fiberRow}>
                 <View style={[s.macroIcon, { backgroundColor: `${MACRO_COLORS.fiber}15` }]}>
-                  <Ionicons name="nutrition-outline" size={18} color={MACRO_COLORS.fiber} />
+                  <Apple size={18} color={MACRO_COLORS.fiber} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.macroCellLabel}>Fiber</Text>
@@ -384,7 +383,7 @@ export default function ReviewFoodScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.promptChipScroll} contentContainerStyle={s.promptChipRow}>
                 {promptChips.map((chip) => (
                   <TouchableOpacity key={chip} style={s.promptChip} onPress={() => openChat(chip)} activeOpacity={0.7}>
-                    <Ionicons name="chatbubble-outline" size={13} color={colors.orange} />
+                    <MessageCircle size={13} color={colors.orange} />
                     <Text style={s.promptChipText} numberOfLines={1}>{chip}</Text>
                   </TouchableOpacity>
                 ))}

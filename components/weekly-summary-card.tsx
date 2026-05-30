@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -7,19 +6,20 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import type { WeeklySummaryRow } from '@/stores/log-store';
+import { BarChart3, X } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 export type WeeklySummaryCardProps = {
   latestSummary: WeeklySummaryRow | null;
+  onDismiss?: () => void;
 };
 
 function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-export function WeeklySummaryCard({ latestSummary }: WeeklySummaryCardProps) {
+export function WeeklySummaryCard({ latestSummary, onDismiss }: WeeklySummaryCardProps) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -38,10 +38,21 @@ export function WeeklySummaryCard({ latestSummary }: WeeklySummaryCardProps) {
         accessibilityRole="button"
         accessibilityHint="Generates and opens your weekly recap"
       >
+        {onDismiss && (
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation(); onDismiss(); }}
+            style={s.dismissBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Dismiss Weekly Summary"
+            accessibilityRole="button"
+          >
+            <X size={14} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
         <View style={s.inner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
             <View style={s.iconWrap}>
-              <Ionicons name="sparkles-outline" size={20} color={ORANGE} />
+              <BarChart3 size={20} color={colors.orange} />
             </View>
             <View style={{ flex: 1 }}>
               <View style={s.dueBadge}>
@@ -50,10 +61,6 @@ export function WeeklySummaryCard({ latestSummary }: WeeklySummaryCardProps) {
               <Text style={s.title}>Weekly Summary</Text>
               <Text style={s.subtitle}>Recap of your last 7 days · AI insight</Text>
             </View>
-          </View>
-          <View style={s.ctaBtn}>
-            <Text style={s.ctaText}>View</Text>
-            <Ionicons name="arrow-forward" size={13} color="#FFF" />
           </View>
         </View>
       </TouchableOpacity>
@@ -84,39 +91,26 @@ export function WeeklySummaryCard({ latestSummary }: WeeklySummaryCardProps) {
           borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39,174,96,0.25)',
         }}
       />
+      {onDismiss && (
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation(); onDismiss(); }}
+          style={s.dismissBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Dismiss Weekly Summary"
+          accessibilityRole="button"
+        >
+          <X size={14} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
       <View style={s.inner}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
           <View style={[s.iconWrap, { backgroundColor: 'rgba(39,174,96,0.15)' }]}>
-            <Ionicons name="sparkles" size={20} color="#27AE60" />
+            <BarChart3 size={20} color="#27AE60" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.title}>Weekly Summary</Text>
             <Text style={s.subtitle}>{subtitle}</Text>
           </View>
-        </View>
-        <View style={{ alignItems: 'flex-end', gap: 6 }}>
-          <TouchableOpacity
-            style={s.viewBtn}
-            onPress={handleView}
-            activeOpacity={0.7}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            accessibilityLabel="View weekly summary"
-            accessibilityRole="button"
-          >
-            <Text style={s.viewBtnText}>View</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              handleHistory();
-            }}
-            activeOpacity={0.7}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            accessibilityLabel="View summary history"
-            accessibilityRole="button"
-          >
-            <Text style={s.viewPastLink}>View History</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -151,15 +145,21 @@ const createStyles = (c: AppColors) => {
       alignSelf: 'flex-start', marginBottom: 4,
     },
     dueText: {
-      fontSize: 11, fontWeight: '800', color: ORANGE,
+      fontSize: 11, fontWeight: '800', color: c.orange,
       fontFamily: FF, letterSpacing: 1,
     },
     ctaBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: ORANGE, borderRadius: 16,
+      backgroundColor: c.orange, borderRadius: 16,
       paddingHorizontal: 14, paddingVertical: 9, marginLeft: 12, flexShrink: 0,
     },
     ctaText: { fontSize: 15, fontWeight: '700', color: '#FFF', fontFamily: FF },
+    dismissBtn: {
+      position: 'absolute' as const, top: 10, right: 10, zIndex: 10,
+      width: 26, height: 26, borderRadius: 13,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      alignItems: 'center' as const, justifyContent: 'center' as const,
+    },
     title: {
       fontSize: 17, fontWeight: '800', color: c.textPrimary,
       fontFamily: FF, letterSpacing: -0.2,
@@ -168,11 +168,11 @@ const createStyles = (c: AppColors) => {
       fontSize: 14, color: w(0.4), fontFamily: FF, marginTop: 2,
     },
     viewBtn: {
-      borderWidth: 1.5, borderColor: ORANGE, borderRadius: 14,
+      borderWidth: 1.5, borderColor: c.orange, borderRadius: 14,
       paddingHorizontal: 14, paddingVertical: 6,
     },
     viewBtnText: {
-      fontSize: 14, fontWeight: '700', color: ORANGE, fontFamily: FF,
+      fontSize: 14, fontWeight: '700', color: c.orange, fontFamily: FF,
     },
     viewPastLink: {
       fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: FF,

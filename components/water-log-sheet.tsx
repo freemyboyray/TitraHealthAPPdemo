@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,10 +25,11 @@ import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useUiStore } from '@/stores/ui-store';
+import { X } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const AnimatedRect = createAnimatedComponent(Rect);
 
-const ORANGE = '#FF742A';
 const FF     = 'System';
 
 const CUP_PATH = 'M 10 10 L 190 10 L 170 230 Q 170 240 160 240 L 40 240 Q 30 240 30 230 Z';
@@ -44,7 +44,7 @@ type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | '
 type Beverage = {
   key: BeverageKey;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   color: string;
   defaultOz: number;
   /** Effective hydration per oz consumed (1.0 = same as water). */
@@ -52,13 +52,13 @@ type Beverage = {
 };
 
 const BEVERAGES: Beverage[] = [
-  { key: 'water',        label: 'Water',        icon: 'water-outline',       color: '#5B8BF5', defaultOz: 8,  hydrationFactor: 1.0  },
+  { key: 'water',        label: 'Water',        icon: 'Droplet',       color: '#5B8BF5', defaultOz: 8,  hydrationFactor: 1.0  },
   { key: 'coffee',       label: 'Coffee',       icon: 'cafe-outline',        color: '#A0795D', defaultOz: 12, hydrationFactor: 0.85 },
-  { key: 'tea',          label: 'Tea',          icon: 'leaf-outline',        color: '#7DB87D', defaultOz: 8,  hydrationFactor: 0.90 },
-  { key: 'sparkling',    label: 'Sparkling',    icon: 'sparkles-outline',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
-  { key: 'electrolytes', label: 'Electrolytes', icon: 'flash-outline',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
-  { key: 'juice',        label: 'Juice',        icon: 'nutrition-outline',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
-  { key: 'soup',         label: 'Soup',         icon: 'flame-outline',       color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
+  { key: 'tea',          label: 'Tea',          icon: 'Leaf',        color: '#7DB87D', defaultOz: 8,  hydrationFactor: 0.90 },
+  { key: 'sparkling',    label: 'Sparkling',    icon: 'Sparkles',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
+  { key: 'electrolytes', label: 'Electrolytes', icon: 'Zap',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
+  { key: 'juice',        label: 'Juice',        icon: 'Apple',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
+  { key: 'soup',         label: 'Soup',         icon: 'Flame',       color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
 ];
 
 const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
@@ -69,18 +69,18 @@ const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
 
 type QuickPreset = {
   oz: number;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   beverageKey: BeverageKey;
 };
 
 const QUICK_PRESETS: QuickPreset[] = [
-  { oz: 8,  icon: 'water-outline',     beverageKey: 'water'        },
+  { oz: 8,  icon: 'Droplet',     beverageKey: 'water'        },
   { oz: 12, icon: 'cafe-outline',      beverageKey: 'coffee'       },
-  { oz: 8,  icon: 'leaf-outline',      beverageKey: 'tea'          },
-  { oz: 12, icon: 'sparkles-outline',  beverageKey: 'sparkling'    },
-  { oz: 20, icon: 'flash-outline',     beverageKey: 'electrolytes' },
-  { oz: 16, icon: 'nutrition-outline', beverageKey: 'juice'        },
-  { oz: 12, icon: 'flame-outline',     beverageKey: 'soup'         },
+  { oz: 8,  icon: 'Leaf',      beverageKey: 'tea'          },
+  { oz: 12, icon: 'Sparkles',  beverageKey: 'sparkling'    },
+  { oz: 20, icon: 'Zap',     beverageKey: 'electrolytes' },
+  { oz: 16, icon: 'Apple', beverageKey: 'juice'        },
+  { oz: 12, icon: 'Flame',     beverageKey: 'soup'         },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
           {/* Header */}
           <View style={s.header}>
             <TouchableOpacity onPress={closeSheet} style={s.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
+              <X size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
             </TouchableOpacity>
             <Text style={s.title}>Hydration Log</Text>
             <View style={{ width: 36 }} />
@@ -224,7 +224,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={bev.icon} size={18} color={isActive ? bev.color : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
+                  <LucideIconByName name={bev.icon} size={18} color={isActive ? bev.color : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
                   <Text style={[
                     s.beveragePillLabel,
                     isActive && { color: bev.color },
@@ -348,7 +348,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
                   }}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name={preset.icon} size={24} color={bev.color} />
+                  <LucideIconByName name={preset.icon} size={24} color={bev.color} />
                   <Text style={[s.chipLabel, { color: bev.color }]}>+{preset.oz}oz</Text>
                   <Text style={s.chipSublabel}>{bev.label}</Text>
                   {bev.hydrationFactor !== 1.0 && (
@@ -643,10 +643,10 @@ const createStyles = (c: AppColors) => {
   updateBtn: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

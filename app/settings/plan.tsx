@@ -11,7 +11,6 @@ import { useSubscriptionStore } from '@/stores/subscription-store';
 import { isOnTreatment } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 
-const ORANGE = '#FF742A';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -83,7 +82,7 @@ export default function PlanScreen() {
         {/* Header */}
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-            <IconSymbol name="chevron.left" size={22} color={ORANGE} />
+            <IconSymbol name="chevron.left" size={22} color={colors.orange} />
           </Pressable>
           <Text style={s.headerTitle}>My Plan</Text>
           <View style={{ width: 22 }} />
@@ -96,7 +95,7 @@ export default function PlanScreen() {
             <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel={`Treatment Plan, ${treatmentLine1}`} accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="syringe.fill" size={18} color={ORANGE} />
+                  <IconSymbol name="syringe.fill" size={18} color={colors.orange} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowLabel}>Treatment Plan</Text>

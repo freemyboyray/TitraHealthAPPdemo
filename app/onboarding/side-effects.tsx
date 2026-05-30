@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,15 +9,15 @@ import { SideEffect } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-type IconSet = 'Ionicons' | 'MaterialIcons';
-const OPTION_DATA: { value: SideEffect; label: string; iconSet: IconSet; iconName: string }[] = [
-  { value: 'nausea',       label: 'Nausea',        iconSet: 'MaterialIcons', iconName: 'sick' },
-  { value: 'fatigue',      label: 'Fatigue',        iconSet: 'Ionicons',      iconName: 'bed-outline' },
-  { value: 'hair_loss',    label: 'Hair Loss',      iconSet: 'MaterialIcons', iconName: 'face' },
-  { value: 'constipation', label: 'Constipation',   iconSet: 'MaterialIcons', iconName: 'accessibility' },
-  { value: 'bloating',     label: 'Bloating',       iconSet: 'MaterialIcons', iconName: 'air' },
-  { value: 'sulfur_burps', label: 'Sulfur Burps',   iconSet: 'MaterialIcons', iconName: 'air' },
+const OPTION_DATA: { value: SideEffect; label: string; lucideIcon: string }[] = [
+  { value: 'nausea',       label: 'Nausea',        lucideIcon: 'Frown' },
+  { value: 'fatigue',      label: 'Fatigue',       lucideIcon: 'Bed' },
+  { value: 'hair_loss',    label: 'Hair Loss',     lucideIcon: 'PersonStanding' },
+  { value: 'constipation', label: 'Constipation',  lucideIcon: 'PersonStanding' },
+  { value: 'bloating',     label: 'Bloating',      lucideIcon: 'Wind' },
+  { value: 'sulfur_burps', label: 'Sulfur Burps',  lucideIcon: 'Wind' },
 ];
 
 export default function SideEffectsScreen() {
@@ -53,18 +52,15 @@ export default function SideEffectsScreen() {
           <Text style={s.subtitle}>Let us know so we can help you manage them better.</Text>
 
           <View style={s.options}>
-            {OPTION_DATA.map((o) => {
-              const Icon = o.iconSet === 'Ionicons' ? Ionicons : MaterialIcons;
-              return (
+            {OPTION_DATA.map((o) => (
                 <OptionPill
                   key={o.value}
                   label={o.label}
-                  icon={<Icon name={o.iconName as any} size={20} color={iconColor} />}
+                  icon={<LucideIconByName name={o.lucideIcon} size={20} color={iconColor} />}
                   selected={selected.includes(o.value)}
                   onPress={() => toggle(o.value)}
                 />
-              );
-            })}
+            ))}
           </View>
         </ScrollView>
 

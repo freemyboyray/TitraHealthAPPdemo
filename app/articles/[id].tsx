@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
 import { ARTICLES, type ArticleSection } from '@/constants/articles';
+import { ChevronLeft } from 'lucide-react-native';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const ARTICLE_DISCLAIMER =
   'This content is for informational and educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult your healthcare provider before making changes to your health routine.';
@@ -80,7 +80,7 @@ export default function ArticleDetailScreen() {
             Article not found.
           </Text>
           <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
-            <Text style={{ color: ORANGE, fontSize: 15, fontWeight: '600', fontFamily: FF, textAlign: 'center' }}>
+            <Text style={{ color: colors.orange, fontSize: 15, fontWeight: '600', fontFamily: FF, textAlign: 'center' }}>
               Go Back
             </Text>
           </Pressable>
@@ -99,7 +99,7 @@ export default function ArticleDetailScreen() {
         {/* Nav bar */}
         <View style={s.navBar}>
           <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
           <Text style={s.navTitle} numberOfLines={1}>Article</Text>
           <View style={{ width: 40 }} />
@@ -110,7 +110,7 @@ export default function ArticleDetailScreen() {
           <Image
             source={article.coverImage}
             style={s.coverImage}
-            resizeMode="cover"
+            contentFit="cover"
             accessibilityIgnoresInvertColors
           />
 
@@ -276,7 +276,7 @@ const createStyles = (c: AppColors) => {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       marginTop: 10,
       flexShrink: 0,
     },
@@ -291,7 +291,7 @@ const createStyles = (c: AppColors) => {
     sourcesTitle: {
       fontSize: 13,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 1,
       marginBottom: 10,
       textTransform: 'uppercase',

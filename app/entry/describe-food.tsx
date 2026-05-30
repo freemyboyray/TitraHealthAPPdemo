@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -19,10 +18,10 @@ import { searchUSDA, type FoodResult } from '../../lib/usda';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 
 const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
 Return ONLY a valid JSON array, no other text:
@@ -156,7 +155,7 @@ export default function DescribeFoodScreen() {
             <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+            <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Describe Food</Text>
@@ -190,7 +189,7 @@ export default function DescribeFoodScreen() {
         {/* Parse error */}
         {!!parseError && (
           <View style={s.errorRow}>
-            <Ionicons name="alert-circle-outline" size={16} color={ORANGE} />
+            <AlertCircle size={16} color={colors.orange} />
             <Text style={s.errorText}>{parseError}</Text>
           </View>
         )}
@@ -265,7 +264,7 @@ export default function DescribeFoodScreen() {
             style={s.retryRow}
             activeOpacity={0.7}
           >
-            <Ionicons name="refresh-outline" size={15} color={colors.textSecondary} />
+            <RefreshCw size={15} color={colors.textSecondary} />
             <Text style={s.retryText}>Try different description</Text>
           </TouchableOpacity>
         )}
@@ -359,7 +358,7 @@ const createStyles = (c: AppColors) => {
   sectionLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: ORANGE,
+    color: c.orange,
     letterSpacing: 2,
     marginBottom: 12,
   },
@@ -377,7 +376,7 @@ const createStyles = (c: AppColors) => {
     gap: 6,
     paddingHorizontal: 4,
   },
-  errorText: { fontSize: 15, color: ORANGE },
+  errorText: { fontSize: 15, color: c.orange },
 
   itemRawName: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 10 },
 
@@ -399,8 +398,8 @@ const createStyles = (c: AppColors) => {
     borderWidth: 2, borderColor: c.textSecondary,
     alignItems: 'center', justifyContent: 'center',
   },
-  matchRadioActive: { borderColor: ORANGE },
-  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
+  matchRadioActive: { borderColor: c.orange },
+  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.orange },
   matchName: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
   matchBrand: { fontSize: 13, color: c.textSecondary },
   matchCal: { fontSize: 14, color: c.textSecondary },
@@ -432,9 +431,9 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 20, paddingTop: 12,
   },
   primaryBtn: {
-    height: 56, borderRadius: 28, backgroundColor: ORANGE,
+    height: 56, borderRadius: 28, backgroundColor: c.orange,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 },
+    shadowColor: c.orange, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   primaryBtnDisabled: { opacity: 0.5 },

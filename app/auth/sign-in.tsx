@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 // expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
 let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
@@ -37,6 +36,7 @@ import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { Apple, ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -309,7 +309,7 @@ export default function SignInScreen() {
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Back button */}
         <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignSelf: 'flex-start' }} accessibilityLabel="Back" accessibilityRole="button">
-          <Ionicons name="chevron-back" size={26} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
+          <ChevronLeft size={26} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
         </Pressable>
 
         {/* Spacer to push content below illustration */}
@@ -349,7 +349,7 @@ export default function SignInScreen() {
               autoComplete="password"
             />
             <Pressable onPress={() => setShowPassword(p => !p)} hitSlop={8} style={{ position: 'absolute', right: 16, top: 16 }}>
-              <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color="#999" />
+              {showPassword ? <Eye size={22} color="#999" /> : <EyeOff size={22} color="#999" />}
             </Pressable>
           </View>
 
@@ -387,7 +387,7 @@ export default function SignInScreen() {
                   <ActivityIndicator size="small" color="#1A1A1A" />
                 ) : (
                   <>
-                    <Ionicons name="logo-apple" size={22} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                    <Apple size={22} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
                     <Text style={s.appleBtnText}>Continue with Apple</Text>
                   </>
                 )}

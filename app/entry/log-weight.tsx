@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -28,8 +27,8 @@ import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
+import { Calendar, ChevronDown, ChevronLeft, ChevronUp, Heart, MinusCircle, PersonStanding, PlusCircle } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const LB_TO_KG = 0.453592;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
@@ -165,7 +164,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
           top: 0,
           width: 2,
           height: 40,
-          backgroundColor: ORANGE,
+          backgroundColor: rulerColors.orange,
           borderRadius: 1,
         }}
       />
@@ -182,7 +181,7 @@ function WeightRuler({ value, unit, min, max, onChange }: WeightRulerProps) {
       >
         <View
           style={{
-            backgroundColor: ORANGE,
+            backgroundColor: rulerColors.orange,
             borderRadius: 12,
             paddingHorizontal: 12,
             paddingVertical: 4,
@@ -218,7 +217,7 @@ function BodyCompField({ label, value, onChange, suffix, placeholder }: {
           placeholderTextColor={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
           style={{
             width: 80, textAlign: 'right', fontSize: 16, fontWeight: '600',
-            color: ORANGE, paddingVertical: 6, paddingHorizontal: 8,
+            color: colors.orange, paddingVertical: 6, paddingHorizontal: 8,
             borderRadius: 10, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
           }}
           accessibilityLabel={`${label} value`}
@@ -404,7 +403,7 @@ export default function LogWeightScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.borderSubtle }]} />
           <GlassBorder r={22} />
-          <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
         <Text style={s.title}>Log Weight</Text>
         <View style={{ width: 44 }} />
@@ -416,7 +415,7 @@ export default function LogWeightScreen() {
           <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
-          <Ionicons name="calendar-outline" size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
+          <Calendar size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
           <Text style={s.dateText}>{dateStr}</Text>
         </View>
 
@@ -442,7 +441,7 @@ export default function LogWeightScreen() {
               gap: 10,
             }}
           >
-            <Ionicons name="heart" size={16} color="#FF3B30" />
+            <Heart size={16} color="#FF3B30" />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF3B30', letterSpacing: 0.4 }}>
                 {hkSuggestion.sourceName?.toUpperCase() || 'FROM YOUR SCALE'}
@@ -491,7 +490,7 @@ export default function LogWeightScreen() {
           <Switch
             value={unit === 'kg'}
             onValueChange={handleUnitToggle}
-            trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', true: ORANGE }}
+            trackColor={{ false: colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', true: colors.orange }}
             thumbColor="#FFFFFF"
             ios_backgroundColor={colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
             accessibilityLabel="Toggle metric units"
@@ -517,10 +516,10 @@ export default function LogWeightScreen() {
             accessibilityRole="button"
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="body-outline" size={18} color={ORANGE} />
+              <PersonStanding size={18} color={colors.orange} />
               <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>Body Composition</Text>
             </View>
-            <Ionicons name={bodyCompOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+            {bodyCompOpen ? <ChevronUp size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} /> : <ChevronDown size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />}
           </TouchableOpacity>
 
           {bodyCompOpen && (
@@ -530,7 +529,7 @@ export default function LogWeightScreen() {
             }}>
               {hkBodyCompUsed && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <Ionicons name="heart" size={12} color="#FF3B30" />
+                  <Heart size={12} color="#FF3B30" />
                   <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF3B30' }}>Auto-filled from Apple Health</Text>
                 </View>
               )}
@@ -548,8 +547,8 @@ export default function LogWeightScreen() {
                 accessibilityLabel={moreMetricsOpen ? 'Show fewer metrics' : 'Show more metrics'}
                 accessibilityRole="button"
               >
-                <Ionicons name={moreMetricsOpen ? 'remove-circle-outline' : 'add-circle-outline'} size={16} color={ORANGE} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: ORANGE }}>
+                {moreMetricsOpen ? <MinusCircle size={16} color={colors.orange} /> : <PlusCircle size={16} color={colors.orange} />}
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.orange }}>
                   {moreMetricsOpen ? 'Less Metrics' : 'More Metrics'}
                 </Text>
               </TouchableOpacity>
@@ -633,7 +632,7 @@ const createStyles = (c: AppColors) => {
     weightValue: {
       fontSize: 72,
       fontWeight: '800',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: -3,
       lineHeight: 78,
     },
@@ -657,10 +656,10 @@ const createStyles = (c: AppColors) => {
     logBtn: {
       height: 56,
       borderRadius: 28,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.4,
       shadowRadius: 20,

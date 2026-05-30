@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -7,11 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
+import { AlertCircle, Camera, ChevronLeft } from 'lucide-react-native';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PHOTO_WIDTH = (SCREEN_WIDTH - 48) / 2;
@@ -91,9 +90,9 @@ export default function ComparePhotosScreen() {
           onPress={() => router.back()}
           style={[s.backBtnLight, { position: 'absolute', top: insets.top + 12, left: 20 }]}
         >
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Ionicons name="alert-circle-outline" size={56} color={ORANGE} />
+        <AlertCircle size={56} color={colors.orange} />
         <Text style={s.errorTitle}>Photo Not Found</Text>
         <Text style={s.errorDesc}>
           This photo could not be loaded. It may have been deleted.
@@ -113,7 +112,7 @@ export default function ComparePhotosScreen() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.circleBtn} activeOpacity={0.75}>
           <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Before &amp; After</Text>
         <View style={{ width: 40 }} />
@@ -123,7 +122,7 @@ export default function ComparePhotosScreen() {
         <View style={s.content}>
           {loading ? (
             <View style={s.loadingContainer}>
-              <ActivityIndicator size="large" color={ORANGE} />
+              <ActivityIndicator size="large" color={colors.orange} />
             </View>
           ) : (
             <>
@@ -140,7 +139,7 @@ export default function ComparePhotosScreen() {
                     />
                   ) : (
                     <View style={[s.photo, s.placeholder]}>
-                      <Ionicons name="camera-outline" size={32} color={colors.textSecondary} />
+                      <Camera size={32} color={colors.textSecondary} />
                       <Text style={s.placeholderText}>No starting photo</Text>
                     </View>
                   )}
@@ -311,7 +310,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 28,
       fontFamily: FF,
       fontWeight: '900',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: -0.5,
     },
     bannerSub: {
@@ -351,10 +350,10 @@ const createStyles = (c: AppColors) => {
       width: '100%',
       height: 56,
       borderRadius: 28,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.45,
       shadowRadius: 18,

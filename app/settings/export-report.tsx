@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
 let Print: typeof import('expo-print') | undefined;
@@ -22,8 +21,8 @@ import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
 import { buildHealthReportHtml, type ReportData } from '@/lib/health-report';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { ChevronLeft, Download, FileText, Info } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type RangeOption = { label: string; days: number };
 const RANGE_OPTIONS: RangeOption[] = [
@@ -174,7 +173,7 @@ export default function ExportReportScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Export Health Report</Text>
         <View style={{ width: 36 }} />
@@ -183,7 +182,7 @@ export default function ExportReportScreen() {
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
         {/* Info card */}
         <View style={s.infoCard}>
-          <Ionicons name="document-text-outline" size={32} color={ORANGE} />
+          <FileText size={32} color={colors.orange} />
           <Text style={s.infoTitle}>Share Your Wellness Data</Text>
           <Text style={s.infoBody}>
             Generate a PDF report of your self-reported wellness data to share with your physician
@@ -194,7 +193,7 @@ export default function ExportReportScreen() {
 
         {/* Disclaimer */}
         <View style={s.disclaimer}>
-          <Ionicons name="information-circle-outline" size={18} color="#856404" />
+          <Info size={18} color="#856404" />
           <Text style={s.disclaimerText}>
             This is self-reported wellness data, not a medical record. The report includes a
             blank "Patient Name" field so you can hand-write your name when sharing with your doctor.
@@ -229,7 +228,7 @@ export default function ExportReportScreen() {
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="download-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Download size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={s.generateBtnText}>Generate PDF</Text>
             </>
           )}
@@ -335,8 +334,8 @@ function createStyles(c: AppColors) {
       backgroundColor: w(0.03),
     },
     rangePillActive: {
-      backgroundColor: ORANGE,
-      borderColor: ORANGE,
+      backgroundColor: c.orange,
+      borderColor: c.orange,
     },
     rangePillText: {
       fontSize: 15,
@@ -351,7 +350,7 @@ function createStyles(c: AppColors) {
       flexDirection: 'row',
       height: 52,
       borderRadius: 26,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
     },

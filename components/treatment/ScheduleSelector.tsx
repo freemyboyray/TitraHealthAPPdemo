@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo } from 'react';
@@ -9,6 +8,7 @@ import { MedicationGroupSection } from '@/components/treatment/MedicationGroupSe
 import type { AppColors } from '@/constants/theme';
 import { TYPE } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
+import { CircleCheck } from 'lucide-react-native';
 
 const INJECTABLE_FREQUENCIES = [
   { label: 'Every day', days: 1 as number | 'custom' },
@@ -76,7 +76,7 @@ export function ScheduleSelector({
                   </Text>
                   {isSelected && (
                     <Animated.View entering={FadeIn.duration(150)}>
-                      <Ionicons name="checkmark-circle" size={22} color={colors.orange} />
+                      <CircleCheck size={22} color={colors.orange} />
                     </Animated.View>
                   )}
                 </TouchableOpacity>

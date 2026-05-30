@@ -108,16 +108,9 @@ export function EnergyTimelineChart({ data }: Props) {
     return labels;
   }, [data, svgWidth]);
 
-  // Empty state
+  // Empty state — nothing to render
   if (data.length < 2) {
-    return (
-      <View style={s.card}>
-        <Text style={s.title}>Today's Energy</Text>
-        <Text style={s.emptyText}>
-          Log food or water to see your energy change throughout the day.
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   // Zone bands (subtle horizontal rects)
@@ -130,7 +123,6 @@ export function EnergyTimelineChart({ data }: Props) {
 
   return (
     <View style={s.card}>
-      <Text style={s.title}>Today's Energy</Text>
       <GestureDetector gesture={scrub.gesture}>
         <View onLayout={onLayout} style={{ height: svgH, marginTop: 8 }}>
           {svgWidth > 0 && (

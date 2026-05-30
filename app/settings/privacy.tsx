@@ -16,7 +16,6 @@ import { usePreferencesStore } from '@/stores/preferences-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const ORANGE = '#FF742A';
 
 export default function PrivacyScreen() {
   const { colors } = useAppTheme();
@@ -41,7 +40,7 @@ export default function PrivacyScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-            <IconSymbol name="chevron.left" size={22} color={ORANGE} />
+            <IconSymbol name="chevron.left" size={22} color={colors.orange} />
           </Pressable>
           <Text style={s.headerTitle}>Privacy & Data</Text>
           <View style={{ width: 22 }} />
@@ -52,11 +51,11 @@ export default function PrivacyScreen() {
             <View style={s.cardRow}>
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="sparkles" size={18} color={ORANGE} />
+                  <IconSymbol name="sparkles" size={18} color={colors.orange} />
                 </View>
                 <Text style={s.rowLabel}>AI Data</Text>
               </View>
-              <Switch value={aiDataConsent} onValueChange={setAiDataConsent} trackColor={{ true: ORANGE }} accessibilityLabel="AI Data Processing" />
+              <Switch value={aiDataConsent} onValueChange={setAiDataConsent} trackColor={{ true: colors.orange }} accessibilityLabel="AI Data Processing" />
             </View>
 
             <View style={s.divider} />
@@ -68,7 +67,7 @@ export default function PrivacyScreen() {
                 </View>
                 <Text style={s.rowLabel}>Food Database</Text>
               </View>
-              <Switch value={foodDbConsent} onValueChange={setFoodDbConsent} trackColor={{ true: ORANGE }} accessibilityLabel="Food Database" />
+              <Switch value={foodDbConsent} onValueChange={setFoodDbConsent} trackColor={{ true: colors.orange }} accessibilityLabel="Food Database" />
             </View>
           </View>
 
@@ -84,7 +83,7 @@ export default function PrivacyScreen() {
             accessibilityState={{ expanded: detailsOpen }}
             hitSlop={8}
           >
-            <IconSymbol name="info.circle" size={16} color={ORANGE} />
+            <IconSymbol name="info.circle" size={16} color={colors.orange} />
             <Text style={s.disclosureLabel}>What am I sharing?</Text>
             <Animated.View style={chevronStyle}>
               <IconSymbol name="chevron.down" size={14} color={colors.textSecondary} />
@@ -100,7 +99,7 @@ export default function PrivacyScreen() {
               <View style={s.detailSection}>
                 <View style={s.detailHeader}>
                   <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                    <IconSymbol name="sparkles" size={16} color={ORANGE} />
+                    <IconSymbol name="sparkles" size={16} color={colors.orange} />
                   </View>
                   <Text style={s.detailTitle}>AI Data (OpenAI)</Text>
                 </View>

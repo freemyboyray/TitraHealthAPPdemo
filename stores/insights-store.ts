@@ -369,7 +369,7 @@ export function buildFocuses(
     {
       score: score.nutrition,
       iconLib: 'material',
-      icon: 'restaurant',
+      icon: 'Utensils',
       label:
         proteinTarget > 0 && todayProtein < proteinTarget
           ? `Add ${Math.round(proteinTarget - todayProtein)}g Protein`
@@ -379,21 +379,21 @@ export function buildFocuses(
     {
       score: score.activity,
       iconLib: 'material',
-      icon: 'trending-up',
+      icon: 'TrendingUp',
       label: '15 min Walk',
       badge: '+2% Score',
     },
     {
       score: score.medication,
       iconLib: 'ionicons',
-      icon: 'medical-outline',
+      icon: 'Hospital',
       label: "Log Today's Injection",
       badge: '+4% Score',
     },
     {
       score: score.sideEffect,
       iconLib: 'ionicons',
-      icon: 'water-outline',
+      icon: 'Droplet',
       label: 'Hydration Goal',
       badge: '+1% Score',
     },

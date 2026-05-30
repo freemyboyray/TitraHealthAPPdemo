@@ -1,4 +1,3 @@
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -36,10 +35,10 @@ import { cardElevation } from '@/constants/theme';
 import { isOralDrug } from '@/constants/drug-pk';
 import type { Glp1Type } from '@/constants/user-profile';
 import { useHealthData } from '@/contexts/health-data';
+import { ChevronLeft, ChevronRight, Pill, RefreshCw, Syringe } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const USE_THREE_COLUMNS = SCREEN_WIDTH >= 375;
 
@@ -225,7 +224,7 @@ export default function LogDoseScreen() {
           accessibilityLabel="Go back"
           accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+          <ChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
@@ -251,11 +250,11 @@ export default function LogDoseScreen() {
             accessibilityLabel={`Medication: ${medication}, ${doseLabel}. Tap to edit treatment`}
             accessibilityRole="button"
           >
-            <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={13} color={colors.textMuted} />
+            {isOral ? <Pill size={13} color={colors.textMuted} /> : <Syringe size={13} color={colors.textMuted} />}
             <Text style={s.medRowText} numberOfLines={1}>
               {medication} · {doseLabel}
             </Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+            <ChevronRight size={14} color={colors.textMuted} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -266,7 +265,7 @@ export default function LogDoseScreen() {
 
             {recommendedSite && (
               <View style={s.rotateRow}>
-                <Ionicons name="sync-outline" size={13} color={ORANGE} />
+                <RefreshCw size={13} color={colors.orange} />
                 <Text style={s.rotateText}>
                   Rotate to <Text style={s.rotateBold}>{recommendedSite}</Text>
                 </Text>
@@ -411,7 +410,7 @@ export default function LogDoseScreen() {
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <View style={s.saveBtnInner}>
-                <FontAwesome5 name={isOral ? 'pills' : 'syringe'} size={16} color="#FFF" />
+                {isOral ? <Pill size={16} color="#FFF" /> : <Syringe size={16} color="#FFF" />}
                 <Text style={s.saveBtnText}>{isOral ? 'Save Dose' : 'Save Injection'}</Text>
               </View>
             )}
@@ -496,7 +495,7 @@ const createStyles = (c: AppColors) => {
     sectionLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
       marginBottom: 14,
@@ -524,7 +523,7 @@ const createStyles = (c: AppColors) => {
     },
     rotateBold: {
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
     },
 
     // ── Site grid ──
@@ -541,8 +540,8 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 6,
     },
     siteBtnActive: {
-      backgroundColor: ORANGE,
-      shadowColor: ORANGE,
+      backgroundColor: c.orange,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.35,
       shadowRadius: 14,
@@ -569,7 +568,7 @@ const createStyles = (c: AppColors) => {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       opacity: 0.6,
     },
     otherBtn: {
@@ -583,7 +582,7 @@ const createStyles = (c: AppColors) => {
       marginTop: 10,
       height: 48,
       borderWidth: 1.5,
-      borderColor: ORANGE,
+      borderColor: c.orange,
       borderRadius: 14,
       paddingHorizontal: 14,
       fontSize: 16,
@@ -657,10 +656,10 @@ const createStyles = (c: AppColors) => {
     saveBtn: {
       height: 56,
       borderRadius: 18,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.4,
       shadowRadius: 16,

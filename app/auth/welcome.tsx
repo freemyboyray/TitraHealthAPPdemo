@@ -7,7 +7,6 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const ORANGE = '#FF742A';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -85,7 +84,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontFamily: 'System',
   },
   headlineAccent: {
-    color: ORANGE,
+    color: c.orange,
     fontWeight: '800',
   },
   subtext: {
@@ -100,7 +99,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     alignItems: 'flex-end',
   },
   loginBtn: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     width: 90,
     height: 90,
     borderRadius: 45,

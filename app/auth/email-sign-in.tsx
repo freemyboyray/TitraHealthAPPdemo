@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -23,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft } from 'lucide-react-native';
 
 const FONT = 'System';
 
@@ -101,7 +101,7 @@ export default function EmailSignInScreen() {
               onPress={() => router.back()}
               hitSlop={12}
             >
-              <Ionicons name="chevron-back" size={22} color={c.textPrimary} />
+              <ChevronLeft size={22} color={c.textPrimary} />
             </TouchableOpacity>
 
             <View style={s.spacer} />

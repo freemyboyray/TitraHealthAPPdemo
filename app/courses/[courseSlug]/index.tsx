@@ -1,4 +1,3 @@
-import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -6,15 +5,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { contentCategoryColor } from '@/constants/theme';
+import { contentCategoryColor, ORANGE } from '@/constants/theme';
 import { useCoursesStore } from '@/stores/courses-store';
 import { CourseProgressRing } from '@/components/courses/course-progress-ring';
 import { LessonRow } from '@/components/courses/lesson-row';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { ChevronLeft } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const COURSE_HERO_IMAGES: Record<string, any> = {};
 
@@ -26,9 +26,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function renderIcon(name: string, iconSet: string, size: number, color: string) {
-  if (iconSet === 'MaterialIcons') return <MaterialIcons name={name as any} size={size} color={color} />;
-  if (iconSet === 'MaterialCommunityIcons') return <MaterialCommunityIcons name={name as any} size={size} color={color} />;
-  return <Ionicons name={name as any} size={size} color={color} />;
+  return <LucideIconByName name={name} size={size} color={color} />;
 }
 
 export default function CourseDetailScreen() {
@@ -61,7 +59,7 @@ export default function CourseDetailScreen() {
   if (!course) {
     return (
       <View style={s.root}>
-        <ActivityIndicator size="large" color={ORANGE} style={{ marginTop: 100 }} />
+        <ActivityIndicator size="large" color={colors.orange} style={{ marginTop: 100 }} />
       </View>
     );
   }
@@ -89,7 +87,7 @@ export default function CourseDetailScreen() {
         {/* Back button — overlaid on image */}
         <View style={[s.backBtnWrap, { top: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -111,7 +109,7 @@ export default function CourseDetailScreen() {
               total={course.lesson_count}
               size={44}
               strokeWidth={3}
-              color={allDone ? '#27AE60' : ORANGE}
+              color={allDone ? '#27AE60' : colors.orange}
               trackColor={colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}
             />
             <View>
@@ -131,7 +129,7 @@ export default function CourseDetailScreen() {
         ) : (
           <View style={s.lessonsCard}>
             {lessons.length === 0 ? (
-              <ActivityIndicator size="small" color={ORANGE} style={{ paddingVertical: 20 }} />
+              <ActivityIndicator size="small" color={colors.orange} style={{ paddingVertical: 20 }} />
             ) : (
               lessons.map((lesson, i) => (
                 <LessonRow

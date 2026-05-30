@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -33,25 +32,26 @@ import type { AppColors } from '@/constants/theme';
 import { cardElevation } from '@/constants/theme';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
+import { ChevronLeft, Clock, Dumbbell, Flame, Footprints } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const USE_THREE_COLUMNS = SCREEN_WIDTH >= 375;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
 
 const WORKOUT_TYPE_DATA = [
-  { key: 'Walking',  label: 'Walking',  icon: 'walk-outline' },
-  { key: 'Running',  label: 'Running',  icon: 'fitness-outline' },
-  { key: 'Cycling',  label: 'Cycling',  icon: 'bicycle-outline' },
-  { key: 'Strength', label: 'Strength', icon: 'barbell-outline' },
-  { key: 'HIIT',     label: 'HIIT',     icon: 'flash-outline' },
-  { key: 'Yoga',     label: 'Yoga',     icon: 'body-outline' },
-  { key: 'Pilates',  label: 'Pilates',  icon: 'fitness-outline' },
-  { key: 'Swimming', label: 'Swimming', icon: 'water-outline' },
-  { key: 'Other',    label: 'Other',    icon: 'ellipsis-horizontal-outline' },
+  { key: 'Walking',  label: 'Walking',  icon: 'Footprints' },
+  { key: 'Running',  label: 'Running',  icon: 'Dumbbell' },
+  { key: 'Cycling',  label: 'Cycling',  icon: 'Bike' },
+  { key: 'Strength', label: 'Strength', icon: 'Dumbbell' },
+  { key: 'HIIT',     label: 'HIIT',     icon: 'Zap' },
+  { key: 'Yoga',     label: 'Yoga',     icon: 'PersonStanding' },
+  { key: 'Pilates',  label: 'Pilates',  icon: 'Dumbbell' },
+  { key: 'Swimming', label: 'Swimming', icon: 'Droplet' },
+  { key: 'Other',    label: 'Other',    icon: 'MoreHorizontal' },
 ] as const;
 
 const STEPS_PER_MIN: Record<string, number> = {
@@ -173,7 +173,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
               letterSpacing: -2,
               minWidth: 60,
               borderBottomWidth: 2,
-              borderBottomColor: ORANGE,
+              borderBottomColor: colors.orange,
               paddingBottom: 2,
             }}
             value={editText}
@@ -201,7 +201,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           <Text style={{
             fontSize: 20,
             fontWeight: '700',
-            color: ORANGE,
+            color: colors.orange,
             marginBottom: 8,
           }}>
             {unit}
@@ -236,7 +236,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           width: `${progress * 100}%`,
           height: 6,
           borderRadius: 3,
-          backgroundColor: ORANGE,
+          backgroundColor: colors.orange,
         }} />
         <View style={{
           position: 'absolute',
@@ -247,7 +247,7 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           borderRadius: 14,
           backgroundColor: '#FFFFFF',
           borderWidth: 2.5,
-          borderColor: ORANGE,
+          borderColor: colors.orange,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.18,
@@ -444,7 +444,7 @@ export default function LogActivityScreen() {
           accessibilityLabel="Go back"
           accessibilityRole="button"
         >
-          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+          <ChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
@@ -482,12 +482,11 @@ export default function LogActivityScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                   >
-                    <Ionicons
-                      name={t.icon as any}
-                      size={20}
-                      color={active ? '#FFFFFF' : colors.textSecondary}
-                      style={{ marginBottom: 4 }}
-                    />
+                    <View style={{ marginBottom: 4 }}>
+                      <LucideIconByName name={t.icon as any}
+                        size={20}
+                        color={active ? '#FFFFFF' : colors.textSecondary} />
+                    </View>
                     <Text style={[s.typeBtnText, active ? s.typeBtnTextActive : s.typeBtnTextInactive]}>
                       {t.label}
                     </Text>
@@ -502,12 +501,12 @@ export default function LogActivityScreen() {
         <Animated.View style={summaryAnim}>
           <View style={s.summaryRow}>
             <View style={s.summaryItem}>
-              <Ionicons name="flame-outline" size={13} color={colors.textMuted} />
+              <Flame size={13} color={colors.textMuted} />
               <Text style={s.summaryText}>{estCalories} cal</Text>
             </View>
             <Text style={s.summaryDot}>·</Text>
             <View style={s.summaryItem}>
-              <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+              <Clock size={13} color={colors.textMuted} />
               <Text style={s.summaryText}>{durationMin} min</Text>
             </View>
             <Text style={s.summaryDot}>·</Text>
@@ -521,7 +520,7 @@ export default function LogActivityScreen() {
               accessibilityLabel={`Steps: ${stepsValue}. Tap to edit`}
               accessibilityRole="button"
             >
-              <Ionicons name="footsteps-outline" size={13} color={colors.textMuted} />
+              <Footprints size={13} color={colors.textMuted} />
               {editingSteps ? (
                 <TextInput
                   style={s.stepsInlineInput}
@@ -620,7 +619,7 @@ export default function LogActivityScreen() {
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <View style={s.saveBtnInner}>
-                <Ionicons name="fitness-outline" size={16} color="#FFF" />
+                <Dumbbell size={16} color="#FFF" />
                 <Text style={s.saveBtnText}>Log Activity</Text>
               </View>
             )}
@@ -687,7 +686,7 @@ const createStyles = (c: AppColors) => {
     sectionLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
       marginBottom: 14,
@@ -713,8 +712,8 @@ const createStyles = (c: AppColors) => {
       paddingHorizontal: 6,
     },
     typeBtnActive: {
-      backgroundColor: ORANGE,
-      shadowColor: ORANGE,
+      backgroundColor: c.orange,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.35,
       shadowRadius: 14,
@@ -768,7 +767,7 @@ const createStyles = (c: AppColors) => {
       color: c.textPrimary,
       minWidth: 50,
       borderBottomWidth: 1,
-      borderBottomColor: ORANGE,
+      borderBottomColor: c.orange,
       paddingVertical: 0,
       paddingHorizontal: 2,
     },
@@ -788,7 +787,7 @@ const createStyles = (c: AppColors) => {
     resetLink: {
       fontSize: 13,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
     },
 
     // ── Duration & Intensity card ──
@@ -846,10 +845,10 @@ const createStyles = (c: AppColors) => {
     saveBtn: {
       height: 56,
       borderRadius: 18,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.4,
       shadowRadius: 16,

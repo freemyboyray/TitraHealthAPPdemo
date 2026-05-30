@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
@@ -17,8 +16,9 @@ import type { AppColors } from '@/constants/theme';
 import { applyCheckinAdjustments, type CheckinScores } from '@/lib/checkin-adjustments';
 import { computeBaseTargets } from '@/lib/targets';
 import { useUiStore } from '@/stores/ui-store';
+import { AlertCircle, ArrowDown, ArrowRight, ArrowUp, CircleCheck, Droplet, Flame, Footprints, Grip, MessageCircle, Sparkles, Utensils } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const GREEN  = '#34C759';
 const BLUE   = '#5AC8FA';
 const FF     = 'System';
@@ -34,14 +34,14 @@ const DOMAIN_ORDER: DomainKey[] = [
   'sleep_quality', 'activity_quality', 'mental_health',
 ];
 
-const DOMAIN_META: Record<DomainKey, { label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
-  gi_burden:        { label: 'GI Symptoms',   icon: 'medical-outline' },
-  energy_mood:      { label: 'Energy & Mood', icon: 'flash-outline' },
-  appetite:         { label: 'Appetite',       icon: 'restaurant-outline' },
-  food_noise:       { label: 'Food Noise',     icon: 'volume-medium-outline' },
-  sleep_quality:    { label: 'Sleep',          icon: 'moon-outline' },
-  activity_quality: { label: 'Activity',       icon: 'barbell-outline' },
-  mental_health:    { label: 'Mental Health',  icon: 'heart-outline' },
+const DOMAIN_META: Record<DomainKey, { label: string; icon: string }> = {
+  gi_burden:        { label: 'GI Symptoms',   icon: 'Hospital' },
+  energy_mood:      { label: 'Energy & Mood', icon: 'Zap' },
+  appetite:         { label: 'Appetite',       icon: 'Utensils' },
+  food_noise:       { label: 'Food Noise',     icon: 'Volume2' },
+  sleep_quality:    { label: 'Sleep',          icon: 'Moon' },
+  activity_quality: { label: 'Activity',       icon: 'Dumbbell' },
+  mental_health:    { label: 'Mental Health',  icon: 'Heart' },
 };
 
 // ─── Explanation copy (GLP-1 specific, score-bucketed) ────────────────────────
@@ -205,7 +205,7 @@ export default function WeeklyCheckinResultScreen() {
 
     const calDiff = adjusted.caloriesTarget - baseWithActive.caloriesTarget;
     if (Math.abs(calDiff) >= 50) rows.push({
-      icon: <MaterialIcons name="local-fire-department" size={18} color={ORANGE} />,
+      icon: <Flame size={18} color={colors.orange} />,
       label: 'Daily Calories',
       before: `${baseWithActive.caloriesTarget} cal`,
       after:  `${adjusted.caloriesTarget} cal`,
@@ -218,7 +218,7 @@ export default function WeeklyCheckinResultScreen() {
 
     const stepsDiff = adjusted.steps - baseWithActive.steps;
     if (Math.abs(stepsDiff) >= 200) rows.push({
-      icon: <MaterialIcons name="directions-walk" size={18} color={GREEN} />,
+      icon: <Footprints size={18} color={GREEN} />,
       label: 'Daily Steps',
       before: `${baseWithActive.steps.toLocaleString()}`,
       after:  `${adjusted.steps.toLocaleString()}`,
@@ -231,7 +231,7 @@ export default function WeeklyCheckinResultScreen() {
 
     const proteinDiff = adjusted.proteinG - baseWithActive.proteinG;
     if (Math.abs(proteinDiff) >= 1) rows.push({
-      icon: <MaterialIcons name="restaurant" size={18} color={ORANGE} />,
+      icon: <Utensils size={18} color={colors.orange} />,
       label: 'Daily Protein',
       before: `${baseWithActive.proteinG}g`,
       after:  `${adjusted.proteinG}g`,
@@ -243,7 +243,7 @@ export default function WeeklyCheckinResultScreen() {
     const waterDiffMl = adjusted.waterMl - baseWithActive.waterMl;
     const waterDiffOz = mlToOz(Math.abs(waterDiffMl));
     if (waterDiffOz >= 2) rows.push({
-      icon: <Ionicons name="water-outline" size={18} color={BLUE} />,
+      icon: <Droplet size={18} color={BLUE} />,
       label: 'Daily Water',
       before: `${mlToOz(baseWithActive.waterMl)} oz`,
       after:  `${mlToOz(adjusted.waterMl)} oz`,
@@ -254,7 +254,7 @@ export default function WeeklyCheckinResultScreen() {
 
     const carbsDiff = adjusted.carbsG - baseWithActive.carbsG;
     if (Math.abs(carbsDiff) >= 3) rows.push({
-      icon: <MaterialIcons name="grain" size={18} color="#F6CB45" />,
+      icon: <Grip size={18} color="#F6CB45" />,
       label: 'Daily Carbs',
       before: `${baseWithActive.carbsG}g`,
       after:  `${adjusted.carbsG}g`,
@@ -292,7 +292,7 @@ export default function WeeklyCheckinResultScreen() {
         paddingHorizontal: 20, paddingTop: insets.top + 14, paddingBottom: 14,
       }}>
         <View style={s.pill}>
-          <Ionicons name="checkmark-circle" size={13} color={ORANGE} style={{ marginRight: 4 }} />
+          <CircleCheck size={13} color={colors.orange} style={{ marginRight: 4 }} />
           <Text style={s.pillText}>Check-In Complete</Text>
         </View>
       </View>
@@ -312,7 +312,7 @@ export default function WeeklyCheckinResultScreen() {
             overflow: 'hidden',
           }]}>
             <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Ionicons name="alert-circle" size={22} color="#F6CB45" />
+              <AlertCircle size={22} color="#F6CB45" />
               <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
                 Your mental health responses suggest it may be helpful to speak with your healthcare provider this week.
               </Text>
@@ -355,7 +355,7 @@ export default function WeeklyCheckinResultScreen() {
                         backgroundColor: colors.orangeDim,
                         alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <Ionicons name={meta.icon} size={15} color={colors.orange} />
+                        <LucideIconByName name={meta.icon} size={15} color={colors.orange} />
                       </View>
                       <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                         {meta.label}
@@ -388,7 +388,7 @@ export default function WeeklyCheckinResultScreen() {
               <Text style={s.sectionTitle}>THIS WEEK'S ADJUSTMENTS</Text>
 
               {metricRows.map((row, i) => {
-                const arrowColor = row.increased ? ORANGE : BLUE;
+                const arrowColor = row.increased ? colors.orange : BLUE;
                 const isLast     = i === metricRows.length - 1;
                 return (
                   <View
@@ -414,11 +414,13 @@ export default function WeeklyCheckinResultScreen() {
                         paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20,
                         backgroundColor: row.increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)',
                       }}>
-                        <Ionicons
-                          name={row.increased ? 'arrow-up' : 'arrow-down'}
+                        {row.increased ? <ArrowUp
                           size={11}
                           color={arrowColor}
-                        />
+                        /> : <ArrowDown
+                          size={11}
+                          color={arrowColor}
+                        />}
                         <Text style={{ fontSize: 14, fontWeight: '800', color: arrowColor, fontFamily: FF }}>
                           {row.delta}
                         </Text>
@@ -429,7 +431,7 @@ export default function WeeklyCheckinResultScreen() {
                       <Text style={{ fontSize: 20, fontWeight: '300', color: w(0.35), fontFamily: FF }}>
                         {row.before}
                       </Text>
-                      <Ionicons name="arrow-forward" size={14} color={w(0.25)} />
+                      <ArrowRight size={14} color={w(0.25)} />
                       <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>
                         {row.after}
                       </Text>
@@ -445,7 +447,7 @@ export default function WeeklyCheckinResultScreen() {
         ) : (
           <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
             <View style={{ padding: 20, alignItems: 'center' }}>
-              <Ionicons name="checkmark-circle" size={28} color={GREEN} style={{ marginBottom: 8 }} />
+              <CircleCheck size={28} color={GREEN} style={{ marginBottom: 8 }} />
               <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
                 No adjustments needed
               </Text>
@@ -465,7 +467,7 @@ export default function WeeklyCheckinResultScreen() {
                 backgroundColor: colors.orangeDim,
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <MaterialIcons name="auto-awesome" size={16} color={colors.orange} />
+                <Sparkles size={16} color={colors.orange} />
               </View>
               <Text style={{ fontSize: 12, fontWeight: '800', color: colors.orange, fontFamily: FF, letterSpacing: 1.5 }}>
                 AI COACH
@@ -493,7 +495,7 @@ export default function WeeklyCheckinResultScreen() {
                   })}
                 >
                   <Text style={s.chipText}>{chip}</Text>
-                  <Ionicons name="arrow-forward" size={13} color={ORANGE} style={{ marginLeft: 2 }} />
+                  <ArrowRight size={13} color={colors.orange} style={{ marginLeft: 2 }} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -508,7 +510,7 @@ export default function WeeklyCheckinResultScreen() {
                 chips: JSON.stringify(aiChips),
               })}
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFF" />
+              <MessageCircle size={18} color="#FFF" />
               <Text style={s.askBtnText}>Ask anything</Text>
             </TouchableOpacity>
           </View>

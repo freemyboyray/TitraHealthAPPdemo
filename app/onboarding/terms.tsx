@@ -10,8 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useProfile } from '@/contexts/profile-context';
@@ -25,6 +23,7 @@ import {
   AI_SECTIONS,
 } from '@/constants/legal';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { ChevronRight, FileText, Lock, Sparkles, X } from 'lucide-react-native';
 
 const FF = 'System';
 const TERMS_URL = 'https://titrahealth.io/terms-conditions';
@@ -73,9 +72,9 @@ export default function TermsScreen() {
             accessibilityLabel="Terms of Use"
             accessibilityRole="link"
           >
-            <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
+            <FileText size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Terms of Use</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -85,9 +84,9 @@ export default function TermsScreen() {
             accessibilityLabel="Privacy Policy"
             accessibilityRole="link"
           >
-            <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
+            <Lock size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Privacy Policy</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -97,9 +96,9 @@ export default function TermsScreen() {
             accessibilityLabel="AI Disclosure"
             accessibilityRole="link"
           >
-            <Ionicons name="sparkles-outline" size={22} color={colors.textSecondary} />
+            <Sparkles size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>AI Disclosure</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -121,7 +120,7 @@ export default function TermsScreen() {
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>AI Disclosure</Text>
             <TouchableOpacity onPress={() => setAiOpen(false)} style={s.modalClose} hitSlop={12} accessibilityLabel="Close AI Disclosure" accessibilityRole="button">
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
+              <X size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
           <ScrollView

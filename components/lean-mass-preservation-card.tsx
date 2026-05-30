@@ -5,7 +5,6 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import type { LeanPreservationResult } from '@/lib/body-composition';
 
-const ORANGE = '#FF742A';
 
 // Clinical trial benchmarks for lean mass loss as % of total weight lost
 const BENCHMARKS = [
@@ -210,7 +209,7 @@ const createStyles = (c: AppColors) => {
     recsTitle: {
       fontSize: 14,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       marginBottom: 8,
     },
     recItem: {

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -23,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, Mail } from 'lucide-react-native';
 
 const FONT = 'System';
 const MIN_PASSWORD_LENGTH = 8;
@@ -187,7 +187,7 @@ export default function SignUpScreen() {
                 }}
                 hitSlop={12}
               >
-                <Ionicons name="chevron-back" size={22} color={c.textPrimary} />
+                <ChevronLeft size={22} color={c.textPrimary} />
               </TouchableOpacity>
 
               <View style={s.spacer} />
@@ -195,7 +195,7 @@ export default function SignUpScreen() {
               <Animated.View style={contentAnim}>
                 {/* ── Title with mail icon ── */}
                 <View style={s.titleSection}>
-                  <Ionicons name="mail-outline" size={48} color={c.orange} style={s.otpIcon} />
+                  <Mail size={48} color={c.orange} style={s.otpIcon} />
                   <Text style={s.title}>Verify your email</Text>
                   <Text style={s.subtitle}>
                     Enter the 6-digit code we sent to{'\n'}
@@ -289,7 +289,7 @@ export default function SignUpScreen() {
               onPress={() => router.back()}
               hitSlop={12}
             >
-              <Ionicons name="chevron-back" size={22} color={c.textPrimary} />
+              <ChevronLeft size={22} color={c.textPrimary} />
             </TouchableOpacity>
 
             <View style={s.spacer} />

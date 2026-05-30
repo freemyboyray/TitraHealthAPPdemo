@@ -5,15 +5,27 @@ import { Platform } from 'react-native';
 export type AppColors = {
   bg: string;
   surface: string;
-  /** Card background — #111111 dark / #FFFFFF light. Cards stand out from the page bg. */
+  /** Card background — warm charcoal dark / white light. Cards stand out from the page bg. */
   cardBg: string;
+  /** Elevated surface for modals, sheets, and popovers — highest depth tier. */
+  surfaceElevated: string;
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
+  /** Warm amber for eyebrow labels and section headers (non-interactive). */
+  textLabel: string;
   orange: string;
   orangeDim: string;
+  /** Secondary warm amber/gold accent for decorative highlights. */
+  accentWarm: string;
+  /** Dim background tint for warm accent areas. */
+  accentWarmDim: string;
   border: string;
   borderSubtle: string;
+  /** Dedicated warm card border — slightly softer than general border. */
+  cardBorder: string;
+  /** Subtle in-card horizontal dividers. */
+  divider: string;
   glassOverlay: string;
   shadowColor: string;
   ringTrack: string;
@@ -28,44 +40,56 @@ export type AppColors = {
 // ─── Dark palette (default) ────────────────────────────────────────────────────
 
 export const darkColors: AppColors = {
-  bg: '#111111',
-  surface: '#000000',
-  cardBg: '#000000',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#9A9490',
-  textMuted: '#5A5754',
+  bg: '#0E0D0C',
+  surface: '#1A1815',
+  cardBg: '#211F1B',
+  surfaceElevated: '#282420',
+  textPrimary: '#FAF8F5',
+  textSecondary: '#A89E96',
+  textMuted: '#6B6560',
+  textLabel: '#C4946A',
   orange: '#FF742A',
-  orangeDim: 'rgba(255,116,42,0.15)',
-  border: 'rgba(255,255,255,0.18)',
-  borderSubtle: 'rgba(255,255,255,0.08)',
-  glassOverlay: 'rgba(255,255,255,0.02)',
-  shadowColor: '#000000',
-  ringTrack: 'rgba(255,255,255,0.06)',
+  orangeDim: 'rgba(255,116,42,0.12)',
+  accentWarm: '#D4A574',
+  accentWarmDim: 'rgba(212,165,116,0.12)',
+  border: 'rgba(210,190,170,0.14)',
+  borderSubtle: 'rgba(210,190,170,0.07)',
+  cardBorder: 'rgba(210,190,170,0.10)',
+  divider: 'rgba(210,190,170,0.06)',
+  glassOverlay: 'rgba(220,200,180,0.03)',
+  shadowColor: '#080604',
+  ringTrack: 'rgba(210,190,170,0.06)',
   blurTint: 'systemThinMaterialDark',
   statusBar: 'light',
-  heroGradient: ['#5C3324', '#8B4A2B', '#C4652A', '#111111'] as const,
+  heroGradient: ['#4A2A1C', '#7A4028', '#C4652A', '#0E0D0C'] as const,
   isDark: true,
 };
 
 // ─── Light palette ─────────────────────────────────────────────────────────────
 
 export const lightColors: AppColors = {
-  bg: '#F2F2F7',
-  surface: '#FFFFFF',
+  bg: '#F5F3EF',
+  surface: '#FDFCFA',
   cardBg: '#FFFFFF',
-  textPrimary: '#1A1A1A',
-  textSecondary: '#6B6965',
-  textMuted: '#9A9690',
+  surfaceElevated: '#FFFFFF',
+  textPrimary: '#1C1816',
+  textSecondary: '#7A726A',
+  textMuted: '#A09890',
+  textLabel: '#A0714A',
   orange: '#E8652A',
-  orangeDim: 'rgba(232,101,42,0.10)',
-  border: 'rgba(0,0,0,0.06)',
-  borderSubtle: 'rgba(0,0,0,0.03)',
-  glassOverlay: 'rgba(0,0,0,0.02)',
-  shadowColor: 'rgba(30,40,80,1)',
+  orangeDim: 'rgba(232,101,42,0.08)',
+  accentWarm: '#B07D52',
+  accentWarmDim: 'rgba(176,125,82,0.08)',
+  border: 'rgba(80,60,40,0.07)',
+  borderSubtle: 'rgba(80,60,40,0.04)',
+  cardBorder: 'rgba(80,60,40,0.06)',
+  divider: 'rgba(80,60,40,0.05)',
+  glassOverlay: 'rgba(80,60,40,0.02)',
+  shadowColor: 'rgba(40,30,20,1)',
   ringTrack: 'rgba(0,0,0,0.04)',
   blurTint: 'systemThinMaterialLight',
   statusBar: 'dark',
-  heroGradient: ['#D4845A', '#E8975A', '#F2A96B', '#F2F2F7'] as const,
+  heroGradient: ['#C4785A', '#DC8E5A', '#EDAB78', '#F5F3EF'] as const,
   isDark: false,
 };
 
@@ -93,13 +117,14 @@ export function statusColor(isDark: boolean) {
 
 export const CATEGORY_COLORS: Record<string, { dark: string; light: string }> = {
   medication:  { dark: '#FF742A', light: '#E8652A' },
-  nutrition:   { dark: '#34C759', light: '#28A745' },
-  hydration:   { dark: '#5AC8FA', light: '#2A9FD6' },
-  activity:    { dark: '#5B8BF5', light: '#3D6FE0' },
-  vitals:      { dark: '#FF3B30', light: '#D63031' },
+  nutrition:   { dark: '#3CC75E', light: '#28A745' },
+  fiber:       { dark: '#E8A838', light: '#D4922E' },
+  hydration:   { dark: '#5CBFE8', light: '#2A9FD6' },
+  activity:    { dark: '#6088E8', light: '#3D6FE0' },
+  vitals:      { dark: '#FF4438', light: '#D63031' },
   body:        { dark: '#AF52DE', light: '#9B37C4' },
   sleep:       { dark: '#5856D6', light: '#4A48B8' },
-  mindfulness: { dark: '#FF9500', light: '#E8860A' },
+  mindfulness: { dark: '#F0920A', light: '#E8860A' },
   glucose:     { dark: '#FF2D55', light: '#E0264A' },
 };
 
@@ -115,7 +140,7 @@ const FOCUS_TO_CATEGORY: Record<string, string> = {
   injection: 'medication',
   hydration: 'hydration',
   protein:   'nutrition',
-  fiber:     'nutrition',
+  fiber:     'fiber',
   activity:  'activity',
   sleep:     'sleep',
   recovery:  'vitals',
@@ -187,18 +212,18 @@ export const FONT_FAMILY  = 'System';
 
 // ─── Back-compat flat exports (dark values) ───────────────────────────────────
 
-export const BG_BASE        = '#000000';
-export const BG_SURFACE     = '#000000';
-export const BG_SURFACE2    = '#000000';
+export const BG_BASE        = '#0E0D0C';
+export const BG_SURFACE     = '#1A1815';
+export const BG_SURFACE2    = '#211F1B';
 export const CARD_BORDER_WIDTH = 0.5;
-export const CARD_BORDER_COLOR = 'rgba(255,255,255,0.18)';
-export const ORANGE_DIM     = 'rgba(255,116,42,0.15)';
-export const TEXT_PRIMARY   = '#FFFFFF';
-export const TEXT_SECONDARY = '#9A9490';
-export const TEXT_MUTED     = '#5A5754';
-export const BORDER_SUBTLE  = 'rgba(255,255,255,0.08)';
-export const GLASS_OVERLAY  = 'rgba(255,255,255,0.04)';
-export const SHADOW_COLOR   = '#000000';
+export const CARD_BORDER_COLOR = 'rgba(210,190,170,0.14)';
+export const ORANGE_DIM     = 'rgba(255,116,42,0.12)';
+export const TEXT_PRIMARY   = '#FAF8F5';
+export const TEXT_SECONDARY = '#A89E96';
+export const TEXT_MUTED     = '#6B6560';
+export const BORDER_SUBTLE  = 'rgba(210,190,170,0.07)';
+export const GLASS_OVERLAY  = 'rgba(220,200,180,0.03)';
+export const SHADOW_COLOR   = '#080604';
 
 // ─── Legacy Colors object (kept for compatibility) ────────────────────────────
 
@@ -235,7 +260,7 @@ export function cardElevation(isDark: boolean): {
 } {
   if (isDark) {
     return {
-      shadowColor: '#000000',
+      shadowColor: '#080604',
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.20,
       shadowRadius: 20,
@@ -243,7 +268,7 @@ export function cardElevation(isDark: boolean): {
     };
   }
   return {
-    shadowColor: 'rgba(30,40,80,1)',
+    shadowColor: 'rgba(40,30,20,1)',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 6,

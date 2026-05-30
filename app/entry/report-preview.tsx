@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -15,8 +14,8 @@ import { WebView } from 'react-native-webview';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { AlertCircle, ChevronLeft, Download, Share2 } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 function formatDateDisplay(d: string): string {
@@ -64,7 +63,7 @@ export default function ReportPreviewScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+          <ChevronLeft size={22} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>Provider Report</Text>
@@ -92,7 +91,7 @@ export default function ReportPreviewScreen() {
         </View>
       ) : (
         <View style={s.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="rgba(255,255,255,0.3)" />
+          <AlertCircle size={48} color="rgba(255,255,255,0.3)" />
           <Text style={s.errorText}>Report not available</Text>
         </View>
       )}
@@ -101,12 +100,12 @@ export default function ReportPreviewScreen() {
       <BlurView intensity={30} tint="dark" style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
         <View style={s.actionRow}>
           <TouchableOpacity style={s.secondaryBtn} onPress={handleDownload}>
-            <Ionicons name="download-outline" size={20} color="#fff" />
+            <Download size={20} color="#fff" />
             <Text style={s.secondaryBtnText}>Save</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.primaryBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="#fff" />
+            <Share2 size={20} color="#fff" />
             <Text style={s.primaryBtnText}>Share with Provider</Text>
           </TouchableOpacity>
         </View>
@@ -225,7 +224,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     gap: 8,
     height: 50,
     borderRadius: 14,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
   },
   primaryBtnText: {
     color: '#fff',

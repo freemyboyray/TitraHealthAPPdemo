@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft } from 'lucide-react-native';
 
 type Props = {
   step: number;
@@ -24,7 +24,7 @@ export function OnboardingHeader({ step, total, onBack }: Props) {
       <View style={s.row}>
         {step > 1 && onBack ? (
           <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.isDark ? '#FFFFFF' : 'rgba(0,0,0,0.7)'} />
+            <ChevronLeft size={24} color={colors.isDark ? '#FFFFFF' : 'rgba(0,0,0,0.7)'} />
           </TouchableOpacity>
         ) : (
           <View style={s.backPlaceholder} />

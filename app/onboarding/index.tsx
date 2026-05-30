@@ -8,7 +8,6 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const STATS = [
   { number: '60+', label: 'Studies' },
@@ -93,7 +92,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginBottom: 40,
   },
   titleAccent: {
-    color: ORANGE,
+    color: c.orange,
   },
 
   // Stats card

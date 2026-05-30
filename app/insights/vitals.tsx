@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -11,6 +10,7 @@ import {
 import type { AppColors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
+import { ChevronLeft } from 'lucide-react-native';
 
 export default function VitalsDetailScreen() {
   const { colors } = useAppTheme();
@@ -23,7 +23,7 @@ export default function VitalsDetailScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Vitals</Text>
         <View style={s.backBtn} />

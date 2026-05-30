@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -14,6 +13,7 @@ import {
   BRAND_STARTING_DOSE,
 } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
+import { CircleCheck, Info } from 'lucide-react-native';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -53,7 +53,7 @@ export function DoseSelector({
       {/* Titration info card */}
       {titration && (
         <View style={s.titrationCard}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.orange} style={{ marginRight: 8, marginTop: 1 }} />
+          <Info size={18} color={colors.orange} style={{ marginRight: 8, marginTop: 1 }} />
           <Text style={s.titrationText}>{titration}</Text>
         </View>
       )}
@@ -97,7 +97,7 @@ export function DoseSelector({
                 )}
                 {isSelected && (
                   <Animated.View entering={FadeIn.duration(150)}>
-                    <Ionicons name="checkmark-circle" size={22} color={colors.orange} />
+                    <CircleCheck size={22} color={colors.orange} />
                   </Animated.View>
                 )}
               </View>
@@ -124,7 +124,7 @@ export function DoseSelector({
           </Text>
           {selectedDose === 'custom' && (
             <Animated.View entering={FadeIn.duration(150)}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.orange} />
+              <CircleCheck size={22} color={colors.orange} />
             </Animated.View>
           )}
         </TouchableOpacity>

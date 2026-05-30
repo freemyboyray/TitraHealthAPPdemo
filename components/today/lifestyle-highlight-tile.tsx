@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
@@ -11,6 +10,7 @@ import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { localDateStr } from '@/lib/date-utils';
 import { runLifestylePipeline } from '@/lib/lifestyle-insights';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 export function LifestyleHighlightTile() {
   const { colors } = useAppTheme();
@@ -71,7 +71,7 @@ export function LifestyleHighlightTile() {
           backgroundColor: `${card.iconColor}22`,
           alignItems: 'center', justifyContent: 'center',
         }}>
-          <Ionicons name={card.icon as never} size={18} color={card.iconColor} />
+          <LucideIconByName name={card.icon as never} size={18} color={card.iconColor} />
         </View>
         <Text style={{
           fontSize: 11, fontWeight: '800', color: card.iconColor,

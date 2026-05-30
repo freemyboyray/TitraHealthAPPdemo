@@ -7,7 +7,6 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { ARTICLES } from '@/constants/articles';
 import { localDateStr } from '@/lib/date-utils';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 function pickDailyArticle(dateStr: string) {
@@ -48,7 +47,7 @@ export function ArticleOfDayTile() {
         {/* Right column */}
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{
-            fontSize: 11, fontWeight: '800', color: ORANGE,
+            fontSize: 11, fontWeight: '800', color: colors.orange,
             letterSpacing: 1.4, fontFamily: FF,
           }}>
             ARTICLE OF THE DAY

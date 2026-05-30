@@ -1,12 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 type Props = {
   bodyMarkdown: string | null;
@@ -177,11 +176,9 @@ function ChecklistRenderer({ items, colors }: { items: string[]; colors: AppColo
       <Text style={s.checkTitle}>Checklist</Text>
       {items.map((item, i) => (
         <Pressable key={i} style={s.checkRow} onPress={() => toggle(i)}>
-          <Ionicons
-            name={checked.has(i) ? 'checkbox' : 'square-outline'}
+          <LucideIconByName name={checked.has(i) ? 'checkbox' : 'square-outline'}
             size={20}
-            color={checked.has(i) ? '#27AE60' : 'rgba(255,255,255,0.3)'}
-          />
+            color={checked.has(i) ? '#27AE60' : 'rgba(255,255,255,0.3)'} />
           <Text style={[s.checkText, checked.has(i) && s.checkTextDone]}>{item}</Text>
         </Pressable>
       ))}
@@ -236,7 +233,7 @@ export function LessonContentRenderer({ bodyMarkdown, contentJson, contentType }
           <Text style={{
             fontSize: 14,
             fontWeight: '700',
-            color: ORANGE,
+            color: colors.orange,
             fontFamily: FF,
             letterSpacing: 1,
             marginBottom: 10,
@@ -341,14 +338,14 @@ const mdStyles = (c: AppColors) => {
     },
     bulletDot: {
       fontSize: 16,
-      color: ORANGE,
+      color: c.orange,
       fontFamily: FF,
       lineHeight: 22,
     },
     numberDot: {
       fontSize: 16,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       fontFamily: FF,
       lineHeight: 22,
       width: 24,
@@ -362,7 +359,7 @@ const mdStyles = (c: AppColors) => {
     },
     blockquote: {
       borderLeftWidth: 3,
-      borderLeftColor: ORANGE,
+      borderLeftColor: c.orange,
       paddingLeft: 14,
       marginVertical: 12,
       paddingVertical: 4,
@@ -407,7 +404,7 @@ const checkStyles = (c: AppColors) => {
     checkTitle: {
       fontSize: 14,
       fontWeight: '700',
-      color: ORANGE,
+      color: c.orange,
       fontFamily: 'System',
       letterSpacing: 1,
       marginBottom: 12,

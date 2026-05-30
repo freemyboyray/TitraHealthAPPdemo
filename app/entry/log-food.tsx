@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,10 +29,12 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthData } from '@/contexts/health-data';
 import { useUiStore } from '@/stores/ui-store';
 import type { AppColors } from '@/constants/theme';
+import { ORANGE } from '@/constants/theme';
+import { AlertCircle, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Images, Info, Mic, PlayCircle, PlusCircle, RefreshCw, ScanBarcode, Search, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 type Mode = 'search' | 'scan' | 'describe' | 'camera';
 
 const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
@@ -775,7 +776,7 @@ export default function LogFoodScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 22, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)' }]} />
           <GlassBorder r={22} />
-          <Ionicons name="chevron-back" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+          <ChevronLeft size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
         </TouchableOpacity>
 
         <Text style={s.headerTitle}>LOG MEALS</Text>
@@ -792,11 +793,9 @@ export default function LogFoodScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: mode === m }}
             >
-              <Ionicons
-                name={MODE_ICONS[m] as any}
+              <LucideIconByName name={MODE_ICONS[m] as any}
                 size={15}
-                color={mode === m ? colors.textPrimary : (colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)')}
-              />
+                color={mode === m ? colors.textPrimary : (colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)')} />
             </TouchableOpacity>
           ))}
         </View>
@@ -829,14 +828,14 @@ export default function LogFoodScreen() {
               )}
               {scanFetching && (
                 <View style={[StyleSheet.absoluteFillObject, s.scanLoadingOverlay]}>
-                  <ActivityIndicator size="large" color={ORANGE} />
+                  <ActivityIndicator size="large" color={colors.orange} />
                   <Text style={s.scanLoadingText}>Looking up product…</Text>
                 </View>
               )}
             </View>
           ) : (
             <View style={s.centered}>
-              <Ionicons name="barcode-outline" size={60} color={ORANGE} />
+              <ScanBarcode size={60} color={colors.orange} />
               <Text style={s.permTitle}>Camera Access Needed</Text>
               <Text style={s.permDesc}>Allow camera access to scan barcodes.</Text>
               <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8} accessibilityLabel="Allow camera access for barcode scanning" accessibilityRole="button">
@@ -888,7 +887,7 @@ export default function LogFoodScreen() {
                 </View>
               ) : (
                 <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Ionicons name="alert-circle-outline" size={36} color={ORANGE} style={{ marginBottom: 8 }} />
+                  <AlertCircle size={36} color={colors.orange} style={{ marginBottom: 8 }} />
                   <Text style={s.scanProductName}>Product Not Found</Text>
                   <Text style={{ color: colors.textSecondary, fontSize: 15, marginBottom: 16, textAlign: 'center' }}>
                     This barcode wasn't in the database. Try searching manually.
@@ -910,10 +909,10 @@ export default function LogFoodScreen() {
               <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
               <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
                 <TouchableOpacity onPress={handleRetakePhoto} style={s.cameraLibraryBtn} activeOpacity={0.75} accessibilityLabel="Retake photo" accessibilityRole="button">
-                  <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
+                  <RefreshCw size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85} accessibilityLabel="Analyze photo with AI" accessibilityRole="button">
-                  <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Sparkles size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
                   <Text style={s.cameraAnalyzeBtnText}>Analyze with AI</Text>
                 </TouchableOpacity>
                 <View style={{ width: 48 }} />
@@ -941,7 +940,7 @@ export default function LogFoodScreen() {
               {/* Shutter + library buttons */}
               <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
                 <TouchableOpacity onPress={handlePickLibrary} style={s.cameraLibraryBtn} activeOpacity={0.75} accessibilityLabel="Choose from photo library" accessibilityRole="button">
-                  <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+                  <Images size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85} accessibilityLabel="Take photo" accessibilityRole="button">
                   <View style={s.shutterInner} />
@@ -952,7 +951,7 @@ export default function LogFoodScreen() {
           ) : (
             /* ── Permission prompt ── */
             <View style={s.centered}>
-              <Ionicons name="camera-outline" size={60} color={ORANGE} />
+              <Camera size={60} color={colors.orange} />
               <Text style={s.permTitle}>Camera Access Needed</Text>
               <Text style={s.permDesc}>Allow camera access to take food photos.</Text>
               <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8} accessibilityLabel="Allow camera access for food photos" accessibilityRole="button">
@@ -979,7 +978,7 @@ export default function LogFoodScreen() {
                 <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
                 <View style={[StyleSheet.absoluteFillObject, s.searchBarOverlay]} />
                 <GlassBorder r={16} />
-                <Ionicons name="search-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                <Search size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
                 <TextInput
                   style={s.searchInput}
                   placeholder="Search foods, restaurants…"
@@ -993,7 +992,7 @@ export default function LogFoodScreen() {
                 />
                 {!!query && (
                   <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); setSuggestions([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={17} color={colors.textSecondary} />
+                    <XCircle size={17} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1008,7 +1007,7 @@ export default function LogFoodScreen() {
                       style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)' }}
                       activeOpacity={0.7}
                     >
-                      <Text style={{ fontSize: 14, color: ORANGE, fontWeight: '600' }}>{s}</Text>
+                      <Text style={{ fontSize: 14, color: colors.orange, fontWeight: '600' }}>{s}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -1035,11 +1034,9 @@ export default function LogFoodScreen() {
                           onPress={() => toggleFavorite(item.food_name)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons
-                            name={item.is_favorite ? 'star' : 'star-outline'}
+                          <LucideIconByName name={item.is_favorite ? 'star' : 'star-outline'}
                             size={16}
-                            color={item.is_favorite ? ORANGE : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
-                          />
+                            color={item.is_favorite ? colors.orange : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')} />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -1067,7 +1064,7 @@ export default function LogFoodScreen() {
                       </View>
                       <View style={s.resultRight}>
                         <Text style={s.resultCal}>{cf.calories_per_100g} cal</Text>
-                        <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+                        <ChevronRight size={14} color={colors.textSecondary} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -1091,7 +1088,7 @@ export default function LogFoodScreen() {
                       </View>
                       <View style={s.resultRight}>
                         <Text style={s.resultCal}>{meal.total_calories} cal</Text>
-                        <Ionicons name="play-circle-outline" size={18} color={ORANGE} />
+                        <PlayCircle size={18} color={colors.orange} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -1101,11 +1098,11 @@ export default function LogFoodScreen() {
               {/* Empty state — no query, no data yet */}
               {!query.trim() && recentFoods.length === 0 && customFoods.length === 0 && savedMeals.length === 0 && (
                 <View style={s.centered}>
-                  <Ionicons name="restaurant-outline" size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'} />
+                  <Utensils size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'} />
                   <Text style={[s.emptyText, { marginTop: 12 }]}>Search for a food or restaurant above</Text>
                   <Text style={[s.emptyText, { fontSize: 14, marginTop: 4 }]}>Your recent items and saved meals will appear here</Text>
                   <TouchableOpacity style={[s.createFoodBtn, { marginTop: 16 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
-                    <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
+                    <PlusCircle size={16} color={colors.orange} />
                     <Text style={s.createFoodText}>Create Custom Food</Text>
                   </TouchableOpacity>
                 </View>
@@ -1141,7 +1138,7 @@ export default function LogFoodScreen() {
               {!!query.trim() && (
                 searching ? (
                   <View style={s.centered}>
-                    <ActivityIndicator size="large" color={ORANGE} />
+                    <ActivityIndicator size="large" color={colors.orange} />
                   </View>
                 ) : searchResults.length > 0 ? (
                   <>
@@ -1160,7 +1157,7 @@ export default function LogFoodScreen() {
                         </View>
                         <View style={s.resultRight}>
                           {detailLoading === item.fdcId ? (
-                            <ActivityIndicator size="small" color={ORANGE} />
+                            <ActivityIndicator size="small" color={colors.orange} />
                           ) : (
                             <>
                               <Text style={s.resultCal}>{item.calories} cal</Text>
@@ -1171,7 +1168,7 @@ export default function LogFoodScreen() {
                       </TouchableOpacity>
                     ))}
                     <TouchableOpacity style={s.createFoodBtn} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
-                      <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
+                      <PlusCircle size={16} color={colors.orange} />
                       <Text style={s.createFoodText}>Create Custom Food</Text>
                     </TouchableOpacity>
                   </>
@@ -1179,7 +1176,7 @@ export default function LogFoodScreen() {
                   <View style={s.centered}>
                     <Text style={s.emptyText}>No results - try a different name</Text>
                     <TouchableOpacity style={[s.createFoodBtn, { marginTop: 12 }]} onPress={() => setShowCustomModal(true)} activeOpacity={0.8}>
-                      <Ionicons name="add-circle-outline" size={16} color={ORANGE} />
+                      <PlusCircle size={16} color={colors.orange} />
                       <Text style={s.createFoodText}>Create Custom Food</Text>
                     </TouchableOpacity>
                   </View>
@@ -1200,13 +1197,13 @@ export default function LogFoodScreen() {
                     <GlassBorder r={20} />
                     <View style={{ padding: 18 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }}>DESCRIBE YOUR MEAL</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: colors.orange, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }}>DESCRIBE YOUR MEAL</Text>
                         <TouchableOpacity
                           onPress={() => setShowVoiceChat(true)}
                           style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,116,42,0.12)', alignItems: 'center', justifyContent: 'center' }}
                           activeOpacity={0.7}
                         >
-                          <Ionicons name="mic-outline" size={18} color={ORANGE} />
+                          <Mic size={18} color={colors.orange} />
                         </TouchableOpacity>
                       </View>
                       <TextInput
@@ -1223,7 +1220,7 @@ export default function LogFoodScreen() {
                   </View>
                   {!!describeError && (
                     <View style={s.errorRow}>
-                      <Ionicons name="alert-circle-outline" size={15} color={ORANGE} />
+                      <AlertCircle size={15} color={colors.orange} />
                       <Text style={s.errorText}>{describeError}</Text>
                     </View>
                   )}
@@ -1245,7 +1242,7 @@ export default function LogFoodScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={[{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
+                  <Text style={[{ fontSize: 12, fontWeight: '800', color: colors.orange, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginBottom: 12 }]}>CONFIRM ITEMS</Text>
                   {describeItems.map((item, idx) => {
                     const q = parseFloat(item.qty) || 0;
                     const g2 = q * item.unitGrams;
@@ -1277,7 +1274,7 @@ export default function LogFoodScreen() {
                             style={[s.checkbox, checkedItems.has(idx) && s.checkboxChecked]}
                             activeOpacity={0.75}
                           >
-                            {checkedItems.has(idx) && <Ionicons name="checkmark" size={14} color={colors.textPrimary} />}
+                            {checkedItems.has(idx) && <Check size={14} color={colors.textPrimary} />}
                           </TouchableOpacity>
                           <Text style={s.describeItemName}>{item.item}</Text>
                         </View>
@@ -1329,7 +1326,7 @@ export default function LogFoodScreen() {
 
                               {/* Unit dropdown */}
                               {item.servingOptionsLoading ? (
-                                <ActivityIndicator size="small" color={ORANGE} />
+                                <ActivityIndicator size="small" color={colors.orange} />
                               ) : (
                                 <TouchableOpacity
                                   onPress={() => {
@@ -1345,7 +1342,7 @@ export default function LogFoodScreen() {
                                   }}
                                 >
                                   <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginRight: 4 }}>{item.unitLabel}</Text>
-                                  <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                                  <ChevronDown size={14} color={colors.textSecondary} />
                                 </TouchableOpacity>
                               )}
                             </View>
@@ -1382,7 +1379,7 @@ export default function LogFoodScreen() {
                                   backgroundColor: item.unitLabel === opt.label ? (colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.1)') : 'transparent',
                                 }}
                               >
-                                <Text style={{ fontSize: 16, fontWeight: item.unitLabel === opt.label ? '700' : '500', color: item.unitLabel === opt.label ? ORANGE : colors.textPrimary }}>
+                                <Text style={{ fontSize: 16, fontWeight: item.unitLabel === opt.label ? '700' : '500', color: item.unitLabel === opt.label ? colors.orange : colors.textPrimary }}>
                                   {opt.label}
                                 </Text>
                               </TouchableOpacity>
@@ -1445,7 +1442,7 @@ export default function LogFoodScreen() {
                     <Text style={s.trayItemName} numberOfLines={isExpanded ? undefined : 1}>{item.food_name}</Text>
                     <Text style={s.trayItemCal}>{item.calories} cal</Text>
                     <TouchableOpacity onPress={() => removeFromTray(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="close" size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                      <X size={16} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                   {isExpanded && (
@@ -1512,7 +1509,7 @@ export default function LogFoodScreen() {
                   <Text style={s.saveInputBtnText}>Save</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowSaveInput(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  <X size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1587,11 +1584,13 @@ export default function LogFoodScreen() {
                         style={s.infoIconBtn}
                         activeOpacity={0.7}
                       >
-                        <Ionicons
-                          name={showNutritionInfo ? 'close-circle' : 'information-circle-outline'}
+                        {showNutritionInfo ? <XCircle
                           size={22}
-                          color={showNutritionInfo ? ORANGE : colors.textSecondary}
-                        />
+                          color={showNutritionInfo ? colors.orange : colors.textSecondary}
+                        /> : <Info
+                          size={22}
+                          color={showNutritionInfo ? colors.orange : colors.textSecondary}
+                        />}
                       </TouchableOpacity>
                     </View>
 
@@ -1642,12 +1641,12 @@ export default function LogFoodScreen() {
                     )}
 
                     {/* Serving size */}
-                    <Text style={[{ fontSize: 12, fontWeight: '800', color: ORANGE, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
+                    <Text style={[{ fontSize: 12, fontWeight: '800', color: colors.orange, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 10, marginTop: 4 }, { marginTop: 16, marginBottom: 10 }]}>SERVING SIZE</Text>
 
                     {/* Serving option pills - spinner while fetching detail */}
                     {detailLoading !== null ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                        <ActivityIndicator size="small" color={ORANGE} />
+                        <ActivityIndicator size="small" color={colors.orange} />
                         <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Loading serving sizes…</Text>
                       </View>
                     ) : pendingFood.serving_options && pendingFood.serving_options.length > 0 && (
@@ -1802,7 +1801,7 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'center',
   },
   modePillActive: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
   },
 
   // Scroll
@@ -1857,7 +1856,7 @@ const createStyles = (c: AppColors) => {
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  customBadgeText: { fontSize: 11, fontWeight: '800', color: ORANGE, letterSpacing: 0.5 },
+  customBadgeText: { fontSize: 11, fontWeight: '800', color: c.orange, letterSpacing: 0.5 },
 
   // Create food
   createFoodBtn: {
@@ -1867,7 +1866,7 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 12,
     marginTop: 4,
   },
-  createFoodText: { fontSize: 15, color: ORANGE, fontWeight: '600' },
+  createFoodText: { fontSize: 15, color: c.orange, fontWeight: '600' },
   emptyText: { fontSize: 16, color: c.textSecondary, textAlign: 'center' },
 
   // Describe mode
@@ -1891,11 +1890,11 @@ const createStyles = (c: AppColors) => {
   describeAddBtn: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -1924,7 +1923,7 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: ORANGE, borderColor: ORANGE },
+  checkboxChecked: { backgroundColor: c.orange, borderColor: c.orange },
   describeRetryBtn: {
     height: 52,
     borderRadius: 16,
@@ -1935,7 +1934,7 @@ const createStyles = (c: AppColors) => {
   },
   describeRetryText: { fontSize: 16, fontWeight: '600', color: c.textSecondary },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  errorText: { fontSize: 15, color: ORANGE },
+  errorText: { fontSize: 15, color: c.orange },
 
   // Camera (photo) mode
   photoFrame: {
@@ -1985,8 +1984,8 @@ const createStyles = (c: AppColors) => {
     height: 56,
     paddingHorizontal: 32,
     borderRadius: 28,
-    backgroundColor: ORANGE,
-    shadowColor: ORANGE,
+    backgroundColor: c.orange,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,
@@ -2023,7 +2022,7 @@ const createStyles = (c: AppColors) => {
   scanBtns: { flexDirection: 'row', gap: 10 },
   scanSecBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center' },
   scanSecBtnText: { fontSize: 16, fontWeight: '600', color: c.textPrimary },
-  scanPrimBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  scanPrimBtn: { flex: 1, height: 48, borderRadius: 14, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
   scanPrimBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
   // Tray footer
@@ -2045,7 +2044,7 @@ const createStyles = (c: AppColors) => {
   trayItemName: { flex: 1, fontSize: 15, color: c.textPrimary, fontWeight: '500' },
   trayItemCal: { fontSize: 14, color: c.textSecondary, fontWeight: '600' },
   trayTotals: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  trayTotalText: { fontSize: 14, fontWeight: '700', color: ORANGE },
+  trayTotalText: { fontSize: 14, fontWeight: '700', color: c.orange },
   trayTotalSep: { fontSize: 14, color: c.textSecondary },
   trayActions: { flexDirection: 'row', gap: 10 },
   traySaveBtn: {
@@ -2061,10 +2060,10 @@ const createStyles = (c: AppColors) => {
     flex: 2,
     height: 48,
     borderRadius: 14,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -2079,7 +2078,7 @@ const createStyles = (c: AppColors) => {
   },
   saveInputBtn: {
     paddingHorizontal: 14, height: 40, borderRadius: 10,
-    backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
   },
   saveInputBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
@@ -2135,7 +2134,7 @@ const createStyles = (c: AppColors) => {
     borderRadius: 20,
     backgroundColor: c.borderSubtle,
   },
-  servingPillActive: { backgroundColor: ORANGE },
+  servingPillActive: { backgroundColor: c.orange },
   servingPillText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
   servingPillTextActive: { color: '#FFFFFF' },
 
@@ -2164,10 +2163,10 @@ const createStyles = (c: AppColors) => {
   overlayAddBtn: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -2193,7 +2192,7 @@ const createStyles = (c: AppColors) => {
     height: 48,
     paddingHorizontal: 24,
     borderRadius: 14,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },

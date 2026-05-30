@@ -20,6 +20,7 @@ import type {
 } from '@/stores/log-store';
 import type { DailyTargets } from '@/constants/scoring';
 import { computeNutritionPatterns } from '@/stores/insights-store';
+import { ORANGE } from '@/constants/theme';
 
 export type InsightStrength = 'correlation' | 'trend' | 'baseline' | 'floor';
 
@@ -64,7 +65,6 @@ const STRENGTH_RANK: Record<InsightStrength, number> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const DAY_MS = 86400000;
-const ORANGE = '#FF742A';
 const BLUE = '#5B8BF5';
 const GREEN = '#27AE60';
 const YELLOW = '#F6CB45';
@@ -109,7 +109,7 @@ const topNutritionPattern: Generator = (ctx) => {
     id: `pattern:${p.triggerKey}:${p.effectType}`,
     strength: 'correlation',
     rank: STRENGTH_RANK.correlation + Math.min(20, pct),  // bigger delta ranks higher
-    icon: 'analytics-outline',
+    icon: 'BarChart3',
     iconColor: PURPLE,
     tagline: 'PATTERN',
     title: `${p.effectLabel} was ${pct}% ${moreOrLess} frequent`,
@@ -194,7 +194,7 @@ const stepGoalStreak: Generator = (ctx) => {
     id: 'trend:step-streak',
     strength: 'trend',
     rank: STRENGTH_RANK.trend + Math.min(20, streak * 2),
-    icon: 'walk-outline',
+    icon: 'Footprints',
     iconColor: ORANGE,
     tagline: 'ACTIVITY STREAK',
     title: `${streak}-day step goal streak`,
@@ -236,7 +236,7 @@ const proteinAvg: Generator = (ctx) => {
     id: 'baseline:protein-avg',
     strength: 'baseline',
     rank: STRENGTH_RANK.baseline,
-    icon: 'restaurant-outline',
+    icon: 'Utensils',
     iconColor: ORANGE,
     tagline: 'PROTEIN AVERAGE',
     title: `${avg}g protein/day this week`,
@@ -266,7 +266,7 @@ const stepsAvg: Generator = (ctx) => {
     id: 'baseline:steps-avg',
     strength: 'baseline',
     rank: STRENGTH_RANK.baseline,
-    icon: 'footsteps-outline',
+    icon: 'Footprints',
     iconColor: BLUE,
     tagline: 'STEPS AVERAGE',
     title: `${avg.toLocaleString()} steps/day`,
@@ -314,7 +314,7 @@ const topSideEffect: Generator = (ctx) => {
     id: 'baseline:top-side-effect',
     strength: 'baseline',
     rank: STRENGTH_RANK.baseline - 1,
-    icon: 'pulse-outline',
+    icon: 'HeartPulse',
     iconColor: YELLOW,
     tagline: 'MOST FREQUENT SYMPTOM',
     title: `${label} — ${topDays} day${topDays === 1 ? '' : 's'} this month`,
@@ -331,7 +331,7 @@ const connectAppleHealth: Generator = (ctx) => {
     id: 'floor:connect-health',
     strength: 'floor',
     rank: STRENGTH_RANK.floor + 2,
-    icon: 'heart-outline',
+    icon: 'Heart',
     iconColor: '#E74C3C',
     tagline: 'UNLOCK MORE INSIGHTS',
     title: 'Connect Apple Health',
@@ -353,7 +353,7 @@ const logMealCta: Generator = (ctx) => {
     id: 'floor:log-meal',
     strength: 'floor',
     rank: STRENGTH_RANK.floor + 1,
-    icon: 'restaurant-outline',
+    icon: 'Utensils',
     iconColor: ORANGE,
     tagline: 'GET STARTED',
     title: 'Log a meal to unlock protein insights',

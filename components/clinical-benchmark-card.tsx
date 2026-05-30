@@ -15,7 +15,6 @@ import { interpolateBenchmarkBand } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES, type MedicationBrand } from '@/constants/user-profile';
 import type { ClinicalBenchmarkResult, BenchmarkStatus } from '@/stores/insights-store';
 
-const ORANGE = '#FF742A';
 const TRIAL_BLUE = '#64B4FF';
 const CHART_HEIGHT = 150;
 const ML = 40;
@@ -260,8 +259,8 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                     <Stop offset="1" stopColor={TRIAL_BLUE} stopOpacity="0.04" />
                   </LinearGradient>
                   <LinearGradient id="userAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={ORANGE} stopOpacity="0.25" />
-                    <Stop offset="1" stopColor={ORANGE} stopOpacity="0" />
+                    <Stop offset="0" stopColor={colors.orange} stopOpacity="0.25" />
+                    <Stop offset="1" stopColor={colors.orange} stopOpacity="0" />
                   </LinearGradient>
                 </Defs>
 
@@ -327,7 +326,7 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                 {userLinePath ? (
                   <Path
                     d={userLinePath}
-                    stroke={ORANGE}
+                    stroke={colors.orange}
                     strokeWidth={2.5}
                     fill="none"
                     strokeLinecap="round"
@@ -337,14 +336,14 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
 
                 {/* User dots */}
                 {userPts.slice(0, -1).map((pt, i) => (
-                  <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={3} fill={ORANGE} />
+                  <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={3} fill={colors.orange} />
                 ))}
 
                 {/* Last point — double ring */}
                 {lastUserPt && (
                   <>
                     <Circle cx={lastUserPt.x} cy={lastUserPt.y} r={8} fill="rgba(255,116,42,0.2)" />
-                    <Circle cx={lastUserPt.x} cy={lastUserPt.y} r={4.5} fill={ORANGE} />
+                    <Circle cx={lastUserPt.x} cy={lastUserPt.y} r={4.5} fill={colors.orange} />
                   </>
                 )}
               </Svg>
@@ -355,7 +354,7 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
                 crosshairY={scrub.crosshairY}
                 chartHeight={svgH}
                 chartWidth={svgWidth}
-                color={ORANGE}
+                color={colors.orange}
                 formatTooltip={tooltipFormatter}
               />
             </>
@@ -366,7 +365,7 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
       {/* Legend */}
       <View style={s.legendRow}>
         <View style={s.legendItem}>
-          <View style={[s.legendLine, { backgroundColor: ORANGE }]} />
+          <View style={[s.legendLine, { backgroundColor: colors.orange }]} />
           <Text style={s.legendLabel}>You</Text>
         </View>
         <View style={s.legendItem}>
@@ -424,7 +423,7 @@ const createStyles = (c: AppColors) => {
     statValue: {
       fontSize: 32,
       fontWeight: '800',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: -1,
       fontFamily: 'System',
     },

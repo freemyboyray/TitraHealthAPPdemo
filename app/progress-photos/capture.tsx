@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,10 +10,10 @@ import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
 import { usePostHog } from '@/lib/posthog';
+import { Camera, ChevronLeft, Images, SwitchCamera } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,9 +109,9 @@ export default function CaptureProgressPhotoScreen() {
           onPress={() => router.back()}
           style={[s.backBtnLight, { position: 'absolute', top: insets.top + 12, left: 20 }]}
         >
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Ionicons name="camera-outline" size={56} color={ORANGE} />
+        <Camera size={56} color={colors.orange} />
         <Text style={s.permTitle}>Camera Access</Text>
         <Text style={s.permDesc}>
           We need camera access to take your progress photo.
@@ -132,7 +131,7 @@ export default function CaptureProgressPhotoScreen() {
         <View style={[s.previewOverlay, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={handleRetake} style={s.circleBtn} activeOpacity={0.75}>
             <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+            <ChevronLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={[s.previewBottom, { paddingBottom: insets.bottom + 20 }]}>
@@ -167,19 +166,19 @@ export default function CaptureProgressPhotoScreen() {
           activeOpacity={0.75}
         >
           <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.camTitle}>Progress Photo</Text>
         <TouchableOpacity onPress={handleFlipCamera} style={s.circleBtn} activeOpacity={0.75}>
           <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <Ionicons name="camera-reverse-outline" size={22} color={colors.textPrimary} />
+          <SwitchCamera size={22} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
       <View style={[s.shutterWrapper, { paddingBottom: insets.bottom + 30 }]}>
         <View style={s.bottomControls}>
           <TouchableOpacity onPress={handlePickLibrary} style={s.galleryBtn} activeOpacity={0.75}>
             <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <Ionicons name="images-outline" size={22} color={colors.textPrimary} />
+            <Images size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
             <View style={s.shutterInner} />
@@ -292,10 +291,10 @@ const createStyles = (c: AppColors) => {
       flex: 1,
       height: 56,
       borderRadius: 28,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.45,
       shadowRadius: 18,
@@ -336,10 +335,10 @@ const createStyles = (c: AppColors) => {
       width: '100%',
       height: 56,
       borderRadius: 28,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: ORANGE,
+      shadowColor: c.orange,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.45,
       shadowRadius: 18,

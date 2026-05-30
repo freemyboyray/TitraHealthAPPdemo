@@ -1,4 +1,3 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,8 +26,9 @@ import { buildSystemPrompt, buildEnergySnapshot, callOpenAI, callGPT4oMiniVision
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { ArrowLeft, ArrowRight, ArrowUp, Clock, MessageCircle, RefreshCw, X, XCircle } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 min gap = new conversation
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -394,10 +394,10 @@ export function AiChatOverlay() {
       {/* Top-left button row: X close + clock history */}
       <View style={[s.topFloatRow, { top: insets.top + 12 }]}>
         <Pressable onPress={handleDismiss} hitSlop={12} style={s.floatBtn}>
-          <Ionicons name="close" size={20} color={closeIconColor} />
+          <X size={20} color={closeIconColor} />
         </Pressable>
         <Pressable onPress={() => setShowHistory(true)} hitSlop={12} style={s.floatBtn}>
-          <Ionicons name="time-outline" size={20} color={closeIconColor} />
+          <Clock size={20} color={closeIconColor} />
         </Pressable>
       </View>
 
@@ -411,17 +411,17 @@ export function AiChatOverlay() {
           <View style={s.historyPanel}>
             <View style={[s.historyTopBar, { paddingTop: insets.top + 8 }]}>
               <Pressable onPress={() => setShowHistory(false)} hitSlop={12} style={s.floatBtn}>
-                <Ionicons name="arrow-back" size={20} color={closeIconColor} />
+                <ArrowLeft size={20} color={closeIconColor} />
               </Pressable>
               <Text style={s.historyTitle}>Chat History</Text>
               <View style={{ width: 44 }} />
             </View>
 
             {historyLoading ? (
-              <ActivityIndicator style={{ marginTop: 40 }} color={ORANGE} />
+              <ActivityIndicator style={{ marginTop: 40 }} color={colors.orange} />
             ) : conversations.length === 0 ? (
               <View style={s.historyEmptyWrap}>
-                <Ionicons name="chatbubble-outline" size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'} />
+                <MessageCircle size={40} color={colors.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'} />
                 <Text style={s.historyEmpty}>No past conversations yet.</Text>
                 <Text style={s.historyEmptySub}>Your chat history will appear here.</Text>
               </View>
@@ -446,7 +446,7 @@ export function AiChatOverlay() {
                       </View>
                       <Text style={s.convPreview} numberOfLines={2}>{conv.preview}</Text>
                       <View style={s.convResumePill}>
-                        <Ionicons name="arrow-forward" size={12} color={ORANGE} />
+                        <ArrowRight size={12} color={colors.orange} />
                         <Text style={s.convResumeText}>Resume conversation</Text>
                       </View>
                     </View>
@@ -468,7 +468,7 @@ export function AiChatOverlay() {
               {/* Resumed-from banner */}
               {resumedFrom && messages.length > 0 && (
                 <View style={s.resumedBanner}>
-                  <Ionicons name="time-outline" size={13} color={ORANGE} />
+                  <Clock size={13} color={colors.orange} />
                   <Text style={s.resumedBannerText}>Resumed from {resumedFrom}</Text>
                 </View>
               )}
@@ -501,7 +501,7 @@ export function AiChatOverlay() {
                     </Text>
                     {msg.isError && msg.retryText && (
                       <View style={s.retryRow}>
-                        <Ionicons name="refresh" size={12} color="rgba(220,80,50,0.8)" />
+                        <RefreshCw size={12} color="rgba(220,80,50,0.8)" />
                         <Text style={s.retryLabel}>Tap to retry</Text>
                       </View>
                     )}
@@ -540,16 +540,16 @@ export function AiChatOverlay() {
 
                   <View style={{ gap: 10, marginBottom: 20 }}>
                     {[
-                      { icon: 'chatbubbles-outline', text: 'Unlimited AI coaching & insights' },
-                      { icon: 'analytics-outline', text: 'Advanced weight projections & cycle intelligence' },
-                      { icon: 'document-text-outline', text: 'Provider reports for your doctor' },
-                      { icon: 'school-outline', text: 'All guided courses unlocked' },
-                      { icon: 'camera-outline', text: 'Unlimited photo food logging' },
-                      { icon: 'mic-outline', text: 'Unlimited voice logging' },
-                      { icon: 'notifications-outline', text: 'Weekly AI summaries' },
+                      { icon: 'MessagesSquare', text: 'Unlimited AI coaching & insights' },
+                      { icon: 'BarChart3', text: 'Advanced weight projections & cycle intelligence' },
+                      { icon: 'FileText', text: 'Provider reports for your doctor' },
+                      { icon: 'GraduationCap', text: 'All guided courses unlocked' },
+                      { icon: 'Camera', text: 'Unlimited photo food logging' },
+                      { icon: 'Mic', text: 'Unlimited voice logging' },
+                      { icon: 'Bell', text: 'Weekly AI summaries' },
                     ].map((item, i) => (
                       <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name={item.icon as any} size={18} color="#FF742A" />
+                        <LucideIconByName name={item.icon as any} size={18} color="#FF742A" />
                         <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{item.text}</Text>
                       </View>
                     ))}
@@ -636,7 +636,7 @@ export function AiChatOverlay() {
                           {aiChatParams.contextLabel}{aiChatParams.contextValue ? ` · ${aiChatParams.contextValue}` : ''}
                         </Text>
                         <Pressable onPress={() => setPillVisible(false)} hitSlop={10} style={s.inputPillClose}>
-                          <Ionicons name="close" size={13} color="rgba(255,116,42,0.7)" />
+                          <X size={13} color="rgba(255,116,42,0.7)" />
                         </Pressable>
                       </View>
                     )}
@@ -645,7 +645,7 @@ export function AiChatOverlay() {
                       <View style={s.imagePreviewRow}>
                         <Image source={{ uri: pendingImage.uri }} style={s.imageThumb} />
                         <Pressable onPress={() => setPendingImage(null)} hitSlop={8} style={s.imageThumbClose}>
-                          <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.9)" />
+                          <XCircle size={18} color="rgba(255,255,255,0.9)" />
                         </Pressable>
                       </View>
                     )}
@@ -667,8 +667,7 @@ export function AiChatOverlay() {
                         style={[s.sendBtn, canSend && s.sendBtnActive]}
                         onPress={() => sendMessage(inputText)}
                       >
-                        <Ionicons
-                          name="arrow-up"
+                        <ArrowUp
                           size={18}
                           color={canSend ? '#000000' : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')}
                         />
@@ -741,7 +740,7 @@ const createStyles = (c: AppColors) => {
   },
   resumedBannerText: {
     fontSize: 14,
-    color: ORANGE,
+    color: c.orange,
     fontWeight: '500',
   },
 
@@ -766,7 +765,7 @@ const createStyles = (c: AppColors) => {
     paddingVertical: 10,
   },
   bubbleUser: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
@@ -870,14 +869,14 @@ const createStyles = (c: AppColors) => {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     flexShrink: 0,
   },
   inputPillText: {
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: ORANGE,
+    color: c.orange,
     letterSpacing: 0.3,
   },
   inputPillClose: {
@@ -919,7 +918,7 @@ const createStyles = (c: AppColors) => {
     justifyContent: 'center',
     backgroundColor: c.borderSubtle,
   },
-  sendBtnActive: { backgroundColor: ORANGE },
+  sendBtnActive: { backgroundColor: c.orange },
   disclaimer: {
     fontSize: 13,
     color: w(0.25),
@@ -1018,7 +1017,7 @@ const createStyles = (c: AppColors) => {
   convResumeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: ORANGE,
+    color: c.orange,
   },
   });
 };

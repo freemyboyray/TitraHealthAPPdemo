@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -19,6 +18,7 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { requestPermissionsDetailed } from '@/lib/healthkit';
 import type { AppColors } from '@/constants/theme';
+import { Heart } from 'lucide-react-native';
 
 export default function HealthSyncScreen() {
   const router = useRouter();
@@ -120,7 +120,7 @@ export default function HealthSyncScreen() {
 
         <View style={s.illustration}>
           <View style={s.healthIcon}>
-            <Ionicons name="heart" size={64} color="#FF2D55" />
+            <Heart size={64} color="#FF2D55" />
           </View>
           <Text style={s.healthLabel}>Apple Health</Text>
           <Text style={s.healthDesc}>

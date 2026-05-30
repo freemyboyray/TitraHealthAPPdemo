@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -21,13 +20,13 @@ import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { supabase } from '@/lib/supabase';
+import { Check, ChevronLeft, ExternalLink } from 'lucide-react-native';
 let storekit: typeof import('@/lib/storekit') | undefined;
 try { storekit = require('@/lib/storekit'); } catch {}
 
 type ProductSubscription = { localizedPrice?: string; subscriptionOfferDetails?: any[] };
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const PRO_INCLUDES = [
   'Unlimited AI coaching & food analysis',
@@ -169,7 +168,7 @@ export default function SubscriptionScreen() {
         {/* Nav */}
         <View style={s.nav}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.navTitle}>Subscription</Text>
           <View style={{ width: 24 }} />
@@ -194,7 +193,7 @@ export default function SubscriptionScreen() {
 
               <TouchableOpacity style={s.manageRow} onPress={handleManage} activeOpacity={0.7}>
                 <Text style={s.manageText}>Manage Subscription</Text>
-                <Ionicons name="open-outline" size={15} color={ORANGE} />
+                <ExternalLink size={15} color={colors.orange} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -213,7 +212,7 @@ export default function SubscriptionScreen() {
               <View style={s.checkList}>
                 {PRO_INCLUDES.map((item) => (
                   <View key={item} style={s.checkRow}>
-                    <Ionicons name="checkmark" size={15} color={ORANGE} />
+                    <Check size={15} color={colors.orange} />
                     <Text style={s.checkLabel}>{item}</Text>
                   </View>
                 ))}
@@ -323,7 +322,7 @@ function createStyles(c: AppColors) {
     heroWordmark: {
       fontSize: 13,
       fontWeight: '600',
-      color: ORANGE,
+      color: c.orange,
       letterSpacing: 1.5,
       marginBottom: 16,
       fontFamily: FF,
@@ -377,7 +376,7 @@ function createStyles(c: AppColors) {
       padding: 16,
     },
     planCardActive: {
-      borderColor: ORANGE,
+      borderColor: c.orange,
       backgroundColor: c.isDark ? 'rgba(255,116,42,0.06)' : 'rgba(255,116,42,0.03)',
     },
     planLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
@@ -398,7 +397,7 @@ function createStyles(c: AppColors) {
     ctaBtn: {
       height: 54,
       borderRadius: 14,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 12,
@@ -454,7 +453,7 @@ function createStyles(c: AppColors) {
             elevation: 1,
           }),
     },
-    manageText: { fontSize: 16, fontWeight: '600', color: ORANGE, fontFamily: FF },
+    manageText: { fontSize: 16, fontWeight: '600', color: c.orange, fontFamily: FF },
 
     // ── Link buttons ──
     linkBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 24 },
@@ -480,7 +479,7 @@ function createStyles(c: AppColors) {
       height: 44,
       paddingHorizontal: 18,
       borderRadius: 10,
-      backgroundColor: ORANGE,
+      backgroundColor: c.orange,
       justifyContent: 'center',
     },
     demoBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: FF },

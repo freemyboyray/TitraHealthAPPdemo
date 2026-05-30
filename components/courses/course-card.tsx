@@ -1,4 +1,3 @@
-import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,9 +7,9 @@ import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
 import { CourseProgressRing } from './course-progress-ring';
 import type { CourseRow } from '@/stores/courses-store';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const CATEGORY_LABELS: Record<string, string> = {
   medical: 'Medical',
@@ -25,9 +24,7 @@ type Props = {
 };
 
 function renderIcon(name: string, iconSet: string, size: number, color: string) {
-  if (iconSet === 'MaterialIcons') return <MaterialIcons name={name as any} size={size} color={color} />;
-  if (iconSet === 'MaterialCommunityIcons') return <MaterialCommunityIcons name={name as any} size={size} color={color} />;
-  return <Ionicons name={name as any} size={size} color={color} />;
+  return <LucideIconByName name={name} size={size} color={color} />;
 }
 
 export function CourseCard({ course, completedCount }: Props) {
@@ -51,7 +48,7 @@ export function CourseCard({ course, completedCount }: Props) {
           total={course.lesson_count}
           size={32}
           strokeWidth={2.5}
-          color={done ? '#27AE60' : ORANGE}
+          color={done ? '#27AE60' : colors.orange}
           trackColor={colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}
         />
       </View>

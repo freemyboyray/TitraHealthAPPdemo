@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -7,11 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProgressPhotoStore, type ProgressPhoto } from '@/stores/progress-photo-store';
+import { Camera, ChevronLeft, Trophy } from 'lucide-react-native';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 2;
@@ -111,7 +110,7 @@ export default function ProgressPhotosScreen() {
             {/* Milestone badge */}
             {item.milestoneLbs != null && (
               <View style={s.milestoneBadge}>
-                <Ionicons name="trophy" size={10} color="#FFF" />
+                <Trophy size={10} color="#FFF" />
                 <Text style={s.milestoneBadgeText}>{item.milestoneLbs} lbs lost</Text>
               </View>
             )}
@@ -130,14 +129,14 @@ export default function ProgressPhotosScreen() {
   const renderEmptyState = () => (
     <View style={s.emptyContainer}>
       <View style={[s.emptyIconCircle, { backgroundColor: w(0.06) }]}>
-        <Ionicons name="camera-outline" size={48} color={w(0.25)} />
+        <Camera size={48} color={w(0.25)} />
       </View>
       <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>No photos yet</Text>
       <Text style={[s.emptySubtitle, { color: w(0.5) }]}>
         Take your first progress photo to start tracking your transformation
       </Text>
       <TouchableOpacity style={s.emptyCta} onPress={handleAdd} activeOpacity={0.75}>
-        <Ionicons name="camera" size={18} color="#FFF" />
+        <Camera size={18} color="#FFF" />
         <Text style={s.emptyCtaText}>Take Photo</Text>
       </TouchableOpacity>
     </View>
@@ -155,7 +154,7 @@ export default function ProgressPhotosScreen() {
             tint={isDark ? 'dark' : 'light'}
             style={s.backBtn}
           >
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+            <ChevronLeft size={22} color={colors.textPrimary} />
           </BlurView>
         </TouchableOpacity>
 
@@ -167,7 +166,7 @@ export default function ProgressPhotosScreen() {
             tint={isDark ? 'dark' : 'light'}
             style={s.backBtn}
           >
-            <Ionicons name="camera-outline" size={20} color={colors.textPrimary} />
+            <Camera size={20} color={colors.textPrimary} />
           </BlurView>
         </TouchableOpacity>
       </View>
@@ -175,7 +174,7 @@ export default function ProgressPhotosScreen() {
       {/* Content */}
       {loading && photos.length === 0 ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={ORANGE} />
+          <ActivityIndicator size="large" color={colors.orange} />
         </View>
       ) : photos.length === 0 ? (
         renderEmptyState()
@@ -268,7 +267,7 @@ function createStyles(colors: AppColors) {
       position: 'absolute',
       top: 8,
       left: 8,
-      backgroundColor: ORANGE,
+      backgroundColor: colors.orange,
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 6,
@@ -306,7 +305,7 @@ function createStyles(colors: AppColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 3,
-      backgroundColor: ORANGE,
+      backgroundColor: colors.orange,
       paddingHorizontal: 7,
       paddingVertical: 3,
       borderRadius: 8,
@@ -360,7 +359,7 @@ function createStyles(colors: AppColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      backgroundColor: ORANGE,
+      backgroundColor: colors.orange,
       paddingHorizontal: 24,
       paddingVertical: 14,
       borderRadius: 28,

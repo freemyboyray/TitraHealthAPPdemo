@@ -8,11 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '../../contexts/theme-context';
 import { GlassBorder } from './glass-border';
 import { ORANGE } from '../../constants/theme';
+import { X, Zap } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 type Props = {
   visible: boolean;
@@ -27,10 +28,10 @@ type Props = {
 };
 
 const BENEFITS = [
-  { icon: 'chatbubble-ellipses-outline' as const, text: 'Unlimited AI coaching' },
-  { icon: 'analytics-outline' as const, text: 'Cycle Intelligence & forecasting' },
-  { icon: 'fitness-outline' as const, text: 'Extended HealthKit (HRV, CGM, SpO₂)' },
-  { icon: 'document-text-outline' as const, text: 'Provider reports & RTM' },
+  { icon: 'MessageCircle' as const, text: 'Unlimited AI coaching' },
+  { icon: 'BarChart3' as const, text: 'Cycle Intelligence & forecasting' },
+  { icon: 'Dumbbell' as const, text: 'Extended HealthKit (HRV, CGM, SpO₂)' },
+  { icon: 'FileText' as const, text: 'Provider reports & RTM' },
 ];
 
 export function UpgradePrompt({
@@ -75,12 +76,12 @@ export function UpgradePrompt({
 
         {/* Close button */}
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
-          <Ionicons name="close" size={22} color={colors.textMuted} />
+          <X size={22} color={colors.textMuted} />
         </TouchableOpacity>
 
         {/* Icon */}
         <View style={[styles.proIcon, { backgroundColor: colors.orangeDim }]}>
-          <Ionicons name="flash" size={28} color={ORANGE} />
+          <Zap size={28} color={ORANGE} />
         </View>
 
         {/* Title */}
@@ -91,7 +92,7 @@ export function UpgradePrompt({
         <View style={styles.benefits}>
           {BENEFITS.map((b) => (
             <View key={b.text} style={styles.benefitRow}>
-              <Ionicons name={b.icon} size={18} color={ORANGE} />
+              <LucideIconByName name={b.icon} size={18} color={ORANGE} />
               <Text style={[styles.benefitText, { color: colors.textPrimary }]}>{b.text}</Text>
             </View>
           ))}

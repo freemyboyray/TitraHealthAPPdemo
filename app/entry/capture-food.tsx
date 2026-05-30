@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,10 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFoodTaskStore } from '../../stores/food-task-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { AlertCircle, Camera, ChevronLeft, Images, Sparkles } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +117,7 @@ export default function CaptureFoodScreen() {
             activeOpacity={0.75}
           >
             <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+            <ChevronLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.camTitle}>Take Photo</Text>
           <View style={{ width: 40 }} />
@@ -140,12 +139,12 @@ export default function CaptureFoodScreen() {
         <View style={[s.previewOverlay, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={() => setPhase('intro')} style={s.circleBtn} activeOpacity={0.75}>
             <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+            <ChevronLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={[s.previewBottom, { paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity style={s.analyzeBtn} onPress={handleAnalyze} activeOpacity={0.85}>
-            <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Sparkles size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={s.analyzeBtnText}>Analyze with AI</Text>
           </TouchableOpacity>
         </View>
@@ -158,9 +157,9 @@ export default function CaptureFoodScreen() {
     return (
       <View style={[s.root, s.centered, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={[s.backBtnLight, { position: 'absolute', top: insets.top + 12, left: 20 }]}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Ionicons name="alert-circle-outline" size={56} color={ORANGE} />
+        <AlertCircle size={56} color={colors.orange} />
         <Text style={s.errTitle}>Couldn't Identify</Text>
         <Text style={s.errDesc}>AI couldn't identify food in this photo. Try describing it instead.</Text>
         <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
@@ -188,7 +187,7 @@ export default function CaptureFoodScreen() {
             <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+            <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Capture Food</Text>
@@ -199,7 +198,7 @@ export default function CaptureFoodScreen() {
         <View style={s.introIconWrapper}>
           <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,116,42,0.15)', borderRadius: 40 }]} />
-          <Ionicons name="camera-outline" size={56} color={ORANGE} />
+          <Camera size={56} color={colors.orange} />
         </View>
         <Text style={s.introTitle}>Photo Food Log</Text>
         <Text style={s.introDesc}>
@@ -207,12 +206,12 @@ export default function CaptureFoodScreen() {
         </Text>
 
         <TouchableOpacity style={s.introBtn} onPress={handleTakePhoto} activeOpacity={0.85}>
-          <Ionicons name="camera" size={20} color="#FFFFFF" style={{ marginRight: 10 }} />
+          <Camera size={20} color="#FFFFFF" style={{ marginRight: 10 }} />
           <Text style={s.introBtnText}>Take Photo</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.introSecBtn} onPress={handlePickLibrary} activeOpacity={0.8}>
-          <Ionicons name="images-outline" size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} style={{ marginRight: 10 }} />
+          <Images size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} style={{ marginRight: 10 }} />
           <Text style={s.introSecBtnText}>Choose from Library</Text>
         </TouchableOpacity>
       </View>
@@ -289,8 +288,8 @@ const createStyles = (c: AppColors) => {
   },
   matchRowActive: { backgroundColor: 'rgba(255,116,42,0.15)' },
   matchRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: c.textSecondary, alignItems: 'center', justifyContent: 'center' },
-  matchRadioActive: { borderColor: ORANGE },
-  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ORANGE },
+  matchRadioActive: { borderColor: c.orange },
+  matchRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.orange },
   matchName: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
   matchBrand: { fontSize: 13, color: c.textSecondary },
   matchCal: { fontSize: 14, color: c.textSecondary },
@@ -308,10 +307,10 @@ const createStyles = (c: AppColors) => {
   primaryBtnFull: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,
@@ -338,8 +337,8 @@ const createStyles = (c: AppColors) => {
   analyzeBtn: {
     flexDirection: 'row', alignItems: 'center',
     height: 56, paddingHorizontal: 32, borderRadius: 28,
-    backgroundColor: ORANGE,
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
+    backgroundColor: c.orange,
+    shadowColor: c.orange, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   analyzeBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
@@ -349,7 +348,7 @@ const createStyles = (c: AppColors) => {
   errDesc: { fontSize: 16, color: c.textSecondary, textAlign: 'center', paddingHorizontal: 32, marginBottom: 24, lineHeight: 20 },
   errSecBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center' },
   errSecBtnText: { fontSize: 17, fontWeight: '600', color: c.textPrimary },
-  errPrimBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+  errPrimBtn: { flex: 1, height: 52, borderRadius: 16, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
   errPrimBtnText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
 
   // Intro phase
@@ -365,8 +364,8 @@ const createStyles = (c: AppColors) => {
   introBtn: {
     flexDirection: 'row', alignItems: 'center',
     width: '100%', height: 56, borderRadius: 28,
-    backgroundColor: ORANGE, justifyContent: 'center', marginBottom: 12,
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
+    backgroundColor: c.orange, justifyContent: 'center', marginBottom: 12,
+    shadowColor: c.orange, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   introBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
   introSecBtn: {

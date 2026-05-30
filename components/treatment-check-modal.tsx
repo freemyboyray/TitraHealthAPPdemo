@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,8 +13,9 @@ import {
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { BRAND_DISPLAY_NAMES, MedicationBrand } from '@/constants/user-profile';
+import { ORANGE } from '@/constants/theme';
+import { AlertCircle } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 type TreatmentCheckModalProps = {
@@ -126,12 +126,10 @@ export function TreatmentCheckModal({
             <GlassBorder r={24} />
 
             <View style={s.content}>
-              <Ionicons
-                name="alert-circle-outline"
+              <AlertCircle
                 size={40}
                 color={ORANGE}
-                style={{ alignSelf: 'center', marginBottom: 12 }}
-              />
+                style={{ alignSelf: 'center', marginBottom: 12 }} />
               <Text style={s.title}>OFF SCHEDULE</Text>
               <Text style={s.body}>
                 It's been {daysSinceLastShot} days since your last {doseNoun}

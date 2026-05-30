@@ -10,7 +10,6 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const ORANGE = '#FF742A';
 
 export default function PreferencesScreen() {
   const { colors } = useAppTheme();
@@ -32,7 +31,7 @@ export default function PreferencesScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-            <IconSymbol name="chevron.left" size={22} color={ORANGE} />
+            <IconSymbol name="chevron.left" size={22} color={colors.orange} />
           </Pressable>
           <Text style={s.headerTitle}>Preferences</Text>
           <View style={{ width: 22 }} />
@@ -44,7 +43,7 @@ export default function PreferencesScreen() {
             <Pressable style={s.cardRow} onPress={() => toggle('appearance')} accessibilityLabel="Appearance" accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={ORANGE} />
+                  <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={colors.orange} />
                 </View>
                 <Text style={s.rowLabel}>Appearance</Text>
               </View>
@@ -57,8 +56,8 @@ export default function PreferencesScreen() {
               <View style={s.expandedContent}>
                 {themeModes.map((mode) => (
                   <Pressable key={mode} style={s.optionRow} onPress={() => setThemeMode(mode)} accessibilityLabel={themeLabels[mode]} accessibilityRole="button" accessibilityState={{ selected: themeMode === mode }}>
-                    <Text style={[s.optionLabel, themeMode === mode && { color: ORANGE, fontWeight: '700' }]}>{themeLabels[mode]}</Text>
-                    {themeMode === mode && <IconSymbol name="checkmark" size={16} color={ORANGE} />}
+                    <Text style={[s.optionLabel, themeMode === mode && { color: colors.orange, fontWeight: '700' }]}>{themeLabels[mode]}</Text>
+                    {themeMode === mode && <IconSymbol name="checkmark" size={16} color={colors.orange} />}
                   </Pressable>
                 ))}
               </View>
@@ -70,7 +69,7 @@ export default function PreferencesScreen() {
             <Pressable style={s.cardRow} onPress={() => toggle('headerStyle')} accessibilityLabel="Header Style" accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="paintbrush.fill" size={18} color={ORANGE} />
+                  <IconSymbol name="paintbrush.fill" size={18} color={colors.orange} />
                 </View>
                 <Text style={s.rowLabel}>Header Style</Text>
               </View>
@@ -83,8 +82,8 @@ export default function PreferencesScreen() {
               <View style={s.expandedContent}>
                 {headerStyles.map((style) => (
                   <Pressable key={style} style={s.optionRow} onPress={() => setHeaderStyle(style)} accessibilityLabel={headerLabels[style]} accessibilityRole="button" accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}>
-                    <Text style={[s.optionLabel, (headerStyle ?? 'gradient') === style && { color: ORANGE, fontWeight: '700' }]}>{headerLabels[style]}</Text>
-                    {(headerStyle ?? 'gradient') === style && <IconSymbol name="checkmark" size={16} color={ORANGE} />}
+                    <Text style={[s.optionLabel, (headerStyle ?? 'gradient') === style && { color: colors.orange, fontWeight: '700' }]}>{headerLabels[style]}</Text>
+                    {(headerStyle ?? 'gradient') === style && <IconSymbol name="checkmark" size={16} color={colors.orange} />}
                   </Pressable>
                 ))}
               </View>
@@ -96,7 +95,7 @@ export default function PreferencesScreen() {
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')} accessibilityLabel="Reminders" accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="bell.fill" size={18} color={ORANGE} />
+                  <IconSymbol name="bell.fill" size={18} color={colors.orange} />
                 </View>
                 <Text style={s.rowLabel}>Reminders</Text>
               </View>

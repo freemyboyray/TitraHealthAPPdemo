@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useAnimatedStyle,
@@ -18,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import { ACHIEVEMENT_ACCENT, type Achievement } from '@/constants/achievements';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 type Props = {
   achievement: Achievement | null;
@@ -94,7 +94,7 @@ export function AchievementCongrats({ achievement, onDismiss }: Props) {
           {/* Icon */}
           <Animated.View style={iconStyle}>
             <View style={[styles.iconCircle, { backgroundColor: accent + '1F' }]}>
-              <Ionicons name={achievement.icon as any} size={32} color={accent} />
+              <LucideIconByName name={achievement.icon as any} size={32} color={accent} />
             </View>
           </Animated.View>
 

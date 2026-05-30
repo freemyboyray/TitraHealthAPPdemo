@@ -9,27 +9,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
 import { useAppTheme } from '@/contexts/theme-context';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 // Guard IAP for Expo Go
 let storekit: typeof import('@/lib/storekit') | undefined;
 try { storekit = require('@/lib/storekit'); } catch {}
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 
 const FEATURES = [
-  { icon: 'analytics-outline' as const, title: 'AI Insights', desc: 'Personalized weekly analysis of your progress' },
-  { icon: 'trending-up-outline' as const, title: 'Advanced Projections', desc: 'Weight forecasting and metabolic tracking' },
-  { icon: 'chatbubble-outline' as const, title: 'Unlimited AI Chat', desc: 'Ask anything about your medication journey' },
-  { icon: 'pulse-outline' as const, title: 'Cycle Intelligence', desc: 'Deep pharmacokinetic insights for your dose' },
-  { icon: 'document-text-outline' as const, title: 'Provider Reports', desc: 'Shareable summaries for your doctor visits' },
-  { icon: 'images-outline' as const, title: 'Progress Comparisons', desc: 'Side-by-side photo tracking over time' },
+  { icon: 'BarChart3' as const, title: 'AI Insights', desc: 'Personalized weekly analysis of your progress' },
+  { icon: 'TrendingUp' as const, title: 'Advanced Projections', desc: 'Weight forecasting and metabolic tracking' },
+  { icon: 'MessageCircle' as const, title: 'Unlimited AI Chat', desc: 'Ask anything about your medication journey' },
+  { icon: 'HeartPulse' as const, title: 'Cycle Intelligence', desc: 'Deep pharmacokinetic insights for your dose' },
+  { icon: 'FileText' as const, title: 'Provider Reports', desc: 'Shareable summaries for your doctor visits' },
+  { icon: 'Images' as const, title: 'Progress Comparisons', desc: 'Side-by-side photo tracking over time' },
 ];
 
 export default function UpgradeScreen() {
@@ -57,7 +55,7 @@ export default function UpgradeScreen() {
   const handlePurchase = async () => {
     posthog?.capture('purchase_tapped', { plan: selectedPlan, source: 'onboarding' });
     if (!storekit) {
-      router.replace('/daily-streak');
+      router.replace('/(tabs)');
       return;
     }
     setPurchasing(true);
@@ -71,12 +69,12 @@ export default function UpgradeScreen() {
       posthog?.capture('purchase_completed', { plan: selectedPlan, source: 'onboarding' });
     } catch {}
     setPurchasing(false);
-    router.replace('/daily-streak');
+    router.replace('/(tabs)');
   };
 
   const handleSkip = () => {
     posthog?.capture('upgrade_skipped', { source: 'onboarding' });
-    router.replace('/daily-streak');
+    router.replace('/(tabs)');
   };
 
   return (
@@ -98,7 +96,7 @@ export default function UpgradeScreen() {
           {FEATURES.map((f) => (
             <View key={f.title} style={s.featureRow}>
               <View style={s.featureIcon}>
-                <Ionicons name={f.icon} size={20} color={ORANGE} />
+                <LucideIconByName name={f.icon} size={20} color={colors.orange} />
               </View>
               <View style={s.featureText}>
                 <Text style={s.featureTitle}>{f.title}</Text>
@@ -173,7 +171,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   // Header
   header: { alignItems: 'center', marginBottom: 32 },
   badge: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -246,7 +244,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     padding: 16,
   },
   planCardSelected: {
-    borderColor: ORANGE,
+    borderColor: c.orange,
     backgroundColor: c.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.04)',
   },
   planHeader: {
@@ -291,7 +289,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   purchaseBtn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },

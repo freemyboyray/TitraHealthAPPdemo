@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,8 +7,9 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { BRAND_DISPLAY_NAMES, type FullUserProfile } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 import type { ShotPhase, IntradayPhase } from '@/constants/scoring';
+import { InjectionCycleTimeline } from '@/components/today/injection-cycle-timeline';
+import { ArrowLeftRight, PlusCircle } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 const MONTHS = [
@@ -70,8 +70,8 @@ export function MedicationStatusTile(props: Props) {
             accessibilityLabel="Add medication"
             accessibilityRole="button"
           >
-            <Ionicons name="add-circle" size={15} color={ORANGE} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF, marginLeft: 2 }}>Add Medication</Text>
+            <PlusCircle size={15} color={colors.orange} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.orange, fontFamily: FF, marginLeft: 2 }}>Add Medication</Text>
           </Pressable>
         </View>
 
@@ -130,35 +130,9 @@ export function MedicationStatusTile(props: Props) {
             accessibilityLabel="View medication details"
             accessibilityRole="link"
           >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: ORANGE, fontFamily: FF }}>View</Text>
-            <IconSymbol name="chevron.right" size={14} color={ORANGE} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.orange, fontFamily: FF }}>View</Text>
+            <IconSymbol name="chevron.right" size={14} color={colors.orange} />
           </Pressable>
-        </View>
-
-        {/* Stats row */}
-        <View style={s.heroStats}>
-          <View style={s.heroStat}>
-            <Text style={s.heroStatVal}>
-              {treatmentDisplayVal ?? '—'}
-            </Text>
-            <Text style={s.heroStatLbl}>{treatmentDisplayLbl}</Text>
-          </View>
-          <View style={s.heroStatDiv} />
-          <View style={s.heroStat}>
-            <Text style={[s.heroStatVal, weightDelta != null && { color: weightDelta <= 0 ? '#27AE60' : '#E53E3E' }]}>
-              {weightDelta != null ? `${weightDelta > 0 ? '+' : ''}${weightDelta.toFixed(1)}` : '—'}
-            </Text>
-            <Text style={s.heroStatLbl}>
-              {isPast
-                ? `lbs since\nstart (${MONTHS[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()})`
-                : 'lbs since\nstart'}
-            </Text>
-          </View>
-          <View style={s.heroStatDiv} />
-          <View style={s.heroStat}>
-            <Text style={s.heroStatVal}>{stat3Val}</Text>
-            <Text style={s.heroStatLbl}>{stat3Lbl}</Text>
-          </View>
         </View>
 
         {/* Transition banner during washout */}
@@ -171,7 +145,7 @@ export function MedicationStatusTile(props: Props) {
             return (
               <View style={s.transitionBanner}>
                 <View style={s.transitionRow}>
-                  <Ionicons name="swap-horizontal" size={16} color={ORANGE} />
+                  <ArrowLeftRight size={16} color={colors.orange} />
                   <Text style={s.transitionTitle}>Switching Medication</Text>
                 </View>
                 <Text style={s.transitionBody}>
@@ -186,46 +160,22 @@ export function MedicationStatusTile(props: Props) {
           })()
         )}
 
-        {/* Cycle day progress bar — hidden during washout and off-treatment */}
+        {/* Injection cycle timeline — hidden during washout and off-treatment */}
         {transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
-          (() => {
-            const displayDayNum = todayDayNum === 0 ? 1 : todayDayNum;
-            return (
-              <View style={s.heroCycleRow}>
-                <View style={s.heroCycleLabels}>
-                  <Text style={s.heroCycleLbl}>Day {displayDayNum} of {freq ?? 7}</Text>
-                  <Text style={[
-                    s.heroCycleLbl,
-                    !todayInjLogged && rawDaysUntil != null && rawDaysUntil < 0 && { color: '#E74C3C' },
-                    !todayInjLogged && rawDaysUntil != null && rawDaysUntil === 0 && { color: ORANGE },
-                  ]}>
-                    {todayInjLogged
-                      ? <>{oral ? 'Dosed' : 'Injected'} today <IconSymbol name="checkmark.circle.fill" size={14} color="#27AE60" /></>
-                      : rawDaysUntil == null
-                        ? `In ${daysUntil} days`
-                        : rawDaysUntil < 0
-                          ? 'Past due'
-                          : rawDaysUntil === 0
-                            ? (oral ? 'Dose day' : 'Shot day')
-                            : rawDaysUntil === 1
-                              ? (oral ? 'Dose tomorrow' : 'Shot tomorrow')
-                              : `In ${rawDaysUntil} days`}
-                  </Text>
-                </View>
-                <View style={s.heroCycleBar}>
-                  <View style={[
-                    s.heroCycleFill,
-                    {
-                      width: `${Math.min((displayDayNum / (freq ?? 7)) * 100, 100)}%` as any,
-                      backgroundColor: intradayPhase
-                        ? INTRADAY_PHASE_COLORS[intradayPhase]
-                        : PHASE_COLORS[shotPhaseForLabel],
-                    },
-                  ]} />
-                </View>
-              </View>
-            );
-          })()
+          <InjectionCycleTimeline
+            todayDayNum={todayDayNum}
+            freq={freq ?? 7}
+            shotPhase={shotPhaseForLabel}
+            rawDaysUntil={rawDaysUntil}
+            todayInjLogged={todayInjLogged}
+            oral={oral}
+            colors={colors}
+            treatmentDisplayVal={treatmentDisplayVal}
+            treatmentDisplayLbl={treatmentDisplayLbl}
+            weightDelta={weightDelta}
+            stat3Val={stat3Val}
+            stat3Lbl={stat3Lbl}
+          />
         )}
       </View>
     </Pressable>
@@ -236,8 +186,8 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   heroCard: {
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: 12,
-    gap: 16,
+    paddingBottom: 6,
+    gap: 12,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -277,29 +227,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     textAlign: 'center',
     lineHeight: 14,
     fontFamily: FF,
-  },
-  heroCycleRow: {
-    gap: 8,
-  },
-  heroCycleLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  heroCycleLbl: {
-    fontSize: 13,
-    color: c.textSecondary,
-    fontFamily: FF,
-  },
-  heroCycleBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
-    overflow: 'hidden',
-  },
-  heroCycleFill: {
-    height: 4,
-    borderRadius: 2,
   },
   transitionBanner: {
     backgroundColor: c.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',

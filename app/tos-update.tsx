@@ -8,12 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { TOS_VERSION, PRIVACY_VERSION } from '@/constants/legal';
+import { ChevronRight, FileText, Lock } from 'lucide-react-native';
 
 const FF = 'System';
 const TERMS_URL = 'https://titrahealth.io/terms-conditions';
@@ -53,9 +52,9 @@ export default function TosUpdateScreen() {
             activeOpacity={0.7}
             onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
           >
-            <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
+            <FileText size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Terms of Use</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -63,9 +62,9 @@ export default function TosUpdateScreen() {
             activeOpacity={0.7}
             onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
           >
-            <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
+            <Lock size={22} color={colors.textSecondary} />
             <Text style={s.linkText}>Privacy Policy</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 

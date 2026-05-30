@@ -8,7 +8,6 @@ import { useMemo } from 'react';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-const ORANGE = '#FF742A';
 
 export default function SupportScreen() {
   const { colors } = useAppTheme();
@@ -19,7 +18,7 @@ export default function SupportScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-            <IconSymbol name="chevron.left" size={22} color={ORANGE} />
+            <IconSymbol name="chevron.left" size={22} color={colors.orange} />
           </Pressable>
           <Text style={s.headerTitle}>Support & Legal</Text>
           <View style={{ width: 22 }} />

@@ -1,4 +1,3 @@
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -8,13 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { AppColors } from '@/constants/theme';
-import { isOralDrug, doseIconName } from '@/constants/drug-pk';
+import { isOralDrug } from '@/constants/drug-pk';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import { localDateStr } from '@/lib/date-utils';
+import { ChevronLeft, Frown, Pill, Syringe } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
-const ORANGE = '#FF742A';
 const DAYS_PER_PAGE = 10;
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────
@@ -39,32 +39,30 @@ function formatDateSub(d: Date): string {
 
 // ─── Icon helpers ──────────────────────────────────────────────────────────────
 
-type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
-
-const MEAL_ICON: Record<string, MaterialIconName> = {
-  breakfast: 'free-breakfast',
-  lunch:     'lunch-dining',
-  dinner:    'dinner-dining',
-  snack:     'local-cafe',
+const MEAL_ICON: Record<string, string> = {
+  breakfast: 'Coffee',
+  lunch:     'Utensils',
+  dinner:    'Utensils',
+  snack:     'Coffee',
 };
 
 function MealIcon({ mealType, size = 16, color }: { mealType: string; size?: number; color: string }) {
-  const name = MEAL_ICON[(mealType ?? 'snack').toLowerCase()] ?? 'restaurant';
-  return <MaterialIcons name={name} size={size} color={color} />;
+  const name = MEAL_ICON[(mealType ?? 'snack').toLowerCase()] ?? 'Utensils';
+  return <LucideIconByName name={name} size={size} color={color} />;
 }
 
-function activityIconName(exerciseType: string | null | undefined): MaterialIconName {
+function activityIconName(exerciseType: string | null | undefined): string {
   const t = (exerciseType ?? '').toLowerCase();
-  if (t.includes('run') || t.includes('jog'))      return 'directions-run';
-  if (t.includes('walk'))                           return 'directions-walk';
-  if (t.includes('cycl') || t.includes('bike'))    return 'directions-bike';
-  if (t.includes('swim'))                           return 'pool';
-  if (t.includes('yoga') || t.includes('stretch'))  return 'self-improvement';
-  if (t.includes('strength') || t.includes('weight') || t.includes('lift')) return 'fitness-center';
-  if (t.includes('hike'))                           return 'terrain';
-  if (t.includes('dance'))                          return 'music-note';
-  if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) return 'sports';
-  return 'flash-on';
+  if (t.includes('run') || t.includes('jog'))      return 'Activity';
+  if (t.includes('walk'))                           return 'Footprints';
+  if (t.includes('cycl') || t.includes('bike'))    return 'Bike';
+  if (t.includes('swim'))                           return 'Waves';
+  if (t.includes('yoga') || t.includes('stretch'))  return 'Brain';
+  if (t.includes('strength') || t.includes('weight') || t.includes('lift')) return 'Dumbbell';
+  if (t.includes('hike'))                           return 'Mountain';
+  if (t.includes('dance'))                          return 'Music';
+  if (t.includes('sport') || t.includes('tennis') || t.includes('basketball') || t.includes('soccer')) return 'Trophy';
+  return 'Zap';
 }
 
 function sectionLabelStyle(w: (a: number) => string) {
@@ -118,7 +116,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
               <View style={{ marginBottom: 14 }}>
                 <Text style={sectionLabelStyle(w)}>{oral ? 'Dose' : 'Injection'}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 }}>
-                  <FontAwesome5 name={doseIconName(oral)} size={14} color={w(0.45)} />
+                  {oral ? <Pill size={14} color={w(0.45)} /> : <Syringe size={14} color={w(0.45)} />}
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
@@ -152,7 +150,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                 <Text style={sectionLabelStyle(w)}>Activity</Text>
                 {activityLogs.map(a => (
                   <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 }}>
-                    <MaterialIcons name={activityIconName(a.exercise_type)} size={16} color={w(0.45)} />
+                    <LucideIconByName name={activityIconName(a.exercise_type)} size={16} color={w(0.45)} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{a.exercise_type || 'Activity'}</Text>
                       <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>
@@ -196,7 +194,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                 <Text style={sectionLabelStyle(w)}>Side Effects</Text>
                 {sideEffectLogs.map(se => (
                   <View key={se.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 }}>
-                    <MaterialIcons name="sick" size={16} color="#E74C3C" />
+                    <Frown size={16} color="#E74C3C" />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{se.effect_type.replace(/_/g, ' ')}</Text>
                       <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>Severity: {se.severity}/10</Text>
@@ -297,7 +295,7 @@ export default function DayLogScreen() {
       {/* ── Top bar ── */}
       <View style={s.topBar}>
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-          <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+          <ChevronLeft size={26} color={colors.textPrimary} />
         </Pressable>
         <Text style={s.topTitle}>Day Log</Text>
         <View style={{ width: 26 }} />
@@ -306,7 +304,7 @@ export default function DayLogScreen() {
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ paddingTop: 60, alignItems: 'center' }}>
-            <ActivityIndicator color={ORANGE} />
+            <ActivityIndicator color={colors.orange} />
           </View>
         ) : (
           <>
@@ -322,7 +320,7 @@ export default function DayLogScreen() {
               accessibilityRole="button"
             >
               {loadingMore
-                ? <ActivityIndicator color={ORANGE} />
+                ? <ActivityIndicator color={colors.orange} />
                 : <Text style={s.loadMoreText}>Load More</Text>
               }
             </Pressable>
@@ -359,5 +357,5 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
     alignItems: 'center',
   },
-  loadMoreText: { fontSize: 15, fontWeight: '700', color: ORANGE, fontFamily: FF, letterSpacing: 0.3 },
+  loadMoreText: { fontSize: 15, fontWeight: '700', color: c.orange, fontFamily: FF, letterSpacing: 0.3 },
 });

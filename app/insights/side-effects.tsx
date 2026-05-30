@@ -1,4 +1,3 @@
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -21,8 +20,9 @@ import {
 import type { AppColors } from '@/constants/theme';
 import { smoothPath } from '@/lib/chart-utils';
 import { isOralDrug, doseNoun } from '@/constants/drug-pk';
+import { ChevronLeft, TriangleAlert } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 // ─── Effect label / icon registry ────────────────────────────────────────────
@@ -36,36 +36,29 @@ const EFFECT_LABELS: Record<string, string> = {
   bloating: 'Bloating', hair_loss: 'Hair Loss', other: 'Other',
 };
 
-type EffectIconDef =
-  | { set: 'MaterialIcons'; name: React.ComponentProps<typeof MaterialIcons>['name'] }
-  | { set: 'Ionicons'; name: React.ComponentProps<typeof Ionicons>['name'] }
-  | { set: 'FontAwesome5'; name: React.ComponentProps<typeof FontAwesome5>['name'] };
-
-const EFFECT_ICONS: Record<string, EffectIconDef> = {
-  nausea:         { set: 'MaterialIcons', name: 'sick' },
-  vomiting:       { set: 'MaterialIcons', name: 'sick' },
-  fatigue:        { set: 'Ionicons',      name: 'bed-outline' },
-  constipation:   { set: 'MaterialIcons', name: 'accessibility' },
-  diarrhea:       { set: 'Ionicons',      name: 'water-outline' },
-  headache:       { set: 'MaterialIcons', name: 'psychology' },
-  injection_site: { set: 'FontAwesome5',  name: 'syringe' },
-  appetite_loss:  { set: 'MaterialIcons', name: 'no-meals' },
-  dehydration:    { set: 'Ionicons',      name: 'water-outline' },
-  dizziness:      { set: 'MaterialIcons', name: 'loop' },
-  muscle_loss:    { set: 'MaterialIcons', name: 'fitness-center' },
-  heartburn:      { set: 'MaterialIcons', name: 'local-fire-department' },
-  food_noise:     { set: 'MaterialIcons', name: 'psychology' },
-  sulfur_burps:   { set: 'MaterialIcons', name: 'air' },
-  bloating:       { set: 'MaterialIcons', name: 'air' },
-  hair_loss:      { set: 'MaterialIcons', name: 'face' },
-  other:          { set: 'Ionicons',      name: 'warning-outline' },
+const EFFECT_ICONS: Record<string, string> = {
+  nausea:         'Frown',
+  vomiting:       'Frown',
+  fatigue:        'Bed',
+  constipation:   'PersonStanding',
+  diarrhea:       'Droplet',
+  headache:       'Brain',
+  injection_site: 'Syringe',
+  appetite_loss:  'Utensils',
+  dehydration:    'Droplet',
+  dizziness:      'RefreshCw',
+  muscle_loss:    'Dumbbell',
+  heartburn:      'Flame',
+  food_noise:     'Brain',
+  sulfur_burps:   'Wind',
+  bloating:       'Wind',
+  hair_loss:      'PersonStanding',
+  other:          'TriangleAlert',
 };
 
 function EffectIcon({ type, size = 20, color }: { type: string; size?: number; color: string }) {
-  const def = EFFECT_ICONS[type] ?? { set: 'Ionicons', name: 'warning-outline' } as EffectIconDef;
-  if (def.set === 'MaterialIcons') return <MaterialIcons name={def.name as any} size={size} color={color} />;
-  if (def.set === 'FontAwesome5') return <FontAwesome5 name={def.name as any} size={size - 3} color={color} />;
-  return <Ionicons name={def.name as any} size={size} color={color} />;
+  const iconName = EFFECT_ICONS[type] ?? 'TriangleAlert';
+  return <LucideIconByName name={iconName} size={size} color={color} />;
 }
 
 function severityTrendColor(avg: number): string {
@@ -311,7 +304,7 @@ export default function SideEffectsInsightsScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Side Effect Insights</Text>
         <View style={s.backBtn} />
@@ -348,7 +341,7 @@ function SpikeCard({ spike, colors }: { spike: SpikeAlert; colors: AppColors }) 
   return (
     <View style={s.alertCard}>
       <View style={s.alertIconWrap}>
-        <Ionicons name="warning" size={18} color="#E74C3C" />
+        <TriangleAlert size={18} color="#E74C3C" />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.alertTitle}>{label} spike — {spike.recentSev}/10, +{spike.deltaPct}% vs usual</Text>
@@ -395,7 +388,7 @@ function CyclePatternCard({
   // Sort chips left→right by avgDay so they read as a timeline
   const sortedChips = useMemo(() => [...ranked].sort((a, b) => a.avgDay - b.avgDay), [ranked]);
   const othersCount = points.length - ranked.reduce((sum, r) => sum + r.count, 0);
-  const doseIcon = oral ? 'capsules' : 'syringe';
+  const doseIcon = oral ? 'Pill' : 'Syringe';
 
   return (
     <View style={s.card}>
@@ -449,7 +442,7 @@ function CyclePatternCard({
                     y={CHART_PAD_T}
                     width={toX(peak.endDay) - toX(peak.startDay)}
                     height={plotH}
-                    fill={ORANGE}
+                    fill={colors.orange}
                     opacity={0.08}
                     rx={4}
                   />
@@ -458,7 +451,7 @@ function CyclePatternCard({
                 <Line
                   x1={toX(0)} x2={toX(0)}
                   y1={CHART_PAD_T} y2={CHART_PAD_T + plotH}
-                  stroke={ORANGE} strokeWidth={1} opacity={0.45}
+                  stroke={colors.orange} strokeWidth={1} opacity={0.45}
                 />
                 {/* Right-edge severity labels */}
                 {SEVERITY_ZONES.map(zone => {
@@ -486,7 +479,7 @@ function CyclePatternCard({
                     y={CHART_PAD_T - 8}
                     fontSize={9}
                     fontWeight="700"
-                    fill={ORANGE}
+                    fill={colors.orange}
                     textAnchor="middle"
                     fontFamily={FF}
                   >
@@ -530,7 +523,7 @@ function CyclePatternCard({
                 }}
                 pointerEvents="none"
               >
-                <FontAwesome5 name={doseIcon as any} size={11} color={ORANGE} />
+                <LucideIconByName name={doseIcon as any} size={11} color={colors.orange} />
               </View>
             </>
           )}
@@ -624,11 +617,11 @@ function SymptomRow({ trend, colors }: { trend: SymptomTrend; colors: AppColors 
   const color = severityTrendColor(trend.avgSev);
   const name = EFFECT_LABELS[trend.type] ?? trend.type;
 
-  let trendIcon: keyof typeof Ionicons.glyphMap = 'remove';
+  let trendIcon: string = 'Minus';
   let trendColor = w(0.4);
   let trendLabel = 'Flat';
-  if (trend.trend === 'improving') { trendIcon = 'arrow-down'; trendColor = '#27AE60'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↓`; }
-  else if (trend.trend === 'worsening') { trendIcon = 'arrow-up'; trendColor = '#E74C3C'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↑`; }
+  if (trend.trend === 'improving') { trendIcon = 'ArrowDown'; trendColor = '#27AE60'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↓`; }
+  else if (trend.trend === 'worsening') { trendIcon = 'ArrowUp'; trendColor = '#E74C3C'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↑`; }
   else if (trend.trend === 'insufficient') { trendLabel = 'New'; }
 
   return (
@@ -649,7 +642,7 @@ function SymptomRow({ trend, colors }: { trend: SymptomTrend; colors: AppColors 
         paddingHorizontal: 8, paddingVertical: 4,
         minWidth: 56, justifyContent: 'center',
       }}>
-        {trend.trend !== 'insufficient' && trend.trend !== 'flat' && <Ionicons name={trendIcon as any} size={10} color={trendColor} />}
+        {trend.trend !== 'insufficient' && trend.trend !== 'flat' && <LucideIconByName name={trendIcon as any} size={10} color={trendColor} />}
         <Text style={{ fontSize: 11, fontWeight: '700', color: trendColor, fontFamily: FF }}>{trendLabel}</Text>
       </View>
     </View>
@@ -704,11 +697,11 @@ function CoOccurrenceCard({ pairs, colors, totalLogs }: { pairs: CoOccurrencePai
                 {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: w(0.06), marginVertical: 12 }} />}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flexDirection: 'row' }}>
-                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ORANGE + '1A', alignItems: 'center', justifyContent: 'center' }}>
-                      <EffectIcon type={p.a} size={14} color={ORANGE} />
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.orange + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                      <EffectIcon type={p.a} size={14} color={colors.orange} />
                     </View>
-                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ORANGE + '1A', alignItems: 'center', justifyContent: 'center', marginLeft: -10, borderWidth: 2, borderColor: colors.surface }}>
-                      <EffectIcon type={p.b} size={14} color={ORANGE} />
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.orange + '1A', alignItems: 'center', justifyContent: 'center', marginLeft: -10, borderWidth: 2, borderColor: colors.surface }}>
+                      <EffectIcon type={p.b} size={14} color={colors.orange} />
                     </View>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -735,7 +728,7 @@ function ProgressBar({ value, colors }: { value: number; colors: AppColors }) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return (
     <View style={{ marginTop: 12, height: 5, borderRadius: 3, backgroundColor: w(0.08), overflow: 'hidden' }}>
-      <View style={{ width: `${Math.min(1, Math.max(0, value)) * 100}%`, height: 5, backgroundColor: ORANGE, borderRadius: 3 }} />
+      <View style={{ width: `${Math.min(1, Math.max(0, value)) * 100}%`, height: 5, backgroundColor: colors.orange, borderRadius: 3 }} />
     </View>
   );
 }

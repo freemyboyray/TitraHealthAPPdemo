@@ -1,4 +1,3 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -20,6 +19,7 @@ import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
 import type { ForecastDay, HourBlock } from '@/lib/cycle-intelligence';
+import { BarChart3, Utensils } from 'lucide-react-native';
 
 function hungerLevelLabel(state: ForecastDay['state']): string {
   switch (state) {
@@ -401,7 +401,7 @@ export function AppetiteForecastStrip({
           <View style={s.expandSection}>
             <Text style={s.expandSectionTitle}>HOW THIS WORKS</Text>
             <View style={s.expandRow}>
-              <MaterialIcons name="analytics" size={14} color="rgba(255,255,255,0.5)" />
+              <BarChart3 size={14} color="rgba(255,255,255,0.5)" />
               <Text style={s.expandText}>
                 {'Data source: Based on your last logged injection'}
                 {injectionDate ? ` (${injectionDate})` : ''}
@@ -409,7 +409,7 @@ export function AppetiteForecastStrip({
               </Text>
             </View>
             <View style={s.expandRow}>
-              <MaterialIcons name="restaurant" size={14} color="rgba(255,255,255,0.5)" />
+              <Utensils size={14} color="rgba(255,255,255,0.5)" />
               <Text style={s.expandText}>
                 Appetite connection: GLP-1 receptor activity follows the drug concentration curve. At peak concentration (typically Day 2–3 for weekly injectables), appetite suppression reaches 50–60%. By injection day, it returns toward baseline. Sources: FDA prescribing information; Wilding JPH, et al. N Engl J Med. 2021. Not medical advice.
               </Text>

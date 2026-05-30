@@ -948,8 +948,8 @@ export type FocusItem = {
   label: string;
   subtitle: string;
   status: 'completed' | 'active' | 'pending';
-  iconName: string;
-  iconSet: 'MaterialIcons' | 'Ionicons';
+  /** Lucide component name, e.g. 'Droplet', 'Utensils' */
+  lucideIcon: string;
   progressPct?: number;  // 0–100, omit for binary items (injection)
   valueLabel?: string;   // e.g. "142 / 180g" or "48 / 64oz"
 };
@@ -1093,6 +1093,49 @@ const SLEEP_TIPS = [
   'Aim for 7–9 hours; avoid screens 30 min before bed',
 ];
 
+// ─── Phase-aware motivational messages for Daily Focuses card ────────────────
+
+const PHASE_FOCUS_MESSAGES: Record<ShotPhase, { title: string; messages: string[] }> = {
+  shot: {
+    title: 'Shot Day',
+    messages: [
+      'Appetite suppression kicks in fast today. Focus on hydration and light, protein-rich meals.',
+      'Your body is absorbing the medication. Sip water steadily and keep meals small.',
+      'Nausea risk is highest today. Prioritize electrolytes and avoid heavy foods.',
+    ],
+  },
+  peak: {
+    title: 'Peak Phase',
+    messages: [
+      'GLP-1 levels are at their highest. Appetite is most suppressed \u2014 make every bite count with protein.',
+      'You may not feel hungry, but your body still needs fuel. Small, frequent meals work best.',
+      'Peak medication effect today. Light movement is enough \u2014 don\u2019t push too hard.',
+    ],
+  },
+  balance: {
+    title: 'Steady State',
+    messages: [
+      'Medication levels are stable. Great window to build protein and activity habits.',
+      'Your appetite is balanced. Focus on hitting your fiber and water targets today.',
+      'Stable levels mean consistent energy. This is your best day for movement goals.',
+    ],
+  },
+  reset: {
+    title: 'Winding Down',
+    messages: [
+      'Hunger may start returning as levels taper. Lean on your habits to stay on track.',
+      'Medication is tapering toward your next dose. High-protein meals help bridge the gap.',
+      'Appetite may increase \u2014 that\u2019s normal pharmacology, not failure. Stay consistent.',
+    ],
+  },
+};
+
+export function getPhaseFocusMessage(phase: ShotPhase): { title: string; message: string } {
+  const doy = getDayOfYear(new Date());
+  const entry = PHASE_FOCUS_MESSAGES[phase];
+  return { title: entry.title, message: dailyPick(entry.messages, doy) };
+}
+
 function buildFocusItem(
   category: FocusCategory,
   actuals: DailyActuals,
@@ -1109,7 +1152,7 @@ function buildFocusItem(
       return {
         id: 'injection', label: 'Log Your Dose',
         subtitle: 'Keep your dose cycle accurate',
-        iconName: 'colorize', iconSet: 'MaterialIcons',
+        lucideIcon: 'Syringe',
         status,
       };
     case 'hydration': {
@@ -1130,7 +1173,7 @@ function buildFocusItem(
           : dailyPick(HYDRATION_TIPS, dayOfYear);
       return {
         id: 'hydration', label, subtitle,
-        iconName: 'water-outline', iconSet: 'Ionicons',
+        lucideIcon: 'Droplet',
         status,
         progressPct: Math.min(100, actuals.waterMl / targets.waterMl * 100),
         valueLabel: `${loggedOz} / ${targetOz}oz`,
@@ -1153,7 +1196,7 @@ function buildFocusItem(
           : dailyPick(PROTEIN_TIPS, dayOfYear);
       return {
         id: 'protein', label, subtitle,
-        iconName: 'restaurant', iconSet: 'MaterialIcons',
+        lucideIcon: 'Utensils',
         status,
         progressPct: Math.min(100, actuals.proteinG / targets.proteinG * 100),
         valueLabel: `${loggedG} / ${targets.proteinG}g`,
@@ -1174,7 +1217,7 @@ function buildFocusItem(
           : dailyPick(FIBER_TIPS, dayOfYear);
       return {
         id: 'fiber', label, subtitle,
-        iconName: 'eco', iconSet: 'MaterialIcons',
+        lucideIcon: 'Leaf',
         status,
         progressPct: Math.min(100, actuals.fiberG / targets.fiberG * 100),
         valueLabel: `${loggedG} / ${targets.fiberG}g`,
@@ -1194,7 +1237,7 @@ function buildFocusItem(
           : dailyPick(ACTIVITY_TIPS, dayOfYear);
       return {
         id: 'activity', label, subtitle,
-        iconName: 'directions-walk', iconSet: 'MaterialIcons',
+        lucideIcon: 'Footprints',
         status,
         progressPct: Math.min(100, actuals.steps / targets.steps * 100),
         valueLabel: `${actuals.steps.toLocaleString()} / ${targets.steps.toLocaleString()} steps`,
@@ -1213,7 +1256,7 @@ function buildFocusItem(
           : dailyPick(SLEEP_TIPS, dayOfYear) + phaseNote;
       return {
         id: 'sleep', label, subtitle,
-        iconName: 'moon-outline', iconSet: 'Ionicons',
+        lucideIcon: 'Moon',
         status,
         progressPct: Math.min(100, sleepMin / 420 * 100),
         valueLabel: `${hrs}h / 7–9h`,
@@ -1227,7 +1270,7 @@ function buildFocusItem(
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
           ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '-'}`
           : 'Connect Apple Health to see recovery details',
-        iconName: 'favorite-border', iconSet: 'MaterialIcons',
+        lucideIcon: 'Heart',
         status,
       };
     }
@@ -1236,7 +1279,7 @@ function buildFocusItem(
         id: 'rest',
         label: 'Rest & recover today',
         subtitle: 'Peak GLP-1 day — light movement only',
-        iconName: 'self-improvement', iconSet: 'MaterialIcons',
+        lucideIcon: 'Brain',
         status,
       };
   }

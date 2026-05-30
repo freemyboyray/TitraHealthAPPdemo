@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -20,10 +19,10 @@ import { useLogStore, MealType } from '../../stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, Search, X, XCircle } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 
 // ─── GlassBorder ─────────────────────────────────────────────────────────────
 
@@ -175,7 +174,7 @@ export default function SearchFoodScreen() {
     if (searching) {
       return (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ORANGE} />
+          <ActivityIndicator size="large" color={colors.orange} />
         </View>
       );
     }
@@ -188,7 +187,7 @@ export default function SearchFoodScreen() {
     }
     return (
       <View style={styles.centered}>
-        <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+        <Search size={48} color={colors.textSecondary} />
         <Text style={[styles.emptyText, { marginTop: 12 }]}>Search for a food to get started</Text>
       </View>
     );
@@ -208,7 +207,7 @@ export default function SearchFoodScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={styles.backBtnOverlay} />
           <GlassBorder />
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+          <ChevronLeft size={20} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Search Food</Text>
@@ -221,7 +220,7 @@ export default function SearchFoodScreen() {
         <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
         <View style={styles.searchBarOverlay} />
         <GlassBorder />
-        <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+        <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search foods…"
@@ -244,7 +243,7 @@ export default function SearchFoodScreen() {
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            <XCircle size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -259,7 +258,7 @@ export default function SearchFoodScreen() {
               style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.25)' }}
               activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 14, color: ORANGE, fontWeight: '600' }}>{s}</Text>
+              <Text style={{ fontSize: 14, color: colors.orange, fontWeight: '600' }}>{s}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -291,7 +290,7 @@ export default function SearchFoodScreen() {
             onPress={() => setSelected(null)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close" size={20} color={colors.textSecondary} />
+            <X size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <Text style={styles.panelName} numberOfLines={2}>
@@ -494,7 +493,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   resultCalories: {
     fontSize: 18,
     fontWeight: '700',
-    color: ORANGE,
+    color: c.orange,
     marginBottom: 4,
   },
   resultMacros: {
@@ -620,7 +619,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.glassOverlay,
   },
   mealChipActive: {
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
   },
   mealChipText: {
     fontSize: 14,
@@ -635,10 +634,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   logBtn: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,

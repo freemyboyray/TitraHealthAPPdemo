@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -18,8 +17,9 @@ import { useLogStore } from '@/stores/log-store';
 import type { EnergyLog } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
+import { X } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const ORANGE = '#FF742A';
 const FF = 'System';
 
 const LEVEL_LABELS = ['', 'Depleted', 'Low', 'Steady', 'Good', 'Charged'] as const;
@@ -27,9 +27,9 @@ const LEVEL_EMOJIS = ['', '\u{1F6AB}', '\u{1F50B}', '\u{26A1}', '\u{1F4AA}', '\u
 const LEVEL_COLORS = ['', '#E53E3E', '#E8960C', '#F6CB45', '#27AE60', '#27AE60'] as const;
 
 const TIME_SLOTS = [
-  { key: 'morning', label: 'Morning', icon: 'sunny-outline' as const },
-  { key: 'afternoon', label: 'Afternoon', icon: 'partly-sunny-outline' as const },
-  { key: 'evening', label: 'Evening', icon: 'moon-outline' as const },
+  { key: 'morning', label: 'Morning', icon: 'Sun' as const },
+  { key: 'afternoon', label: 'Afternoon', icon: 'CloudSun' as const },
+  { key: 'evening', label: 'Evening', icon: 'Moon' as const },
 ];
 
 function getDefaultTimeSlot(): string {
@@ -94,7 +94,7 @@ export default function LogEnergyScreen() {
           accessibilityRole="button"
         >
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <Ionicons name="close" size={20} color={colors.textPrimary} />
+          <X size={20} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <Text style={s.headerTitle}>Log Energy</Text>
@@ -167,11 +167,9 @@ export default function LogEnergyScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
               >
-                <Ionicons
-                  name={slot.icon}
+                <LucideIconByName name={slot.icon}
                   size={18}
-                  color={selected ? ORANGE : w(0.35)}
-                />
+                  color={selected ? colors.orange : w(0.35)} />
                 <Text style={[s.slotLabel, selected && s.slotLabelActive]}>
                   {slot.label}
                 </Text>
@@ -230,7 +228,7 @@ const createStyles = (c: AppColors) => {
       fontFamily: FF,
     },
     saveBtn: {
-      backgroundColor: ORANGE, borderRadius: 16,
+      backgroundColor: c.orange, borderRadius: 16,
       paddingHorizontal: 16, paddingVertical: 8,
     },
     saveText: {
@@ -282,13 +280,13 @@ const createStyles = (c: AppColors) => {
     },
     slotBtnActive: {
       backgroundColor: 'rgba(255,116,42,0.1)',
-      borderColor: ORANGE,
+      borderColor: c.orange,
     },
     slotLabel: {
       fontSize: 14, fontWeight: '600', color: w(0.4), fontFamily: FF,
     },
     slotLabelActive: {
-      color: ORANGE, fontWeight: '700',
+      color: c.orange, fontWeight: '700',
     },
     noteInput: {
       backgroundColor: w(0.04),

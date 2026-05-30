@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useMemo } from 'react';
@@ -15,8 +14,8 @@ import {
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { MEDICAL_SOURCES, MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
+import { ChevronLeft, ExternalLink, Info } from 'lucide-react-native';
 
-const ORANGE = '#FF742A';
 
 type SourceItem = { key: string; label: string; citation: string; url: string };
 
@@ -75,7 +74,7 @@ export default function MedicalSourcesScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Medical Sources</Text>
         <View style={{ width: 36 }} />
@@ -88,7 +87,7 @@ export default function MedicalSourcesScreen() {
       >
         {/* Disclaimer banner */}
         <View style={s.disclaimerBanner}>
-          <Ionicons name="information-circle" size={20} color={ORANGE} />
+          <Info size={20} color={colors.orange} />
           <Text style={s.disclaimerText}>{MEDICAL_DISCLAIMER}</Text>
         </View>
 
@@ -111,12 +110,10 @@ export default function MedicalSourcesScreen() {
                   <Text style={s.sourceLabel}>{item.label}</Text>
                   <Text style={s.sourceCitation}>{item.citation}</Text>
                 </View>
-                <Ionicons
-                  name="open-outline"
+                <ExternalLink
                   size={16}
-                  color={ORANGE}
-                  style={s.sourceIcon}
-                />
+                  color={colors.orange}
+                  style={s.sourceIcon} />
               </Pressable>
             ))}
           </View>

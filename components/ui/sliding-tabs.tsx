@@ -99,7 +99,7 @@ const createStyles = (c: AppColors, height: number, borderRadius: number, paddin
       flexDirection: 'row',
       height,
       borderRadius,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+      backgroundColor: c.isDark ? 'rgba(210,190,170,0.12)' : 'rgba(0,0,0,0.12)',
       padding,
       position: 'relative',
     },
@@ -122,7 +122,7 @@ const createStyles = (c: AppColors, height: number, borderRadius: number, paddin
     tabText: {
       fontSize: 15,
       fontWeight: '600',
-      color: c.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)',
+      color: c.isDark ? 'rgba(250,248,245,0.65)' : 'rgba(0,0,0,0.55)',
       fontFamily: 'System',
     },
     tabTextActive: {

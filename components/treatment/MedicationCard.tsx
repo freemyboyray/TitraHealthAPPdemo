@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -8,6 +7,7 @@ import type { AppColors } from '@/constants/theme';
 import { TYPE } from '@/constants/theme';
 import type { MedicationBrand } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
+import { CircleCheck } from 'lucide-react-native';
 
 // brand prop kept for caller compatibility (MedicationPicker passes it)
 
@@ -65,7 +65,7 @@ export function MedicationCard({
         )}
         {selected && (
           <Animated.View entering={FadeIn.duration(150)}>
-            <Ionicons name="checkmark-circle" size={22} color={colors.orange} />
+            <CircleCheck size={22} color={colors.orange} />
           </Animated.View>
         )}
       </View>

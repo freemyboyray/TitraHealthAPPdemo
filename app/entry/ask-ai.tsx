@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -25,10 +24,10 @@ import { useUserStore } from '../../stores/user-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import { usePostHog } from '@/lib/posthog';
 import type { AppColors } from '@/constants/theme';
+import { ChevronLeft, Info, MessagesSquare, Send } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORANGE = '#FF742A';
 const MUTED = 'rgba(255,255,255,0.45)';
 
 const SUGGESTION_PROMPTS = [
@@ -278,7 +277,7 @@ export default function AskAIScreen() {
             <BlurView intensity={76} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
             <GlassBorder r={20} />
-            <Ionicons name="chevron-back" size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+            <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
           </View>
         </TouchableOpacity>
 
@@ -296,7 +295,7 @@ export default function AskAIScreen() {
             accessibilityLabel="Medical disclaimer"
             accessibilityRole="button"
           >
-            <Ionicons name="information-circle-outline" size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
+            <Info size={22} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -304,7 +303,7 @@ export default function AskAIScreen() {
       {/* Messages */}
       {loadingHistory ? (
         <View style={s.loadingCenter}>
-          <ActivityIndicator size="large" color={ORANGE} />
+          <ActivityIndicator size="large" color={colors.orange} />
         </View>
       ) : (
         <FlatList
@@ -315,7 +314,7 @@ export default function AskAIScreen() {
           contentContainerStyle={[s.listContent, { paddingBottom: 16 }]}
           ListEmptyComponent={
             <View style={s.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={56} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
+              <MessagesSquare size={56} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
               <Text style={s.emptyTitle}>
                 {userName ? `Hi, ${userName.split(' ')[0]}` : 'Your GLP-1 Companion'}
               </Text>
@@ -381,7 +380,7 @@ export default function AskAIScreen() {
             accessibilityLabel="Send message"
             accessibilityRole="button"
           >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
+            <Send size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -466,12 +465,12 @@ const createStyles = (c: AppColors) => {
 
   userBubble: {
     maxWidth: '80%',
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     borderRadius: 20,
     borderBottomRightRadius: 4,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -535,10 +534,10 @@ const createStyles = (c: AppColors) => {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ORANGE,
+    shadowColor: c.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -561,7 +560,7 @@ const createStyles = (c: AppColors) => {
     borderWidth: 1,
     borderColor: 'rgba(255,116,42,0.25)',
   },
-  chipText: { fontSize: 15, fontWeight: '600', color: ORANGE },
+  chipText: { fontSize: 15, fontWeight: '600', color: c.orange },
 
   // Disclaimer
   disclaimerBackdrop: {
@@ -591,7 +590,7 @@ const createStyles = (c: AppColors) => {
   disclaimerBtn: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: ORANGE,
+    backgroundColor: c.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },

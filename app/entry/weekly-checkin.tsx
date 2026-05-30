@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -18,6 +17,8 @@ import { cardElevation } from '@/constants/theme';
 import { useLogStore } from '@/stores/log-store';
 import { useProfile } from '@/contexts/profile-context';
 import { scheduleCheckinReminder } from '@/lib/notifications';
+import { ChevronLeft } from 'lucide-react-native';
+import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
 
@@ -37,7 +38,7 @@ type StatusResult = { label: string; color: string };
 type DomainConfig = {
   key: DomainKey;
   label: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: string;
   questions: readonly string[];
   /** When true, higher sum = better (activity). All other domains: higher sum = worse. */
   higherIsBetter: boolean;
@@ -68,7 +69,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'gi_burden',
     label: 'GI Symptoms',
-    icon: 'medical-outline',
+    icon: 'Hospital',
     questions: [
       'I felt nauseous, vomited, or had acid reflux.',
       'I had stomach pain, cramping, or bloating.',
@@ -83,7 +84,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'energy_mood',
     label: 'Energy & Mood',
-    icon: 'flash-outline',
+    icon: 'Zap',
     questions: [
       'My energy levels were low or inconsistent.',
       'I felt mentally foggy or drained.',
@@ -98,7 +99,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'appetite',
     label: 'Appetite',
-    icon: 'restaurant-outline',
+    icon: 'Utensils',
     questions: [
       'I struggled to eat enough or skipped meals.',
       'Food felt unappealing for most of the day.',
@@ -113,7 +114,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'food_noise',
     label: 'Food Noise',
-    icon: 'volume-medium-outline',
+    icon: 'Volume2',
     questions: [
       'I had frequent, intrusive thoughts about food.',
       'Food cravings made it hard to focus on other things.',
@@ -128,7 +129,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'sleep_quality',
     label: 'Sleep',
-    icon: 'moon-outline',
+    icon: 'Moon',
     questions: [
       'I had trouble falling or staying asleep.',
       'I woke up feeling unrefreshed or tired.',
@@ -143,7 +144,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'activity_quality',
     label: 'Activity',
-    icon: 'barbell-outline',
+    icon: 'Dumbbell',
     questions: [
       'I completed exercise or movement sessions.',
       'I felt physically capable and strong.',
@@ -158,7 +159,7 @@ const DOMAINS: DomainConfig[] = [
   {
     key: 'mental_health',
     label: 'Mental Health',
-    icon: 'heart-outline',
+    icon: 'Heart',
     questions: [
       'I felt anxious, worried, or on edge.',
       'I felt sad, hopeless, or unmotivated.',
@@ -266,7 +267,7 @@ function buildDomains(isDaily: boolean): DomainConfig[] {
     const doseDomain: DomainConfig = {
       key: 'gi_burden' as DomainKey, // reuse an existing key for submission compat — prepended, won't replace
       label: 'Dose Consistency',
-      icon: 'calendar-outline',
+      icon: 'Calendar',
       questions: [
         'I missed one or more doses this week.',
         'I took my dose at an inconsistent time (different hour each day).',
@@ -361,7 +362,7 @@ export default function WeeklyCheckinScreen() {
           <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: w(0.05) }]} />
           <GlassBorder r={20} isDark={colors.isDark} />
-          <Ionicons name="chevron-back" size={22} color={w(0.6)} />
+          <ChevronLeft size={22} color={w(0.6)} />
         </TouchableOpacity>
 
         <View style={{ alignItems: 'center' }}>
@@ -398,7 +399,7 @@ export default function WeeklyCheckinScreen() {
                       backgroundColor: colors.orangeDim,
                       alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Ionicons name={domain.icon} size={18} color={colors.orange} />
+                      <LucideIconByName name={domain.icon} size={18} color={colors.orange} />
                     </View>
                     <Text style={{ fontSize: 17, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>
                       {domain.label}

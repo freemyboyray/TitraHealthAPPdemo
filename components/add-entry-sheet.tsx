@@ -28,7 +28,6 @@ import { useProfile } from '@/contexts/profile-context';
 import { isOralDrug } from '@/constants/drug-pk';
 import { isOnTreatment } from '@/constants/user-profile';
 
-const ORANGE = '#FF742A';
 const ICON_SIZE = 24;
 
 type EntryType = 'water' | 'food' | null;
@@ -255,7 +254,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       ) : aiParsingState === 'loading' ? (
         /* Loading state */
         <View style={f.aiLoadingWrap}>
-          <ActivityIndicator size="large" color={ORANGE} />
+          <ActivityIndicator size="large" color={colors.orange} />
           <Text style={f.aiLoadingText}>Analyzing nutrition...</Text>
         </View>
       ) : (
@@ -610,12 +609,12 @@ const createSheetStyles = (c: AppColors) => {
   iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
 
   // ASK AI sphere
-  specialCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  specialCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
   sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
 
   gridLabel: { fontSize: 12, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'System' },
-  gridLabelSpecial: { color: ORANGE },
+  gridLabelSpecial: { color: c.orange },
 
   });
 };
