@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFoodTaskStore } from '../../stores/food-task-store';
+import { resizeImageForVision } from '@/lib/image';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { AlertCircle, Camera, ChevronLeft, Images, Sparkles } from 'lucide-react-native';
@@ -74,10 +75,14 @@ export default function CaptureFoodScreen() {
         quality: 0.6,
         imageType: 'jpg',
       });
-      if (photo?.base64 && photo.uri) {
-        setPhotoBase64(photo.base64);
-        setPhotoUri(photo.uri);
-        setPhase('preview');
+      if (photo?.uri) {
+        let base64 = photo.base64 ?? '';
+        try { base64 = await resizeImageForVision(photo.uri); } catch {}
+        if (base64) {
+          setPhotoBase64(base64);
+          setPhotoUri(photo.uri);
+          setPhase('preview');
+        }
       }
     } catch {
       // camera error - stay in camera phase
@@ -91,10 +96,15 @@ export default function CaptureFoodScreen() {
       base64: true,
       quality: 0.6,
     });
-    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
-      setPhotoBase64(result.assets[0].base64);
-      setPhotoUri(result.assets[0].uri);
-      setPhase('preview');
+    if (!result.canceled && result.assets[0]?.uri) {
+      const asset = result.assets[0];
+      let base64 = asset.base64 ?? '';
+      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      if (base64) {
+        setPhotoBase64(base64);
+        setPhotoUri(asset.uri);
+        setPhase('preview');
+      }
     }
   }
 

@@ -5,7 +5,11 @@ import type { FeatureKey } from '../_shared/usage-limit.ts';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ALLOWED_MODELS = ['gpt-4o-mini'];
 const MAX_TOKENS_CAP = 2000;
-const MAX_PAYLOAD_BYTES = 50_000;
+// Text-only chat/parse requests are tiny; keep them tightly capped. Vision
+// requests carry a base64-encoded image and are legitimately much larger
+// (OpenAI itself accepts base64 images up to 20 MB).
+const MAX_TEXT_PAYLOAD_BYTES = 50_000;
+const MAX_VISION_PAYLOAD_BYTES = 10_000_000;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -56,10 +60,11 @@ Deno.serve(async (req: Request) => {
     // voice_log is owned by whisper-proxy and not selectable here.
     const CLIENT_SELECTABLE: FeatureKey[] = ['ai_chat', 'photo_analysis', 'food_parse'];
     const requestedFeature = typeof body.feature === 'string' ? body.feature : undefined;
+    const isVision = hasVisionContent(body);
     const featureKey: FeatureKey =
       requestedFeature && CLIENT_SELECTABLE.includes(requestedFeature as FeatureKey)
         ? (requestedFeature as FeatureKey)
-        : hasVisionContent(body)
+        : isVision
           ? 'photo_analysis'
           : 'ai_chat';
 
@@ -82,8 +87,10 @@ Deno.serve(async (req: Request) => {
 
     const payload = JSON.stringify(body);
 
-    // Reject oversized payloads
-    if (payload.length > MAX_PAYLOAD_BYTES) {
+    // Reject oversized payloads — vision requests get a much larger allowance
+    // since they carry a base64 image.
+    const maxBytes = isVision ? MAX_VISION_PAYLOAD_BYTES : MAX_TEXT_PAYLOAD_BYTES;
+    if (payload.length > maxBytes) {
       return new Response(JSON.stringify({ error: 'Payload too large' }), {
         status: 413,
         headers: { ...CORS, 'Content-Type': 'application/json' },

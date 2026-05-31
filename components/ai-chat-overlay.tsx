@@ -23,6 +23,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { buildSystemPrompt, buildEnergySnapshot, callOpenAI, callGPT4oMiniVision, UsageLimitError, DataConsentError } from '@/lib/openai';
+import { resizeImageForVision } from '@/lib/image';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
@@ -298,8 +299,11 @@ export function AiChatOverlay() {
       base64: true,
       quality: 0.6,
     });
-    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
-      setPendingImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    if (!result.canceled && result.assets[0]?.uri) {
+      const asset = result.assets[0];
+      let base64 = asset.base64 ?? '';
+      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      if (base64) setPendingImage({ uri: asset.uri, base64 });
     }
   }
 
@@ -311,8 +315,11 @@ export function AiChatOverlay() {
       base64: true,
       quality: 0.6,
     });
-    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
-      setPendingImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    if (!result.canceled && result.assets[0]?.uri) {
+      const asset = result.assets[0];
+      let base64 = asset.base64 ?? '';
+      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      if (base64) setPendingImage({ uri: asset.uri, base64 });
     }
   }
 

@@ -244,6 +244,12 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
           throw new UsageLimitError('ai_chat', 5, 5);
         }
 
+        // Don't retry payload-too-large — retrying won't shrink the request
+        if (errJson.includes('413') || errJson.includes('Payload too large') ||
+            errMsg.includes('413') || errMsg.includes('Payload too large')) {
+          throw new Error('Image too large to analyze. Please try a different photo.');
+        }
+
         lastError = new Error(`OpenAI proxy error: ${errMsg}`);
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 1500));

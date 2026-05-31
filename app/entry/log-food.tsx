@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callOpenAI, estimateMacrosWithAI } from '../../lib/openai';
+import { resizeImageForVision } from '../../lib/image';
 import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, autocompleteFatSecret, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
@@ -272,9 +273,13 @@ export default function LogFoodScreen() {
         quality: 0.6,
         imageType: 'jpg',
       });
-      if (photo?.base64 && photo.uri) {
-        setPhotoBase64(photo.base64);
-        setPhotoUri(photo.uri);
+      if (photo?.uri) {
+        let base64 = photo.base64 ?? '';
+        try { base64 = await resizeImageForVision(photo.uri); } catch {}
+        if (base64) {
+          setPhotoBase64(base64);
+          setPhotoUri(photo.uri);
+        }
       }
     } catch {
       // camera error
@@ -288,9 +293,14 @@ export default function LogFoodScreen() {
       base64: true,
       quality: 0.6,
     });
-    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
-      setPhotoBase64(result.assets[0].base64);
-      setPhotoUri(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]?.uri) {
+      const asset = result.assets[0];
+      let base64 = asset.base64 ?? '';
+      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      if (base64) {
+        setPhotoBase64(base64);
+        setPhotoUri(asset.uri);
+      }
     }
   }
 
