@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
@@ -20,6 +20,7 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { ARTICLES, type Article } from '@/constants/articles';
+import { Image } from 'expo-image';
 
 const FF = 'System';
 

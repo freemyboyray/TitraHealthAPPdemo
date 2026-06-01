@@ -21,6 +21,8 @@ const PREMIUM_FEATURES = new Set([
   'clinical_benchmark',
   'progress_photo_compare',
   'patterns',
+  'energy_bank',
+  'side_effect_insights',
 ]);
 
 /** Features that are metered (usage-limited for free users) */

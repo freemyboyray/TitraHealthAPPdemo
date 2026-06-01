@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import ReAnimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -56,6 +57,19 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
 
   const TAB_LABELS = ['Home', 'Log', 'Explore', 'Settings'];
 
+  // Swipe left/right on the pill to switch tabs
+  const onSwipe = ({ nativeEvent }: any) => {
+    if (nativeEvent.state !== State.END) return;
+    const { translationX, velocityX } = nativeEvent;
+    if (Math.abs(translationX) < 30 && Math.abs(velocityX) < 300) return;
+    const dir = translationX > 0 ? -1 : 1; // swipe left = next, swipe right = prev
+    const next = activeIndex + dir;
+    if (next >= 0 && next < state.routes.length) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.navigate(state.routes[next].name);
+    }
+  };
+
   const ICON_DEFS = [
     { focused: <IconSymbol name="house.fill" size={24} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="house" size={24} color={colors.textMuted} /> },
     { focused: <IconSymbol name="list.bullet" size={26} color="#FFFFFF" weight="semibold" />, unfocused: <IconSymbol name="list.bullet" size={26} color={colors.textMuted} /> },
@@ -69,42 +83,44 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
       {/* Left slot holds full pill + mini circle, overlaid */}
       <View style={s.pillOuter}>
 
-        {/* Full pill — scales + fades as a whole unit */}
-        <Animated.View
-          style={[s.pillShadow, StyleSheet.absoluteFill, {
-            opacity: pillOpacity,
-            transform: [{ scale: pillScale }],
-          }]}
-          pointerEvents={pillInteractive ? 'box-none' : 'none'}
-        >
-          <View style={s.pillInner}>
-            <GlassSurface fallbackColors={colors} />
-            <View style={s.pillContent}>
-              {state.routes.map((route, index) => {
-                const isFocused = index === activeIndex;
-                return (
-                  <TouchableOpacity
-                    key={route.key}
-                    style={s.tabBtn}
-                    accessibilityLabel={`${TAB_LABELS[index]} tab`}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: isFocused }}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (!isFocused) navigation.navigate(route.name);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    {isFocused
-                      ? <View style={s.activeIconWrap}>{ICON_DEFS[index].focused}</View>
-                      : ICON_DEFS[index].unfocused
-                    }
-                  </TouchableOpacity>
-                );
-              })}
+        {/* Full pill — scales + fades as a whole unit, swipeable */}
+        <PanGestureHandler onHandlerStateChange={onSwipe} activeOffsetX={[-20, 20]}>
+          <Animated.View
+            style={[s.pillShadow, StyleSheet.absoluteFill, {
+              opacity: pillOpacity,
+              transform: [{ scale: pillScale }],
+            }]}
+            pointerEvents={pillInteractive ? 'box-none' : 'none'}
+          >
+            <View style={s.pillInner}>
+              <GlassSurface fallbackColors={colors} />
+              <View style={s.pillContent}>
+                {state.routes.map((route, index) => {
+                  const isFocused = index === activeIndex;
+                  return (
+                    <TouchableOpacity
+                      key={route.key}
+                      style={s.tabBtn}
+                      accessibilityLabel={`${TAB_LABELS[index]} tab`}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: isFocused }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (!isFocused) navigation.navigate(route.name);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      {isFocused
+                        ? <View style={s.activeIconWrap}>{ICON_DEFS[index].focused}</View>
+                        : ICON_DEFS[index].unfocused
+                      }
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </PanGestureHandler>
 
         {/* Mini circle — active tab icon, fades in as pill collapses; tap to expand */}
         <Animated.View
@@ -171,6 +187,16 @@ export default function TabLayout() {
     fetchInsightsData();
     if (appleHealthEnabled) fetchHealthData();
   }, []);
+
+  // Poll HealthKit every 60s so Apple Health changes (weight, sleep, etc.) stay in sync
+  const syncWeight = useLogStore(s => s.syncWeightFromHealthKit);
+  useEffect(() => {
+    if (!appleHealthEnabled) return;
+    const interval = setInterval(() => {
+      fetchHealthData().then(() => syncWeight()).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [appleHealthEnabled]);
 
   // Fire AI prefetch once, right after the initial Supabase data load completes.
   // logLoading transitions false→true (fetch start) then true→false (fetch done).

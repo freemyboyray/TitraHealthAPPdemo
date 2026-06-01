@@ -28,10 +28,17 @@ export function GradientBackground({ height = 350 }: { height?: number }) {
     );
   }
 
+  // Large upward fill so top overscroll shows the gradient's first color
+  // instead of the page background leaking through.
+  const topFill = (
+    <View style={{ position: 'absolute', top: -800, left: 0, right: 0, height: 800, backgroundColor: colors.heroGradient[0] }} />
+  );
+
   if (headerStyle === 'solid') {
     const orangeHeight = top + 65;
     return (
       <View style={{ height: totalHeight, ...base, backgroundColor: colors.orange }} pointerEvents="none">
+        {topFill}
         <View style={{
           position: 'absolute',
           left: 0,
@@ -47,13 +54,15 @@ export function GradientBackground({ height = 350 }: { height?: number }) {
   }
 
   return (
-    <LinearGradient
-      colors={colors.heroGradient as unknown as [string, string, ...string[]]}
-      locations={[0, 0.3, 0.55, 1.0]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={{ height: totalHeight, ...base }}
-      pointerEvents="none"
-    />
+    <View style={{ height: totalHeight, ...base }} pointerEvents="none">
+      {topFill}
+      <LinearGradient
+        colors={colors.heroGradient as unknown as [string, string, ...string[]]}
+        locations={[0, 0.3, 0.55, 1.0]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ flex: 1 }}
+      />
+    </View>
   );
 }

@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -69,7 +70,19 @@ export function SlidingTabs<T extends string>({
 
   const innerRadius = Math.max(borderRadius - padding, 4);
 
+  const onSwipe = useCallback(({ nativeEvent }: any) => {
+    if (nativeEvent.state !== State.END) return;
+    const { translationX, velocityX } = nativeEvent;
+    if (Math.abs(translationX) < 25 && Math.abs(velocityX) < 300) return;
+    const dir = translationX > 0 ? -1 : 1;
+    const nextIdx = activeIndex + dir;
+    if (nextIdx >= 0 && nextIdx < tabCount) {
+      handleSelect(tabs[nextIdx].key, nextIdx);
+    }
+  }, [activeIndex, tabCount, tabs]);
+
   return (
+    <PanGestureHandler onHandlerStateChange={onSwipe} activeOffsetX={[-15, 15]}>
     <View style={s.container} onLayout={onLayout}>
       {containerWidth > 0 && (
         <Animated.View style={[s.indicator, indicatorStyle]}>
@@ -90,6 +103,7 @@ export function SlidingTabs<T extends string>({
         </TouchableOpacity>
       ))}
     </View>
+    </PanGestureHandler>
   );
 }
 
@@ -122,7 +136,7 @@ const createStyles = (c: AppColors, height: number, borderRadius: number, paddin
     tabText: {
       fontSize: 15,
       fontWeight: '600',
-      color: c.isDark ? 'rgba(250,248,245,0.65)' : 'rgba(0,0,0,0.55)',
+      color: c.isDark ? 'rgba(250,248,245,0.65)' : 'rgba(0,0,0,0.45)',
       fontFamily: 'System',
     },
     tabTextActive: {

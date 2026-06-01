@@ -122,6 +122,10 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
   },
 
   async fetchAll() {
+    // Throttle: skip if last fetch was less than 30 seconds ago
+    const last = get().lastRefreshed;
+    if (last && Date.now() - last.getTime() < 30_000) return;
+
     // Core reads (both platforms)
     const core = await Promise.all([
       lib.readTodaySteps(),

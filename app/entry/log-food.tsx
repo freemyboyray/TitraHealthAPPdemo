@@ -1,5 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -282,7 +283,7 @@ export default function LogFoodScreen() {
       });
       if (photo?.uri) {
         let base64 = photo.base64 ?? '';
-        try { base64 = await resizeImageForVision(photo.uri); } catch {}
+        try { const resized = await resizeImageForVision(photo.uri); if (resized) base64 = resized; } catch {}
         if (base64) {
           setPhotoBase64(base64);
           setPhotoUri(photo.uri);
@@ -296,18 +297,17 @@ export default function LogFoodScreen() {
   async function handlePickLibrary() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
       base64: true,
-      quality: 0.6,
+      quality: 0.5,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       const asset = result.assets[0];
       let base64 = asset.base64 ?? '';
-      try { base64 = await resizeImageForVision(asset.uri); } catch {}
-      if (base64) {
-        setPhotoBase64(base64);
-        setPhotoUri(asset.uri);
+      if (!base64) {
+        try { base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 }); } catch {}
       }
+      setPhotoUri(asset.uri);
+      if (base64) setPhotoBase64(base64);
     }
   }
 
@@ -773,10 +773,10 @@ export default function LogFoodScreen() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const MODE_ICONS: Record<Mode, string> = {
-    search: 'search-outline',
-    scan: 'barcode-outline',
-    describe: 'create-outline',
-    camera: 'camera-outline',
+    search: 'Search',
+    scan: 'ScanBarcode',
+    describe: 'Pencil',
+    camera: 'Camera',
   };
   const MODE_LABELS: Record<Mode, string> = {
     search: 'Search',
@@ -934,8 +934,7 @@ export default function LogFoodScreen() {
                   <RefreshCw size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85} accessibilityLabel="Analyze photo with AI" accessibilityRole="button">
-                  <Sparkles size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={s.cameraAnalyzeBtnText}>Analyze with AI</Text>
+                  <Text style={s.cameraAnalyzeBtnText}>Analyze</Text>
                 </TouchableOpacity>
                 <View style={{ width: 48 }} />
               </View>

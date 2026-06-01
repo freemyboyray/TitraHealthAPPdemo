@@ -53,12 +53,12 @@ type Beverage = {
 
 const BEVERAGES: Beverage[] = [
   { key: 'water',        label: 'Water',        icon: 'Droplet',       color: '#5B8BF5', defaultOz: 8,  hydrationFactor: 1.0  },
-  { key: 'coffee',       label: 'Coffee',       icon: 'cafe-outline',        color: '#A0795D', defaultOz: 12, hydrationFactor: 0.85 },
+  { key: 'coffee',       label: 'Coffee',       icon: 'Coffee',        color: '#A0795D', defaultOz: 12, hydrationFactor: 0.85 },
   { key: 'tea',          label: 'Tea',          icon: 'Leaf',        color: '#7DB87D', defaultOz: 8,  hydrationFactor: 0.90 },
   { key: 'sparkling',    label: 'Sparkling',    icon: 'Sparkles',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
   { key: 'electrolytes', label: 'Electrolytes', icon: 'Zap',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
   { key: 'juice',        label: 'Juice',        icon: 'Apple',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
-  { key: 'soup',         label: 'Soup',         icon: 'Flame',       color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
+  { key: 'soup',         label: 'Soup',         icon: 'Soup',        color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
 ];
 
 const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
@@ -75,12 +75,12 @@ type QuickPreset = {
 
 const QUICK_PRESETS: QuickPreset[] = [
   { oz: 8,  icon: 'Droplet',     beverageKey: 'water'        },
-  { oz: 12, icon: 'cafe-outline',      beverageKey: 'coffee'       },
+  { oz: 12, icon: 'Coffee',      beverageKey: 'coffee'       },
   { oz: 8,  icon: 'Leaf',      beverageKey: 'tea'          },
   { oz: 12, icon: 'Sparkles',  beverageKey: 'sparkling'    },
   { oz: 20, icon: 'Zap',     beverageKey: 'electrolytes' },
   { oz: 16, icon: 'Apple', beverageKey: 'juice'        },
-  { oz: 12, icon: 'Flame',     beverageKey: 'soup'         },
+  { oz: 12, icon: 'Soup',      beverageKey: 'soup'         },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────

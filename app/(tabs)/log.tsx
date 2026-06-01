@@ -1422,14 +1422,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
           </LinearGradient>
         </Defs>
 
-        {/* Optimal zone background (75%–100%) */}
-        <Rect
-          x={ML}
-          y={MT}
-          width={cWFull - ML - MR}
-          height={plotH * 0.25}
-          fill={colors.isDark ? 'rgba(39,174,96,0.06)' : 'rgba(39,174,96,0.05)'}
-        />
+        {/* Optimal zone background removed — too faint to be useful */}
 
         {/* Y-axis gridlines + labels */}
         {yTicks.map(tick => {
@@ -3354,7 +3347,7 @@ export default function InsightsScreen() {
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
   const { targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, fetchInsightsData } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, fetchInsightsData, syncWeightFromHealthKit } = useLogStore();
   const hkStore = useHealthKitStore();
   // Shared lifestyle data. The same hook powers the three /insights detail
   // screens so the row preview and detail cards never diverge.
@@ -3480,6 +3473,7 @@ export default function InsightsScreen() {
   useFocusEffect(useCallback(() => {
     fetchInsightsData();
     if (!appleHealthEnabled) return;
+    hkStore.fetchAll().then(() => syncWeightFromHealthKit()).catch(() => {});
     biometricStore.recordDayEntry({
       dateStr: todayStr,
       hrvMs: hkStore.hrv,
@@ -3737,7 +3731,9 @@ export default function InsightsScreen() {
                 lastDoseMg={lastInj?.dose_mg ?? null}
               />
               <SideEffectsCard logs={sideEffectLogs} />
-              <SideEffectInsightsEntryCard count={sideEffectLogs.length} />
+              <PremiumGate feature="side_effect_insights" variant="soft" title="Side Effect Insights">
+                <SideEffectInsightsEntryCard count={sideEffectLogs.length} />
+              </PremiumGate>
               {appleHealthEnabled && (hkStore.hrv != null || hkStore.restingHR != null || hkStore.sleepHours != null) && (
                 <>
                   <Text style={[s.sectionTitle, { marginTop: 8 }]}>Cycle Biometrics</Text>
@@ -3883,9 +3879,8 @@ export default function InsightsScreen() {
                 <>
                   <PremiumGate
                     feature="clinical_benchmark"
-                    variant="hard"
+                    variant="soft"
                     title="Clinical Benchmark"
-                    teaser="See how your progress compares to others on the same medication."
                   >
                     <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
                   </PremiumGate>

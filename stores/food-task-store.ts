@@ -68,6 +68,7 @@ type FoodTaskStore = {
     source: 'describe' | 'voice' | 'camera';
     parsedDishes?: ParsedDish[];
     photoBase64?: string;
+    description?: string;
   }) => string;
 
   updateComponent: (taskId: string, dishIdx: number, compIdx: number, patch: Partial<Component>) => void;
@@ -285,7 +286,7 @@ async function fetchComponentServingOptions(
 export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
   tasks: [],
 
-  startTask: ({ source, parsedDishes, photoBase64 }) => {
+  startTask: ({ source, parsedDishes, photoBase64, description }) => {
     const id = uuid();
     const task: FoodTask = {
       id,
@@ -306,10 +307,13 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
         // If we have a photo, run vision first to get dishes + components
         if (photoBase64 && dishesToResolve.length === 0) {
           if (__DEV__) console.log('[FoodTask] Starting vision analysis, base64 length:', photoBase64.length);
+          const userPrompt = description
+            ? `Identify the dishes in this image and their components. The user describes this as: "${description}"`
+            : 'Identify the dishes in this image and their components.';
           const raw = await callGPT4oMiniVision(
             VISION_SYSTEM,
             photoBase64,
-            'Identify the dishes in this image and their components.',
+            userPrompt,
           );
           if (__DEV__) console.log('[FoodTask] Vision raw response:', raw);
           const jsonMatch = raw.match(/\[[\s\S]*\]/);

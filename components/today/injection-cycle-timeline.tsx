@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Path, Text as SvgText, type TextAnchor } from 'react-native-svg';
 
 import type { AppColors } from '@/constants/theme';
 import type { ShotPhase } from '@/constants/scoring';
@@ -43,11 +43,16 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${sweep} 1 ${end.x} ${end.y}`;
 }
 
-// Label positions — midpoint of each arc segment, offset outward slightly
+// Label positions — midpoint of each arc segment, offset outward
 function labelPos(phaseIdx: number) {
   const midAngle = PHASE_START_ANGLES[phaseIdx] - PHASE_SPANS[phaseIdx] / 2;
-  return polarToXY(ARC_CX, ARC_CY, ARC_R + 18, midAngle);
+  return polarToXY(ARC_CX, ARC_CY, ARC_R + 22, midAngle);
 }
+
+// Text anchor per phase so side labels extend away from the arc
+const LABEL_ANCHORS: Record<ShotPhase, TextAnchor> = {
+  shot: 'end', peak: 'middle', balance: 'middle', reset: 'start',
+};
 
 // Dot position — at the boundary between current phase and the next
 function currentDotPos(phaseIdx: number) {
@@ -186,7 +191,7 @@ export function InjectionCycleTimeline({
                 fontSize={9}
                 fontWeight={isCurrent ? '700' : '400'}
                 fontFamily={FF}
-                textAnchor="middle"
+                textAnchor={LABEL_ANCHORS[phase]}
               >
                 {PHASE_LABELS[phase]}
               </SvgText>

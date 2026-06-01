@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useAppTheme } from '../../contexts/theme-context';
 import { useSubscriptionStore, type FeatureKey } from '../../stores/subscription-store';
 import { ORANGE } from '../../constants/theme';
-import { ChevronRight, Lock, LockOpen } from 'lucide-react-native';
+import { ChevronRight, Crown, Lock, LockOpen } from 'lucide-react-native';
 
 type GateVariant = 'hard' | 'soft' | 'usage';
 
@@ -16,7 +16,7 @@ type Props = {
   variant?: GateVariant;
   /** Content to render when access is granted */
   children: ReactNode;
-  /** Optional teaser text for soft gates (shown above blurred content) */
+  /** Optional teaser text for soft gates */
   teaser?: string;
   /** Optional title shown above the blurred card when gated */
   title?: string;
@@ -28,12 +28,12 @@ type Props = {
  * Conditional wrapper that gates premium features.
  *
  * - `hard`: Replaces children with a locked card + upgrade CTA
- * - `soft`: Shows children blurred with a teaser overlay
+ * - `soft`: Shows title + crown icon, children blurred beneath
  * - `usage`: Shows children normally (limit enforcement happens server-side)
  *
  * Usage:
  * ```tsx
- * <PremiumGate feature="cycle_intelligence" variant="hard">
+ * <PremiumGate feature="cycle_intelligence" variant="soft" title="Cycle Intelligence">
  *   <CycleIntelligenceCard />
  * </PremiumGate>
  * ```
@@ -56,40 +56,37 @@ export function PremiumGate({
   // Usage-limited features — render children (server enforces the limit)
   if (access === 'limited' && variant === 'usage') return <>{children}</>;
 
-  // Soft gate: blurred preview with teaser
+  // Soft gate: title + crown visible, content blurred
   if (variant === 'soft') {
     return (
-      <View style={styles.softContainer}>
-        {title && (
-          <Text style={[styles.gateTitle, { color: colors.textPrimary }]}>{title}</Text>
-        )}
+      <TouchableOpacity
+        style={[styles.softCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={handleUpgrade}
+        activeOpacity={0.7}
+        accessibilityLabel={title ? `${title} — premium feature, tap to unlock` : 'Premium feature — tap to unlock'}
+        accessibilityRole="button"
+        accessibilityHint="Opens the subscription upgrade screen"
+      >
+        {/* Header row — visible, not blurred */}
+        <View style={styles.softHeader}>
+          {title && (
+            <Text style={[styles.softTitle, { color: colors.textPrimary }]}>{title}</Text>
+          )}
+          <View style={styles.crownCircle}>
+            <Crown size={16} color={ORANGE} />
+          </View>
+        </View>
+
+        {/* Content — blurred */}
         <View style={styles.blurWrap}>
           {children}
           <BlurView
-            intensity={20}
+            intensity={25}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
-          <View style={[styles.softOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.5)' }]}>
-            {teaser && (
-              <Text style={[styles.teaserText, { color: colors.textSecondary }]}>
-                {teaser}
-              </Text>
-            )}
-            <TouchableOpacity
-              style={styles.upgradeButton}
-              onPress={handleUpgrade}
-              activeOpacity={0.7}
-              accessibilityLabel="Unlock with Pro"
-              accessibilityRole="button"
-              accessibilityHint="Opens the subscription upgrade screen"
-            >
-              <LockOpen size={14} color="#FFF" />
-              <Text style={styles.upgradeButtonText}>Unlock with Pro</Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -124,36 +121,38 @@ export function PremiumGate({
 
 const styles = StyleSheet.create({
   // Soft gate
-  softContainer: {
-    borderRadius: 16,
-  },
-  blurWrap: {
-    position: 'relative',
+  softCard: {
+    borderRadius: 20,
+    borderWidth: 0.5,
+    padding: 16,
     overflow: 'hidden',
-    borderRadius: 16,
   },
-  softOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  softHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-  },
-  teaserText: {
-    fontSize: 15,
-    textAlign: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
-    fontStyle: 'italic',
   },
-
-  // Gate title (shown above blurred content)
-  gateTitle: {
+  softTitle: {
     fontSize: 17,
     fontWeight: '800',
     fontFamily: 'System',
     letterSpacing: -0.2,
-    marginBottom: 8,
-    paddingHorizontal: 2,
+    flex: 1,
+  },
+  crownCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blurWrap: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 12,
   },
 
   // Hard gate
@@ -198,21 +197,5 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // Shared upgrade button
-  upgradeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: ORANGE,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  upgradeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

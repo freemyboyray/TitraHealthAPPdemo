@@ -187,8 +187,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 // Must live inside ProfileProvider because useAchievementDetector calls useProfile
 function MilestoneLayer() {
   const router = useRouter();
+  const pathname = usePathname();
   const { pendingEvent, dismissEvent } = useAchievementDetector();
 
+  // Don't show over the splash screen — let the loading animation finish first
+  if (pathname === '/') return null;
   if (!pendingEvent) return null;
 
   if (pendingEvent.type === 'achievement') {
@@ -290,7 +293,12 @@ function RootLayoutInner() {
   // and engagement-based back-off recomputes even when the user doesn't open Home.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') syncNotifications().catch(() => {});
+      if (next === 'active') {
+        syncNotifications().catch(() => {});
+        if (usePreferencesStore.getState().appleHealthEnabled) {
+          useHealthKitStore.getState().fetchAll().catch(() => {});
+        }
+      }
     });
     return () => sub.remove();
   }, []);
@@ -316,6 +324,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="day-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="injection-history" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="cycle-phase" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="insights" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="progress-photos" options={{ headerShown: false, animation: 'slide_from_right' }} />

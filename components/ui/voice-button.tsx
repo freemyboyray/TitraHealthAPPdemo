@@ -91,7 +91,7 @@ export function VoiceButton({ onTranscription, onProcessingChange, size = 'md', 
             justifyContent: 'center',
           })}
         >
-          <LucideIconByName name={isProcessing ? 'hourglass-outline' : 'mic-outline'}
+          <LucideIconByName name={isProcessing ? 'Clock' : 'Mic'}
             size={size === 'sm' ? 18 : 22}
             color={isProcessing ? 'rgba(255,255,255,0.3)' : TERRACOTTA} />
         </Pressable>

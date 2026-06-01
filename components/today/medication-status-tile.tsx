@@ -126,7 +126,7 @@ export function MedicationStatusTile(props: Props) {
           </Text>
           <Pressable
             style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-            onPress={() => router.push('/medication-detail' as any)}
+            onPress={() => router.push('/cycle-phase' as any)}
             accessibilityLabel="View medication details"
             accessibilityRole="link"
           >

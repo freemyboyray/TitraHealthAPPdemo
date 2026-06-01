@@ -160,13 +160,15 @@ export default function StreakScreen() {
                     const isFuture = date > today;
 
                     const hasInjLog = injectionDates.has(dateStr);
-                    const isScheduledInj = !hasInjLog && lastInjDate
+                    // Oral (daily) users: no scheduled dots — every day would be marked.
+                    // Injectable users: show dots on days that fall on the injection frequency.
+                    const isScheduledInj = !oral && !hasInjLog && lastInjDate
                       ? (() => {
                           const diff = Math.round((date.getTime() - new Date(lastInjDate + 'T00:00:00').getTime()) / 86400000);
                           return diff > 0 && diff % freq === 0;
                         })()
                       : false;
-                    const hasOtherLog = !isTod && logDates.has(dateStr);
+                    const hasOtherLog = logDates.has(dateStr);
 
                     return (
                       <View key={di} style={s.cell}>
@@ -190,7 +192,7 @@ export default function StreakScreen() {
                         {isScheduledInj && !isTod && (
                           <View style={s.scheduledDot} />
                         )}
-                        {!hasInjLog && !isScheduledInj && hasOtherLog && !isTod && (
+                        {!hasInjLog && !isScheduledInj && hasOtherLog && (
                           <View style={s.logDot} />
                         )}
                       </View>
@@ -205,10 +207,12 @@ export default function StreakScreen() {
                   <View style={[s.legendDot, { backgroundColor: colors.orange }]} />
                   <Text style={s.legendLabel}>{oral ? 'Dose day' : 'Injection'}</Text>
                 </View>
-                <View style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: colors.orange, opacity: 0.4 }]} />
-                  <Text style={s.legendLabel}>Scheduled</Text>
-                </View>
+                {!oral && (
+                  <View style={s.legendItem}>
+                    <View style={[s.legendDot, { backgroundColor: colors.orange, opacity: 0.4 }]} />
+                    <Text style={s.legendLabel}>Scheduled</Text>
+                  </View>
+                )}
                 <View style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: '#34C759' }]} />
                   <Text style={s.legendLabel}>Logged</Text>

@@ -18,10 +18,6 @@ export function TabScreenWrapper({ children, style }: Props) {
     useCallback(() => {
       opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
       scale.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
-      return () => {
-        opacity.value = 0;   // instant reset on blur
-        scale.value = 0.97;
-      };
     }, []),
   );
 

@@ -22,7 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE } from '@/constants/user-profile';
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
 import type { AppColors } from '@/constants/theme';
-import { Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
 
 const FF = 'System';
 
@@ -142,7 +142,7 @@ function MedicationCard({
             {photoSignedUrl ? (
               <Image source={{ uri: photoSignedUrl }} style={s.medThumbImg} resizeMode="cover" />
             ) : (
-              <Hospital size={22} color={colors.textMuted} />
+              <Pill size={22} color={colors.textMuted} />
             )}
           </View>
 

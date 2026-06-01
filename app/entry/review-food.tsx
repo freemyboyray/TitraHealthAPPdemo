@@ -21,7 +21,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFoodTaskStore, type Component as FoodComponent, type Dish } from '../../stores/food-task-store';
+import { useFoodTaskStore, type Component as FoodComponent, type Dish, type ParsedDish } from '../../stores/food-task-store';
+import { callOpenAI } from '../../lib/openai';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useHealthData } from '@/contexts/health-data';
@@ -30,6 +31,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import {
   AlertCircle,
+  Apple,
   ChevronDown,
   ChevronLeft,
   Droplet,
@@ -40,6 +42,7 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Utensils,
   X,
 } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
@@ -211,6 +214,203 @@ function ExpandChevron({ open, color }: { open: boolean; color: string }) {
     <Animated.View style={style}>
       <ChevronDown size={16} color={color} />
     </Animated.View>
+  );
+}
+
+// ─── Prompt for description when vision fails ────────────────────────────────
+
+const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
+Return ONLY a valid JSON array, no other text:
+[{"name": "Dish Name", "components": [{"item": "specific food name", "estimated_g": 150}]}]
+Group items into logical dishes. Estimate typical portion size in grams if not specified.`;
+
+// Food icon grid for the background texture
+const GRID_ICONS = [
+  Flame, Droplet, Leaf, Dumbbell, Apple, Utensils,
+  Sparkles, Droplet, Flame, Apple, Leaf, Dumbbell,
+  Utensils, Sparkles, Dumbbell, Flame, Droplet, Leaf,
+] as const;
+
+function FailedStateWithDescribe({ taskId, error, insets, colors, s }: {
+  taskId: string; error?: string;
+  insets: { top: number }; colors: any; s: any;
+}) {
+  const [description, setDescription] = useState('');
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const { startTask, retryTask, removeTask } = useFoodTaskStore();
+  const router = useRouter();
+
+  const iconOpacity = colors.isDark ? 0.06 : 0.05;
+
+  const handleLookup = async () => {
+    if (!description.trim()) return;
+    setParsing(true);
+    setParseError(null);
+    try {
+      const raw = await callOpenAI(
+        [{ role: 'user', content: description.trim() }],
+        PARSE_SYSTEM,
+        'food_parse',
+      );
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('Could not parse response');
+      const parsed: ParsedDish[] = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No items found');
+
+      removeTask(taskId);
+      const newId = startTask({ source: 'describe', parsedDishes: parsed });
+      router.setParams({ taskId: newId });
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Something went wrong');
+      setParsing(false);
+    }
+  };
+
+  return (
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <ChevronLeft size={24} color={colors.textPrimary} />
+        </Pressable>
+        <Text style={s.headerTitle}>Review Meal</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+        {/* ── Illustration card ── */}
+        <View style={{
+          backgroundColor: colors.surface,
+          borderRadius: 24,
+          borderWidth: 1,
+          borderColor: colors.border,
+          overflow: 'hidden',
+          marginBottom: 24,
+        }}>
+          {/* Background icon grid */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: 16 }}>
+            {[0, 1, 2].map(row => (
+              <View key={row} style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
+                {GRID_ICONS.slice(row * 6, row * 6 + 6).map((Icon, i) => (
+                  <Icon key={`${row}-${i}`} size={22} color={colors.textPrimary} style={{ opacity: iconOpacity }} />
+                ))}
+              </View>
+            ))}
+          </View>
+
+          {/* Center illustration — food ○—X—○ food */}
+          <View style={{ alignItems: 'center', paddingTop: 50, paddingBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0, marginBottom: 28 }}>
+              {/* Left: food icon (matched) */}
+              <View style={{
+                width: 52, height: 52, borderRadius: 14, backgroundColor: colors.orange,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Utensils size={24} color="#FFFFFF" />
+              </View>
+
+              {/* Dashed connector */}
+              <View style={{ width: 20, height: 1.5, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.textMuted, marginHorizontal: 4 }} />
+
+              {/* Center: X mark */}
+              <View style={{
+                width: 44, height: 44, borderRadius: 22, backgroundColor: colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(232,101,42,0.12)',
+                borderWidth: 1.5, borderColor: colors.orange,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <X size={20} color={colors.orange} strokeWidth={2.5} />
+              </View>
+
+              {/* Dashed connector */}
+              <View style={{ width: 20, height: 1.5, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.textMuted, marginHorizontal: 4 }} />
+
+              {/* Right: food icon (unmatched / faded) */}
+              <View style={{
+                width: 52, height: 52, borderRadius: 14,
+                backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                borderWidth: 1, borderColor: colors.border,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Utensils size={24} color={colors.textMuted} />
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text style={{
+              fontSize: 20, fontWeight: '800', color: colors.textPrimary,
+              textAlign: 'center', letterSpacing: -0.3, fontFamily: 'System', marginBottom: 8,
+            }}>
+              Meal not recognized
+            </Text>
+
+            {/* Subtitle */}
+            <Text style={{
+              fontSize: 14, color: colors.textSecondary, textAlign: 'center',
+              lineHeight: 20, fontFamily: 'System', paddingHorizontal: 24, marginBottom: 4,
+            }}>
+              We couldn't match your photo with items in our food database. Describe what you're eating below.
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Description input ── */}
+        <TextInput
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: 16,
+            fontSize: 16,
+            color: colors.textPrimary,
+            minHeight: 80,
+            textAlignVertical: 'top',
+            fontFamily: 'System',
+          }}
+          placeholder={`e.g. "2 fried eggs and toast"`}
+          placeholderTextColor={colors.textMuted}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          autoFocus
+          editable={!parsing}
+        />
+
+        {parseError && (
+          <Text style={{ fontSize: 13, color: '#E74C3C', marginTop: 8, fontFamily: 'System' }}>{parseError}</Text>
+        )}
+
+        {/* ── Look it up button ── */}
+        <TouchableOpacity
+          onPress={handleLookup}
+          disabled={parsing || !description.trim()}
+          activeOpacity={0.85}
+          style={{
+            backgroundColor: colors.orange,
+            borderRadius: 16,
+            paddingVertical: 16,
+            alignItems: 'center',
+            marginTop: 16,
+            opacity: parsing || !description.trim() ? 0.45 : 1,
+          }}
+        >
+          {parsing ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFF', fontFamily: 'System' }}>Look it up</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* ── Retry secondary action ── */}
+        <TouchableOpacity
+          onPress={() => retryTask(taskId)}
+          style={{ alignSelf: 'center', marginTop: 20, paddingVertical: 10 }}
+          disabled={parsing}
+        >
+          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, fontFamily: 'System' }}>Retry photo analysis</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -436,27 +636,7 @@ export default function ReviewFoodScreen() {
   }
 
   if (task.status === 'failed') {
-    return (
-      <View style={[s.screen, { paddingTop: insets.top }]}>
-        <View style={s.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <ChevronLeft size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={s.headerTitle}>Analysis Failed</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={s.centered}>
-          <AlertCircle size={48} color="#E74C3C" />
-          <Text style={[s.emptyText, { marginTop: 12 }]}>{task.error ?? 'Something went wrong'}</Text>
-          <TouchableOpacity
-            onPress={() => retryTask(taskId!)}
-            style={[s.backBtn, { backgroundColor: colors.orange }]}
-          >
-            <Text style={[s.backBtnText, { color: '#FFF' }]}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return <FailedStateWithDescribe taskId={taskId!} error={task.error} insets={insets} colors={colors} s={s} />;
   }
 
   // ── Ready state ──────────────────────────────────────────────────────────
@@ -509,7 +689,7 @@ export default function ReviewFoodScreen() {
               <View style={s.dishHeader}>
                 <TouchableOpacity onPress={() => toggleInclude(di)} hitSlop={8} style={{ marginTop: 2 }}>
                   <LucideIconByName
-                    name={isIncluded ? 'checkbox' : 'square-outline'}
+                    name={isIncluded ? 'CircleCheck' : 'Circle'}
                     size={22}
                     color={isIncluded ? colors.orange : colors.textMuted}
                   />

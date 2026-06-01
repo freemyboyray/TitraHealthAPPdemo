@@ -5,8 +5,11 @@ import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   Image,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -57,6 +60,7 @@ export default function CaptureFoodScreen() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [description, setDescription] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
   async function handleTakePhoto() {
@@ -77,7 +81,7 @@ export default function CaptureFoodScreen() {
       });
       if (photo?.uri) {
         let base64 = photo.base64 ?? '';
-        try { base64 = await resizeImageForVision(photo.uri); } catch {}
+        try { const resized = await resizeImageForVision(photo.uri); if (resized) base64 = resized; } catch {}
         if (base64) {
           setPhotoBase64(base64);
           setPhotoUri(photo.uri);
@@ -99,7 +103,7 @@ export default function CaptureFoodScreen() {
     if (!result.canceled && result.assets[0]?.uri) {
       const asset = result.assets[0];
       let base64 = asset.base64 ?? '';
-      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      try { const resized = await resizeImageForVision(asset.uri); if (resized) base64 = resized; } catch {}
       if (base64) {
         setPhotoBase64(base64);
         setPhotoUri(asset.uri);
@@ -110,8 +114,8 @@ export default function CaptureFoodScreen() {
 
   function handleAnalyze() {
     if (!photoBase64) return;
-    // Dispatch everything to background — vision + USDA lookup happen in the store
-    useFoodTaskStore.getState().startTask({ source: 'camera', photoBase64 });
+    const desc = description.trim() || undefined;
+    useFoodTaskStore.getState().startTask({ source: 'camera', photoBase64, description: desc });
     router.dismissTo('/(tabs)');
   }
 
@@ -144,21 +148,48 @@ export default function CaptureFoodScreen() {
   // ── Preview phase ──────────────────────────────────────────────────────────
   if (phase === 'preview' && photoUri) {
     return (
-      <View style={s.root}>
-        <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        <View style={[s.previewOverlay, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={() => setPhase('intro')} style={s.circleBtn} activeOpacity={0.75}>
-            <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <ChevronLeft size={22} color={colors.textPrimary} />
+      <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[s.header, { paddingTop: insets.top + 4 }]}>
+          <TouchableOpacity onPress={() => { setPhase('intro'); setDescription(''); }} style={s.backShadow} activeOpacity={0.75}>
+            <View style={s.backClip}>
+              <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+              <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
+              <GlassBorder r={20} />
+              <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
+            </View>
           </TouchableOpacity>
+          <Text style={s.headerTitle}>Preview</Text>
+          <View style={{ width: 40 }} />
         </View>
+
+        <View style={s.previewContent}>
+          {/* Photo preview */}
+          <Image source={{ uri: photoUri }} style={s.previewImage} resizeMode="cover" />
+
+          {/* What are you eating? */}
+          <Text style={s.previewHeading}>What are you eating?</Text>
+
+          {/* Description input */}
+          <TextInput
+            style={s.descriptionInput}
+            placeholder="Add an optional description to improve AI accuracy."
+            placeholderTextColor={colors.textMuted}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            textAlignVertical="top"
+            returnKeyType="done"
+            blurOnSubmit
+          />
+        </View>
+
+        {/* Continue button */}
         <View style={[s.previewBottom, { paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity style={s.analyzeBtn} onPress={handleAnalyze} activeOpacity={0.85}>
-            <Sparkles size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={s.analyzeBtnText}>Analyze with AI</Text>
+            <Text style={s.analyzeBtnText}>Continue</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -342,11 +373,18 @@ const createStyles = (c: AppColors) => {
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#FFFFFF' },
 
   // Preview phase
-  previewOverlay: { paddingHorizontal: 20 },
-  previewBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, alignItems: 'center' },
+  previewContent: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
+  previewImage: { width: '100%', height: 220, borderRadius: 20, marginBottom: 20, backgroundColor: w(0.06) },
+  previewHeading: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 12, fontFamily: 'System' },
+  descriptionInput: {
+    fontSize: 16, color: c.textPrimary, fontFamily: 'System', lineHeight: 22,
+    minHeight: 60, maxHeight: 120,
+    padding: 0,
+  },
+  previewBottom: { paddingHorizontal: 20 },
   analyzeBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    height: 56, paddingHorizontal: 32, borderRadius: 28,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    height: 56, borderRadius: 28,
     backgroundColor: c.orange,
     shadowColor: c.orange, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },

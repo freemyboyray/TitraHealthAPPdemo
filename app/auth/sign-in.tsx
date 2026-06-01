@@ -36,7 +36,8 @@ import { supabase } from '@/lib/supabase';
 import { useFinishAuth } from '@/lib/auth-helpers';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { Apple, ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -296,11 +297,14 @@ export default function SignInScreen() {
     <View style={s.root}>
       <StatusBar style={c.isDark ? 'light' : 'dark'} />
 
-      {/* ── Background illustration ── */}
-      <Image
-        source={c.isDark ? require('@/assets/images/signin-bg-dark.png') : require('@/assets/images/signin-bg.png')}
-        style={s.gradient}
-        resizeMode="cover"
+      {/* ── Gradient background ── */}
+      <LinearGradient
+        colors={c.isDark
+          ? ['#1A1410', '#2A1E14', '#1A1410']
+          : ['#C4785A', '#DC8E5A', '#EDAB78', '#F5F3EF']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
         pointerEvents="none"
       />
 
@@ -317,11 +321,15 @@ export default function SignInScreen() {
 
         {/* ── Auth section ── */}
         <View style={s.buttonsSection}>
-          {/* Welcome text */}
-          <Animated.View style={[{ marginBottom: 20 }, modeAnim]}>
-            <Text style={s.brandName}>{isLoginMode ? 'Welcome Back!' : 'Welcome!'}</Text>
-            <Text style={s.tagline}>{isLoginMode ? 'Continue your journey.' : 'Start your journey today.'}</Text>
-          </Animated.View>
+          {/* Logo + Tagline */}
+          <View style={{ marginBottom: 24 }}>
+            <Image
+              source={require('@/assets/images/titra-logo.png')}
+              style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 16 }}
+              resizeMode="cover"
+            />
+            <Text style={s.tagline}>Built to track more,{'\n'}so you can achieve more.</Text>
+          </View>
 
           {/* Email & Password inputs */}
           <View style={s.inputContainer}>
@@ -387,7 +395,7 @@ export default function SignInScreen() {
                   <ActivityIndicator size="small" color="#1A1A1A" />
                 ) : (
                   <>
-                    <Apple size={22} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                    <IconSymbol name="apple.logo" size={22} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
                     <Text style={s.appleBtnText}>Continue with Apple</Text>
                   </>
                 )}
@@ -440,7 +448,7 @@ const createStyles = (c: AppColors) =>
   StyleSheet.create({
     root: {
       flex: 1,
-      backgroundColor: c.isDark ? '#1A1A1A' : '#FFFFFF',
+      backgroundColor: c.isDark ? '#1A1410' : '#F5F3EF',
     },
     gradient: {
       ...StyleSheet.absoluteFillObject,
@@ -475,12 +483,12 @@ const createStyles = (c: AppColors) =>
       marginBottom: 8,
     },
     tagline: {
-      fontSize: 17,
-      fontWeight: '500',
-      color: c.isDark ? 'rgba(255,255,255,0.6)' : '#777777',
+      fontSize: 32,
+      fontWeight: '700',
+      color: '#FFFFFF',
       fontFamily: FONT,
-      letterSpacing: -0.2,
-      textAlign: 'center',
+      letterSpacing: -0.5,
+      lineHeight: 40,
     },
 
     // ── Auth buttons ──
@@ -581,7 +589,7 @@ const createStyles = (c: AppColors) =>
     dividerText: {
       fontSize: 12,
       fontWeight: '500',
-      color: c.textMuted,
+      color: c.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.4)',
       fontFamily: FONT,
       letterSpacing: 0.5,
       textTransform: 'uppercase',
@@ -604,13 +612,13 @@ const createStyles = (c: AppColors) =>
     },
     legalText: {
       fontSize: 12,
-      color: c.textMuted,
+      color: c.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)',
       textAlign: 'center',
       fontFamily: FONT,
       lineHeight: 18,
     },
     legalLink: {
-      color: c.textSecondary,
-      fontWeight: '500',
+      color: c.isDark ? '#FFFFFF' : '#1A1A1A',
+      fontWeight: '600',
     },
   });

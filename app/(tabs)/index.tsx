@@ -36,6 +36,7 @@ import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { WeeklySummaryCard } from '@/components/weekly-summary-card';
 import { TodayPagerCard } from '@/components/today-pager-card';
 import { EnergyBankCard } from '@/components/energy-bank-card';
+import { PremiumGate } from '@/components/ui/premium-gate';
 import { AppleHealthPromoCard } from '@/components/apple-health-promo-card';
 import { computeEnergyBank, computeSideEffectBurden } from '@/constants/scoring';
 import { usePersonalizationStore } from '@/stores/personalization-store';
@@ -64,6 +65,8 @@ import { useProfile } from '@/contexts/profile-context';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { getEscalationPhase } from '@/lib/escalation-phase';
 import { DailyTaskCards } from '@/components/daily-task-cards';
+import { PremiumUpsellCard } from '@/components/premium-upsell-card';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 
 
 const INJECTION_SITES = [
@@ -744,6 +747,7 @@ export default function HomeScreen() {
   const isToday = sameDay(selectedDate, today);
   const isFuture = !isToday && selectedDate > today;
   const isPast = !isToday && !isFuture;
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
 
   const dateLabel = `${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${ordinal(selectedDate.getDate())}`;
   const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -1172,7 +1176,7 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView
-          style={{ backgroundColor: colors.heroGradient[0] }}
+          style={{ backgroundColor: colors.bg }}
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
@@ -1237,15 +1241,13 @@ export default function HomeScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              backgroundColor: 'rgba(255,116,42,0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,116,42,0.4)',
+              backgroundColor: 'rgba(255,255,255,0.85)',
               borderRadius: 12,
               paddingHorizontal: 14,
               paddingVertical: 9,
               marginBottom: 14,
             }}>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: colors.orange, fontFamily: FF }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#1a1a1a', fontFamily: FF }}>
                 {`Viewing ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
               </Text>
               <Pressable onPress={() => { setSelectedDate(new Date()); setCalendarOpen(false); }} accessibilityLabel="Back to today" accessibilityRole="button">
@@ -1308,7 +1310,9 @@ export default function HomeScreen() {
           {/* ── Energy Bank Card ── */}
           {isToday && energySlide && (
             <View style={{ marginBottom: 16 }}>
-              <EnergyBankCard result={energySlide.result} phase={energySlide.phase} />
+              <PremiumGate feature="energy_bank" variant="soft" title="Energy Bank">
+                <EnergyBankCard result={energySlide.result} phase={energySlide.phase} />
+              </PremiumGate>
             </View>
           )}
 
@@ -1380,6 +1384,9 @@ export default function HomeScreen() {
               </View>
             </View>
           )}
+
+          {/* ── Premium Upsell (free users only, today view) ── */}
+          {isToday && !isPremium && <PremiumUpsellCard />}
 
           </Pressable>
         </ScrollView>
