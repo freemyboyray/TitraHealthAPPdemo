@@ -390,6 +390,20 @@ export const DEFAULT_SODIUM_MG = 2300;
 export const DEFAULT_SUGAR_G = 50;
 export const DEFAULT_SAT_FAT_G = 22;
 export const DEFAULT_CHOLESTEROL_MG = 300;
+// Extended nutrient default targets, FDA Daily Values / dietary guidance:
+// Trans fat — keep as low as possible (2g reference). Added sugars 50g = FDA DV.
+// Poly/mono fat have no RDA; references ≈ 10%/20% of 2000 kcal. Potassium 3400mg,
+// Calcium 1300mg, Iron 18mg, Vitamin A 900mcg, Vitamin C 90mg, Vitamin D 20mcg = DVs.
+export const DEFAULT_TRANS_FAT_G = 2;
+export const DEFAULT_POLY_FAT_G = 22;
+export const DEFAULT_MONO_FAT_G = 44;
+export const DEFAULT_POTASSIUM_MG = 3400;
+export const DEFAULT_ADDED_SUGARS_G = 50;
+export const DEFAULT_VITAMIN_A_MCG = 900;
+export const DEFAULT_VITAMIN_C_MG = 90;
+export const DEFAULT_VITAMIN_D_MCG = 20;
+export const DEFAULT_CALCIUM_MG = 1300;
+export const DEFAULT_IRON_MG = 18;
 
 const LIFESTYLE_METRICS: MetricConfig[] = [
   { id: 'protein',     label: 'Protein',    unit: 'g',     color: '#FF742A', getTarget: t => t.proteinG,             getValue: (f, _, d) => f[d]?.protein ?? null },
@@ -506,6 +520,7 @@ function foodToEntry(f: FoodLog): LogEntry {
     id: f.id, timestamp: fmtDateTime(f.logged_at), rawDate: localDateStr(new Date(f.logged_at)),
     title: f.food_name, details, impact, impactStatus: 'positive',
     icon: <IconSymbol name="fork.knife" size={20} color={ORANGE_LOG} />,
+    kind: 'food',
   };
 }
 
@@ -519,6 +534,7 @@ function activityToEntry(a: ActivityLog): LogEntry {
     id: a.id, timestamp: fmtDateOnly(a.date), rawDate: a.date,
     title: a.exercise_type ?? 'Activity', details, impact, impactStatus: 'positive',
     icon: activityIcon(a.exercise_type),
+    kind: 'activity',
   };
 }
 
@@ -536,6 +552,7 @@ function injectionToEntry(inj: InjectionLog, oral = false): LogEntry {
     title: `${medName} ${inj.dose_mg}mg`,
     details, impact, impactStatus: 'neutral',
     icon: oral ? <Pill size={18} color={ORANGE_LOG} /> : <Syringe size={18} color={ORANGE_LOG} />,
+    kind: 'medication',
   };
 }
 
@@ -549,6 +566,7 @@ function weightToEntry(log: WeightLog, prevLog?: WeightLog): LogEntry {
     impact: delta <= 0 ? deltaStr : `Up ${Math.abs(delta)} lbs`,
     impactStatus: delta < 0 ? 'positive' : delta > 0 ? 'negative' : 'neutral',
     icon: <IconSymbol name="scalemass.fill" size={20} color={ORANGE_LOG} />,
+    kind: 'weight',
   };
 }
 
@@ -561,6 +579,7 @@ function sideEffectToEntry(se: SideEffectLog): LogEntry {
     title: label, details, impact: sevLabel,
     impactStatus: se.severity <= 3 ? 'neutral' : 'negative',
     icon: <Frown size={20} color={ORANGE_LOG} />,
+    kind: 'side_effect',
   };
 }
 
@@ -573,6 +592,14 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'lifestyle', label: 'Lifestyle' },
   { key: 'progress', label: 'Progress' },
 ];
+
+// Which log categories each Insights tab surfaces in its Today's Logs card. Mirrored
+// in log-history.tsx (TAB_KINDS) so the scoped "See Full History" link matches.
+const TAB_LOG_KINDS: Record<Tab, LogKind[]> = {
+  medication: ['medication', 'side_effect'],
+  lifestyle: ['food', 'activity'],
+  progress: ['weight'],
+};
 
 // SegmentedControl replaced by SlidingTabs component
 
@@ -764,6 +791,10 @@ export function ActivityDailyCard({ value, label, ringColor, current = 0, target
 
 type Status = 'positive' | 'negative' | 'neutral';
 
+// Category each entry belongs to — vocabulary matches log-history's FilterType so
+// the per-tab scoping in both screens stays in sync.
+type LogKind = 'food' | 'activity' | 'weight' | 'medication' | 'side_effect';
+
 type LogEntry = {
   id: string;
   timestamp: string;
@@ -773,6 +804,7 @@ type LogEntry = {
   impact: string;
   impactStatus: Status;
   icon: React.ReactElement;
+  kind: LogKind;
 };
 
 const statusStyle: Record<Status, { bg: string; text: string }> = {
@@ -1192,13 +1224,14 @@ function pkPointLabel(idx: number, injFreqDays: number, nPoints: number, injTime
   return `Day ${day}${h > 0 ? `, +${h}h` : ''}`;
 }
 
-function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp, lastDoseMg }: {
+function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, oral, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp, lastDoseMg }: {
   chartData: number[] | null;
   daysSince: number;
   dayLabels: string[];
   glp1Type: import('@/constants/user-profile').Glp1Type;
   medicationBrand: import('@/constants/user-profile').MedicationBrand;
   isDailyDrug: boolean;
+  oral: boolean;
   currentCyclePct?: number | null;
   currentConcentrationPct?: number | null;
   injFreqDays: number;
@@ -1275,6 +1308,19 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const halfLifeInfo = pkHalfLifeExplain(glp1Type);
   const peakInfo = pkPeakEffectsExplain(glp1Type);
   const brandName = BRAND_DISPLAY_NAMES[medicationBrand];
+  const eventNoun = doseNoun(oral); // 'dose' | 'injection'
+
+  // Route/cadence-aware sublabel. Weekly drugs keep the half-life label (interval = cycle);
+  // daily drugs read "Daily oral · ~7-day half-life" instead of the misleading "7-day cycle".
+  const cadenceLabel = isDailyDrug
+    ? `${oral ? 'Daily oral' : 'Daily'} · ~${halfLifeInfo.halfLifeDays} half-life`
+    : DRUG_HALF_LIFE_LABEL[glp1Type];
+
+  // Daily drugs are flat — there's no weekly peak-and-trough cycle to narrate.
+  const dailyConsistencyNote =
+    glp1Type === 'oral_semaglutide' ? 'Take fasted at the same time daily; wait 30 min before eating'
+    : glp1Type === 'orforglipron'   ? 'Take at the same time daily — no food restrictions'
+    : 'Take at the same time each day';
 
   // Build real-date X-axis labels when injection timestamp is available
   // Thin labels so they don't overlap — show at most ~5 evenly spaced labels
@@ -1345,8 +1391,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
       <View style={[s.cardWrap, { marginBottom: 16 }]}>
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 24, alignItems: 'center' }]}>
           <Text style={[s.sectionTitle, { textAlign: 'center', marginBottom: 2 }]}>Drug Concentration</Text>
-          <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 4 }]}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
-          <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first dose</Text>
+          <Text style={[s.chartMuted, { textAlign: 'center', marginBottom: 4 }]}>{BRAND_DISPLAY_NAMES[medicationBrand]} · {cadenceLabel}</Text>
+          <Text style={[s.chartBig, { textAlign: 'center', marginTop: 8 }]}>Log your first {eventNoun}</Text>
           <Text style={[s.chartMuted, { textAlign: 'center', marginTop: 4 }]}>Your medication level curve will appear here</Text>
         </View>
       </View>
@@ -1448,14 +1494,14 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
       <Pressable
         style={s.cardWrap}
         onPress={openModal}
-        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
+        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: isDailyDrug ? `${levelLabel} · ${oral ? 'oral ' : ''}daily dosing` : `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(isDailyDrug ? ['Why does my level stay steady all day?', 'When is my peak each day?', `Does timing my ${eventNoun} matter?`, 'How does this affect my appetite?'] : ['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
       >
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
 
             {/* Top row: medication info + tap-for-full-view */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <Text style={[s.chartMuted, { fontSize: 13, flexShrink: 1 }]} numberOfLines={1}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+              <Text style={[s.chartMuted, { fontSize: 13, flexShrink: 1 }]} numberOfLines={1}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {cadenceLabel}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 8 }}>
                 <Maximize2 size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
                 <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
@@ -1543,7 +1589,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Drug Concentration</Text>
-                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {DRUG_HALF_LIFE_LABEL[glp1Type]}</Text>
+                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {cadenceLabel}</Text>
                 </View>
                 <Pressable onPress={dismissSheet} hitSlop={12}>
                   <XCircle size={28} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
@@ -1607,7 +1653,18 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 );
               })()}
 
-              {/* ── Phase bar — visual representation of current level ── */}
+              {/* ── Status block — daily drugs are flat, weekly drugs cycle through tiers ── */}
+              {isDailyDrug ? (
+                <View style={{ marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#27AE60' }} />
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: '#27AE60', fontFamily: 'System' }}>Steady all day</Text>
+                  </View>
+                  <Text style={{ fontSize: 14, lineHeight: 20, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', fontFamily: 'System' }}>
+                    {`${oral ? 'Daily oral' : 'Daily'} dosing keeps your level nearly flat — there's no weekly peak-and-trough cycle. ${halfLifeInfo.troughNote ? `Day-to-day ${halfLifeInfo.troughNote}.` : ''}`.trim()}
+                  </Text>
+                </View>
+              ) : (
               <View style={{ marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierInfo.color }} />
@@ -1649,12 +1706,13 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                   })}
                 </View>
               </View>
+              )}
 
               <View style={s.eduDivider} />
 
               {/* ── Key moments cards ── */}
               <View style={{ marginBottom: 20 }}>
-                <Text style={[s.eduTitle, { marginBottom: 12 }]}>Your Cycle</Text>
+                <Text style={[s.eduTitle, { marginBottom: 12 }]}>{isDailyDrug ? 'Your Daily Profile' : 'Your Cycle'}</Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   {/* Peak card */}
                   <View style={{
@@ -1700,11 +1758,15 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
               {/* ── What to expect — compact timeline ── */}
               <View style={{ marginBottom: 8 }}>
                 <Text style={[s.eduTitle, { marginBottom: 12 }]}>What to Expect</Text>
-                {[
+                {(isDailyDrug ? [
+                  { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel}` },
+                  { icon: 'Utensils', color: '#5B8BF5', label: 'Steady through the day', when: halfLifeInfo.troughNote ? `Stays near peak — ${halfLifeInfo.troughNote}` : 'Level stays nearly flat' },
+                  { icon: 'TrendingUp', color: '#F6CB45', label: oral ? 'Consistency matters' : 'Daily timing matters', when: dailyConsistencyNote },
+                ] : [
                   { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel} post-dose` },
                   { icon: 'Utensils', color: '#5B8BF5', label: 'Best window for new habits', when: 'Days 3–5 of cycle' },
                   { icon: 'TrendingUp', color: '#F6CB45', label: 'Hunger may return', when: 'Last 1–2 days before next dose' },
-                ].map((item) => (
+                ]).map((item) => (
                   <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${item.color}18`, alignItems: 'center', justifyContent: 'center' }}>
                       <LucideIconByName name={item.icon} size={16} color={item.color} />
@@ -1735,8 +1797,12 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     openAiChat({
                       type: 'metric',
                       contextLabel: 'Medication Level',
-                      contextValue: `${currentLevel}% - ${tierInfo.label} - Last injection ${daysSinceLabel}`,
-                      chips: JSON.stringify(['What does my current level mean?', 'When will I hit peak concentration?', 'Why is my appetite returning?', 'How does this affect my side effects?']),
+                      contextValue: isDailyDrug
+                        ? `${levelLabel} - ${oral ? 'oral ' : ''}daily dosing`
+                        : `${currentLevel}% - ${tierInfo.label} - Last injection ${daysSinceLabel}`,
+                      chips: JSON.stringify(isDailyDrug
+                        ? ['Why does my level stay steady all day?', 'When is my peak each day?', `Does timing my ${eventNoun} matter?`, 'How does this affect my side effects?']
+                        : ['What does my current level mean?', 'When will I hit peak concentration?', 'Why is my appetite returning?', 'How does this affect my side effects?']),
                     });
                   }, 350);
                 }}
@@ -2560,11 +2626,14 @@ function SideEffectInsightsEntryCard({ count }: { count: number }) {
 
 // ─── Today's Logs card ────────────────────────────────────────────────────────
 
-// Itemized list of the day's entries (all log types), with a link to the full
-// cross-day history. Shared by all three Insights tabs so they behave like Home.
-function TodayLogsCard({ entries }: { entries: LogEntry[] }) {
+// Itemized list of the day's entries scoped to the active tab's categories, with a
+// link to the full cross-day history (also scoped to the tab).
+function TodayLogsCard({ entries, tab }: { entries: LogEntry[]; tab: Tab }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+
+  const kinds = TAB_LOG_KINDS[tab];
+  const shown = useMemo(() => entries.filter(e => kinds.includes(e.kind)), [entries, kinds]);
 
   const renderEntry = (entry: LogEntry, isLast: boolean) => (
     <View key={entry.id}>
@@ -2594,9 +2663,9 @@ function TodayLogsCard({ entries }: { entries: LogEntry[] }) {
         <View style={s.logHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Text style={s.logHeaderText}>Today&apos;s Logs</Text>
-            {entries.length > 0 && (
+            {shown.length > 0 && (
               <View style={s.logCountBadge}>
-                <Text style={s.logCountText}>{entries.length}</Text>
+                <Text style={s.logCountText}>{shown.length}</Text>
               </View>
             )}
           </View>
@@ -2604,14 +2673,14 @@ function TodayLogsCard({ entries }: { entries: LogEntry[] }) {
 
         <View style={s.logEntryList}>
           <View style={s.logDivider} />
-          {entries.length === 0 ? (
+          {shown.length === 0 ? (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
               <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>Nothing logged today</Text>
             </View>
           ) : (
-            entries.map((entry, i) => renderEntry(entry, i === entries.length - 1))
+            shown.map((entry, i) => renderEntry(entry, i === shown.length - 1))
           )}
-          <TouchableOpacity onPress={() => router.push('/log-history')} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="See full log history">
+          <TouchableOpacity onPress={() => router.push({ pathname: '/log-history', params: { tab } })} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="See full log history">
             <Text style={{ fontSize: 15, fontWeight: '600', color: colors.orange, fontFamily: 'System' }}>See Full History →</Text>
           </TouchableOpacity>
         </View>
@@ -3645,7 +3714,7 @@ export default function InsightsScreen() {
                 />
               </View>
 
-              <TodayLogsCard entries={todayLogs} />
+              <TodayLogsCard entries={todayLogs} tab="lifestyle" />
             </Reanimated.View>
           )}
 
@@ -3660,6 +3729,7 @@ export default function InsightsScreen() {
                 glp1Type={health.profile.glp1Type}
                 medicationBrand={health.profile.medicationBrand}
                 isDailyDrug={isDailyDrug}
+                oral={oral}
                 currentCyclePct={currentCyclePct}
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
@@ -3687,7 +3757,7 @@ export default function InsightsScreen() {
                 lastDaysSince={lastDaysSince}
                 oral={oral}
               />
-              <TodayLogsCard entries={todayLogs} />
+              <TodayLogsCard entries={todayLogs} tab="medication" />
             </Reanimated.View>
           )}
 
@@ -3832,7 +3902,7 @@ export default function InsightsScreen() {
                   )}
                 </>
               )}
-              <TodayLogsCard entries={todayLogs} />
+              <TodayLogsCard entries={todayLogs} tab="progress" />
             </Reanimated.View>
           )}
 

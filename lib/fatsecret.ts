@@ -40,6 +40,16 @@ export type FoodResult = {
   sugar_g?: number;
   sodium_mg?: number;
   cholesterol_mg?: number;
+  trans_fat_g?: number;
+  polyunsaturated_fat_g?: number;
+  monounsaturated_fat_g?: number;
+  potassium_mg?: number;
+  added_sugars_g?: number;
+  vitamin_a_mcg?: number;
+  vitamin_c_mg?: number;
+  vitamin_d_mcg?: number;
+  calcium_mg?: number;
+  iron_mg?: number;
   // Premier-only enrichments
   image_url?: string;
   allergens?: AllergenFlags;
@@ -184,6 +194,10 @@ function parseImageUrl(food: any): string | undefined {
 type Per100g = {
   calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number;
   saturated_fat_g?: number; sugar_g?: number; sodium_mg?: number; cholesterol_mg?: number;
+  trans_fat_g?: number; polyunsaturated_fat_g?: number; monounsaturated_fat_g?: number;
+  potassium_mg?: number; added_sugars_g?: number;
+  vitamin_a_mcg?: number; vitamin_c_mg?: number; vitamin_d_mcg?: number;
+  calcium_mg?: number; iron_mg?: number;
 };
 
 function buildServingOptions(servings: any[]): { options: ServingOption[]; per100g: Per100g | null } {
@@ -211,10 +225,20 @@ function buildServingOptions(servings: any[]): { options: ServingOption[]; per10
     };
     // Extended nutrients — only set when FatSecret returned a value, so the
     // distinction between "not provided" and "actually zero" is preserved.
-    if (gramServing.saturated_fat != null) per100g.saturated_fat_g = parseFloat((num(gramServing.saturated_fat) * scale).toFixed(2));
-    if (gramServing.sugar != null)         per100g.sugar_g         = parseFloat((num(gramServing.sugar) * scale).toFixed(1));
-    if (gramServing.sodium != null)        per100g.sodium_mg       = Math.round(num(gramServing.sodium) * scale);
-    if (gramServing.cholesterol != null)   per100g.cholesterol_mg  = Math.round(num(gramServing.cholesterol) * scale);
+    if (gramServing.saturated_fat != null)       per100g.saturated_fat_g       = parseFloat((num(gramServing.saturated_fat) * scale).toFixed(2));
+    if (gramServing.sugar != null)               per100g.sugar_g               = parseFloat((num(gramServing.sugar) * scale).toFixed(1));
+    if (gramServing.sodium != null)              per100g.sodium_mg             = Math.round(num(gramServing.sodium) * scale);
+    if (gramServing.cholesterol != null)         per100g.cholesterol_mg        = Math.round(num(gramServing.cholesterol) * scale);
+    if (gramServing.trans_fat != null)           per100g.trans_fat_g           = parseFloat((num(gramServing.trans_fat) * scale).toFixed(2));
+    if (gramServing.polyunsaturated_fat != null) per100g.polyunsaturated_fat_g = parseFloat((num(gramServing.polyunsaturated_fat) * scale).toFixed(2));
+    if (gramServing.monounsaturated_fat != null) per100g.monounsaturated_fat_g = parseFloat((num(gramServing.monounsaturated_fat) * scale).toFixed(2));
+    if (gramServing.potassium != null)           per100g.potassium_mg          = Math.round(num(gramServing.potassium) * scale);
+    if (gramServing.added_sugars != null)        per100g.added_sugars_g        = parseFloat((num(gramServing.added_sugars) * scale).toFixed(1));
+    if (gramServing.vitamin_a != null)           per100g.vitamin_a_mcg         = parseFloat((num(gramServing.vitamin_a) * scale).toFixed(1));
+    if (gramServing.vitamin_c != null)           per100g.vitamin_c_mg          = parseFloat((num(gramServing.vitamin_c) * scale).toFixed(1));
+    if (gramServing.vitamin_d != null)           per100g.vitamin_d_mcg         = parseFloat((num(gramServing.vitamin_d) * scale).toFixed(1));
+    if (gramServing.calcium != null)             per100g.calcium_mg            = Math.round(num(gramServing.calcium) * scale);
+    if (gramServing.iron != null)                per100g.iron_mg               = parseFloat((num(gramServing.iron) * scale).toFixed(2));
   }
 
   const seen = new Set<number>();

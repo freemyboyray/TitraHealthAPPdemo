@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
-import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { requestNotificationPermission } from '@/lib/notifications';
 import {
@@ -862,7 +861,6 @@ export default function RemindersScreen() {
 
 const createStyles = (c: AppColors) => {
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const elevation = cardElevation(c.isDark);
 
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
@@ -899,13 +897,15 @@ const createStyles = (c: AppColors) => {
     masterCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: c.cardBg,
+      backgroundColor: c.surface,
       borderRadius: 16,
       padding: 16,
       marginBottom: 8,
-      borderWidth: c.isDark ? 0.5 : 1,
-      borderColor: c.isDark ? w(0.1) : w(0.05),
-      ...elevation,
+      borderWidth: 1,
+      borderTopColor: c.border,
+      borderLeftColor: c.borderSubtle,
+      borderRightColor: c.borderSubtle,
+      borderBottomColor: c.borderSubtle,
     },
     masterIconWrap: {
       width: 44,
@@ -956,12 +956,14 @@ const createStyles = (c: AppColors) => {
     },
 
     card: {
-      backgroundColor: c.cardBg,
+      backgroundColor: c.surface,
       borderRadius: 16,
-      borderWidth: c.isDark ? 0.5 : 1,
-      borderColor: c.isDark ? w(0.1) : w(0.05),
+      borderWidth: 1,
+      borderTopColor: c.border,
+      borderLeftColor: c.borderSubtle,
+      borderRightColor: c.borderSubtle,
+      borderBottomColor: c.borderSubtle,
       overflow: 'hidden',
-      ...elevation,
     },
 
     /* ── Slot rows ───────────────────────────── */

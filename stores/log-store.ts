@@ -122,6 +122,16 @@ type LogStore = {
     sugar_g?: number;
     sodium_mg?: number;
     cholesterol_mg?: number;
+    trans_fat_g?: number;
+    polyunsaturated_fat_g?: number;
+    monounsaturated_fat_g?: number;
+    potassium_mg?: number;
+    added_sugars_g?: number;
+    vitamin_a_mcg?: number;
+    vitamin_c_mg?: number;
+    vitamin_d_mcg?: number;
+    calcium_mg?: number;
+    iron_mg?: number;
     // FatSecret Premier enrichments. Allergen/preference flags are ternary
     // (1 = contains/yes, 0 = does not contain/no, -1 = unknown).
     image_url?: string;
@@ -274,8 +284,33 @@ export const useLogStore = create<LogStore>((set, get) => ({
         supabase.from('weekly_summaries').select('*').eq('user_id', uid).order('window_end', { ascending: false }).limit(26),
       ]);
 
+      const weightLogsData = w.data ?? [];
+      const profileData = prof.data ?? null;
+      // Self-heal: profiles.current_weight_lbs can drift stale if weight rows were
+      // inserted outside addWeightLog (onboarding seed, legacy/manual imports), so
+      // the stored value stays at the start weight while the logs move on. Every
+      // weigh-in path reconciles, but pre-existing data never gets corrected —
+      // realign it here to the newest log so all consumers of current_weight_lbs
+      // (home card, Progress page, AI context) agree.
+      const newestLoggedWeight = weightLogsData[0]?.weight_lbs ?? null;
+      let reconciledProfile = profileData;
+      if (
+        profileData &&
+        newestLoggedWeight != null &&
+        (profileData.current_weight_lbs == null ||
+          Math.abs(profileData.current_weight_lbs - newestLoggedWeight) >= 0.05)
+      ) {
+        reconciledProfile = { ...profileData, current_weight_lbs: newestLoggedWeight };
+        // Fire-and-forget; a failure just means we retry the heal on the next load.
+        supabase
+          .from('profiles')
+          .update({ current_weight_lbs: newestLoggedWeight })
+          .eq('id', uid)
+          .then(() => {}, () => {});
+      }
+
       set({
-        weightLogs:     w.data   ?? [],
+        weightLogs:     weightLogsData,
         injectionLogs:  inj.data ?? [],
         foodLogs:       f.data   ?? [],
         activityLogs:   a.data   ?? [],
@@ -292,7 +327,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
           food_noise:       (wcFn.data ?? []) as WeeklyCheckinRow[],
         },
         weeklySummaries: (ws.data ?? []) as WeeklySummaryRow[],
-        profile:        prof.data ?? null,
+        profile:        reconciledProfile,
         userGoals:      goals.data ?? null,
         loading:        false,
         hydrated:       true,
@@ -577,6 +612,16 @@ export const useLogStore = create<LogStore>((set, get) => ({
         sugar_g: entry.sugar_g ?? null,
         sodium_mg: entry.sodium_mg ?? null,
         cholesterol_mg: entry.cholesterol_mg ?? null,
+        trans_fat_g: entry.trans_fat_g ?? null,
+        polyunsaturated_fat_g: entry.polyunsaturated_fat_g ?? null,
+        monounsaturated_fat_g: entry.monounsaturated_fat_g ?? null,
+        potassium_mg: entry.potassium_mg ?? null,
+        added_sugars_g: entry.added_sugars_g ?? null,
+        vitamin_a_mcg: entry.vitamin_a_mcg ?? null,
+        vitamin_c_mg: entry.vitamin_c_mg ?? null,
+        vitamin_d_mcg: entry.vitamin_d_mcg ?? null,
+        calcium_mg: entry.calcium_mg ?? null,
+        iron_mg: entry.iron_mg ?? null,
         image_url: entry.image_url ?? null,
         allergens: entry.allergens ?? null,
         preferences: entry.preferences ?? null,

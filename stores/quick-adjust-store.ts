@@ -15,12 +15,25 @@ export type QuickAdj = {
   sugarG: number;
   satFatG: number;
   cholesterolMg: number;
+  // Extended nutrients (manual +/- offsets, parallel to the FatSecret-sourced totals)
+  transFatG: number;
+  polyFatG: number;
+  monoFatG: number;
+  potassiumMg: number;
+  addedSugarsG: number;
+  vitaminAMcg: number;
+  vitaminCMg: number;
+  vitaminDMcg: number;
+  calciumMg: number;
+  ironMg: number;
 };
 
 const ZERO_ADJ: QuickAdj = {
   proteinG: 0, fiberG: 0, carbsG: 0, fatG: 0, calories: 0,
   steps: 0, activeCal: 0,
   sodiumMg: 0, sugarG: 0, satFatG: 0, cholesterolMg: 0,
+  transFatG: 0, polyFatG: 0, monoFatG: 0, potassiumMg: 0, addedSugarsG: 0,
+  vitaminAMcg: 0, vitaminCMg: 0, vitaminDMcg: 0, calciumMg: 0, ironMg: 0,
 };
 
 const storageKey = (dateStr: string) => `@titrahealth_quickadjust_${dateStr}`;

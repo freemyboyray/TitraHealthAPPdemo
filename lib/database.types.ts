@@ -305,6 +305,74 @@ export type Database = {
           },
         ]
       }
+      demo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number
+          expires_at: string | null
+          id: string
+          max_uses: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+        }
+        Relationships: []
+      }
+      energy_logs: {
+        Row: {
+          id: string
+          user_id: string
+          logged_at: string
+          level: number
+          time_slot: string
+          note: string | null
+          phase_at_log: string | null
+          program_week: number | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          logged_at?: string
+          level: number
+          time_slot?: string
+          note?: string | null
+          phase_at_log?: string | null
+          program_week?: number | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          logged_at?: string
+          level?: number
+          time_slot?: string
+          note?: string | null
+          phase_at_log?: string | null
+          program_week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energy_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback: {
         Row: {
           app_version: string | null
@@ -403,8 +471,10 @@ export type Database = {
       }
       food_logs: {
         Row: {
+          added_sugars_g: number | null
           allergens: Json | null
           barcode: string | null
+          calcium_mg: number | null
           calories: number
           carbs_g: number
           cholesterol_mg: number | null
@@ -415,8 +485,12 @@ export type Database = {
           food_name: string
           id: string
           image_url: string | null
+          iron_mg: number | null
           logged_at: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          monounsaturated_fat_g: number | null
+          polyunsaturated_fat_g: number | null
+          potassium_mg: number | null
           preferences: Json | null
           protein_g: number
           raw_ai_response: Json | null
@@ -424,11 +498,17 @@ export type Database = {
           sodium_mg: number | null
           source: Database["public"]["Enums"]["food_source"]
           sugar_g: number | null
+          trans_fat_g: number | null
           user_id: string
+          vitamin_a_mcg: number | null
+          vitamin_c_mg: number | null
+          vitamin_d_mcg: number | null
         }
         Insert: {
+          added_sugars_g?: number | null
           allergens?: Json | null
           barcode?: string | null
+          calcium_mg?: number | null
           calories?: number
           carbs_g?: number
           cholesterol_mg?: number | null
@@ -439,8 +519,12 @@ export type Database = {
           food_name: string
           id?: string
           image_url?: string | null
+          iron_mg?: number | null
           logged_at?: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          monounsaturated_fat_g?: number | null
+          polyunsaturated_fat_g?: number | null
+          potassium_mg?: number | null
           preferences?: Json | null
           protein_g?: number
           raw_ai_response?: Json | null
@@ -448,11 +532,17 @@ export type Database = {
           sodium_mg?: number | null
           source?: Database["public"]["Enums"]["food_source"]
           sugar_g?: number | null
+          trans_fat_g?: number | null
           user_id: string
+          vitamin_a_mcg?: number | null
+          vitamin_c_mg?: number | null
+          vitamin_d_mcg?: number | null
         }
         Update: {
+          added_sugars_g?: number | null
           allergens?: Json | null
           barcode?: string | null
+          calcium_mg?: number | null
           calories?: number
           carbs_g?: number
           cholesterol_mg?: number | null
@@ -463,8 +553,12 @@ export type Database = {
           food_name?: string
           id?: string
           image_url?: string | null
+          iron_mg?: number | null
           logged_at?: string
           meal_type?: Database["public"]["Enums"]["meal_type"]
+          monounsaturated_fat_g?: number | null
+          polyunsaturated_fat_g?: number | null
+          potassium_mg?: number | null
           preferences?: Json | null
           protein_g?: number
           raw_ai_response?: Json | null
@@ -472,7 +566,11 @@ export type Database = {
           sodium_mg?: number | null
           source?: Database["public"]["Enums"]["food_source"]
           sugar_g?: number | null
+          trans_fat_g?: number | null
           user_id?: string
+          vitamin_a_mcg?: number | null
+          vitamin_c_mg?: number | null
+          vitamin_d_mcg?: number | null
         }
         Relationships: [
           {
@@ -1074,47 +1172,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "progress_photos_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      energy_logs: {
-        Row: {
-          id: string
-          user_id: string
-          logged_at: string
-          level: number
-          time_slot: string
-          note: string | null
-          phase_at_log: string | null
-          program_week: number | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          logged_at?: string
-          level: number
-          time_slot?: string
-          note?: string | null
-          phase_at_log?: string | null
-          program_week?: number | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          logged_at?: string
-          level?: number
-          time_slot?: string
-          note?: string | null
-          phase_at_log?: string | null
-          program_week?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "energy_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

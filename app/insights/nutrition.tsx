@@ -25,9 +25,13 @@ export default function NutritionDetailScreen() {
   const {
     todayProteinG, todayFiberG, todayCarbsG, todayFatG, todayCalories,
     todaySodiumMg, todaySugarG, todaySaturatedFatG, todayCholesterolMg,
+    todayTransFatG, todayPolyFatG, todayMonoFatG, todayPotassiumMg, todayAddedSugarsG,
+    todayVitaminAMcg, todayVitaminCMg, todayVitaminDMcg, todayCalciumMg, todayIronMg,
     waterOz, waterTargetOz,
     targets,
     sodiumTargetMg, sugarTargetG, satFatTargetG, cholesterolTargetMg,
+    transFatTargetG, polyFatTargetG, monoFatTargetG, potassiumTargetMg, addedSugarsTargetG,
+    vitaminATargetMcg, vitaminCTargetMg, vitaminDTargetMcg, calciumTargetMg, ironTargetMg,
     proteinPct, fiberPct, carbsPct, fatPct, caloriesPct, waterPct,
     adjustMetric,
     health,
@@ -111,8 +115,18 @@ export default function NutritionDetailScreen() {
           <PremierNutritionCard metrics={[
             { label: 'Sodium', current: todaySodiumMg, target: sodiumTargetMg, unit: 'mg', color: '#FF6B6B', onIncrement: () => adjustMetric('sodiumMg', 50), onDecrement: () => adjustMetric('sodiumMg', -50) },
             { label: 'Sugar', current: todaySugarG, target: sugarTargetG, unit: 'g', color: '#E879F9', onIncrement: () => adjustMetric('sugarG', 1), onDecrement: () => adjustMetric('sugarG', -1) },
+            { label: 'Added Sugars', current: todayAddedSugarsG, target: addedSugarsTargetG, unit: 'g', color: '#F472B6', onIncrement: () => adjustMetric('addedSugarsG', 1), onDecrement: () => adjustMetric('addedSugarsG', -1) },
             { label: 'Sat Fat', current: todaySaturatedFatG, target: satFatTargetG, unit: 'g', color: '#F59E0B', onIncrement: () => adjustMetric('satFatG', 1), onDecrement: () => adjustMetric('satFatG', -1) },
+            { label: 'Trans Fat', current: todayTransFatG, target: transFatTargetG, unit: 'g', color: '#EF4444', onIncrement: () => adjustMetric('transFatG', 1), onDecrement: () => adjustMetric('transFatG', -1) },
+            { label: 'Mono Fat', current: todayMonoFatG, target: monoFatTargetG, unit: 'g', color: '#FBBF24', onIncrement: () => adjustMetric('monoFatG', 1), onDecrement: () => adjustMetric('monoFatG', -1) },
+            { label: 'Poly Fat', current: todayPolyFatG, target: polyFatTargetG, unit: 'g', color: '#FCD34D', onIncrement: () => adjustMetric('polyFatG', 1), onDecrement: () => adjustMetric('polyFatG', -1) },
             { label: 'Cholesterol', current: todayCholesterolMg, target: cholesterolTargetMg, unit: 'mg', color: '#A78BFA', onIncrement: () => adjustMetric('cholesterolMg', 10), onDecrement: () => adjustMetric('cholesterolMg', -10) },
+            { label: 'Potassium', current: todayPotassiumMg, target: potassiumTargetMg, unit: 'mg', color: '#34D399', onIncrement: () => adjustMetric('potassiumMg', 50), onDecrement: () => adjustMetric('potassiumMg', -50) },
+            { label: 'Calcium', current: todayCalciumMg, target: calciumTargetMg, unit: 'mg', color: '#60A5FA', onIncrement: () => adjustMetric('calciumMg', 50), onDecrement: () => adjustMetric('calciumMg', -50) },
+            { label: 'Iron', current: todayIronMg, target: ironTargetMg, unit: 'mg', color: '#F87171', onIncrement: () => adjustMetric('ironMg', 1), onDecrement: () => adjustMetric('ironMg', -1) },
+            { label: 'Vitamin A', current: todayVitaminAMcg, target: vitaminATargetMcg, unit: 'mcg', color: '#FB923C', onIncrement: () => adjustMetric('vitaminAMcg', 50), onDecrement: () => adjustMetric('vitaminAMcg', -50) },
+            { label: 'Vitamin C', current: todayVitaminCMg, target: vitaminCTargetMg, unit: 'mg', color: '#4ADE80', onIncrement: () => adjustMetric('vitaminCMg', 10), onDecrement: () => adjustMetric('vitaminCMg', -10) },
+            { label: 'Vitamin D', current: todayVitaminDMcg, target: vitaminDTargetMcg, unit: 'mcg', color: '#FACC15', onIncrement: () => adjustMetric('vitaminDMcg', 1), onDecrement: () => adjustMetric('vitaminDMcg', -1) },
           ]} />
         </View>
 

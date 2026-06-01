@@ -77,7 +77,7 @@ function createStyles(c: AppColors) {
     headerTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
     content: { padding: 16, paddingBottom: 60 },
     card: {
-      backgroundColor: c.glassOverlay, borderRadius: 16, overflow: 'hidden',
+      backgroundColor: c.surface, borderRadius: 16, overflow: 'hidden',
       borderWidth: 1, borderTopColor: c.border, borderLeftColor: c.borderSubtle,
       borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
     },

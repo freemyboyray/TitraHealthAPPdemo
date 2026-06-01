@@ -177,6 +177,26 @@ export function MedicationStatusTile(props: Props) {
             stat3Lbl={stat3Lbl}
           />
         )}
+
+        {/* Daily / oral drugs have no injection cycle, so the shot-phase arc is
+            hidden — but progress (days on med · weight delta · to goal) still shows. */}
+        {transitionPhase !== 'washout' && (freq ?? 7) === 1 && (
+          <InjectionCycleTimeline
+            hideArc
+            todayDayNum={todayDayNum ?? 1}
+            freq={freq ?? 1}
+            shotPhase={shotPhaseForLabel}
+            rawDaysUntil={rawDaysUntil}
+            todayInjLogged={todayInjLogged}
+            oral={oral}
+            colors={colors}
+            treatmentDisplayVal={treatmentDisplayVal}
+            treatmentDisplayLbl={treatmentDisplayLbl}
+            weightDelta={weightDelta}
+            stat3Val={stat3Val}
+            stat3Lbl={stat3Lbl}
+          />
+        )}
       </View>
     </Pressable>
   );

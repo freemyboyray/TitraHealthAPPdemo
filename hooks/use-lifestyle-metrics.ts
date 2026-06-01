@@ -13,6 +13,16 @@ import {
   DEFAULT_SAT_FAT_G,
   DEFAULT_SODIUM_MG,
   DEFAULT_SUGAR_G,
+  DEFAULT_TRANS_FAT_G,
+  DEFAULT_POLY_FAT_G,
+  DEFAULT_MONO_FAT_G,
+  DEFAULT_POTASSIUM_MG,
+  DEFAULT_ADDED_SUGARS_G,
+  DEFAULT_VITAMIN_A_MCG,
+  DEFAULT_VITAMIN_C_MG,
+  DEFAULT_VITAMIN_D_MCG,
+  DEFAULT_CALCIUM_MG,
+  DEFAULT_IRON_MG,
   type HealthMetric,
 } from '@/app/(tabs)/log';
 
@@ -62,6 +72,16 @@ export function useLifestyleMetrics() {
   const todaySugarG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.sugar_g ?? 0), 0)) + qa.sugarG;
   const todaySaturatedFatG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.saturated_fat_g ?? 0), 0)) + qa.satFatG;
   const todayCholesterolMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.cholesterol_mg ?? 0), 0)) + qa.cholesterolMg;
+  const todayTransFatG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.trans_fat_g ?? 0), 0)) + qa.transFatG;
+  const todayPolyFatG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.polyunsaturated_fat_g ?? 0), 0)) + qa.polyFatG;
+  const todayMonoFatG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.monounsaturated_fat_g ?? 0), 0)) + qa.monoFatG;
+  const todayPotassiumMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.potassium_mg ?? 0), 0)) + qa.potassiumMg;
+  const todayAddedSugarsG = Math.round(todayFoodLogs.reduce((s, f) => s + (f.added_sugars_g ?? 0), 0)) + qa.addedSugarsG;
+  const todayVitaminAMcg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.vitamin_a_mcg ?? 0), 0)) + qa.vitaminAMcg;
+  const todayVitaminCMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.vitamin_c_mg ?? 0), 0)) + qa.vitaminCMg;
+  const todayVitaminDMcg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.vitamin_d_mcg ?? 0), 0)) + qa.vitaminDMcg;
+  const todayCalciumMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.calcium_mg ?? 0), 0)) + qa.calciumMg;
+  const todayIronMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.iron_mg ?? 0), 0)) + qa.ironMg;
 
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
   const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
@@ -96,6 +116,18 @@ export function useLifestyleMetrics() {
   const satFatPct = satFatTargetG > 0 ? Math.round((todaySaturatedFatG / satFatTargetG) * 100) : 0;
   const cholesterolPct = cholesterolTargetMg > 0 ? Math.round((todayCholesterolMg / cholesterolTargetMg) * 100) : 0;
 
+  // Extended nutrient targets (FDA Daily Values / dietary references — see log.tsx).
+  const transFatTargetG = DEFAULT_TRANS_FAT_G;
+  const polyFatTargetG = DEFAULT_POLY_FAT_G;
+  const monoFatTargetG = DEFAULT_MONO_FAT_G;
+  const potassiumTargetMg = DEFAULT_POTASSIUM_MG;
+  const addedSugarsTargetG = DEFAULT_ADDED_SUGARS_G;
+  const vitaminATargetMcg = DEFAULT_VITAMIN_A_MCG;
+  const vitaminCTargetMg = DEFAULT_VITAMIN_C_MG;
+  const vitaminDTargetMcg = DEFAULT_VITAMIN_D_MCG;
+  const calciumTargetMg = DEFAULT_CALCIUM_MG;
+  const ironTargetMg = DEFAULT_IRON_MG;
+
   const adjustMetric = useCallback((field: keyof QuickAdj, delta: number) => {
     adjust(field, delta);
     if (field === 'proteinG') health.dispatch({ type: 'LOG_PROTEIN', grams: delta });
@@ -126,11 +158,15 @@ export function useLifestyleMetrics() {
     // Today values
     todayProteinG, todayFiberG, todayCarbsG, todayFatG, todayCalories,
     todaySodiumMg, todaySugarG, todaySaturatedFatG, todayCholesterolMg,
+    todayTransFatG, todayPolyFatG, todayMonoFatG, todayPotassiumMg, todayAddedSugarsG,
+    todayVitaminAMcg, todayVitaminCMg, todayVitaminDMcg, todayCalciumMg, todayIronMg,
     todayActiveCalories, todaySteps,
     waterOz, waterTargetOz, resolvedWaterMl,
     // Targets
     targets,
     sodiumTargetMg, sugarTargetG, satFatTargetG, cholesterolTargetMg,
+    transFatTargetG, polyFatTargetG, monoFatTargetG, potassiumTargetMg, addedSugarsTargetG,
+    vitaminATargetMcg, vitaminCTargetMg, vitaminDTargetMcg, calciumTargetMg, ironTargetMg,
     // Percentages
     proteinPct, fiberPct, carbsPct, fatPct, caloriesPct, waterPct,
     sodiumPct, sugarPct, satFatPct, cholesterolPct,

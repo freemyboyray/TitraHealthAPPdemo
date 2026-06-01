@@ -302,25 +302,20 @@ export default function MedicationDetailScreen() {
     setExpandedId(expandedId === id ? null : id);
   }
 
-  async function handleSetActive(med: UserMedication) {
-    // Deactivate all, activate this one
-    await supabase.from('user_medications').update({ is_active: false }).neq('id', med.id);
-    await supabase.from('user_medications').update({ is_active: true }).eq('id', med.id);
-
-    // Update profile to match
-    const glp1Type = med.glp1_type as any;
-    await updateProfile({
-      medicationBrand: med.medication_brand as any,
-      medicationCustomName: med.medication_custom_name,
-      glp1Type,
-      routeOfAdministration: med.route_of_administration as any,
-      doseMg: med.dose_mg,
-      injectionFrequencyDays: med.frequency_days,
-      doseTime: med.dose_time || '',
-      treatmentStatus: 'on' as any,
+  function handleSetActive(med: UserMedication) {
+    if (med.is_active) return;
+    // Don't silently swap the active medication. Route through the full treatment
+    // change flow (confirmation steps, medication_changes history, and target
+    // recalculation) — same as changing meds from Settings. The user_medications
+    // is_active flag is reconciled by the sync effect on focus once it's applied.
+    router.push({
+      pathname: '/settings/edit-treatment',
+      params: {
+        presetBrand: med.medication_brand,
+        presetDose: String(med.dose_mg),
+        presetFreq: String(med.frequency_days),
+      },
     });
-
-    await fetchMedications();
   }
 
   async function handlePhotoUpload(medId: string) {

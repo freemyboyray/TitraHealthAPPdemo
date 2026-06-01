@@ -423,7 +423,7 @@ const createStyles = (c: AppColors) => {
       marginBottom: 8, marginLeft: 4, marginTop: 8,
     },
     card: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, borderWidth: 1,
       borderTopColor: c.border,
       borderLeftColor: c.borderSubtle,

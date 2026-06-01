@@ -313,7 +313,7 @@ const createStyles = (c: AppColors) => {
     /* Master toggle */
     masterCard: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
@@ -332,7 +332,7 @@ const createStyles = (c: AppColors) => {
     /* Summary card */
     summaryCard: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, padding: 16,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
@@ -355,7 +355,7 @@ const createStyles = (c: AppColors) => {
     /* Manage in Settings */
     manageCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, padding: 14,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
@@ -384,7 +384,7 @@ const createStyles = (c: AppColors) => {
 
     /* Category card */
     card: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
       borderRightColor: w(0.03), borderBottomColor: w(0.02),

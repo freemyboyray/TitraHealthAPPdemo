@@ -1011,7 +1011,11 @@ export default function HomeScreen() {
   const goalFromProfile = fullUserProfile?.goalWeightLbs ?? 0;
   const latestWeight = isPast
     ? (weightLogsArr.find(w => localDateStr(new Date(w.logged_at)) <= selectedDateEndStr)?.weight_lbs ?? null)
-    : (currentFromProfile > 0 ? currentFromProfile : (weightLogsArr[0]?.weight_lbs ?? hkStore.latestWeight ?? null));
+    // Prefer the newest actual weigh-in over profile.currentWeightLbs, which can
+    // be stale (still equal to the start weight) for seeded/legacy data. This
+    // keeps the home card in sync with the Weight Journey page, which also reads
+    // from the logs. profile/HK are fallbacks for when no log exists.
+    : (weightLogsArr[0]?.weight_lbs ?? (currentFromProfile > 0 ? currentFromProfile : (hkStore.latestWeight ?? null)));
 
   // Start weight: always use the profile's start weight (set during onboarding),
   // not the earliest weight log entry.

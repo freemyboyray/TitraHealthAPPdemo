@@ -7,13 +7,9 @@ import { MedicationGroupSection } from '@/components/treatment/MedicationGroupSe
 import type { AppColors } from '@/constants/theme';
 import { TYPE } from '@/constants/theme';
 import type { MedicationBrand } from '@/constants/user-profile';
-import {
-  BRAND_TITRATION_SUMMARY,
-  getBrandDoses,
-  BRAND_STARTING_DOSE,
-} from '@/constants/user-profile';
+import { getBrandDoses } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
-import { CircleCheck, Info } from 'lucide-react-native';
+import { CircleCheck } from 'lucide-react-native';
 
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
@@ -41,8 +37,6 @@ export function DoseSelector({
   if (!brand) return null;
 
   const doses = getBrandDoses(brand);
-  const titration = BRAND_TITRATION_SUMMARY[brand];
-  const startingDose = BRAND_STARTING_DOSE[brand];
   const brandName = BRAND_LABEL[brand] ?? brand;
 
   return (
@@ -50,19 +44,10 @@ export function DoseSelector({
       <Text style={s.question}>What dose of {brandName}?</Text>
       <Text style={s.hint}>Select your current prescribed dose.</Text>
 
-      {/* Titration info card */}
-      {titration && (
-        <View style={s.titrationCard}>
-          <Info size={18} color={colors.orange} style={{ marginRight: 8, marginTop: 1 }} />
-          <Text style={s.titrationText}>{titration}</Text>
-        </View>
-      )}
-
       <MedicationGroupSection>
         {doses.map((d, i) => {
           const isSelected = selectedDose === d;
           const isCurrent = currentDose === d;
-          const isStart = startingDose === d;
           const isLast = i === doses.length - 1 && selectedDose !== 'custom';
 
           return (
@@ -85,9 +70,6 @@ export function DoseSelector({
                 <Text style={[s.doseValue, isSelected && { color: colors.orange }]}>
                   {d} mg
                 </Text>
-                {isStart && (
-                  <Text style={s.startLabel}>Starting dose</Text>
-                )}
               </View>
               <View style={s.doseRight}>
                 {isCurrent && !isSelected && (
@@ -161,22 +143,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     lineHeight: 20,
     fontFamily: 'System',
   },
-  titrationCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: c.orangeDim,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: c.isDark ? 'rgba(255,116,42,0.2)' : 'rgba(232,101,42,0.15)',
-  },
-  titrationText: {
-    ...TYPE.body,
-    color: c.textSecondary,
-    flex: 1,
-    fontFamily: 'System',
-  },
   doseRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -206,12 +172,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   doseValue: {
     ...TYPE.title3,
     color: c.textPrimary,
-    fontFamily: 'System',
-  },
-  startLabel: {
-    ...TYPE.caption2,
-    color: c.textMuted,
-    marginTop: 2,
     fontFamily: 'System',
   },
   doseRight: {

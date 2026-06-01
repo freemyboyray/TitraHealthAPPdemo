@@ -1,15 +1,18 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DoseSelector } from '@/components/treatment/DoseSelector';
 import { MedicationPicker } from '@/components/treatment/MedicationPicker';
 import { ScheduleSelector } from '@/components/treatment/ScheduleSelector';
+import { WhyAdjustedDisclosure } from '@/components/treatment/WhyAdjustedDisclosure';
 import { ORANGE } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import {
@@ -76,6 +79,17 @@ export default function EditTreatmentScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
+  // ── Optional preset (re-selecting a saved medication from the library) ──
+  // When present, brand/dose/schedule are already known, so we skip the wizard
+  // pages entirely and open the confirmation flow (last/first dose, site) directly
+  // — see the mount effect below. The switch still records history + recalcs targets.
+  const params = useLocalSearchParams<{ presetBrand?: string; presetDose?: string; presetFreq?: string }>();
+  const presetBrand = (typeof params.presetBrand === 'string' && params.presetBrand)
+    ? (params.presetBrand as MedicationBrand) : null;
+  const presetDoseNum = params.presetDose ? parseFloat(params.presetDose as string) : null;
+  const presetFreqNum = params.presetFreq ? parseInt(params.presetFreq as string, 10) : null;
+  const hasPreset = presetBrand !== null;
+
   // ── View state ──
   const wasOffTreatment = !isOnTreatment(profile);
   type ViewMode = 'summary' | 'wizard' | 'off';
@@ -84,16 +98,25 @@ export default function EditTreatmentScreen() {
   const [wizardStep, setWizardStep] = useState<WizardStep>('brand');
 
   const [brand, setBrand] = useState<MedicationBrand | null>(
-    wasOffTreatment ? null : (profile?.medicationBrand ?? 'ozempic'),
+    presetBrand ?? (wasOffTreatment ? null : (profile?.medicationBrand ?? 'ozempic')),
   );
   const [dose, setDose] = useState<number | 'custom' | null>(
     () => {
+      if (hasPreset) {
+        const doses = getBrandDoses(presetBrand!);
+        if (presetDoseNum == null) return null;
+        return doses.includes(presetDoseNum) ? presetDoseNum : 'custom';
+      }
       if (wasOffTreatment) return null;
       const doses = getBrandDoses(profile?.medicationBrand ?? 'ozempic');
       return doses.includes(profile?.doseMg ?? 0) ? (profile?.doseMg ?? doses[0]) : 'custom';
     }
   );
   const [customDose, setCustomDose] = useState(() => {
+    if (hasPreset) {
+      const doses = getBrandDoses(presetBrand!);
+      return (presetDoseNum != null && !doses.includes(presetDoseNum)) ? String(presetDoseNum) : '';
+    }
     if (wasOffTreatment) return '';
     const doses = getBrandDoses(profile?.medicationBrand ?? 'ozempic');
     return doses.includes(profile?.doseMg ?? 0) ? '' : String(profile?.doseMg ?? '');
@@ -101,13 +124,13 @@ export default function EditTreatmentScreen() {
   const [freq, setFreq] = useState<number | 'custom'>(
     () => {
       const validFreqs = [1, 7, 14];
-      const pFreq = profile?.injectionFrequencyDays ?? 7;
+      const pFreq = hasPreset ? (presetFreqNum ?? 7) : (profile?.injectionFrequencyDays ?? 7);
       return validFreqs.includes(pFreq) ? pFreq : 'custom';
     }
   );
   const [customFreq, setCustomFreq] = useState(() => {
     const validFreqs = [1, 7, 14];
-    const pFreq = profile?.injectionFrequencyDays ?? 7;
+    const pFreq = hasPreset ? (presetFreqNum ?? 7) : (profile?.injectionFrequencyDays ?? 7);
     return validFreqs.includes(pFreq) ? '' : String(pFreq);
   });
   const [lastInjDate, setLastInjDate] = useState(() =>
@@ -133,19 +156,21 @@ export default function EditTreatmentScreen() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Fires once to auto-open the confirmation modal when launched with a preset med.
+  const presetOpenedRef = useRef(false);
+
   // ── Post-save "targets updated" modal state ──
   const [postSaveVisible, setPostSaveVisible] = useState(false);
   const [postSaveDiffs, setPostSaveDiffs] = useState<TargetDiff[]>([]);
   const [postSaveMedLabel, setPostSaveMedLabel] = useState('');
 
   // ── Confirmation modal state ──
-  type ConfirmStep = 'start_weight' | 'last_dose' | 'first_dose' | 'dose_time' | 'injection_site';
+  type ConfirmStep = 'start_weight' | 'last_dose' | 'first_dose' | 'injection_site';
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmStep, setConfirmStep] = useState<ConfirmStep>('start_weight');
   // These track answers collected during the confirmation flow
   const [confirmLastDoseDate, setConfirmLastDoseDate] = useState<Date>(lastInjDate);
   const [confirmFirstDoseDate, setConfirmFirstDoseDate] = useState<Date>(new Date());
-  const [confirmDoseTimeValue, setConfirmDoseTimeValue] = useState<Date>(doseTime);
   const [confirmSite, setConfirmSite] = useState<string | null>(null);
   const [confirmCustomSite, setConfirmCustomSite] = useState('');
   const [confirmStartWeight, setConfirmStartWeight] = useState<string>(
@@ -193,16 +218,17 @@ export default function EditTreatmentScreen() {
   const oldGlp1Type = profile.glp1Type;
   const oldBrand = profile.medicationBrand;
   const oldFreqDays = profile.injectionFrequencyDays;
-  const oldIsDaily = oldFreqDays === 1;
 
   function handleBrandChange(b: MedicationBrand) {
     setBrand(b);
     const newFreq = BRAND_DEFAULT_FREQ_DAYS[b];
     setFreq(newFreq);
     setCustomFreq('');
+    // Don't pick a dose for the user — they select their own prescribed dose.
+    // Only clear a stale selection that isn't valid for the new brand.
     const newDoses = getBrandDoses(b);
-    if (!newDoses.includes(dose as number)) {
-      setDose(newDoses[0]);
+    if (dose !== 'custom' && !newDoses.includes(dose as number)) {
+      setDose(null);
       setCustomDose('');
     }
   }
@@ -232,26 +258,23 @@ export default function EditTreatmentScreen() {
   function getConfirmSteps(): ConfirmStep[] {
     const changeType = getChangeType();
     const steps: ConfirmStep[] = [];
-    const newIsDaily = freqDays === 1;
     const newIsOral = brand ? (DRUG_IS_ORAL[BRAND_TO_GLP1_TYPE[brand]] ?? false) : false;
 
     // Off→on: collect start weight, first dose, skip last_dose (they weren't on anything)
+    // Note: daily dose time is collected in the wizard (ScheduleSelector), so it's
+    // intentionally NOT re-asked here — that was a duplicate question.
     if (wasOffTreatment) {
       steps.push('start_weight', 'first_dose');
-      if (newIsDaily) steps.push('dose_time');
       if (!newIsOral) steps.push('injection_site');
       return steps;
     }
 
     if (changeType === 'drug_type') {
       steps.push('last_dose', 'first_dose');
-      if (newIsDaily) steps.push('dose_time');
     } else if (changeType === 'freq_change') {
       steps.push('last_dose');
-      if (newIsDaily && !oldIsDaily) steps.push('dose_time');
     } else if (changeType === 'brand_swap') {
       steps.push('last_dose', 'first_dose');
-      if (newIsDaily && !oldIsDaily) steps.push('dose_time');
     } else if (changeType === 'dose_only') {
       steps.push('first_dose');
     }
@@ -275,13 +298,8 @@ export default function EditTreatmentScreen() {
     const brandDisplay = BRAND_DISPLAY_NAMES[brand] ?? brand;
     const todayStr = toDateString(new Date());
 
-    // Determine dose time
-    let finalDoseTime = doseTime;
-    if (changeType === 'drug_type' || changeType === 'brand_swap') {
-      if (newIsDaily) finalDoseTime = confirmDoseTimeValue;
-    } else if (changeType === 'freq_change') {
-      if (newIsDaily && !oldIsDaily) finalDoseTime = confirmDoseTimeValue;
-    }
+    // Dose time is collected once in the wizard (ScheduleSelector) — no duplicate prompt.
+    const finalDoseTime = doseTime;
     const formattedDoseTime = newIsDaily
       ? `${String(finalDoseTime.getHours()).padStart(2, '0')}:${String(finalDoseTime.getMinutes()).padStart(2, '0')}`
       : '';
@@ -458,6 +476,7 @@ export default function EditTreatmentScreen() {
 
     setConfirmVisible(false);
     setSaving(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     if (diffs.length > 0) {
       setPostSaveDiffs(diffs);
@@ -534,6 +553,7 @@ export default function EditTreatmentScreen() {
   }
 
   function wizardNext() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (wizardStep === 'brand') {
       setWizardStep('dose');
     } else if (wizardStep === 'dose') {
@@ -545,6 +565,7 @@ export default function EditTreatmentScreen() {
   }
 
   function wizardBack() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (wizardStep === 'brand') {
       setView(wasOffTreatment ? 'off' : 'summary');
     } else if (wizardStep === 'dose') {
@@ -566,13 +587,22 @@ export default function EditTreatmentScreen() {
     // Reset confirmation state
     setConfirmLastDoseDate(lastInjDate);
     setConfirmFirstDoseDate(new Date());
-    setConfirmDoseTimeValue(doseTime);
     setConfirmSite(null);
 
     const steps = getConfirmSteps();
     setConfirmStep(steps[0]);
     setConfirmVisible(true);
   }
+
+  // Preset launch (re-selecting a saved medication): skip the wizard pages and
+  // drop straight into the confirmation flow over the treatment summary.
+  useEffect(() => {
+    if (hasPreset && !presetOpenedRef.current && isValid) {
+      presetOpenedRef.current = true;
+      openConfirmModal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Should we skip injection site? Only ask if first dose is today or past.
   function shouldSkipInjectionSite(): boolean {
@@ -589,6 +619,7 @@ export default function EditTreatmentScreen() {
 
   // Navigate confirmation modal steps
   function confirmNext() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const steps = getActiveSteps();
     const idx = steps.indexOf(confirmStep);
     if (idx < steps.length - 1) {
@@ -599,6 +630,7 @@ export default function EditTreatmentScreen() {
   }
 
   function confirmBack() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const steps = getActiveSteps();
     const idx = steps.indexOf(confirmStep);
     if (idx > 0) {
@@ -661,29 +693,6 @@ export default function EditTreatmentScreen() {
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             minimumDate={wasOffTreatment ? undefined : new Date(confirmLastDoseDate.getTime() - 86400000)} // Allow same day; no min for off→on
             onChange={(_, date) => { if (date) setConfirmFirstDoseDate(date); }}
-            themeVariant="dark"
-          />
-        </View>
-      </>
-    );
-  }
-
-  function renderDoseTimeStep() {
-    return (
-      <>
-        <Text style={ms.modalTitle}>DAILY DOSE TIME</Text>
-        <Text style={ms.stepQuestion}>
-          What time will you take your daily dose?
-        </Text>
-        <Text style={ms.stepHint}>
-          Used for reminders and tracking your medication cycle throughout the day.
-        </Text>
-        <View style={{ alignSelf: 'center', marginTop: 16 }}>
-          <DateTimePicker
-            value={confirmDoseTimeValue}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => { if (date) setConfirmDoseTimeValue(date); }}
             themeVariant="dark"
           />
         </View>
@@ -871,7 +880,6 @@ export default function EditTreatmentScreen() {
       case 'start_weight':   return renderStartWeightStep();
       case 'last_dose':      return renderLastDoseStep();
       case 'first_dose':     return renderFirstDoseStep();
-      case 'dose_time':      return renderDoseTimeStep();
       case 'injection_site': return renderInjectionSiteStep();
     }
   }
@@ -1140,47 +1148,49 @@ export default function EditTreatmentScreen() {
       {view === 'wizard' && (
         <>
           <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+            <Animated.View key={wizardStep} entering={FadeIn.duration(220)}>
 
-            {/* ── STEP: BRAND ── */}
-            {wizardStep === 'brand' && (
-              <MedicationPicker
-                currentBrand={profile?.medicationBrand}
-                selectedBrand={brand}
-                onSelectBrand={handleBrandChange}
-              />
-            )}
+              {/* ── STEP: BRAND ── */}
+              {wizardStep === 'brand' && (
+                <MedicationPicker
+                  currentBrand={profile?.medicationBrand}
+                  selectedBrand={brand}
+                  onSelectBrand={handleBrandChange}
+                />
+              )}
 
-            {/* ── STEP: DOSE ── */}
-            {wizardStep === 'dose' && (
-              <DoseSelector
-                brand={brand}
-                currentDose={profile?.doseMg}
-                selectedDose={dose}
-                customDose={customDose}
-                onSelectDose={(d) => { if (d === 'custom') { setDose('custom'); } else { setDose(d); setCustomDose(''); } }}
-                onCustomDoseChange={setCustomDose}
-              />
-            )}
+              {/* ── STEP: DOSE ── */}
+              {wizardStep === 'dose' && (
+                <DoseSelector
+                  brand={brand}
+                  currentDose={profile?.doseMg}
+                  selectedDose={dose}
+                  customDose={customDose}
+                  onSelectDose={(d) => { if (d === 'custom') { setDose('custom'); } else { setDose(d); setCustomDose(''); } }}
+                  onCustomDoseChange={setCustomDose}
+                />
+              )}
 
-            {/* ── STEP: SCHEDULE ── */}
-            {wizardStep === 'schedule' && (
-              <ScheduleSelector
-                isOral={isOral}
-                isDaily={isDaily}
-                wasOffTreatment={wasOffTreatment}
-                freq={freq}
-                customFreq={customFreq}
-                doseTime={doseTime}
-                lastInjDate={lastInjDate}
-                doseStartDate={doseStartDate}
-                onFreqChange={(f) => { setFreq(f); if (f !== 'custom') setCustomFreq(''); }}
-                onCustomFreqChange={setCustomFreq}
-                onDoseTimeChange={setDoseTime}
-                onLastInjDateChange={setLastInjDate}
-                onDoseStartDateChange={setDoseStartDate}
-              />
-            )}
+              {/* ── STEP: SCHEDULE ── */}
+              {wizardStep === 'schedule' && (
+                <ScheduleSelector
+                  isOral={isOral}
+                  isDaily={isDaily}
+                  wasOffTreatment={wasOffTreatment}
+                  freq={freq}
+                  customFreq={customFreq}
+                  doseTime={doseTime}
+                  lastInjDate={lastInjDate}
+                  doseStartDate={doseStartDate}
+                  onFreqChange={(f) => { setFreq(f); if (f !== 'custom') setCustomFreq(''); }}
+                  onCustomFreqChange={setCustomFreq}
+                  onDoseTimeChange={setDoseTime}
+                  onLastInjDateChange={setLastInjDate}
+                  onDoseStartDateChange={setDoseStartDate}
+                />
+              )}
 
+            </Animated.View>
           </ScrollView>
 
           {/* Wizard footer */}
@@ -1215,7 +1225,9 @@ export default function EditTreatmentScreen() {
               <View style={[StyleSheet.absoluteFillObject, { borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.06)' }]} />
 
               <ScrollView style={ms.cardScroll} contentContainerStyle={ms.cardContent} bounces={false}>
-                {renderConfirmStep()}
+                <Animated.View key={confirmStep} entering={FadeIn.duration(200)}>
+                  {renderConfirmStep()}
+                </Animated.View>
               </ScrollView>
 
               {/* Step indicator */}
@@ -1295,6 +1307,9 @@ export default function EditTreatmentScreen() {
                     </View>
                   ))}
                 </View>
+
+                {/* Collapsible "Why these changes?" \u2014 rationale + clinical sources */}
+                <WhyAdjustedDisclosure labels={postSaveDiffs.map((d) => d.label)} />
               </ScrollView>
 
               <View style={{ paddingHorizontal: 28, paddingBottom: 28, paddingTop: 8 }}>
@@ -1342,7 +1357,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
 
   // Off-treatment landing card
   offCard: {
-    backgroundColor: c.glassOverlay,
+    backgroundColor: c.surface,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center' as const,
@@ -1385,7 +1400,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
 
   // Summary card
   summaryCard: {
-    backgroundColor: c.glassOverlay,
+    backgroundColor: c.surface,
     borderRadius: 20, padding: 24, alignItems: 'center' as const,
     borderWidth: 1,
     borderTopColor: c.border, borderLeftColor: c.borderSubtle,
@@ -1427,7 +1442,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   // Change medication button
   changeMedBtn: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
-    backgroundColor: c.glassOverlay, borderRadius: 14,
+    backgroundColor: c.surface, borderRadius: 14,
     paddingVertical: 16, paddingHorizontal: 16,
     borderWidth: 1,
     borderTopColor: c.border, borderLeftColor: c.borderSubtle,

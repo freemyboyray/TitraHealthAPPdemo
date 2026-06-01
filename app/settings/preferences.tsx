@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo, useState } from 'react';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useRemindersStore } from '@/stores/reminders-store';
@@ -19,7 +20,12 @@ export default function PreferencesScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const toggle = (key: string) => setExpandedRow(prev => prev === key ? null : key);
+  const toggle = (key: string) => {
+    setExpandedRow(prev => prev === key ? null : key);
+  };
+  const enter = FadeIn.duration(220).easing(Easing.bezier(0.4, 0, 0.2, 1) as any);
+  const exit = FadeOut.duration(160);
+  const layout = LinearTransition.duration(220).easing(Easing.bezier(0.4, 0, 0.2, 1) as any);
 
   const themeModes = ['system', 'light', 'dark'] as const;
   const themeLabels: Record<string, string> = { system: 'System', light: 'Light', dark: 'Dark' };
@@ -38,7 +44,7 @@ export default function PreferencesScreen() {
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          <View style={s.card}>
+          <Animated.View style={s.card} layout={layout}>
             {/* Appearance */}
             <Pressable style={s.cardRow} onPress={() => toggle('appearance')} accessibilityLabel="Appearance" accessibilityRole="button">
               <View style={s.rowLeft}>
@@ -53,14 +59,14 @@ export default function PreferencesScreen() {
               </View>
             </Pressable>
             {expandedRow === 'appearance' && (
-              <View style={s.expandedContent}>
+              <Animated.View style={s.expandedContent} entering={enter} exiting={exit}>
                 {themeModes.map((mode) => (
                   <Pressable key={mode} style={s.optionRow} onPress={() => setThemeMode(mode)} accessibilityLabel={themeLabels[mode]} accessibilityRole="button" accessibilityState={{ selected: themeMode === mode }}>
                     <Text style={[s.optionLabel, themeMode === mode && { color: colors.orange, fontWeight: '700' }]}>{themeLabels[mode]}</Text>
                     {themeMode === mode && <IconSymbol name="checkmark" size={16} color={colors.orange} />}
                   </Pressable>
                 ))}
-              </View>
+              </Animated.View>
             )}
 
             <View style={s.divider} />
@@ -79,14 +85,14 @@ export default function PreferencesScreen() {
               </View>
             </Pressable>
             {expandedRow === 'headerStyle' && (
-              <View style={s.expandedContent}>
+              <Animated.View style={s.expandedContent} entering={enter} exiting={exit}>
                 {headerStyles.map((style) => (
                   <Pressable key={style} style={s.optionRow} onPress={() => setHeaderStyle(style)} accessibilityLabel={headerLabels[style]} accessibilityRole="button" accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}>
                     <Text style={[s.optionLabel, (headerStyle ?? 'gradient') === style && { color: colors.orange, fontWeight: '700' }]}>{headerLabels[style]}</Text>
                     {(headerStyle ?? 'gradient') === style && <IconSymbol name="checkmark" size={16} color={colors.orange} />}
                   </Pressable>
                 ))}
-              </View>
+              </Animated.View>
             )}
 
             <View style={s.divider} />
@@ -120,7 +126,7 @@ export default function PreferencesScreen() {
                 <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
               </View>
             </Pressable>
-          </View>
+          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -138,7 +144,7 @@ function createStyles(c: AppColors) {
     headerTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
     content: { padding: 16, paddingBottom: 60 },
     card: {
-      backgroundColor: c.glassOverlay, borderRadius: 16, overflow: 'hidden',
+      backgroundColor: c.surface, borderRadius: 16, overflow: 'hidden',
       borderWidth: 1, borderTopColor: c.border, borderLeftColor: c.borderSubtle,
       borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
     },

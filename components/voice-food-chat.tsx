@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated as RNAnimated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -36,6 +37,34 @@ type Props = {
   onComplete: (items: { item: string; estimated_g: number }[]) => void;
   onCancel: () => void;
 };
+
+function ChatBubble({ msg, colors }: { msg: ChatMessage; colors: ReturnType<typeof useAppTheme>['colors'] }) {
+  const opacity = useRef(new RNAnimated.Value(0)).current;
+  const ty = useRef(new RNAnimated.Value(14)).current;
+
+  useEffect(() => {
+    RNAnimated.parallel([
+      RNAnimated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      RNAnimated.spring(ty, { toValue: 0, damping: 18, stiffness: 140, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <RNAnimated.View
+      style={[
+        st.bubble,
+        msg.role === 'user'
+          ? [st.userBubble, { backgroundColor: colors.orange }]
+          : [st.aiBubble, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }],
+        { opacity, transform: [{ translateY: ty }] },
+      ]}
+    >
+      <Text style={[st.bubbleText, { color: msg.role === 'user' ? '#FFF' : colors.textPrimary }]}>
+        {msg.content}
+      </Text>
+    </RNAnimated.View>
+  );
+}
 
 export function VoiceFoodChat({ onComplete, onCancel }: Props) {
   const { colors } = useAppTheme();
@@ -72,6 +101,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
 
     const userMsg: ChatMessage = { role: 'user', content: text.trim() };
     const updated = [...messages, userMsg];
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMessages(updated);
     setInputText('');
     setLoading(true);
@@ -79,14 +109,15 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
     try {
       const result: ConverseFoodResult = await converseFoodLog(updated);
       const assistantMsg: ChatMessage = { role: 'assistant', content: result.message };
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMessages([...updated, assistantMsg]);
 
       if (result.done && result.items && result.items.length > 0) {
         // Small delay so user can read the confirmation
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setTimeout(() => onComplete(result.items!), 1200);
       }
     } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setMessages([...updated, { role: 'assistant', content: "Sorry, I couldn't process that. Could you try again?" }]);
     } finally {
       setLoading(false);
@@ -141,22 +172,7 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         {messages.map((msg, i) => (
-          <View
-            key={i}
-            style={[
-              st.bubble,
-              msg.role === 'user'
-                ? [st.userBubble, { backgroundColor: colors.orange }]
-                : [st.aiBubble, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }],
-            ]}
-          >
-            <Text style={[
-              st.bubbleText,
-              { color: msg.role === 'user' ? '#FFF' : colors.textPrimary },
-            ]}>
-              {msg.content}
-            </Text>
-          </View>
+          <ChatBubble key={i} msg={msg} colors={colors} />
         ))}
         {loading && (
           <View style={[st.bubble, st.aiBubble, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>

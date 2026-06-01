@@ -1721,6 +1721,77 @@ export type EnergyBankResult = {
 };
 
 /**
+ * Builds the human-readable "Drug Level" line for the Energy Bank.
+ *
+ * This is a *prediction of how you'll likely feel given where you are in your
+ * dose cycle* — not a grade. Drug concentration follows an unavoidable
+ * pharmacokinetic curve the user can't change, so the copy is framed as cycle
+ * context, never as something they did wrong.
+ *
+ * Critically, the symptom language is gated on the user's ACTUAL state rather
+ * than asserted from concentration alone:
+ *   - `programPhase` (tenure): GI side effects + fatigue are concentration-
+ *     AND tenure-driven. Someone still ramping (initiation/titration) genuinely
+ *     has higher risk at peak; an acclimated maintenance user usually doesn't.
+ *   - logged burden: if the user is actually reporting fatigue/side effects we
+ *     reflect that; if they've logged none and have acclimated, we say they're
+ *     tolerating peak well rather than predicting nausea that isn't happening.
+ */
+function buildDrugLevelDetail(
+  pkConcentration: number | null,
+  phase: ShotPhase,
+  programPhase: ProgramPhase,
+  sideEffectBurden: number,
+  fatigueBurden: number,
+): string {
+  const acclimating = programPhase === 'initiation' || programPhase === 'titration';
+  const hasSymptoms = sideEffectBurden >= 30 || fatigueBurden >= 30;
+
+  // No PK data — describe cycle position only; don't assert a concentration we
+  // can't compute.
+  if (pkConcentration == null) {
+    switch (phase) {
+      case 'shot':
+        return acclimating
+          ? 'Dose just taken — levels climbing as your body adjusts'
+          : 'Dose just taken — levels climbing';
+      case 'peak':
+        return hasSymptoms
+          ? 'Near peak in your cycle — tracks with the side effects you’ve logged'
+          : acclimating
+          ? 'Near peak in your cycle — side effects can run higher here while you adjust'
+          : 'Near peak in your cycle — you’ve been tolerating this window well';
+      case 'balance':
+        return 'Levels steady mid-cycle — a stable window';
+      default:
+        return 'Levels tapering before your next dose';
+    }
+  }
+
+  const pct = Math.round(pkConcentration);
+  const conc =
+    pct >= 80 ? `${pct}% of peak — near your cycle high`
+    : pct >= 55 ? `${pct}% of peak — still elevated`
+    : pct >= 30 ? `${pct}% of peak — easing off`
+    : `${pct}% of peak — dose wearing off before your next one`;
+
+  let note: string;
+  if (pct >= 55) {
+    note = hasSymptoms
+      ? 'tracks with the side effects you’ve logged'
+      : acclimating
+      ? 'fatigue or nausea can show up while you adjust to this dose'
+      : 'you’ve been tolerating peak levels well';
+  } else {
+    note = hasSymptoms
+      ? 'levels easing should help your energy return'
+      : 'a lighter window for side effects';
+  }
+
+  return `${conc} — ${note}`;
+}
+
+/**
  * Compute the Energy Bank score from existing health data.
  *
  * The score reflects how much energy a GLP-1 user likely has available,
@@ -1822,9 +1893,13 @@ export function computeEnergyBank(
   raw.push({
     id: 'drugLevel', label: 'Drug Level', score: drugScore, baseWeight: 0.18,
     available: true,
-    detail: hasPK
-      ? `${Math.round(pkConcentration!)}% of peak — ${drugScore >= 70 ? 'low drug level, energy should be good' : drugScore >= 40 ? 'moderate level, some fatigue expected' : 'high concentration — fatigue and nausea most likely'}`
-      : `${phase} phase — ${drugScore >= 70 ? 'energy should be good' : drugScore >= 40 ? 'some fatigue expected' : 'fatigue most likely now'}`,
+    detail: buildDrugLevelDetail(
+      hasPK ? pkConcentration! : null,
+      phase,
+      targets.programPhase,
+      sideEffectBurden,
+      fatigueBurden ?? 0,
+    ),
   });
 
   // ── 4. Nutrition — Calories (60%) + Protein (40%) (17%) ─────────────────

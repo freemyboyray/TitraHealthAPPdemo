@@ -167,7 +167,7 @@ function createStyles(c: AppColors) {
       textTransform: 'uppercase',
     },
     card: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16,
       borderWidth: 1,
       borderTopColor: c.border,

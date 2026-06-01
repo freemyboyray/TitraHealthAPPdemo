@@ -1,8 +1,10 @@
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -86,12 +88,56 @@ function TypingIndicator({ colors }: { colors: AppColors }) {
   );
 }
 
+function MessageBubble({
+  item,
+  isNew,
+  colors,
+  s,
+}: {
+  item: Message;
+  isNew: boolean;
+  colors: AppColors;
+  s: ReturnType<typeof createStyles>;
+}) {
+  const isUser = item.role === 'user';
+  const opacity = useRef(new Animated.Value(isNew ? 0 : 1)).current;
+  const ty = useRef(new Animated.Value(isNew ? 14 : 0)).current;
+
+  useEffect(() => {
+    if (!isNew) return;
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(ty, { toValue: 0, damping: 18, stiffness: 140, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAssistant, { opacity, transform: [{ translateY: ty }] }]}>
+      {isUser ? (
+        <View style={s.userBubble} accessible={true} accessibilityLabel={`You said: ${item.content}`} accessibilityRole="text">
+          <Text style={s.userText}>{item.content}</Text>
+        </View>
+      ) : (
+        <View style={s.assistantBubble} accessible={true} accessibilityLabel={`AI response: ${item.content}`} accessibilityRole="text">
+          <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={s.assistantOverlay} />
+          <GlassBorder r={18} />
+          <Text style={s.assistantText}>{item.content}</Text>
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AskAIScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList>(null);
+  // IDs of messages added live this session — only these get the fade/slide-in.
+  // History loaded from Supabase renders instantly (no animation).
+  const animatedIds = useRef<Set<string>>(new Set());
   const { colors } = useAppTheme();
   const posthog = usePostHog();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -161,6 +207,8 @@ export default function AskAIScreen() {
       created_at: new Date().toISOString(),
     };
 
+    animatedIds.current.add(userMsg.id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMessages((prev) => [...prev, userMsg]);
     setTyping(true);
     posthog?.capture('ai_chat_message_sent');
@@ -181,6 +229,8 @@ export default function AskAIScreen() {
         content: reply,
         created_at: new Date().toISOString(),
       };
+      animatedIds.current.add(assistantMsg.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMessages((prev) => [...prev, assistantMsg]);
 
       if (userId) {
@@ -189,8 +239,10 @@ export default function AskAIScreen() {
     } catch (err) {
       const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
       const isUsageLimit = err instanceof UsageLimitError;
+      const errId = `local-err-${Date.now()}`;
+      animatedIds.current.add(errId);
       setMessages((prev) => [...prev, {
-        id: `local-err-${Date.now()}`,
+        id: errId,
         role: 'assistant',
         content: isAuth
           ? "Your session has expired. Please sign out and sign back in to continue."
@@ -213,6 +265,8 @@ export default function AskAIScreen() {
       content: prompt,
       created_at: new Date().toISOString(),
     };
+    animatedIds.current.add(userMsg.id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMessages([userMsg]);
     setTyping(true);
     if (userId) {
@@ -222,14 +276,18 @@ export default function AskAIScreen() {
     callOpenAI([{ role: 'user', content: prompt }], systemPrompt)
       .then((reply) => {
         const aMsg: Message = { id: `local-${Date.now()}-a`, role: 'assistant', content: reply, created_at: new Date().toISOString() };
+        animatedIds.current.add(aMsg.id);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setMessages((prev) => [...prev, aMsg]);
         if (userId) supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: reply }).then(() => {});
       })
       .catch((err: unknown) => {
         const isAuth = err instanceof Error && err.message === 'AUTH_EXPIRED';
         const isUsageLimit = err instanceof UsageLimitError;
+        const errId = `err-${Date.now()}`;
+        animatedIds.current.add(errId);
         setMessages((prev) => [...prev, {
-          id: `err-${Date.now()}`,
+          id: errId,
           role: 'assistant',
           content: isAuth
             ? "Your session has expired. Please sign out and sign back in to continue."
@@ -245,23 +303,7 @@ export default function AskAIScreen() {
   }
 
   function renderMessage({ item }: { item: Message }) {
-    const isUser = item.role === 'user';
-    return (
-      <View style={[s.msgRow, isUser ? s.msgRowUser : s.msgRowAssistant]}>
-        {isUser ? (
-          <View style={s.userBubble} accessible={true} accessibilityLabel={`You said: ${item.content}`} accessibilityRole="text">
-            <Text style={s.userText}>{item.content}</Text>
-          </View>
-        ) : (
-          <View style={s.assistantBubble} accessible={true} accessibilityLabel={`AI response: ${item.content}`} accessibilityRole="text">
-            <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={s.assistantOverlay} />
-            <GlassBorder r={18} />
-            <Text style={s.assistantText}>{item.content}</Text>
-          </View>
-        )}
-      </View>
-    );
+    return <MessageBubble item={item} isNew={animatedIds.current.has(item.id)} colors={colors} s={s} />;
   }
 
   return (

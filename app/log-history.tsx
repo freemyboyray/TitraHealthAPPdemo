@@ -4,7 +4,7 @@ import {
   SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '@/contexts/theme-context';
 import {
@@ -48,6 +48,19 @@ function formatSectionDate(dateStr: string): string {
 type Status = 'positive' | 'negative' | 'neutral';
 
 type FilterType = 'all' | 'food' | 'activity' | 'weight' | 'medication' | 'side_effect';
+
+// Insights tab → categories it scopes to. Mirrors TAB_LOG_KINDS in app/(tabs)/log.tsx.
+type ScopeTab = 'medication' | 'lifestyle' | 'progress';
+const TAB_KINDS: Record<ScopeTab, FilterType[]> = {
+  medication: ['medication', 'side_effect'],
+  lifestyle: ['food', 'activity'],
+  progress: ['weight'],
+};
+const TAB_TITLES: Record<ScopeTab, string> = {
+  medication: 'Medication History',
+  lifestyle: 'Lifestyle History',
+  progress: 'Progress History',
+};
 
 type LogEntry = {
   id: string;
@@ -269,6 +282,9 @@ function EditModal({ editState, onSave, onClose, colors }: {
 
 export default function LogHistoryScreen() {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const scopeTab = tab && tab in TAB_KINDS ? (tab as ScopeTab) : null;
+  const scopeKinds = scopeTab ? TAB_KINDS[scopeTab] : null;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const store = useLogStore();
@@ -284,8 +300,9 @@ export default function LogHistoryScreen() {
       ...injectionLogs.map(injectionToEntry),
       ...sideEffectLogs.map(sideEffectToEntry),
     ];
-    return entries.sort((a, b) => b.rawDate.localeCompare(a.rawDate) || b.timestamp.localeCompare(a.timestamp));
-  }, [foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs]);
+    const scoped = scopeKinds ? entries.filter(e => scopeKinds.includes(e.logType)) : entries;
+    return scoped.sort((a, b) => b.rawDate.localeCompare(a.rawDate) || b.timestamp.localeCompare(a.timestamp));
+  }, [foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs, scopeKinds]);
 
   const sections = useMemo(() => {
     const map = new Map<string, LogEntry[]>();
@@ -427,6 +444,10 @@ export default function LogHistoryScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <ChevronLeft size={26} color="#FFFFFF" />
           </Pressable>
+          <Text style={s.headerTitle} numberOfLines={1}>
+            {scopeTab ? TAB_TITLES[scopeTab] : 'All Logs'}
+          </Text>
+          <View style={{ width: 26 }} />
         </View>
 
         <SectionList
@@ -507,6 +528,10 @@ const createStyles = (c: AppColors) => {
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 20, paddingVertical: 12,
+    },
+    headerTitle: {
+      flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700',
+      color: c.textPrimary, fontFamily: FF,
     },
     loadMoreBtn: {
       marginTop: 20, alignSelf: 'center',

@@ -23,6 +23,16 @@ export type TrayItem = {
   sugar_g?: number;
   sodium_mg?: number;
   cholesterol_mg?: number;
+  trans_fat_g?: number;
+  polyunsaturated_fat_g?: number;
+  monounsaturated_fat_g?: number;
+  potassium_mg?: number;
+  added_sugars_g?: number;
+  vitamin_a_mcg?: number;
+  vitamin_c_mg?: number;
+  vitamin_d_mcg?: number;
+  calcium_mg?: number;
+  iron_mg?: number;
   // FatSecret Premier enrichments. Allergen/preference flags are ternary
   // (1 = contains/yes, 0 = does not contain/no, -1 = unknown).
   image_url?: string;
@@ -184,6 +194,16 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
           sugar_g: item.sugar_g,
           sodium_mg: item.sodium_mg,
           cholesterol_mg: item.cholesterol_mg,
+          trans_fat_g: item.trans_fat_g,
+          polyunsaturated_fat_g: item.polyunsaturated_fat_g,
+          monounsaturated_fat_g: item.monounsaturated_fat_g,
+          potassium_mg: item.potassium_mg,
+          added_sugars_g: item.added_sugars_g,
+          vitamin_a_mcg: item.vitamin_a_mcg,
+          vitamin_c_mg: item.vitamin_c_mg,
+          vitamin_d_mcg: item.vitamin_d_mcg,
+          calcium_mg: item.calcium_mg,
+          iron_mg: item.iron_mg,
           image_url: item.image_url,
           allergens: item.allergens,
           preferences: item.preferences,

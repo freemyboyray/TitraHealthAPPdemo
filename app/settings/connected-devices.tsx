@@ -111,7 +111,7 @@ function CategorySection({ cat, liveCategories, colors }: {
 
   return (
     <View style={{
-      backgroundColor: colors.glassOverlay,
+      backgroundColor: colors.surface,
       borderRadius: 20, overflow: 'hidden', marginBottom: 16,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: colors.borderSubtle,
@@ -305,7 +305,7 @@ const createStyles = (c: AppColors) => {
 
     /* How it works */
     howCard: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, padding: 18,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
@@ -316,7 +316,7 @@ const createStyles = (c: AppColors) => {
     /* Apple Health link */
     healthLink: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16, padding: 16,
       borderWidth: 1,
       borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,

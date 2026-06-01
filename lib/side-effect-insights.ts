@@ -67,8 +67,15 @@ export function injectionTimestamp(inj: InjectionLog): number {
 }
 
 /**
- * Days into the current injection cycle, in the range [0, freqDays).
- * If there's no prior injection, returns null.
+ * Days into the current dosing cycle, in the range [0, freqDays).
+ * If there's no prior dose, returns null.
+ *
+ * If the nearest preceding dose is more than one full cycle behind, the log is
+ * stale relative to the current regimen (a missed dose, or — critically — a
+ * regimen change such as weekly injectable → daily oral) and returns null.
+ * We deliberately do NOT wrap `delta % freqDays`: wrapping would fold a symptom
+ * logged 3 days after an old weekly shot onto a 1-day axis, producing a
+ * misleading scatter that has nothing to do with the new daily cycle.
  */
 export function dayInCycle(
   loggedAt: string,
@@ -79,10 +86,8 @@ export function dayInCycle(
   const last = lastInjectionAt(injections, t);
   if (!last) return null;
   const delta = (t - injectionTimestamp(last)) / DAY_MS;
-  if (delta < 0) return null;
-  // Wrap within a single cycle in case of missed injection
-  const wrapped = delta % freqDays;
-  return wrapped;
+  if (delta < 0 || delta > freqDays) return null;
+  return delta;
 }
 
 // ─── Tolerance / adaptation score ────────────────────────────────────────────

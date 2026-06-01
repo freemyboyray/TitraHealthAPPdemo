@@ -5,21 +5,45 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLogStore, type FoodLog } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
+import { cleanFoodLabel, normalizeIngredient, titleCase } from '@/lib/food-taxonomy';
 import { ChevronLeft } from 'lucide-react-native';
 
 const FF = 'System';
 
-type MetricKey = 'protein' | 'carbs' | 'fat' | 'calories' | 'sodium' | 'sat_fat';
+type NutrientKey =
+  | 'protein' | 'carbs' | 'fat' | 'calories' | 'fiber'
+  | 'sodium' | 'sat_fat' | 'sugar' | 'added_sugars' | 'cholesterol'
+  | 'potassium' | 'calcium' | 'iron'
+  | 'trans_fat' | 'mono_fat' | 'poly_fat'
+  | 'vitamin_a' | 'vitamin_c' | 'vitamin_d';
 type PeriodKey = '7D' | '30D' | '90D';
-type GroupKey = 'category' | 'food';
 
-const METRICS: { key: MetricKey; label: string; unit: string; getValue: (f: FoodLog) => number }[] = [
-  { key: 'protein',  label: 'Protein',  unit: 'g',   getValue: f => f.protein_g ?? 0 },
-  { key: 'carbs',    label: 'Carbs',    unit: 'g',   getValue: f => f.carbs_g ?? 0 },
-  { key: 'fat',      label: 'Fat',      unit: 'g',   getValue: f => f.fat_g ?? 0 },
-  { key: 'calories', label: 'Calories', unit: 'cal', getValue: f => f.calories ?? 0 },
-  { key: 'sodium',   label: 'Sodium',   unit: 'mg',  getValue: f => f.sodium_mg ?? 0 },
-  { key: 'sat_fat',  label: 'Sat Fat',  unit: 'g',   getValue: f => f.saturated_fat_g ?? 0 },
+// A single ingredient's contribution to one log, with every tracked nutrient.
+// Composite dishes expand into one Contribution per component; non-composite
+// logs collapse to a single contribution keyed on the food name.
+type Contribution = { ingredientKey: string; display: string } & Record<NutrientKey, number>;
+
+// label → display column on each metric pill / bar list.
+const METRICS: { key: NutrientKey; label: string; unit: string; src: string }[] = [
+  { key: 'protein',      label: 'Protein',      unit: 'g',   src: 'protein_g' },
+  { key: 'carbs',        label: 'Carbs',        unit: 'g',   src: 'carbs_g' },
+  { key: 'fat',          label: 'Fat',          unit: 'g',   src: 'fat_g' },
+  { key: 'calories',     label: 'Calories',     unit: 'cal', src: 'calories' },
+  { key: 'fiber',        label: 'Fiber',        unit: 'g',   src: 'fiber_g' },
+  { key: 'sodium',       label: 'Sodium',       unit: 'mg',  src: 'sodium_mg' },
+  { key: 'sat_fat',      label: 'Sat Fat',      unit: 'g',   src: 'saturated_fat_g' },
+  { key: 'sugar',        label: 'Sugar',        unit: 'g',   src: 'sugar_g' },
+  { key: 'added_sugars', label: 'Added Sugars', unit: 'g',   src: 'added_sugars_g' },
+  { key: 'cholesterol',  label: 'Cholesterol',  unit: 'mg',  src: 'cholesterol_mg' },
+  { key: 'potassium',    label: 'Potassium',    unit: 'mg',  src: 'potassium_mg' },
+  { key: 'calcium',      label: 'Calcium',      unit: 'mg',  src: 'calcium_mg' },
+  { key: 'iron',         label: 'Iron',         unit: 'mg',  src: 'iron_mg' },
+  { key: 'trans_fat',    label: 'Trans Fat',    unit: 'g',   src: 'trans_fat_g' },
+  { key: 'mono_fat',     label: 'Mono Fat',     unit: 'g',   src: 'monounsaturated_fat_g' },
+  { key: 'poly_fat',     label: 'Poly Fat',     unit: 'g',   src: 'polyunsaturated_fat_g' },
+  { key: 'vitamin_a',    label: 'Vitamin A',    unit: 'mcg', src: 'vitamin_a_mcg' },
+  { key: 'vitamin_c',    label: 'Vitamin C',    unit: 'mg',  src: 'vitamin_c_mg' },
+  { key: 'vitamin_d',    label: 'Vitamin D',    unit: 'mcg', src: 'vitamin_d_mcg' },
 ];
 
 const PERIODS: { key: PeriodKey; days: number }[] = [
@@ -28,6 +52,30 @@ const PERIODS: { key: PeriodKey; days: number }[] = [
   { key: '90D', days: 90 },
 ];
 
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+// Pull every nutrient off a source object (a composite component or a food_logs
+// row — they share field names) into the metric-keyed Contribution shape.
+function contribFrom(src: any, label: string): Contribution {
+  const key = normalizeIngredient(label);
+  const out = { ingredientKey: key, display: titleCase(key) } as Contribution;
+  for (const m of METRICS) out[m.key] = num(src?.[m.src]);
+  return out;
+}
+
+// Expand a food log into per-ingredient contributions. Composite dishes (logged
+// through the describe/photo flow) carry a component breakdown in
+// raw_ai_response; everything else (single-item tray logs, legacy rows) folds
+// into a single contribution keyed on the food name.
+function logContributions(f: FoodLog): Contribution[] {
+  const raw = f.raw_ai_response as any;
+  const comps = raw?.kind === 'composite' && Array.isArray(raw.components) ? raw.components : null;
+  if (comps && comps.length > 0) {
+    return comps.map((c: any) => contribFrom(c, cleanFoodLabel(c.item, c.matched_name)));
+  }
+  return [contribFrom(f, f.food_name || 'Unknown')];
+}
+
 export default function TopContributorsScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -35,8 +83,7 @@ export default function TopContributorsScreen() {
   const foodLogs = useLogStore(state => state.foodLogs);
 
   const [period, setPeriod] = useState<PeriodKey>('30D');
-  const [metric, setMetric] = useState<MetricKey>('protein');
-  const [groupBy, setGroupBy] = useState<GroupKey>('category');
+  const [metric, setMetric] = useState<NutrientKey>('protein');
 
   const days = PERIODS.find(p => p.key === period)?.days ?? 30;
   const metricCfg = METRICS.find(m => m.key === metric)!;
@@ -44,22 +91,25 @@ export default function TopContributorsScreen() {
   const aggregates = useMemo(() => {
     const cutoff = Date.now() - days * 86400000;
     const recent = foodLogs.filter(f => f.logged_at && new Date(f.logged_at).getTime() > cutoff);
-    const groups = new Map<string, number>();
+    // Aggregate by normalized ingredient key; keep a human display label.
+    const groups = new Map<string, { value: number; display: string }>();
     let total = 0;
     for (const f of recent) {
-      const key = groupBy === 'category' ? (f.fatsecret_category_name ?? 'Uncategorized') : f.food_name;
-      const v = metricCfg.getValue(f);
-      if (v <= 0) continue;
-      groups.set(key, (groups.get(key) ?? 0) + v);
-      total += v;
+      for (const c of logContributions(f)) {
+        const v = c[metricCfg.key];
+        if (v <= 0) continue;
+        const prev = groups.get(c.ingredientKey);
+        groups.set(c.ingredientKey, { value: (prev?.value ?? 0) + v, display: c.display });
+        total += v;
+      }
     }
     if (total <= 0) return { entries: [] as { name: string; value: number; pct: number }[], total: 0 };
-    const sorted = Array.from(groups.entries()).sort((a, b) => b[1] - a[1]);
+    const sorted = Array.from(groups.values()).sort((a, b) => b.value - a.value);
     return {
-      entries: sorted.slice(0, 10).map(([name, value]) => ({ name, value, pct: value / total })),
+      entries: sorted.slice(0, 10).map(({ display, value }) => ({ name: display, value, pct: value / total })),
       total,
     };
-  }, [foodLogs, days, groupBy, metricCfg]);
+  }, [foodLogs, days, metricCfg]);
 
   return (
     <View style={s.root}>
@@ -112,25 +162,6 @@ export default function TopContributorsScreen() {
                   );
                 })}
               </ScrollView>
-
-              {/* Group toggle: segmented two-button control */}
-              <View style={s.segmented}>
-                {(['category', 'food'] as GroupKey[]).map(g => {
-                  const active = groupBy === g;
-                  return (
-                    <TouchableOpacity
-                      key={g}
-                      onPress={() => setGroupBy(g)}
-                      activeOpacity={0.7}
-                      style={[s.segment, active && s.segmentActive]}
-                    >
-                      <Text style={[s.segmentLabel, active && s.segmentLabelActive]}>
-                        By {g === 'category' ? 'Category' : 'Food'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
 
               {/* Bar list */}
               {aggregates.entries.length === 0 ? (

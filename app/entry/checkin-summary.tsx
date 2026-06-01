@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { WhyAdjustedDisclosure } from '@/components/treatment/WhyAdjustedDisclosure';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -426,6 +427,9 @@ export default function CheckinSummaryScreen() {
                   <MetricRow {...row} />
                 </View>
               ))}
+
+              {/* Collapsible "Why these changes?" — rationale + clinical sources */}
+              <WhyAdjustedDisclosure labels={metricRows.map((r) => r.label)} />
             </View>
           </View>
         ) : (

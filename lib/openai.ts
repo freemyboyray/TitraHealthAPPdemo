@@ -691,8 +691,8 @@ export async function generateMealTip(
 // ─── AI Macro Estimation Fallback ─────────────────────────────────────────────
 
 const MACRO_ESTIMATE_SYSTEM = `You are a nutrition database. Return ONLY valid JSON for the exact food named, per 100g:
-{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"serving":{"label":"string","grams":number},"alt_servings":[{"label":"string","grams":number}]}
-Use standard nutritional values. For "serving", provide a natural typical serving with a human-friendly label (e.g. "1 burger", "1 cup", "1 slice", "1 bowl") and its weight in grams. For "alt_servings", provide 1-2 alternative portion sizes with natural labels. No extra text, no markdown.`;
+{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"saturated_fat_g":number,"trans_fat_g":number,"sugar_g":number,"added_sugars_g":number,"sodium_mg":number,"cholesterol_mg":number,"potassium_mg":number,"serving":{"label":"string","grams":number},"alt_servings":[{"label":"string","grams":number}]}
+Use standard nutritional values. Provide the extended nutrients (saturated_fat_g, trans_fat_g, sugar_g, added_sugars_g, sodium_mg, cholesterol_mg, potassium_mg) as best-estimate numbers from standard food data; use 0 only when the food genuinely contains none. For "serving", provide a natural typical serving with a human-friendly label (e.g. "1 burger", "1 cup", "1 slice", "1 bowl") and its weight in grams. For "alt_servings", provide 1-2 alternative portion sizes with natural labels. No extra text, no markdown.`;
 
 export async function estimateMacrosWithAI(foodName: string): Promise<{
   fdcId: number;
@@ -703,6 +703,13 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  saturated_fat_g?: number;
+  trans_fat_g?: number;
+  sugar_g?: number;
+  added_sugars_g?: number;
+  sodium_mg?: number;
+  cholesterol_mg?: number;
+  potassium_mg?: number;
   serving_options: { label: string; grams: number }[];
 } | null> {
   try {
@@ -731,6 +738,15 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
       carbs_g: parseFloat((m.carbs_g ?? 0).toFixed(1)),
       fat_g: parseFloat((m.fat_g ?? 0).toFixed(1)),
       fiber_g: parseFloat((m.fiber_g ?? 0).toFixed(1)),
+      // Extended nutrients — only carry through when the model actually
+      // returned a value, so "not estimated" stays distinct from "zero".
+      saturated_fat_g: m.saturated_fat_g != null ? parseFloat(Number(m.saturated_fat_g).toFixed(2)) : undefined,
+      trans_fat_g: m.trans_fat_g != null ? parseFloat(Number(m.trans_fat_g).toFixed(2)) : undefined,
+      sugar_g: m.sugar_g != null ? parseFloat(Number(m.sugar_g).toFixed(1)) : undefined,
+      added_sugars_g: m.added_sugars_g != null ? parseFloat(Number(m.added_sugars_g).toFixed(1)) : undefined,
+      sodium_mg: m.sodium_mg != null ? Math.round(Number(m.sodium_mg)) : undefined,
+      cholesterol_mg: m.cholesterol_mg != null ? Math.round(Number(m.cholesterol_mg)) : undefined,
+      potassium_mg: m.potassium_mg != null ? Math.round(Number(m.potassium_mg)) : undefined,
       serving_options,
     };
   } catch {

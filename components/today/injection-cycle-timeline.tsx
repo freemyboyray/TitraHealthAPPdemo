@@ -68,6 +68,9 @@ type Props = {
   weightDelta: number | null;
   stat3Val: string;
   stat3Lbl: string;
+  /** Hide the shot-phase semicircle arc — used for daily/oral drugs that have no
+   *  injection cycle, while still showing the progress stats row below. */
+  hideArc?: boolean;
 };
 
 function getPhaseIndex(phase: ShotPhase): number {
@@ -83,8 +86,11 @@ export function InjectionCycleTimeline({
   oral,
   colors,
   treatmentDisplayVal,
+  treatmentDisplayLbl,
   weightDelta,
   stat3Val,
+  stat3Lbl,
+  hideArc = false,
 }: Props) {
   const displayDay = todayDayNum === 0 ? 1 : todayDayNum;
   const currentIdx = getPhaseIndex(shotPhase);
@@ -129,7 +135,8 @@ export function InjectionCycleTimeline({
 
   return (
     <View style={s.container}>
-      {/* Semicircle arc gauge */}
+      {/* Semicircle arc gauge — hidden for daily/oral drugs (no injection cycle) */}
+      {!hideArc && (
       <View style={s.arcContainer}>
         <Svg width="100%" height={160} viewBox="0 0 340 160">
           {/* Background track */}
@@ -200,14 +207,15 @@ export function InjectionCycleTimeline({
           </Text>
         </View>
       </View>
+      )}
 
       {/* Stats row */}
-      <View style={[s.statsRow, { borderTopColor: dividerColor }]}>
+      <View style={[s.statsRow, hideArc ? { borderTopWidth: 0, paddingTop: 4 } : { borderTopColor: dividerColor }]}>
         <View style={s.statItem}>
           <Text style={[s.statValue, { color: colors.textPrimary }]}>
             {treatmentDisplayVal ?? '—'}
           </Text>
-          <Text style={[s.statLabel, { color: mutedText }]}>days on med</Text>
+          <Text style={[s.statLabel, { color: mutedText }]}>{treatmentDisplayLbl}</Text>
         </View>
         <View style={[s.statDivider, { backgroundColor: dividerColor }]} />
         <View style={s.statItem}>
@@ -221,7 +229,7 @@ export function InjectionCycleTimeline({
           <Text style={[s.statValue, { color: colors.textPrimary }]}>
             {stat3Val}
           </Text>
-          <Text style={[s.statLabel, { color: mutedText }]}>to goal</Text>
+          <Text style={[s.statLabel, { color: mutedText }]}>{stat3Lbl}</Text>
         </View>
       </View>
     </View>
@@ -285,5 +293,6 @@ const createStyles = (c: AppColors) =>
       fontWeight: '400',
       fontFamily: FF,
       marginTop: 3,
+      textAlign: 'center',
     },
   });

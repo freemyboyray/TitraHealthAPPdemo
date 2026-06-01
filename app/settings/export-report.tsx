@@ -271,7 +271,7 @@ function createStyles(c: AppColors) {
     content: { padding: 16, paddingBottom: 40 },
 
     infoCard: {
-      backgroundColor: c.glassOverlay,
+      backgroundColor: c.surface,
       borderRadius: 16,
       padding: 24,
       alignItems: 'center',

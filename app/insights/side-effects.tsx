@@ -19,7 +19,7 @@ import {
 } from '@/lib/side-effect-insights';
 import type { AppColors } from '@/constants/theme';
 import { smoothPath } from '@/lib/chart-utils';
-import { isOralDrug, doseNoun } from '@/constants/drug-pk';
+import { isOralDrug, doseNoun, hasMeaningfulCycle } from '@/constants/drug-pk';
 import { ChevronLeft, TriangleAlert } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 
@@ -291,6 +291,7 @@ export default function SideEffectsInsightsScreen() {
 
   const freqDays = profile?.injectionFrequencyDays ?? 7;
   const oral = isOralDrug(profile?.glp1Type);
+  const meaningfulCycle = hasMeaningfulCycle(profile?.glp1Type, freqDays);
 
   const cyclePoints = useMemo(
     () => computeCyclePositions(sideEffectLogs, injectionLogs, freqDays),
@@ -319,6 +320,7 @@ export default function SideEffectsInsightsScreen() {
           oral={oral}
           colors={colors}
           hasInjections={injectionLogs.length > 0}
+          meaningfulCycle={meaningfulCycle}
         />
 
         <SymptomTrendsCard trends={trends} colors={colors} />
@@ -363,14 +365,32 @@ const CHART_PAD_B = 28;
 const DOT_R = 5;
 
 function CyclePatternCard({
-  points, freqDays, oral, colors, hasInjections,
+  points, freqDays, oral, colors, hasInjections, meaningfulCycle,
 }: {
-  points: CyclePoint[]; freqDays: number; oral: boolean; colors: AppColors; hasInjections: boolean;
+  points: CyclePoint[]; freqDays: number; oral: boolean; colors: AppColors; hasInjections: boolean; meaningfulCycle: boolean;
 }) {
   const s = useMemo(() => createStyles(colors), [colors]);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
   const [chartW, setChartW] = React.useState(0);
+
+  // Long-half-life daily orals stay near-flat across the day, so an intraday
+  // scatter is misleading — symptoms track dose level, not time of day.
+  if (!meaningfulCycle) {
+    return (
+      <View style={s.card}>
+        <Text style={s.cardHeadline}>Your dose stays steady all day.</Text>
+        <Text style={s.cardSub}>Cycle pattern</Text>
+        <View style={s.placeholder}>
+          <Text style={[s.placeholderText, { color: w(0.55) }]}>
+            With a daily dose this long-lasting, your drug level barely changes hour to
+            hour — so symptoms track your dose level and how long you&apos;ve been
+            adjusting to it, not the time since your last pill. See the trend below.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const hasData = points.length >= 2;
   const progress = Math.min(1, points.length / 2);

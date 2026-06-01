@@ -146,7 +146,7 @@ function createStyles(c: AppColors) {
     headerTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary },
     content: { padding: 16, paddingBottom: 60 },
     card: {
-      backgroundColor: c.glassOverlay, borderRadius: 16, overflow: 'hidden',
+      backgroundColor: c.surface, borderRadius: 16, overflow: 'hidden',
       borderWidth: 1, borderTopColor: c.border, borderLeftColor: c.borderSubtle,
       borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
     },
@@ -165,7 +165,7 @@ function createStyles(c: AppColors) {
     },
     disclosureLabel: { flex: 1, color: c.textPrimary, fontSize: 14, fontWeight: '600' },
     detailsCard: {
-      backgroundColor: c.glassOverlay, borderRadius: 14, padding: 16, marginTop: 8,
+      backgroundColor: c.surface, borderRadius: 14, padding: 16, marginTop: 8,
       borderWidth: 1, borderTopColor: c.border, borderLeftColor: c.borderSubtle,
       borderRightColor: c.borderSubtle, borderBottomColor: c.borderSubtle,
     },

@@ -111,6 +111,7 @@ export function ScheduleSelector({
             value={doseTime}
             mode="time"
             display="spinner"
+            themeVariant={colors.isDark ? 'dark' : 'light'}
             onChange={(_, date) => { if (date) onDoseTimeChange(date); }}
             style={{ alignSelf: 'flex-start', marginTop: 8 }}
           />

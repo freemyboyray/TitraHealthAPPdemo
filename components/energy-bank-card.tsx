@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -8,7 +8,7 @@ import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import type { EnergyBankResult } from '@/constants/scoring';
 import { useSubscriptionStore } from '@/stores/subscription-store';
-import { BatteryCharging, Lock } from 'lucide-react-native';
+import { HelpCircle, Lock, X } from 'lucide-react-native';
 
 const FF = 'System';
 const TOTAL_SEGMENTS = 16;
@@ -52,6 +52,66 @@ function SegmentBlockBar({ pct, color, isDark }: { pct: number; color: string; i
   );
 }
 
+// ─── "How this is estimated" explainer ───────────────────────────────────────
+
+function InfoModal({
+  visible,
+  onClose,
+  colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  colors: AppColors;
+}) {
+  const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 28 }}
+        onPress={onClose}
+      >
+        {/* Stop taps inside the card from dismissing */}
+        <Pressable
+          onPress={() => {}}
+          style={{
+            borderRadius: 20,
+            backgroundColor: colors.isDark ? colors.surface : '#FFFFFF',
+            borderWidth: 0.5,
+            borderColor: colors.borderSubtle,
+            padding: 22,
+            gap: 12,
+            ...cardElevation(colors.isDark),
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <HelpCircle size={18} color="#FF742A" />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.2 }}>
+                How this is estimated
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={10} activeOpacity={0.6}>
+              <X size={18} color={w(0.4)} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={{ fontSize: 13.5, color: w(0.6), fontFamily: FF, lineHeight: 20 }}>
+            Energy Bank is an <Text style={{ fontWeight: '700', color: w(0.75) }}>estimate</Text>, not a medical reading.
+            It blends the things that most affect energy on GLP-1s — your sleep, recovery (HRV & resting heart rate),
+            where you are in your dose cycle, nutrition, hydration, and recent side effects.
+          </Text>
+
+          <Text style={{ fontSize: 13.5, color: w(0.6), fontFamily: FF, lineHeight: 20 }}>
+            Factors you haven't tracked yet are left out and the rest are reweighted, so logging more — or connecting
+            Apple Health — makes it more accurate. Tap the card for the full breakdown.
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ─── Card Component ──────────────────────────────────────────────────────────
 
 type Props = {
@@ -65,6 +125,7 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const isPremium = useSubscriptionStore(st => st.isPremium);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const color = energyColor(result.score);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
@@ -108,12 +169,19 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
   // ── Premium state ────────────────────────────────────────────────────────
   const premiumInner = (
     <View style={s.inner}>
-      {/* Header: title + battery icon */}
+      {/* Header: title + info button */}
       <View style={s.header}>
         <Text style={s.title}>Energy Bank</Text>
-        <View style={[s.iconCircle, { backgroundColor: w(0.06) }]}>
-          <BatteryCharging size={16} color={w(0.4)} />
-        </View>
+        <TouchableOpacity
+          style={[s.iconCircle, { backgroundColor: w(0.06) }]}
+          onPress={() => setInfoOpen(true)}
+          hitSlop={10}
+          activeOpacity={0.6}
+          accessibilityRole="button"
+          accessibilityLabel="How the Energy Bank is estimated"
+        >
+          <HelpCircle size={16} color={w(0.4)} />
+        </TouchableOpacity>
       </View>
 
       {/* Score */}
@@ -123,6 +191,8 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
 
       {/* Segmented block bar */}
       <SegmentBlockBar pct={result.score} color={color} isDark={colors.isDark} />
+
+      <InfoModal visible={infoOpen} onClose={() => setInfoOpen(false)} colors={colors} />
     </View>
   );
   if (bare) return premiumInner;

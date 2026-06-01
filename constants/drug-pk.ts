@@ -168,6 +168,34 @@ export function pkConcentrationPct(
   return Math.min(100, Math.max(0, (rawC(tHours) / peak) * 100));
 }
 
+// ─── Cycle "meaningfulness" gate ──────────────────────────────────────────────
+//
+// Whether the drug's concentration swings enough across ONE dosing cycle for a
+// "symptoms vs. time-since-dose" chart to carry signal.
+//
+// Weekly/biweekly injectables have a pronounced peak→trough arc, so the cycle is
+// always meaningful. But long-half-life DAILY orals sit at a near-flat steady
+// state across 24h (oral semaglutide: t½=158h → trough ≈91% of peak), so side
+// effects track dose LEVEL / titration, not hours-since-dose. Plotting an
+// intraday scatter for those is misleading; callers should fall back to the
+// severity-over-time trend instead.
+export function hasMeaningfulCycle(
+  glp1Type: Glp1Type | undefined,
+  freqDays: number,
+): boolean {
+  if (freqDays > 1) return true;            // weekly/biweekly: always a clear arc
+  const drug = glp1Type ?? 'semaglutide';
+  if (!DRUG_PK[drug]) return true;
+  // Sample one 24h cycle at steady state; pkConcentrationPct normalises peak→100,
+  // so min is the trough as a % of peak. <80% trough (i.e. >20% swing) = signal.
+  let min = Infinity;
+  for (let h = 1; h <= 24; h++) {
+    const v = pkConcentrationPct(h, drug, true, 24);
+    if (v < min) min = v;
+  }
+  return min < 80;
+}
+
 // ─── Cycle-anchored curve (injectable drugs) ──────────────────────────────────
 // Index 0 = Day 1 of cycle (t=24h), index N-1 = Day N.
 // Unlike generatePkCurve, historical points NEVER change when a new injection is

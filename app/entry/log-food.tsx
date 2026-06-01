@@ -38,10 +38,17 @@ import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 type Mode = 'search' | 'scan' | 'describe' | 'camera';
 
-const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
+const PARSE_SYSTEM = `You are a food logging assistant. Read the user's input and identify the distinct DISHES they ate.
+A "dish" is one thing eaten as a unit — a sandwich, a bowl, a salad, a drink, a piece of fruit.
+Group the ingredients that make up a single dish into its "components" (e.g. a bacon, egg & cheese bagel is ONE dish with four components).
+Keep clearly separate foods as separate dishes (e.g. a sandwich AND a coffee AND an apple is THREE dishes).
+Give each dish a short natural name a person would say.
+For each component:
+- "item": a SINGULAR, specific FOOD NAME ONLY (e.g. "scrambled egg", not "eggs" or "2 eggs"). NEVER include conversational words, pronouns, or filler — the input may be spoken, so strip phrases like "I had", "actually", "I think", "let me see". "I had them poached actually" must become "poached egg".
+- "quantity": how many identical units there are (default 1). "3 apples" is ONE component with quantity 3 — never three separate components.
+- "estimated_g": grams of ONE unit if not specified.
 Return ONLY a valid JSON array, no other text:
-[{"item": "specific food name", "estimated_g": 150}]
-Estimate typical portion size in grams if not specified. Be specific (e.g. "scrambled eggs" not "eggs").`;
+[{"name":"Bacon Egg & Cheese Bagel","components":[{"item":"bacon","quantity":2,"estimated_g":15},{"item":"scrambled egg","quantity":1,"estimated_g":50},{"item":"american cheese","quantity":1,"estimated_g":20},{"item":"plain bagel","quantity":1,"estimated_g":85}]}]`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -629,10 +636,13 @@ export default function LogFoodScreen() {
       const raw = await callOpenAI([{ role: 'user', content: `User input: "${describeText}"` }], PARSE_SYSTEM, 'food_parse');
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON');
-      const parsed: { item: string; estimated_g: number }[] = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty');
+      const parsed: { name: string; components: { item: string; estimated_g: number; quantity?: number }[] }[] = JSON.parse(jsonMatch[0]);
+      const parsedDishes = (Array.isArray(parsed) ? parsed : [])
+        .filter((d) => d && Array.isArray(d.components) && d.components.length > 0)
+        .map((d) => ({ name: d.name || 'Meal', components: d.components }));
+      if (parsedDishes.length === 0) throw new Error('Empty');
       // Dispatch to background processing and navigate away
-      startFoodTask({ source: 'describe', parsedItems: parsed });
+      startFoodTask({ source: 'describe', parsedDishes });
       router.back();
     } catch {
       setDescribeError("Couldn't parse - try being more specific.");
@@ -643,7 +653,9 @@ export default function LogFoodScreen() {
   // Voice chat completed — dispatch to background processing
   function handleVoiceChatComplete(items: { item: string; estimated_g: number }[]) {
     setShowVoiceChat(false);
-    startFoodTask({ source: 'voice', parsedItems: items });
+    // Voice gives a flat ingredient list — treat each as its own single-component dish.
+    const parsedDishes = items.map((it) => ({ name: it.item, components: [it] }));
+    startFoodTask({ source: 'voice', parsedDishes });
     router.back();
   }
 
