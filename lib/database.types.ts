@@ -976,6 +976,7 @@ export type Database = {
           medication_custom_name: string | null
           medication_notes: string | null
           medication_photo_url: string | null
+          medication_start_date: string | null
           medication_type: Database["public"]["Enums"]["medication_type"] | null
           peer_comparison_opted_in: boolean
           peer_comparison_opted_in_at: string | null
@@ -1035,6 +1036,7 @@ export type Database = {
           medication_custom_name?: string | null
           medication_notes?: string | null
           medication_photo_url?: string | null
+          medication_start_date?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
@@ -1096,6 +1098,7 @@ export type Database = {
           medication_custom_name?: string | null
           medication_notes?: string | null
           medication_photo_url?: string | null
+          medication_start_date?: string | null
           medication_type?:
             | Database["public"]["Enums"]["medication_type"]
             | null
@@ -1181,27 +1184,33 @@ export type Database = {
       }
       side_effect_logs: {
         Row: {
+          dose_mg: number | null
           effect_type: Database["public"]["Enums"]["side_effect_type"]
           id: string
           logged_at: string
+          medication_name: string | null
           notes: string | null
           phase_at_log: Database["public"]["Enums"]["phase_type"]
           severity: number
           user_id: string
         }
         Insert: {
+          dose_mg?: number | null
           effect_type: Database["public"]["Enums"]["side_effect_type"]
           id?: string
           logged_at?: string
+          medication_name?: string | null
           notes?: string | null
           phase_at_log: Database["public"]["Enums"]["phase_type"]
           severity: number
           user_id: string
         }
         Update: {
+          dose_mg?: number | null
           effect_type?: Database["public"]["Enums"]["side_effect_type"]
           id?: string
           logged_at?: string
+          medication_name?: string | null
           notes?: string | null
           phase_at_log?: Database["public"]["Enums"]["phase_type"]
           severity?: number

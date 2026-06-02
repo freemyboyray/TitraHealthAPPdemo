@@ -32,13 +32,17 @@ export const DRUG_PK: Record<Glp1Type, DrugPkParams> = {
   orforglipron:    { ka: 0.45,   ke: 0.01155 },   // t½=60h,  Tmax=8h
 };
 
+// Elimination half-life per drug. This is the half-life — NOT the dosing
+// interval. Don't render this as the "cycle": a 7-day weekly drug can have a
+// 5-day half-life (e.g. dulaglutide). For the dosing cadence, use the actual
+// injection_frequency_days instead.
 export const DRUG_HALF_LIFE_LABEL: Record<Glp1Type, string> = {
-  semaglutide:      '7-day cycle',
-  tirzepatide:      '5-day cycle',
-  dulaglutide:      '5-day cycle',
-  liraglutide:      '13h daily',
-  oral_semaglutide: '7-day cycle (oral)',
-  orforglipron:     '2.5-day cycle',
+  semaglutide:      '7 days',
+  tirzepatide:      '5 days',
+  dulaglutide:      '5 days',
+  liraglutide:      '13 hours',
+  oral_semaglutide: '7 days',
+  orforglipron:     '2.5 days',
 };
 
 // Whether the drug is taken orally (drives chart/UX branches)

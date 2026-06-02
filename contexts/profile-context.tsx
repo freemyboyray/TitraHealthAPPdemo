@@ -67,6 +67,7 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     doseMg:                 row.dose_mg ?? 0,
     initialDoseMg:          row.initial_dose_mg ?? null,
     doseStartDate:          row.dose_start_date ?? '',
+    medicationStartDate:    row.medication_start_date ?? '',
     injectionFrequencyDays: row.injection_frequency_days ?? 7,
     doseTime:               row.dose_time ?? '',
     lastInjectionDate: row.last_injection_date ?? '',
@@ -346,6 +347,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         unit_system:              complete.unitSystem,
         initial_dose_mg:          complete.initialDoseMg,
         dose_start_date:          complete.doseStartDate || null,
+        // First medication start: anchor "weeks on medication" here. Resets later
+        // only on a drug/brand change (edit-treatment), not on dose titrations.
+        medication_start_date:    complete.doseStartDate || complete.startDate || null,
         last_injection_date:      complete.lastInjectionDate || null,
         tos_accepted_at:          complete.tosAcceptedAt || null,
         tos_version:              complete.tosVersion || null,
@@ -465,6 +469,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (fields.injectionFrequencyDays  !== undefined) row.injection_frequency_days  = fields.injectionFrequencyDays;
       if (fields.doseTime                !== undefined) row.dose_time                 = fields.doseTime || null;
       if (fields.doseStartDate           !== undefined) row.dose_start_date           = fields.doseStartDate;
+      if (fields.medicationStartDate     !== undefined) row.medication_start_date     = fields.medicationStartDate || null;
       if (fields.lastInjectionDate       !== undefined) row.last_injection_date       = fields.lastInjectionDate || null;
       if (fields.tosAcceptedAt           !== undefined) row.tos_accepted_at           = fields.tosAcceptedAt;
       if (fields.tosVersion              !== undefined) row.tos_version               = fields.tosVersion;
@@ -560,6 +565,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     // after the first dose date had already passed.
     const firstDoseDateStr = profile.pendingFirstDoseDate;
 
+    // Reset the "weeks on medication" anchor only when the drug or brand actually
+    // changes — a scheduled dose-only change keeps the same medication, so the
+    // counter should keep running. (Pending changes are only ever drug_type,
+    // brand_swap, or dose_only; freq changes aren't future-schedulable.)
+    const isMedicationChange =
+      profile.pendingMedicationBrand !== profile.medicationBrand ||
+      profile.pendingGlp1Type !== profile.glp1Type;
+
     await updateProfile({
       // Apply new medication
       treatmentStatus: 'on',
@@ -571,6 +584,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       doseTime: profile.pendingDoseTime ?? '',
       lastInjectionDate: firstDoseDateStr,
       doseStartDate: profile.pendingFirstDoseDate,
+      ...(isMedicationChange ? { medicationStartDate: profile.pendingFirstDoseDate } : {}),
       // Clear pending fields
       pendingMedicationBrand: null,
       pendingGlp1Type: null,

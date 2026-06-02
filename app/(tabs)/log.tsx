@@ -16,7 +16,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { categoryColor, healthCategoryColor, ORANGE } from '@/constants/theme';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
-import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_HALF_LIFE_LABEL, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun } from '@/constants/drug-pk';
+import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun } from '@/constants/drug-pk';
 import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore, type WeightLog, type InjectionLog, type FoodLog, type ActivityLog, type SideEffectLog } from '@/stores/log-store';
@@ -49,6 +49,7 @@ import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScrollTitle } from '@/components/ui/scroll-title';
+import { HelpButton } from '@/components/ui/help-button';
 
 
 // ─── Health Monitor types + helpers ──────────────────────────────────────────
@@ -1155,15 +1156,15 @@ function pkHalfLifeExplain(glp1Type: import('@/constants/user-profile').Glp1Type
 function pkPeakEffectsExplain(glp1Type: import('@/constants/user-profile').Glp1Type): { tmaxLabel: string; body: string } {
   switch (glp1Type) {
     case 'semaglutide': return {
-      tmaxLabel: '~56 hours (day 2–3)',
+      tmaxLabel: '~56 hours post-injection',
       body: "Peak nausea typically occurs on days 2–3 after injection, coinciding with maximum concentration. By days 3–5, nausea eases while appetite suppression remains strong - this is the best window for new routines. Nausea tolerance usually improves with each dose escalation.",
     };
     case 'tirzepatide': return {
-      tmaxLabel: '~24 hours (day 1)',
+      tmaxLabel: '~24 hours post-injection',
       body: "Tirzepatide reaches peak concentration just ~24 hours post-injection - the fastest of the injectable weekly GLP-1 RAs. Nausea, if it occurs, tends to be most pronounced on injection day and the day after, then resolves by day 2–3 as concentration plateaus into the active range.",
     };
     case 'dulaglutide': return {
-      tmaxLabel: '~48 hours (day 2)',
+      tmaxLabel: '~48 hours post-injection',
       body: "Dulaglutide's slower rise to peak (~48h) is one of its distinguishing tolerability features. The gradual concentration increase is easier on the stomach than a rapid spike, making nausea less common or severe compared to tirzepatide in the early weeks.",
     };
     case 'liraglutide': return {
@@ -1314,7 +1315,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   // daily drugs read "Daily oral · ~7-day half-life" instead of the misleading "7-day cycle".
   const cadenceLabel = isDailyDrug
     ? `${oral ? 'Daily oral' : 'Daily'} · ~${halfLifeInfo.halfLifeDays} half-life`
-    : DRUG_HALF_LIFE_LABEL[glp1Type];
+    : `${injFreqDays}-day cycle`;
 
   // Daily drugs are flat — there's no weekly peak-and-trough cycle to narrate.
   const dailyConsistencyNote =
@@ -1331,9 +1332,13 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     const total = dayLabels.length;
     const maxLabels = 5;
     const step = total <= maxLabels ? 1 : Math.ceil(total / maxLabels);
+    // Label only indices on the `step` grid so the cadence stays even. Forcing the
+    // final index when it's off-grid strands it next to the previous tick — e.g. a
+    // 7-day cycle (8 points, step 2) would render …Jun 6, Jun 7 crammed together at
+    // half the spacing of every other gap. Dropping the off-grid last tick keeps
+    // every interval equal.
     return dayLabels.map((_, i) => {
-      // Always show first and last; skip intermediate labels to avoid smushing
-      if (i !== 0 && i !== total - 1 && i % step !== 0) return '';
+      if (i % step !== 0) return '';
       const d = new Date(injDate.getTime() + i * 24 * 3600000);
       return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
     });
@@ -3378,6 +3383,22 @@ export default function InsightsScreen() {
 
   const todayStr = localDateStr();
 
+  // Between-medications (washout): old med finished, new med not started yet.
+  // The Medication tab stays visible (history + decaying PK curve still matter),
+  // but is labeled so it doesn't read as a normal active-treatment cycle.
+  const inWashout = !!fullProfile?.pendingFirstDoseDate
+    && todayStr > (fullProfile.pendingLastDoseOld ?? '')
+    && todayStr < fullProfile.pendingFirstDoseDate;
+  const washoutNewBrand = inWashout
+    ? (BRAND_DISPLAY_NAMES[fullProfile!.pendingMedicationBrand as keyof typeof BRAND_DISPLAY_NAMES] ?? fullProfile!.pendingMedicationBrand ?? 'new medication')
+    : null;
+  const washoutOldBrand = inWashout
+    ? (BRAND_DISPLAY_NAMES[fullProfile!.medicationBrand as keyof typeof BRAND_DISPLAY_NAMES] ?? fullProfile!.medicationBrand ?? 'previous medication')
+    : null;
+  const washoutStartLabel = inWashout && fullProfile?.pendingFirstDoseDate
+    ? new Date(fullProfile.pendingFirstDoseDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '';
+
   // ── Historical aggregations ────────────────────────────────────────────────
   const foodByDate: FoodByDate = useMemo(() => {
     const map: FoodByDate = {};
@@ -3638,8 +3659,9 @@ export default function InsightsScreen() {
           <Pressable onLongPress={handleBackgroundLongPress} delayLongPress={600}>
 
           {/* ── Hero title ── */}
-          <View style={s.heroHeader}>
+          <View style={[s.heroHeader, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
             <Text style={s.heroTitle}>Insights</Text>
+            <HelpButton color={minimalHeader && !colors.isDark ? '#000000' : '#FFFFFF'} size={26} />
           </View>
 
           {/* ── Segmented Control ── */}
@@ -3715,6 +3737,14 @@ export default function InsightsScreen() {
           {/* ── Medication content ── */}
           {activeTab === 'medication' && (
             <Reanimated.View key="medication" entering={FadeIn.duration(350)}>
+              {inWashout && (
+                <View style={s.washoutBanner}>
+                  <Text style={s.washoutBannerTitle}>Between medications</Text>
+                  <Text style={s.washoutBannerBody}>
+                    {washoutOldBrand} complete · {washoutNewBrand} starts {washoutStartLabel}. No active dose cycle.
+                  </Text>
+                </View>
+              )}
               {/* <MedAIInsightsCard /> */}
               <MedLevelChartCard
                 chartData={medChartData}
@@ -3728,7 +3758,7 @@ export default function InsightsScreen() {
                 currentConcentrationPct={currentConcentrationPct}
                 injFreqDays={health.profile.injectionFrequencyDays ?? 7}
                 injTimestamp={injTimestamp}
-                lastDoseMg={lastInj?.dose_mg ?? null}
+                lastDoseMg={health.profile.doseMg ?? null}
               />
               <SideEffectsCard logs={sideEffectLogs} />
               <PremiumGate feature="side_effect_insights" variant="soft" title="Side Effect Insights">
@@ -3936,6 +3966,18 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   aiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   aiLabel: { fontSize: 13, fontWeight: '700', color: c.orange, letterSpacing: 1.5, marginLeft: 6, textTransform: 'uppercase', fontFamily: 'System' },
   aiBody: { fontSize: 16, color: w(0.6), lineHeight: 21, fontFamily: 'System' },
+
+  // Washout (between-medications) banner on the Medication tab
+  washoutBanner: {
+    backgroundColor: w(0.04),
+    borderWidth: 1,
+    borderColor: w(0.08),
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  washoutBannerTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: 'System', marginBottom: 4 },
+  washoutBannerBody: { fontSize: 13, color: c.textSecondary, lineHeight: 18, fontFamily: 'System' },
 
   // Metrics row
   metricsRow: { flexDirection: 'row', gap: 20, marginBottom: 24, paddingHorizontal: 4 },

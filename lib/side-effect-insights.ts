@@ -1,4 +1,5 @@
 import type { SideEffectLog, InjectionLog } from '@/stores/log-store';
+import { severityTier, type SeverityTier } from '@/constants/side-effects';
 
 const DAY_MS = 86400000;
 
@@ -20,6 +21,16 @@ export type CyclePoint = {
   severity: number;
 };
 
+export type SeverityBreakdown = {
+  mild: number;
+  moderate: number;
+  severe: number;
+  currentTier: SeverityTier;    // tier of the most recent log
+  currentStreak: number;        // # of most-recent consecutive logs at currentTier
+  isFreshHigh: boolean;         // most recent log is the only one at the window's worst tier
+  prevTier: SeverityTier | null; // tier of the log before the most recent (null if only one log)
+};
+
 export type SymptomTrend = {
   type: string;
   count: number;
@@ -28,6 +39,7 @@ export type SymptomTrend = {
   sparkline: number[];    // up to last 6 severities, chronological
   trend: 'improving' | 'worsening' | 'flat' | 'insufficient';
   trendDeltaPct: number;  // recent vs older avg, signed
+  breakdown: SeverityBreakdown;
 };
 
 export type CoOccurrencePair = {
@@ -194,6 +206,39 @@ export function computeCyclePositions(
 
 const SPARKLINE_MAX = 6;
 
+const TIER_RANK: Record<SeverityTier, number> = { mild: 0, moderate: 1, severe: 2 };
+
+/**
+ * Collapses a chronological severity list (oldest→newest) into a tier
+ * distribution plus recency signals: how long the current tier has held, and
+ * whether the latest log is a fresh high (the only log at the window's worst
+ * tier — i.e. it just spiked).
+ */
+function buildBreakdown(sevs: number[]): SeverityBreakdown {
+  const tiers = sevs.map(severityTier);
+  const last = tiers[tiers.length - 1];
+
+  let currentStreak = 0;
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (tiers[i] === last) currentStreak++;
+    else break;
+  }
+
+  const worstRank = Math.max(...tiers.map(t => TIER_RANK[t]));
+  const worstCount = tiers.filter(t => TIER_RANK[t] === worstRank).length;
+  const isFreshHigh = TIER_RANK[last] === worstRank && worstCount === 1 && tiers.length > 1;
+
+  return {
+    mild: tiers.filter(t => t === 'mild').length,
+    moderate: tiers.filter(t => t === 'moderate').length,
+    severe: tiers.filter(t => t === 'severe').length,
+    currentTier: last,
+    currentStreak,
+    isFreshHigh,
+    prevTier: tiers.length >= 2 ? tiers[tiers.length - 2] : null,
+  };
+}
+
 export function computeSymptomTrends(logs: SideEffectLog[]): SymptomTrend[] {
   const cutoff = Date.now() - 30 * DAY_MS;
   const byType = new Map<string, SideEffectLog[]>();
@@ -231,7 +276,9 @@ export function computeSymptomTrends(logs: SideEffectLog[]): SymptomTrend[] {
       else trend = 'flat';
     }
 
-    trends.push({ type, count, avgSev, recentSev, sparkline, trend, trendDeltaPct });
+    const breakdown = buildBreakdown(sevs);
+
+    trends.push({ type, count, avgSev, recentSev, sparkline, trend, trendDeltaPct, breakdown });
   }
   return trends.sort((a, b) => b.count - a.count || b.avgSev - a.avgSev);
 }

@@ -97,7 +97,11 @@ export function InjectionCycleTimeline({
   stat3Lbl,
   hideArc = false,
 }: Props) {
-  const displayDay = todayDayNum === 0 ? 1 : todayDayNum;
+  // Injection day = Day 1 (clinical convention). `todayDayNum` is days *elapsed*
+  // since the shot (0 on shot day), so the cycle day is elapsed + 1. Cap at the
+  // cycle length so an overdue shot never reads "Day 8 of 7". This keeps the day
+  // count in step with "In N days" (Day 2 ⇄ 6 days left in a 7-day cycle).
+  const displayDay = Math.min(todayDayNum + 1, freq);
   const currentIdx = getPhaseIndex(shotPhase);
   const phaseColor = PHASE_COLORS[shotPhase];
   const s = useMemo(() => createStyles(colors), [colors]);

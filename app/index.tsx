@@ -15,7 +15,6 @@ import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
 import { useUserStore } from '@/stores/user-store';
 import { useLogStore } from '@/stores/log-store';
-import { usePreferencesStore } from '@/stores/preferences-store';
 import { TOS_VERSION } from '@/constants/legal';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -119,10 +118,8 @@ export default function Index() {
   // ── Auth / routing logic (preserved exactly) ───────────────────────────────
   const { isLoading, profile } = useProfile();
   const { session, sessionLoaded, demoMode } = useUserStore();
-  const { injectionLogs, weeklySummaries } = useLogStore();
   const logStoreHydrated = useLogStore((s) => s.hydrated);
   const fetchInsightsData = useLogStore((s) => s.fetchInsightsData);
-  const { lastWeeklySummaryDate } = usePreferencesStore();
   const router = useRouter();
   const [targetRoute, setTargetRoute] = useState<string | null>(null);
   const exitStarted = useRef(false);
@@ -148,38 +145,11 @@ export default function Index() {
     if (profile.tosVersion !== TOS_VERSION) { setTargetRoute('/tos-update'); return; }
     if (!logStoreHydrated) return;
 
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const freq = profile.injectionFrequencyDays ?? 7;
-
-    // Don't show weekly summary until user has been on treatment for at least 7 days
-    const startDate = profile.startDate ? new Date(profile.startDate + 'T12:00:00') : null;
-    const nowNoon = new Date(); nowNoon.setHours(12, 0, 0, 0);
-    const daysOnTreatment = startDate ? Math.floor((nowNoon.getTime() - startDate.getTime()) / 86400000) : 0;
-
-    if (daysOnTreatment < 7) {
-      setTargetRoute('/(tabs)');
-      return;
-    }
-
-    const lastInjDate = injectionLogs[0]?.injection_date ?? null;
-    const nextShot = lastInjDate ? new Date(new Date(lastInjDate + 'T00:00:00').getTime() + freq * 86400000) : null;
-    const ns = nextShot;
-    const nextShotStr = ns ? `${ns.getFullYear()}-${String(ns.getMonth() + 1).padStart(2, '0')}-${String(ns.getDate()).padStart(2, '0')}` : null;
-    const inWashout = profile.pendingFirstDoseDate != null && today < profile.pendingFirstDoseDate;
-    const isShotDay = !inWashout && nextShotStr === today;
-    const alreadyShown = lastWeeklySummaryDate === today;
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
-    const sevenDaysAgoStr = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
-    const lastSummaryEnd = weeklySummaries[0]?.window_end ?? null;
-    const dailyDue = !inWashout && freq < 7 && !alreadyShown && (!lastSummaryEnd || lastSummaryEnd < sevenDaysAgoStr);
-
-    if ((freq >= 7 && isShotDay && !alreadyShown) || dailyDue) {
-      setTargetRoute('/entry/weekly-summary');
-    } else {
-      setTargetRoute('/(tabs)');
-    }
-  }, [sessionLoaded, session, isLoading, profile, injectionLogs, weeklySummaries, logStoreHydrated]);
+    // Weekly summaries are now generated silently in the background (see
+    // hooks/use-weekly-summary-gen) and surfaced via the home card — no more
+    // forced full-screen takeover on shot day. Always land on the dashboard.
+    setTargetRoute('/(tabs)');
+  }, [sessionLoaded, session, isLoading, profile, logStoreHydrated]);
 
   // ── Exit animation — fade out then navigate ────────────────────────────────
   useEffect(() => {

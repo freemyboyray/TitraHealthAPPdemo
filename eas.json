@@ -17,6 +17,9 @@
       "ios": {
         "simulator": false
       },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_so7LtcAVK63NMTf4zTDqEoMBSPaNY99K55FV56gZCKFL"
       }
@@ -24,6 +27,10 @@
     "production": {
       "ios": {
         "autoIncrement": "buildNumber"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": "versionCode"
       },
       "env": {
         "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_so7LtcAVK63NMTf4zTDqEoMBSPaNY99K55FV56gZCKFL"
@@ -36,6 +43,10 @@
         "appleId": "ibm7862@gmail.com",
         "ascAppId": "6760927919",
         "appleTeamId": "AT5KH4HWAJ"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-sa.json",
+        "track": "internal"
       }
     }
   }

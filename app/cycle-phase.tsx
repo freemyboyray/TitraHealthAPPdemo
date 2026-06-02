@@ -56,7 +56,7 @@ export default function CyclePhaseScreen() {
 
   const shotPhase = getShotPhase(todayDayNum, freq);
   const phaseColor = PHASE_COLORS[shotPhase];
-  const phaseFocus = getPhaseFocusMessage(shotPhase);
+  const phaseFocus = getPhaseFocusMessage(shotPhase, profile?.glp1Type, freq);
 
   // ── Medication name ──
   const medName = (() => {

@@ -163,7 +163,7 @@ export default function SideEffectsScreen() {
         await addSideEffectLog(e.dbType, values[e.id], phase, notes);
       }
       const effectsParam = JSON.stringify(
-        toLog.map(e => ({ type: e.dbType, severity: values[e.id] }))
+        toLog.map(e => ({ type: e.dbType, severity: values[e.id], label: e.label }))
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/entry/side-effect-impact?effects=${encodeURIComponent(effectsParam)}` as any);

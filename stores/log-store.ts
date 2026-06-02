@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { localDateStr } from '../lib/date-utils';
+import { BRAND_DISPLAY_NAMES } from '../constants/user-profile';
 import { useSubscriptionStore } from './subscription-store';
 
 
@@ -467,9 +468,30 @@ export const useLogStore = create<LogStore>((set, get) => ({
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
+    // Stamp the active medication + dose so side effects can be read in the
+    // context of the regimen at log time (e.g. did nausea improve after a
+    // dose/med change). During a washout the profile still holds the med the
+    // user just came off — the correct attribution for residual effects.
+    let medication_name: string | null = null;
+    let dose_mg: number | null = null;
+    try {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('medication_brand, dose_mg, treatment_status')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (prof && prof.treatment_status === 'on') {
+        medication_name = prof.medication_brand
+          ? (BRAND_DISPLAY_NAMES[prof.medication_brand as keyof typeof BRAND_DISPLAY_NAMES] ?? prof.medication_brand)
+          : null;
+        dose_mg = prof.dose_mg ?? null;
+      }
+    } catch {
+      // Non-fatal: log the side effect without medication context.
+    }
     const { error } = await supabase
       .from('side_effect_logs')
-      .insert({ user_id: user.id, effect_type, severity, phase_at_log, notes: notes ?? null });
+      .insert({ user_id: user.id, effect_type, severity, phase_at_log, notes: notes ?? null, medication_name, dose_mg });
     if (!error) await get().fetchInsightsData();
     set({ loading: false, error: error?.message ?? null });
   },

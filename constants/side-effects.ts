@@ -57,3 +57,33 @@ export const CATEGORY_LABELS: Record<SideEffectCategory, string> = {
 
 export const ACTIVE_EFFECTS_KEY = '@titrahealth_active_effects';
 export const CUSTOM_EFFECTS_KEY  = '@titrahealth_custom_effects';
+
+// ─── Severity tiers ─────────────────────────────────────────────────────────
+// Storage stays 0–10 numeric (DB, HealthKit auto-import, legacy logs). The UI
+// and all insights collapse that into 3 tiers. This is the single source of
+// truth — `severityTier`/`severityLabel`/`severityColor` replace the threshold
+// logic that used to be duplicated in the logger, the impact screen, and the
+// insights screen. `chartValue` is the band center used to plot dots on the
+// cycle scatter (so a Mild dot sits in the middle of the Mild band, not on its
+// edge).
+export type SeverityTier = 'mild' | 'moderate' | 'severe';
+
+export const SEVERITY_TIERS: Record<SeverityTier, { label: string; color: string; chartValue: number }> = {
+  mild:     { label: 'Mild',     color: '#27AE60', chartValue: 1.5 },
+  moderate: { label: 'Moderate', color: '#F6CB45', chartValue: 4.5 },
+  severe:   { label: 'Severe',   color: '#E74C3C', chartValue: 8.0 },
+};
+
+export function severityTier(n: number): SeverityTier {
+  if (n <= 3) return 'mild';
+  if (n <= 6) return 'moderate';
+  return 'severe';
+}
+
+export function severityLabel(n: number): string {
+  return SEVERITY_TIERS[severityTier(n)].label;
+}
+
+export function severityColor(n: number): string {
+  return SEVERITY_TIERS[severityTier(n)].color;
+}

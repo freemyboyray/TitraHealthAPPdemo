@@ -46,6 +46,9 @@ app-example
 # Supabase local temp
 supabase/.temp/
 
+# Google Play service account key (EAS submit + RTDN webhook)
+google-play-sa.json
+
 # AI agent worktrees
 .claude/
 .claire/

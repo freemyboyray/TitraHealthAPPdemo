@@ -24,9 +24,9 @@ import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { computeBaseTargets, applyAdjustments, SIDE_EFFECT_RULES } from '@/lib/targets';
+import { severityTier } from '@/constants/side-effects';
 import { useUiStore } from '@/stores/ui-store';
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, CircleCheck, Clock, Droplet, Dumbbell, ExternalLink, Footprints, Grip, Leaf, MessageCircle, ShieldCheck, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const GREEN  = '#34C759';
 const RED    = '#FF3B30';
@@ -39,22 +39,6 @@ function mlToOz(ml: number) { return Math.round(ml / 29.5735); }
 
 function capitalize(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function severityTier(severity: number): 'mild' | 'moderate' | 'severe' {
-  if (severity >= 7) return 'severe';
-  if (severity >= 4) return 'moderate';
-  return 'mild';
-}
-
-function buildSummary(rows: { label: string; increased: boolean }[]): string {
-  const increased = rows.filter(r => r.increased).map(r => r.label.replace('Daily ', '').toLowerCase());
-  const decreased = rows.filter(r => !r.increased).map(r => r.label.replace('Daily ', '').toLowerCase());
-  const parts: string[] = [];
-  if (increased.length > 0) parts.push(`Increased ${increased.join(' and ')}`);
-  if (decreased.length > 0) parts.push(`reduced ${decreased.join(' and ')}`);
-  if (parts.length === 0) return '';
-  return parts.join(', ') + ' for today.';
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -88,9 +72,10 @@ type MetricRowProps = {
   onToggle: () => void;
   openAiChat: (opts: any) => void;
   aiContext: string;
+  isLast?: boolean;
 };
 
-function MetricRow({ icon, label, before, after, delta, increased, reason, colors, citations, expanded, onToggle, openAiChat, aiContext }: MetricRowProps) {
+function MetricRow({ icon, label, before, after, delta, increased, reason, colors, citations, expanded, onToggle, openAiChat, aiContext, isLast }: MetricRowProps) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const arrowColor = increased ? colors.orange : BLUE;
   const deltaColor = increased ? colors.orange : BLUE;
@@ -100,7 +85,7 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
       onPress={onToggle}
       style={{
         paddingVertical: 14,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
         borderBottomColor: w(0.07),
       }}
     >
@@ -190,9 +175,13 @@ export default function SideEffectImpactScreen() {
   const { profile } = useHealthData();
 
   // Parse logged effects from route params
-  const loggedEffects: { type: string; severity: number }[] = useMemo(() => {
+  const loggedEffects: { type: string; severity: number; label?: string }[] = useMemo(() => {
     try { return JSON.parse(effectsParam ?? '[]'); } catch { return []; }
   }, [effectsParam]);
+
+  // Display name: prefer the effect's real label (many distinct effects share
+  // dbType 'other', so `type` alone collapses them to a generic "Other").
+  const displayName = (e: { type: string; label?: string }) => e.label ?? capitalize(e.type);
 
   // Build RecentSideEffectLogs stamped to now (weight = 1.0, today)
   const now = new Date().toISOString();
@@ -213,12 +202,13 @@ export default function SideEffectImpactScreen() {
   // Severity-adaptive banner
   const maxSeverity = useMemo(() => Math.max(...loggedEffects.map(e => e.severity), 0), [loggedEffects]);
   const tier = severityTier(maxSeverity);
-  const bannerTitle = tier === 'severe' ? "We've got you" : tier === 'moderate' ? 'Adjusting for you' : 'Small tweaks made';
+  const primaryEffect = loggedEffects.length > 0 ? displayName(loggedEffects[0]).toLowerCase() : 'today';
+  const bannerTitle = tier === 'severe' ? 'Adjusted for today' : tier === 'moderate' ? 'Targets adjusted' : 'A few small tweaks';
   const bannerSub = tier === 'severe'
-    ? "We know this is rough. Here's how we're helping you get through today."
+    ? `Tuned to be easier on your body while ${primaryEffect} is strong.`
     : tier === 'moderate'
-      ? "Your targets are adjusted to work with your body right now."
-      : "Minor adjustments to keep you on track while this passes.";
+      ? 'Tuned to work with how you’re feeling today.'
+      : 'Minor changes to keep you on track.';
 
   // Collect all triggered citations for metric rows
   const triggeredCitations = useMemo(() => {
@@ -366,7 +356,7 @@ export default function SideEffectImpactScreen() {
   }, []);
 
   // Effect name pills to show at top
-  const effectNames = loggedEffects.map(e => capitalize(e.type));
+  const effectNames = loggedEffects.map(displayName);
 
   // AI context string summarising logged effects + changes
   const aiContext = useMemo(() => {
@@ -400,82 +390,24 @@ export default function SideEffectImpactScreen() {
   const hasFoodGuidance = adjusted.foodsToPrioritize.length > 0 || adjusted.foodsToAvoid.length > 0;
   const hasMealFreq = adjusted.mealFrequency > 3;
 
-  // Summary sentence
-  const summary = useMemo(() => buildSummary(metricRows), [metricRows]);
-
   // Total adjustments count
   const adjustmentCount = metricRows.length + (hasMealFreq ? 1 : 0) + (hasFoodGuidance ? 1 : 0) + (adjusted.resistanceTrainingRecommended ? 1 : 0);
-
-  // Contextual next actions (max 2)
-  const nextActions = useMemo(() => {
-    const actions: { label: string; icon: string; onPress: () => void }[] = [];
-    if (metricRows.some(r => r.label === 'Daily Water' && r.increased)) {
-      actions.push({
-        label: 'Set hydration reminders',
-        icon: 'Bell',
-        onPress: () => { router.dismissAll(); setTimeout(() => router.push('/settings/reminders'), 300); },
-      });
-    }
-    if (metricRows.some(r => r.label === 'Daily Protein' && r.increased)) {
-      actions.push({
-        label: 'Find high-protein meals',
-        icon: 'Utensils',
-        onPress: () => openAiChat({
-          type: 'focus',
-          contextLabel: 'Side Effect Adjustments',
-          contextValue: aiContext,
-          seedMessage: 'What high-protein meals can I eat right now given my side effects?',
-          chips: JSON.stringify(['Quick protein snacks', 'Easy-to-digest protein options', 'Protein shake recipes']),
-        }),
-      });
-    }
-    if (hasMealFreq) {
-      actions.push({
-        label: "See today's meal schedule",
-        icon: 'Clock',
-        onPress: () => openAiChat({
-          type: 'focus',
-          contextLabel: 'Side Effect Adjustments',
-          contextValue: aiContext,
-          seedMessage: `Help me plan ${adjusted.mealFrequency} small meals for today that are easy on my stomach`,
-          chips: JSON.stringify(['Simple meal ideas', 'What to eat first', 'Snack suggestions']),
-        }),
-      });
-    }
-    if (adjusted.resistanceTrainingRecommended) {
-      actions.push({
-        label: 'See exercise suggestions',
-        icon: 'Dumbbell',
-        onPress: () => openAiChat({
-          type: 'focus',
-          contextLabel: 'Side Effect Adjustments',
-          contextValue: aiContext,
-          seedMessage: 'What resistance exercises can I do to preserve muscle while on GLP-1?',
-          chips: JSON.stringify(['Bodyweight exercises', 'Gym routine for beginners', 'How often should I train?']),
-        }),
-      });
-    }
-    return actions.slice(0, 2);
-  }, [metricRows, hasMealFreq, adjusted, aiContext, openAiChat]);
 
   // ── Entrance animations ─────────────────────────────────────────────────────
   const bannerOpacity = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
   const contentY = useSharedValue(10);
-  const ctaOpacity = useSharedValue(0);
 
   useEffect(() => {
     const ease = { duration: 250, easing: Easing.out(Easing.quad) };
     bannerOpacity.value = withTiming(1, ease);
     contentOpacity.value = withDelay(150, withTiming(1, ease));
     contentY.value = withDelay(150, withTiming(0, ease));
-    ctaOpacity.value = withDelay(300, withTiming(1, ease));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
   const bannerAnim = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
   const contentAnim = useAnimatedStyle(() => ({ opacity: contentOpacity.value, transform: [{ translateY: contentY.value }] }));
-  const ctaAnim = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -497,7 +429,7 @@ export default function SideEffectImpactScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Success banner */}
@@ -513,15 +445,15 @@ export default function SideEffectImpactScreen() {
             <Text style={s.bannerSub}>{bannerSub}</Text>
             {/* Effect pills with severity coloring */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 12 }}>
-              {loggedEffects.map(e => {
+              {loggedEffects.map((e, i) => {
                 const t = severityTier(e.severity);
                 const pillColor = t === 'severe' ? RED : t === 'moderate' ? colors.orange : GREEN;
                 return (
-                  <View key={e.type} style={[s.effectPill, {
+                  <View key={`${e.type}-${i}`} style={[s.effectPill, {
                     backgroundColor: `${pillColor}15`,
                     borderColor: `${pillColor}40`,
                   }]}>
-                    <Text style={[s.effectPillText, { color: pillColor }]}>{capitalize(e.type)}</Text>
+                    <Text style={[s.effectPillText, { color: pillColor }]}>{displayName(e)}</Text>
                   </View>
                 );
               })}
@@ -535,14 +467,7 @@ export default function SideEffectImpactScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View style={contentAnim}>
-          {/* Summary sentence */}
-          {summary.length > 0 && (
-            <Text style={{ fontSize: 15, fontWeight: '600', color: w(0.45), fontFamily: FF, marginBottom: -4, marginTop: 2 }}>
-              {summary}
-            </Text>
-          )}
-
+        <Animated.View style={[{ gap: 16 }, contentAnim]}>
           {/* Metric changes */}
           {metricRows.length > 0 && (
             <View style={s.card}>
@@ -552,15 +477,15 @@ export default function SideEffectImpactScreen() {
               <View style={{ padding: 20 }}>
                 <Text style={s.sectionTitle}>WHAT CHANGED</Text>
                 {metricRows.map((row, i) => (
-                  <View key={row.label} style={i === metricRows.length - 1 ? { borderBottomWidth: 0 } : {}}>
-                    <MetricRow
-                      {...row}
-                      expanded={expandedRows.has(i)}
-                      onToggle={() => toggleRow(i)}
-                      openAiChat={openAiChat}
-                      aiContext={aiContext}
-                    />
-                  </View>
+                  <MetricRow
+                    key={row.label}
+                    {...row}
+                    isLast={i === metricRows.length - 1}
+                    expanded={expandedRows.has(i)}
+                    onToggle={() => toggleRow(i)}
+                    openAiChat={openAiChat}
+                    aiContext={aiContext}
+                  />
                 ))}
               </View>
             </View>
@@ -629,7 +554,7 @@ export default function SideEffectImpactScreen() {
                         PRIORITIZE
                       </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {adjusted.foodsToPrioritize.map(food => (
                         <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(52,199,89,0.10)', borderColor: 'rgba(52,199,89,0.25)' }]}>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: GREEN, fontFamily: FF }}>{food}</Text>
@@ -647,7 +572,7 @@ export default function SideEffectImpactScreen() {
                         AVOID
                       </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {adjusted.foodsToAvoid.map(food => (
                         <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(255,59,48,0.08)', borderColor: 'rgba(255,59,48,0.20)' }]}>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: RED, fontFamily: FF }}>{food}</Text>
@@ -745,35 +670,17 @@ export default function SideEffectImpactScreen() {
           <Text style={{ fontSize: 12, color: w(0.25), fontFamily: FF, textAlign: 'center', lineHeight: 15, marginTop: 4 }}>
             Not medical advice. For informational purposes only.{'\n'}Always consult your healthcare provider.
           </Text>
+
+          {/* Done — placed at the end so the adjustments are seen before dismissing */}
+          <TouchableOpacity
+            style={[s.doneBtn, { marginTop: 8 }]}
+            onPress={() => router.dismissAll()}
+            activeOpacity={0.85}
+          >
+            <Text style={s.doneBtnText}>Got it</Text>
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
-
-      {/* Bottom CTA area */}
-      <Animated.View style={[s.ctaWrap, { paddingBottom: Math.max(insets.bottom, 16) + 8 }, ctaAnim]}>
-        {/* Contextual next actions */}
-        {nextActions.length > 0 && (
-          <View style={{ gap: 8, marginBottom: 12 }}>
-            {nextActions.map(action => (
-              <TouchableOpacity
-                key={action.label}
-                style={s.secondaryBtn}
-                activeOpacity={0.75}
-                onPress={action.onPress}
-              >
-                <LucideIconByName name={action.icon as any} size={18} color={colors.orange} />
-                <Text style={s.secondaryBtnText}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        <TouchableOpacity
-          style={s.doneBtn}
-          onPress={() => router.dismissAll()}
-          activeOpacity={0.85}
-        >
-          <Text style={s.doneBtnText}>Got it</Text>
-        </TouchableOpacity>
-      </Animated.View>
 
     </View>
   );
@@ -796,7 +703,7 @@ const createStyles = (c: AppColors) => {
       fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'System', letterSpacing: -0.3,
     },
 
-    content: { paddingHorizontal: 20, paddingTop: 4, gap: 14 },
+    content: { paddingHorizontal: 20, paddingTop: 8, gap: 16 },
 
     banner: {
       borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
@@ -842,7 +749,7 @@ const createStyles = (c: AppColors) => {
     },
 
     foodChip: {
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1,
+      paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
     },
 
     aiCard: {
@@ -892,21 +799,6 @@ const createStyles = (c: AppColors) => {
       fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF,
     },
 
-    ctaWrap: {
-      paddingHorizontal: 20, paddingTop: 12,
-      backgroundColor: c.bg,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: w(0.07),
-    },
-    secondaryBtn: {
-      height: 48, borderRadius: 24,
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      borderWidth: 1.5, borderColor: `${c.orange}40`,
-      backgroundColor: `${c.orange}08`,
-    },
-    secondaryBtnText: {
-      fontSize: 16, fontWeight: '700', color: c.orange, fontFamily: FF,
-    },
     doneBtn: {
       height: 54, borderRadius: 27, backgroundColor: c.orange,
       alignItems: 'center', justifyContent: 'center',

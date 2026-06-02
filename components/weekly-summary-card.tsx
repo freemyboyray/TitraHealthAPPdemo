@@ -56,10 +56,10 @@ export function WeeklySummaryCard({ latestSummary, onDismiss }: WeeklySummaryCar
             </View>
             <View style={{ flex: 1 }}>
               <View style={s.dueBadge}>
-                <Text style={s.dueText}>READY TO VIEW</Text>
+                <Text style={s.dueText}>COMING SOON</Text>
               </View>
               <Text style={s.title}>Weekly Summary</Text>
-              <Text style={s.subtitle}>Recap of your last 7 days · AI insight</Text>
+              <Text style={s.subtitle}>Your first recap arrives after week 1</Text>
             </View>
           </View>
         </View>
@@ -112,6 +112,15 @@ export function WeeklySummaryCard({ latestSummary, onDismiss }: WeeklySummaryCar
             <Text style={s.subtitle}>{subtitle}</Text>
           </View>
         </View>
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation(); handleHistory(); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="View past summaries"
+          accessibilityRole="button"
+          style={{ flexShrink: 0 }}
+        >
+          <Text style={s.viewPastLink}>View past</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );

@@ -19,8 +19,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { supabase } from '@/lib/supabase';
-import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE } from '@/constants/user-profile';
+import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, isOnTreatment } from '@/constants/user-profile';
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
+import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
 import { Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
 
@@ -71,6 +72,7 @@ function InfoRow({ label, value, isLast, colors }: { label: string; value: strin
 
 function MedicationCard({
   med,
+  active,
   expanded,
   onToggle,
   onSetActive,
@@ -81,6 +83,7 @@ function MedicationCard({
   s,
 }: {
   med: UserMedication;
+  active: boolean;
   expanded: boolean;
   onToggle: () => void;
   onSetActive: () => void;
@@ -122,11 +125,11 @@ function MedicationCard({
   const halfLife = DRUG_HALF_LIFE_LABEL[med.glp1_type as keyof typeof DRUG_HALF_LIFE_LABEL] ?? '';
 
   return (
-    <View style={[s.medCard, med.is_active && s.medCardActive]}>
+    <View style={[s.medCard, active && s.medCardActive]}>
       <View style={s.medCardHeader}>
         {/* Selection circle — separate touchable */}
         <TouchableOpacity onPress={onSetActive} activeOpacity={0.6} style={s.selectCircle}>
-          {med.is_active ? (
+          {active ? (
             <View style={s.selectCircleFilled}>
               <Check size={14} color="#FFF" />
             </View>
@@ -225,6 +228,7 @@ export default function MedicationDetailScreen() {
   const { colors } = useAppTheme();
   const { profile, updateProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const onTreatment = isOnTreatment(profile);
 
   const [medications, setMedications] = useState<UserMedication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,7 +307,9 @@ export default function MedicationDetailScreen() {
   }
 
   function handleSetActive(med: UserMedication) {
-    if (med.is_active) return;
+    // When off-treatment, no med is effectively active even if the DB row still
+    // carries a stale is_active flag — so allow tapping it to resume.
+    if (med.is_active && onTreatment) return;
     // Don't silently swap the active medication. Route through the full treatment
     // change flow (confirmation steps, medication_changes history, and target
     // recalculation) — same as changing meds from Settings. The user_medications
@@ -374,7 +380,7 @@ export default function MedicationDetailScreen() {
   }
 
   async function handleDelete(med: UserMedication) {
-    if (med.is_active) {
+    if (med.is_active && onTreatment) {
       Alert.alert('Cannot Remove', 'This is your active medication. Set another medication as active first.');
       return;
     }
@@ -392,6 +398,49 @@ export default function MedicationDetailScreen() {
         },
       },
     ]);
+  }
+
+  function handleStopMedication() {
+    if (!onTreatment) return;
+    Alert.alert(
+      'Not taking a medication?',
+      "You'll still have access to weight, food, and activity tracking. You can resume anytime by selecting a medication here.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateProfile({ treatmentStatus: 'off' });
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                // Clear the active flag so no card reads as active, and log the
+                // change to medication history (same shape as Settings → Stop).
+                await supabase.from('user_medications').update({ is_active: false }).eq('user_id', user.id);
+                const { error: histErr } = await supabase.from('medication_changes').insert({
+                  user_id: user.id,
+                  change_type: 'stopped',
+                  prev_brand: profile?.medicationBrand ?? null,
+                  prev_glp1_type: profile?.glp1Type ?? null,
+                  prev_dose_mg: profile?.doseMg ?? null,
+                  prev_frequency_days: profile?.injectionFrequencyDays ?? null,
+                  new_brand: null,
+                  new_glp1_type: null,
+                  new_dose_mg: null,
+                  new_frequency_days: null,
+                });
+                if (histErr) console.warn('stop-medication (library): medication_changes.insert failed:', histErr);
+              }
+              useLogStore.getState().fetchInsightsData();
+              await fetchMedications();
+            } catch {
+              Alert.alert('Error', 'Could not update treatment status. Please try again.');
+            }
+          },
+        },
+      ],
+    );
   }
 
   function handleAddNew() {
@@ -430,6 +479,7 @@ export default function MedicationDetailScreen() {
               <MedicationCard
                 key={med.id}
                 med={med}
+                active={med.is_active && onTreatment}
                 expanded={expandedId === med.id}
                 onToggle={() => handleToggle(med.id)}
                 onSetActive={() => handleSetActive(med)}
@@ -440,6 +490,24 @@ export default function MedicationDetailScreen() {
                 s={s}
               />
             ))}
+
+            {/* "Not currently taking" — selectable like a med, drives treatmentStatus 'off' */}
+            <TouchableOpacity
+              style={[s.noneRow, !onTreatment && s.noneRowActive]}
+              onPress={handleStopMedication}
+              activeOpacity={0.7}
+              disabled={!onTreatment}
+            >
+              {!onTreatment ? (
+                <View style={s.selectCircleFilled}><Check size={14} color="#FFF" /></View>
+              ) : (
+                <View style={s.selectCircleEmpty} />
+              )}
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={s.noneTitle}>I'm not taking a medication</Text>
+                <Text style={s.noneSub}>Lifestyle tracking only — weight, food, activity</Text>
+              </View>
+            </TouchableOpacity>
 
             <TouchableOpacity style={s.addNewBtn} onPress={handleAddNew} activeOpacity={0.8}>
               <PlusCircle size={18} color={colors.orange} style={{ marginRight: 8 }} />
@@ -544,6 +612,24 @@ const createStyles = (c: AppColors) => {
     },
     actionBtnText: {
       fontSize: 14, fontWeight: '600', color: '#FFF', fontFamily: FF,
+    },
+
+    // "Not taking a medication" row
+    noneRow: {
+      flexDirection: 'row', alignItems: 'center',
+      borderRadius: 20, padding: 14,
+      backgroundColor: c.surface,
+      borderWidth: 0.5, borderColor: c.border,
+      marginBottom: 12,
+    },
+    noneRowActive: {
+      borderColor: c.orange, borderWidth: 1,
+    },
+    noneTitle: {
+      fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: FF,
+    },
+    noneSub: {
+      fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 2,
     },
 
     // Add new

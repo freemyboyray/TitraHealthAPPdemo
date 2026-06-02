@@ -1,11 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
 let Print: typeof import('expo-print') | undefined;
 try { Print = require('expo-print'); } catch {}
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -17,17 +16,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
-import { useHealthData } from '@/contexts/health-data';
 import { useProfile } from '@/contexts/profile-context';
 import type { AppColors } from '@/constants/theme';
-import { computeWeeklySummary, type WeeklySummaryData } from '@/lib/weekly-summary';
-import { generateForecastStrip, generateIntradayForecast } from '@/lib/cycle-intelligence';
-import { getScheduleMode } from '@/constants/scoring';
-import { generateWeeklyInsight } from '@/lib/openai';
+import { type WeeklySummaryData } from '@/lib/weekly-summary';
 import { useLogStore } from '@/stores/log-store';
-import { usePreferencesStore } from '@/stores/preferences-store';
 import { useUiStore } from '@/stores/ui-store';
-import { ArrowRight, MessageCircle, Share2, TrendingDown, TrendingUp, X } from 'lucide-react-native';
+import { ArrowRight, BarChart3, MessageCircle, Share2, TrendingDown, TrendingUp, X } from 'lucide-react-native';
 
 const GREEN  = '#27AE60';
 const RED    = '#E53E3E';
@@ -202,25 +196,27 @@ export default function WeeklySummaryScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
-  const { targets } = useHealthData();
-  const { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs, injectionLogs, weeklySummaries, upsertWeeklySummary } = useLogStore();
-  const { setLastWeeklySummaryDate, aiDataConsent } = usePreferencesStore();
+  const { weeklySummaries } = useLogStore();
   const { openAiChat } = useUiStore();
 
+  // Viewer only: snapshots are generated in the background (hooks/use-weekly-summary-gen)
+  // and frozen per program week. Open by snapshot_id, or default to the latest.
   const { snapshot_id } = useLocalSearchParams<{ snapshot_id?: string }>();
-  const historicalSnapshot = useMemo(
-    () => snapshot_id ? weeklySummaries.find(s => s.id === snapshot_id) ?? null : null,
+  const snapshot = useMemo(
+    () => snapshot_id
+      ? weeklySummaries.find(s => s.id === snapshot_id) ?? null
+      : weeklySummaries[0] ?? null,
     [snapshot_id, weeklySummaries],
   );
-  const isHistorical = !!snapshot_id;
 
-  const [summary, setSummary] = useState<WeeklySummaryData | null>(null);
-  const [aiInsight, setAiInsight] = useState<string>('');
-  const [aiLoading, setAiLoading] = useState(true);
+  const summary: WeeklySummaryData | null = snapshot
+    ? (snapshot.summary_data as unknown as WeeklySummaryData)
+    : null;
+  const aiInsight = snapshot?.ai_insight ?? '';
+
   const [pdfLoading, setPdfLoading] = useState(false);
-  const computedRef = useRef(false);
 
-  // Guard: profile required for AI insight + PDF export. Show loading until ready.
+  // Guard: profile required for PDF export. Show loading until ready.
   if (!profile) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -228,135 +224,6 @@ export default function WeeklySummaryScreen() {
       </View>
     );
   }
-
-  const pkComparisonData = useMemo(() => {
-    const lastInjection = injectionLogs[0]?.injection_date ?? null;
-    const reportedScore = summary?.checkins.appetite ?? null;
-    if (reportedScore == null || !profile) return null;
-
-    const injFreqDays = profile.injectionFrequencyDays ?? 7;
-    const scheduleMode = getScheduleMode(injFreqDays);
-
-    // Adherence streak: count injection logs in the past 7 days
-    const sevenDaysAgo = Date.now() - 7 * 86400000;
-    const dosesTaken = injectionLogs.filter(log => {
-      const logMs = new Date(log.injection_date + 'T00:00:00').getTime();
-      return logMs >= sevenDaysAgo;
-    }).length;
-    const adherenceStreak = scheduleMode === 'intraday' ? Math.min(dosesTaken, 7) : null;
-
-    if (scheduleMode === 'intraday') {
-      // Daily drugs: use intraday forecast averaged over all 6 hour-blocks
-      const doseTime = (profile as any).doseTime ?? '08:00';
-      const blocks = generateIntradayForecast(
-        profile.glp1Type,
-        profile.glp1Status === 'active',
-        doseTime,
-        profile.doseMg ?? null,
-      );
-      if (blocks.length === 0) return null;
-      const avgSuppression = blocks.reduce((s, b) => s + b.appetiteSuppressionPct, 0) / blocks.length;
-      const predictedScore = Math.min(100, Math.round((avgSuppression / 65) * 100));
-      const delta = reportedScore - predictedScore;
-      const deltaLabel =
-        Math.abs(delta) <= 10 ? 'Control matched expectations'
-        : delta > 10           ? 'Higher than predicted'
-        :                        'Lower than predicted';
-      return { predictedScore, reportedScore, deltaLabel, adherenceStreak, isIntraday: true };
-    }
-
-    // Cycle-day mode (weekly / bi-weekly)
-    if (!lastInjection) return null;
-    const strip = generateForecastStrip(
-      lastInjection,
-      injFreqDays,
-      profile.glp1Type,
-      profile.glp1Status === 'active',
-      profile.doseMg ?? null,
-    );
-    if (strip.length === 0) return null;
-
-    const avgSuppression = strip.reduce((s, d) => s + d.appetiteSuppressionPct, 0) / strip.length;
-    // Map to 0–100 using 65 as universal denominator; cap at 100 (tirzepatide ceiling is 72)
-    const predictedScore = Math.min(100, Math.round((avgSuppression / 65) * 100));
-
-    const delta = reportedScore - predictedScore;
-    const deltaLabel =
-      Math.abs(delta) <= 10 ? 'Control matched expectations'
-      : delta > 10           ? 'Higher than predicted'
-      :                        'Lower than predicted';
-
-    return { predictedScore, reportedScore, deltaLabel, adherenceStreak: null, isIntraday: false };
-  }, [injectionLogs, summary?.checkins.appetite, profile]);
-
-  // Mark summary as shown immediately on mount — prevents re-triggering gate.
-  // Skip in historical mode so opening a past snapshot doesn't suppress today's trigger.
-  useEffect(() => {
-    if (isHistorical) return;
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    setLastWeeklySummaryDate(today);
-  }, []);
-
-  // Hydrate from snapshot (historical) or compute + persist (live)
-  useEffect(() => {
-    if (computedRef.current) return;
-    computedRef.current = true;
-
-    async function load() {
-      if (isHistorical) {
-        if (historicalSnapshot) {
-          setSummary(historicalSnapshot.summary_data as unknown as WeeklySummaryData);
-          setAiInsight(historicalSnapshot.ai_insight ?? '');
-        }
-        setAiLoading(false);
-        return;
-      }
-
-      // Live mode: compute, fetch AI insight, then upsert to Supabase.
-      const waterByDate: Record<string, number> = {};
-      const today = new Date();
-      for (let i = 1; i <= 7; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        const y = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0'), dy = String(d.getDate()).padStart(2, '0');
-        const dateStr = `${y}-${mo}-${dy}`;
-        const val = await AsyncStorage.getItem(`@titrahealth_water_${dateStr}`);
-        if (val) waterByDate[dateStr] = parseFloat(val);
-      }
-
-      const computed = computeWeeklySummary(
-        { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs },
-        targets,
-        waterByDate,
-      );
-      setSummary(computed);
-
-      let insight = '';
-      if (profile) {
-        try {
-          insight = await generateWeeklyInsight(computed, profile);
-          setAiInsight(insight);
-        } catch {
-          setAiInsight('');
-        }
-      }
-      setAiLoading(false);
-
-      try {
-        await upsertWeeklySummary({
-          window_start: computed.windowStart,
-          window_end:   computed.windowEnd,
-          summary_data: computed,
-          ai_insight:   aiDataConsent ? (insight || null) : null,
-        });
-      } catch (err) {
-        console.warn('weekly-summary: upsert failed', err);
-      }
-    }
-
-    load();
-  }, []);
 
   const handleClose = () => router.replace('/(tabs)');
 
@@ -412,27 +279,34 @@ export default function WeeklySummaryScreen() {
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* AI Insight Card */}
-        <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={s.aiCard}>
-          <View style={s.aiCardInner}>
-            <View style={s.aiOrangeBorder} />
-            <View style={s.aiContent}>
-              <Text style={s.aiLabel}>AI Insight</Text>
-              {aiLoading ? (
-                <View style={s.shimmerRow}>
-                  <ActivityIndicator size="small" color={colors.orange} />
-                  <Text style={s.shimmerText}>Analyzing your week…</Text>
-                </View>
-              ) : (
-                <Text style={s.aiText}>{aiInsight || 'Tap "Chat with AI" for a personalized recap.'}</Text>
-              )}
-              <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi}>
-                <MessageCircle size={14} color={colors.orange} />
-                <Text style={s.askAiBtnText}>Ask AI</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Not-ready state — no snapshot for this week yet */}
+        {!summary && (
+          <View style={s.emptyState}>
+            <BarChart3 size={48} color={colors.textSecondary} style={{ marginBottom: 14, opacity: 0.4 }} />
+            <Text style={s.emptyTitle}>No summary yet</Text>
+            <Text style={s.emptyBody}>
+              Your weekly summary is generated automatically once you complete your first
+              full week on your program. Check back then.
+            </Text>
           </View>
-        </BlurView>
+        )}
+
+        {/* AI Insight Card */}
+        {summary && (
+          <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={s.aiCard}>
+            <View style={s.aiCardInner}>
+              <View style={s.aiOrangeBorder} />
+              <View style={s.aiContent}>
+                <Text style={s.aiLabel}>AI Insight</Text>
+                <Text style={s.aiText}>{aiInsight || 'Tap "Chat with AI" for a personalized recap.'}</Text>
+                <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi}>
+                  <MessageCircle size={14} color={colors.orange} />
+                  <Text style={s.askAiBtnText}>Ask AI</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </BlurView>
+        )}
 
         {summary && (
           <>
@@ -541,34 +415,6 @@ export default function WeeklySummaryScreen() {
                   }
                 </View>
               )}
-              {pkComparisonData && (
-                <View style={s.pkCompareBlock}>
-                  <View style={s.pkCompareRow}>
-                    <Text style={s.pkCompareLabel}>
-                      {pkComparisonData.isIntraday ? 'Daily medication effect (avg)' : 'PK model prediction'}
-                    </Text>
-                    <View style={[s.checkinScore, { backgroundColor: scoreColor(pkComparisonData.predictedScore) + '22' }]}>
-                      <Text style={[s.checkinScoreText, { color: scoreColor(pkComparisonData.predictedScore) }]}>
-                        {pkComparisonData.predictedScore}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={s.pkCompareRow}>
-                    <Text style={s.pkCompareLabel}>Reported appetite control</Text>
-                    <View style={[s.checkinScore, { backgroundColor: scoreColor(pkComparisonData.reportedScore) + '22' }]}>
-                      <Text style={[s.checkinScoreText, { color: scoreColor(pkComparisonData.reportedScore) }]}>
-                        {pkComparisonData.reportedScore}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={s.pkDeltaLabel}>{pkComparisonData.deltaLabel}</Text>
-                  {pkComparisonData.adherenceStreak != null && (
-                    <Text style={[s.pkDeltaLabel, { marginTop: 4, fontStyle: 'normal', color: pkComparisonData.adherenceStreak >= 6 ? GREEN : colors.orange }]}>
-                      {`Dose taken ${pkComparisonData.adherenceStreak} of 7 days this week`}
-                    </Text>
-                  )}
-                </View>
-              )}
             </SectionCard>
 
             {/* Side Effects */}
@@ -596,22 +442,24 @@ export default function WeeklySummaryScreen() {
 
       </ScrollView>
 
-      {/* Sticky Footer */}
-      <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
-        <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi}>
-          <MessageCircle size={16} color="#fff" />
-          <Text style={s.primaryBtnText}>Chat with AI</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading}>
-          {pdfLoading
-            ? <ActivityIndicator size="small" color={colors.orange} />
-            : <>
-                <Share2 size={16} color={colors.orange} />
-                <Text style={s.secondaryBtnText}>Export PDF</Text>
-              </>
-          }
-        </TouchableOpacity>
-      </BlurView>
+      {/* Sticky Footer — only when a summary is loaded */}
+      {summary && (
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
+          <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi}>
+            <MessageCircle size={16} color="#fff" />
+            <Text style={s.primaryBtnText}>Chat with AI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading}>
+            {pdfLoading
+              ? <ActivityIndicator size="small" color={colors.orange} />
+              : <>
+                  <Share2 size={16} color={colors.orange} />
+                  <Text style={s.secondaryBtnText}>Export PDF</Text>
+                </>
+            }
+          </TouchableOpacity>
+        </BlurView>
+      )}
     </View>
   );
 }
@@ -683,6 +531,28 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+
+  // Not-ready empty state
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: c.textPrimary,
+    fontFamily: FF,
+    marginBottom: 8,
+  },
+  emptyBody: {
+    fontSize: 15,
+    color: c.textSecondary,
+    fontFamily: FF,
+    textAlign: 'center',
+    lineHeight: 21,
+  },
 
   // AI Card
   aiCard: {
@@ -759,32 +629,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   checkinPillLabel: { fontSize: 15, color: c.textPrimary, fontFamily: FF },
   checkinScore: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   checkinScoreText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
-
-  // PK comparison
-  pkCompareBlock: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: c.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
-    gap: 6,
-  },
-  pkCompareRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pkCompareLabel: {
-    fontSize: 15,
-    color: c.textSecondary,
-    fontFamily: FF,
-  },
-  pkDeltaLabel: {
-    fontSize: 13,
-    color: c.textSecondary,
-    fontFamily: FF,
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
 
   // Side effects
   seChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -16,7 +16,13 @@ import type { AppColors } from '@/constants/theme';
 import { cardElevation } from '@/constants/theme';
 import { useLogStore } from '@/stores/log-store';
 import { useProfile } from '@/contexts/profile-context';
-import { scheduleCheckinReminder } from '@/lib/notifications';
+import { scheduleWeeklyCheckinReminderAt } from '@/lib/notifications';
+import {
+  currentWeekWindow,
+  getWeekWindow,
+  getProgramWeekNumber,
+  isWithinWindow,
+} from '@/lib/program-week';
 import { ChevronLeft } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 
@@ -297,6 +303,24 @@ export default function WeeklyCheckinScreen() {
   const isDaily = (profile?.injectionFrequencyDays ?? 7) === 1;
   const domains = useMemo(() => buildDomains(isDaily), [isDaily]);
 
+  // Gate: one check-in per program week. If this week's is already done, send the
+  // user to history instead of letting them retake it. Runs once on mount so it
+  // doesn't fire mid-save (handleSave navigates to the result screen itself).
+  const guarded = useRef(false);
+  useEffect(() => {
+    if (guarded.current) return;
+    guarded.current = true;
+    const startDate = profile?.startDate;
+    if (!startDate) return;
+    const cur = currentWeekWindow(startDate);
+    if (!cur) return;
+    const rows = Object.values(useLogStore.getState().weeklyCheckins).flat();
+    const alreadyDone = rows.some(r => isWithinWindow(r.logged_at as string, cur));
+    if (alreadyDone) {
+      router.replace('/entry/weekly-checkin-history');
+    }
+  }, [profile?.startDate]);
+
   // answers[domainIndex][questionIndex] = 0–4
   const [answers, setAnswers] = useState<number[][]>(
     domains.map((d) => d.questions.map(() => 0)),
@@ -320,7 +344,8 @@ export default function WeeklyCheckinScreen() {
       const scoresMap: Record<string, number> = {};
       const labelsMap: Record<string, string> = {};
 
-      const savedAt = new Date().toISOString();
+      // Stamp the program week so each session is unambiguously keyed to a week.
+      const programWeek = getProgramWeekNumber(profile?.startDate) ?? undefined;
 
       await Promise.all(
         domains.map(async (domain, i) => {
@@ -328,13 +353,17 @@ export default function WeeklyCheckinScreen() {
           const score100 = toScore100(sum, domain.higherIsBetter);
           const answersMap: Record<string, number> = {};
           answers[i].forEach((v, qi) => { answersMap[`q${qi + 1}`] = v; });
-          await addWeeklyCheckin(domain.key as any, answersMap, score100);
+          await addWeeklyCheckin(domain.key as any, answersMap, score100, programWeek);
           scoresMap[domain.key] = score100;
           labelsMap[domain.key] = domain.getStatus(sum).label;
         }),
       );
 
-      await scheduleCheckinReminder(savedAt);
+      // Remind the user when the NEXT program week opens (not just +7 days), so
+      // the reminder lines up with when the check-in actually unlocks again.
+      const cur = currentWeekWindow(profile?.startDate);
+      const nextWin = cur ? getWeekWindow(profile?.startDate, cur.index + 1) : null;
+      if (nextWin) await scheduleWeeklyCheckinReminderAt(nextWin.start);
 
       router.replace({
         pathname: '/entry/weekly-checkin-result',

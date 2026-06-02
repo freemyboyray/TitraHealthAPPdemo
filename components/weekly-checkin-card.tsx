@@ -12,6 +12,10 @@ const FF = 'System';
 export type WeeklyCheckinCardProps = {
   /** ISO date string of the last time the unified weekly check-in was completed */
   lastLoggedAt: string | null;
+  /** Whether the CURRENT program week's check-in is already done (gates re-takes). */
+  currentWeekComplete: boolean;
+  /** ISO date the next program week begins — when the check-in unlocks again. */
+  nextAvailableAt?: string | null;
   /** When true, the card shows "Weekly Review" instead of "Weekly Check-In" */
   isDaily?: boolean;
   onDismiss?: () => void;
@@ -21,16 +25,37 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 }
 
-export function WeeklyCheckinCard({ lastLoggedAt, isDaily, onDismiss }: WeeklyCheckinCardProps) {
+function startOfLocalDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function daysUntil(dateStr: string): number {
+  return Math.max(0, Math.round((startOfLocalDay(new Date(dateStr)) - startOfLocalDay(new Date())) / 86400000));
+}
+
+export function WeeklyCheckinCard({ lastLoggedAt, currentWeekComplete, nextAvailableAt, isDaily, onDismiss }: WeeklyCheckinCardProps) {
   const cardTitle = isDaily ? 'Weekly Review' : 'Weekly Check-In';
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
 
-  const isDone = lastLoggedAt != null && daysSince(lastLoggedAt) <= 6;
+  const hasHistory = lastLoggedAt != null;
   const daysAgo = lastLoggedAt != null ? daysSince(lastLoggedAt) : null;
 
-  if (!isDone) {
+  const ViewPastLink = hasHistory ? (
+    <TouchableOpacity
+      onPress={(e) => { e.stopPropagation(); router.push('/entry/weekly-checkin-history' as any); }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityLabel="View past check-ins"
+      accessibilityRole="button"
+      style={{ flexShrink: 0 }}
+    >
+      <Text style={s.viewPastLink}>View past</Text>
+    </TouchableOpacity>
+  ) : null;
+
+  // ── Available: current week not yet completed → opens the questionnaire ──────
+  if (!currentWeekComplete) {
     return (
       <TouchableOpacity
         style={s.wrap}
@@ -69,19 +94,33 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily, onDismiss }: WeeklyCh
               <Text style={s.subtitle}>Takes about 3 min</Text>
             </View>
           </View>
+          {ViewPastLink}
         </View>
       </TouchableOpacity>
     );
   }
 
+  // ── Locked: already done this week → view-only until the next week begins ────
+  const nextDays = nextAvailableAt ? daysUntil(nextAvailableAt) : null;
+  const nextStr =
+    nextDays == null ? null
+    : nextDays === 0 ? 'available today'
+    : nextDays === 1 ? 'next check-in tomorrow'
+    : `next check-in in ${nextDays} days`;
+  const completedStr =
+    daysAgo === 0 ? 'Completed today'
+    : daysAgo === 1 ? 'Completed yesterday'
+    : daysAgo != null ? `Completed ${daysAgo} days ago`
+    : 'Completed';
+
   return (
     <TouchableOpacity
       style={s.wrap}
-      onPress={() => router.push('/entry/weekly-checkin' as any)}
+      onPress={() => router.push('/entry/weekly-checkin-history' as any)}
       activeOpacity={0.85}
       accessibilityLabel={`${cardTitle} completed`}
       accessibilityRole="button"
-      accessibilityHint="Opens the weekly check-in details"
+      accessibilityHint="Opens your past check-ins"
     >
       <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: 'rgba(255,116,42,0.06)' }]} />
       <View
@@ -110,10 +149,11 @@ export function WeeklyCheckinCard({ lastLoggedAt, isDaily, onDismiss }: WeeklyCh
           <View style={{ flex: 1 }}>
             <Text style={s.title}>{cardTitle}</Text>
             <Text style={s.subtitle}>
-              {daysAgo === 0 ? 'Completed today' : daysAgo === 1 ? 'Completed yesterday' : `Completed ${daysAgo} days ago`}
+              {nextStr ? `${completedStr} · ${nextStr}` : completedStr}
             </Text>
           </View>
         </View>
+        {ViewPastLink}
       </View>
     </TouchableOpacity>
   );

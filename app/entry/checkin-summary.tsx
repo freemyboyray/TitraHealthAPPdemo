@@ -149,14 +149,15 @@ type MetricRowProps = {
   increased: boolean;
   reason: string;
   colors: AppColors;
+  isLast?: boolean;
 };
 
-function MetricRow({ icon, label, before, after, delta, increased, reason, colors }: MetricRowProps) {
+function MetricRow({ icon, label, before, after, delta, increased, reason, colors, isLast }: MetricRowProps) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const arrowColor = increased ? colors.orange : BLUE;
   const deltaColor = increased ? colors.orange : BLUE;
   return (
-    <View style={{ paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: w(0.07) }}>
+    <View style={{ paddingVertical: 14, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: w(0.07) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {icon}
@@ -377,13 +378,13 @@ export default function CheckinSummaryScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
       >
 
         {/* Provider banner - mental health ≥ 15 raw */}
         {showProviderBanner && (
-          <View style={[s.card, { marginBottom: 12, borderWidth: 1, borderColor: 'rgba(246,203,69,0.4)', backgroundColor: 'rgba(246,203,69,0.08)' }]}>
+          <View style={[s.card, { marginBottom: 16, borderWidth: 1, borderColor: 'rgba(246,203,69,0.4)', backgroundColor: 'rgba(246,203,69,0.08)' }]}>
             <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <AlertCircle size={22} color="#F6CB45" />
               <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
@@ -394,7 +395,7 @@ export default function CheckinSummaryScreen() {
         )}
 
         {/* Score card */}
-        <View style={[s.card, { marginBottom: 14 }]}>
+        <View style={[s.card, { marginBottom: 16 }]}>
           <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
@@ -416,16 +417,14 @@ export default function CheckinSummaryScreen() {
 
         {/* ── What Changed ── */}
         {metricRows.length > 0 ? (
-          <View style={[s.card, { marginBottom: 14 }]}>
+          <View style={[s.card, { marginBottom: 16 }]}>
             <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
             <GlassBorder r={20} />
             <View style={{ padding: 20 }}>
               <Text style={s.sectionTitle}>WHAT CHANGED</Text>
               {metricRows.map((row, i) => (
-                <View key={row.label} style={i === metricRows.length - 1 ? { borderBottomWidth: 0 } : {}}>
-                  <MetricRow {...row} />
-                </View>
+                <MetricRow key={row.label} {...row} isLast={i === metricRows.length - 1} />
               ))}
 
               {/* Collapsible "Why these changes?" — rationale + clinical sources */}
@@ -433,7 +432,7 @@ export default function CheckinSummaryScreen() {
             </View>
           </View>
         ) : (
-          <View style={[s.card, { marginBottom: 14 }]}>
+          <View style={[s.card, { marginBottom: 16 }]}>
             <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
             <GlassBorder r={20} />
@@ -448,7 +447,7 @@ export default function CheckinSummaryScreen() {
         )}
 
         {/* ── What This Means ── */}
-        <View style={[s.card, { marginBottom: 14 }]}>
+        <View style={[s.card, { marginBottom: 16 }]}>
           <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
@@ -511,20 +510,16 @@ export default function CheckinSummaryScreen() {
           </View>
         </View>
 
-      </ScrollView>
-
-      {/* Done CTA */}
-      <View style={{
-        paddingHorizontal: 20, paddingTop: 12,
-        paddingBottom: insets.bottom + 16,
-        backgroundColor: colors.bg,
-        borderTopWidth: 1,
-        borderTopColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-      }}>
-        <TouchableOpacity style={s.doneBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.8}>
+        {/* Done — placed at the end so results are seen before dismissing */}
+        <TouchableOpacity
+          style={[s.doneBtn, { marginTop: 16 }]}
+          onPress={() => router.replace('/(tabs)')}
+          activeOpacity={0.8}
+        >
           <Text style={s.doneBtnText}>Done</Text>
         </TouchableOpacity>
-      </View>
+
+      </ScrollView>
 
     </View>
   );

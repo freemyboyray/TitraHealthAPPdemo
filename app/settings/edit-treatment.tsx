@@ -350,6 +350,15 @@ export default function EditTreatmentScreen() {
 
       const finalLastInjDateStr = toDateString(finalLastInjDate);
 
+      // Reset the "weeks on medication" anchor only on an actual medication
+      // change (new drug or new brand). Dose titrations and frequency changes
+      // keep the same medication, so the counter keeps running. off→on is
+      // classified as 'drug_type', so it's covered here too.
+      const medStartFields =
+        (changeType === 'drug_type' || changeType === 'brand_swap')
+          ? { medicationStartDate: toDateString(confirmFirstDoseDate) }
+          : {};
+
       // If coming from off-treatment, capture start weight + start date
       const startWeightFields = wasOffTreatment ? (() => {
         const rawWeight = parseFloat(confirmStartWeight);
@@ -373,6 +382,7 @@ export default function EditTreatmentScreen() {
         doseStartDate: toDateString(finalDoseStartDate),
         doseTime: formattedDoseTime,
         treatmentStatus: 'on',
+        ...medStartFields,
         ...startWeightFields,
         // Clear any existing pending transition
         pendingMedicationBrand: null,

@@ -21,7 +21,7 @@ type Props = {
 export function CategoryRow({ icon, label, categoryKey, todayValue, onPress, aiChips }: Props) {
   const { colors } = useAppTheme();
   const dot = categoryColor(colors.isDark, categoryKey);
-  const labelColor = colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+  const labelColor = colors.textPrimary;
   const chevronColor = colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
   const valueColor = colors.textPrimary;
   const glassShadow = useMemo(() => ({
@@ -98,10 +98,9 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   iconWrap: { width: 22, alignItems: 'center', justifyContent: 'center' },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
     fontFamily: 'System',
   },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },

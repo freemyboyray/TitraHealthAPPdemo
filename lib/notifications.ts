@@ -246,6 +246,34 @@ export async function scheduleCheckinReminder(lastLoggedAt: string): Promise<voi
 }
 
 /**
+ * Schedule the weekly check-in reminder for a specific date (the start of the
+ * next program week) at 10:00 AM. Shares the 'weekly-checkin' identifier with
+ * scheduleCheckinReminder so the two never double up. No-op if the date is past.
+ */
+export async function scheduleWeeklyCheckinReminderAt(triggerDate: Date): Promise<void> {
+  if (!Notifications) return;
+  const CHECKIN_ID = 'weekly-checkin';
+  await Notifications.cancelScheduledNotificationAsync(CHECKIN_ID).catch(() => {});
+
+  const d = new Date(triggerDate);
+  d.setHours(10, 0, 0, 0);
+  if (d.getTime() <= Date.now()) return; // already past — skip
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: CHECKIN_ID,
+    content: {
+      title: 'Your weekly check-in is ready',
+      body: 'A new week has started — track how last week felt on your dose.',
+      data: { url: 'titrahealth://entry/weekly-checkin' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: d,
+    },
+  });
+}
+
+/**
  * Schedule the weekly check-in reminder (every Sunday at 10:00 AM).
  * @deprecated Use scheduleCheckinReminder(lastLoggedAt) for dynamic scheduling.
  * Kept for backward compatibility — delegates to scheduleCheckinReminder.

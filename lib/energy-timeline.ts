@@ -36,6 +36,8 @@ type TimelineParams = {
   todayFoodLogs: FoodEntry[];
   todayWaterMl: number;
   todaySideEffectLogs: SideEffectEntry[];
+  /** When false (between medications), drug-related factors are excluded. */
+  isOnTreatment?: boolean;
 };
 
 function formatHourLabel(h: number): string {
@@ -50,6 +52,7 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
     wearable, targets, phase, seBurden, fatigueBurden, baseline,
     pkHoursSinceInjection, glp1Type, injectionFrequencyDays,
     todayFoodLogs, todayWaterMl, todaySideEffectLogs,
+    isOnTreatment = true,
   } = params;
 
   const now = new Date();
@@ -91,7 +94,7 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
     // pkHoursSinceInjection is "now", so adjust backward for earlier hours
     const hoursAgo = currentHour - h;
     const pkAtPoint = pkHoursSinceInjection - hoursAgo;
-    const pkPct = glp1Type && pkAtPoint > 0
+    const pkPct = isOnTreatment && glp1Type && pkAtPoint > 0
       ? pkConcentrationPct(pkAtPoint, glp1Type, true, intervalH)
       : null;
 
@@ -105,7 +108,7 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
     };
 
     const result = computeEnergyBank(
-      wearable, actuals, targets, phase, seBurden, pkPct, fatigueBurden, baseline,
+      wearable, actuals, targets, phase, seBurden, pkPct, fatigueBurden, baseline, isOnTreatment,
     );
 
     points.push({

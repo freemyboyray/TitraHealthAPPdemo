@@ -1,7 +1,10 @@
 // expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
 let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
-import * as AppleAuthentication from 'expo-apple-authentication';
+// Type-only import (erased at runtime) so the iOS-only native module is never
+// eagerly evaluated on Android. The real module is lazy-required inside
+// handleAppleSignIn, which only runs behind a Platform.OS === 'ios' gate.
+import type * as AppleAuthenticationModule from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useState } from 'react';
@@ -241,6 +244,9 @@ export default function SignInScreen() {
     if (!checkSupabaseConfigured()) return;
     setAppleLoading(true);
     setError(null);
+
+    const AppleAuthentication =
+      require('expo-apple-authentication') as typeof AppleAuthenticationModule;
 
     try {
       const credential = await AppleAuthentication.signInAsync({

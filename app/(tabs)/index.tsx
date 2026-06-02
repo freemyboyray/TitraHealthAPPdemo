@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingVi
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { HelpButton } from '@/components/ui/help-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
@@ -62,6 +63,8 @@ import { MissedShotModal } from '@/components/missed-shot-modal';
 import { TreatmentCheckModal } from '@/components/treatment-check-modal';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
+import { currentWeekWindow, getWeekWindow, isWithinWindow } from '@/lib/program-week';
+import { useWeeklySummaryAutoGen } from '@/hooks/use-weekly-summary-gen';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { getEscalationPhase } from '@/lib/escalation-phase';
 import { DailyTaskCards } from '@/components/daily-task-cards';
@@ -656,6 +659,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const { openAiChat } = useUiStore();
 
+  // Lazily generate the just-completed program week's summary snapshot (once).
+  useWeeklySummaryAutoGen();
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -838,7 +844,13 @@ export default function HomeScreen() {
     }
     return display;
   })();
-  const medDose = profile.doseMg != null ? `${profile.doseMg}mg` : null;
+  // Always show the prescribed profile dose — that's the single source of truth
+  // the user set in Settings. Reading the last injection log here caused the home
+  // card to show a stale dose (e.g. a prior brand's mg) after a med/dose change,
+  // disagreeing with the My Medications screen. The PK curve shape is dose-
+  // independent (Bateman peak normalizes to 100%), so nothing is lost.
+  const displayDoseMg = profile.doseMg;
+  const medDose = displayDoseMg != null ? `${displayDoseMg}mg` : null;
 
   // ── Multi-schedule mode ───────────────────────────────────────────────────
   const injFreqDays = profile.injectionFrequencyDays ?? 7;
@@ -853,8 +865,15 @@ export default function HomeScreen() {
     ? getIntradayPhase(hSinceDose, profile.glp1Type ?? 'liraglutide')
     : null;
 
+  // "Shot Day" is literally the injection day only (dayNum === 0, i.e. cycle Day 1).
+  // From the next day the drug is climbing toward peak, so we never show the
+  // "Shot Day" headline/needle on Day 2+. Thresholds scale with cycle length to
+  // stay correct for bi-weekly drugs (peak ≤50%, balance ≤85%, then reset).
   const shotPhaseForLabel: ShotPhase =
-    dayNum <= 2 ? 'shot' : dayNum <= 4 ? 'peak' : dayNum <= 6 ? 'balance' : 'reset';
+    dayNum === 0 ? 'shot'
+    : dayNum <= Math.round(injFreqDays * 0.5) ? 'peak'
+    : dayNum <= Math.round(injFreqDays * 0.85) ? 'balance'
+    : 'reset';
   const phaseLabel = buildPhaseLabel(
     shotPhaseForLabel,
     dayNum - 1,
@@ -993,7 +1012,13 @@ export default function HomeScreen() {
 
   // ── Treatment Progress computations ─────────────────────────────────────────
   const referenceTime = isPast ? selectedDate.getTime() : Date.now();
-  const treatmentStartDate = profile.startDate || profile.doseStartDate;
+  // Anchor on medicationStartDate so this counter reflects time on the CURRENT
+  // medication (drug/brand). It resets only on a drug/brand switch — NOT on a
+  // dose titration or frequency change, which keep the same medication running.
+  // Fall back to doseStartDate, then startDate, for legacy profiles written
+  // before medicationStartDate existed.
+  const treatmentStartDate =
+    profile.medicationStartDate || profile.doseStartDate || profile.startDate;
   const daysOnTreatment = treatmentStartDate
     ? Math.max(0, Math.floor((referenceTime - new Date(treatmentStartDate + 'T00:00:00').getTime()) / 86400000))
     : null;
@@ -1151,7 +1176,7 @@ export default function HomeScreen() {
     const tHours = rawDayNum * 24;
     const glp1Type = profile.glp1Type;
     const intervalH = (freq ?? 7) * 24;
-    const pkPct = glp1Type && tHours > 0
+    const pkPct = onTreatment && glp1Type && tHours > 0
       ? pkConcentrationPct(tHours, glp1Type as any, true, intervalH)
       : null;
     const fatigueLogs = seLogs.filter(l => l.effect_type === 'fatigue');
@@ -1167,6 +1192,7 @@ export default function HomeScreen() {
       pkPct,
       fatigueBurden,
       biometricStore.baseline,
+      onTreatment,
     );
     return { result: energyResult, phase };
   })();
@@ -1207,18 +1233,21 @@ export default function HomeScreen() {
                 ) : null}
               </Text>
 
-              <Pressable
-                onPress={() => router.push('/streak')}
-                style={{
-                  width: 52, height: 52, borderRadius: 26,
-                  backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-                accessibilityLabel="Calendar and achievements"
-                accessibilityRole="button"
-              >
-                <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <HelpButton variant="chip" diameter={52} size={26} />
+                <Pressable
+                  onPress={() => router.push('/streak')}
+                  style={{
+                    width: 52, height: 52, borderRadius: 26,
+                    backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                  accessibilityLabel="Calendar and achievements"
+                  accessibilityRole="button"
+                >
+                  <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                </Pressable>
+              </View>
             </View>
 
             <View style={{ height: 8 }} />
@@ -1337,12 +1366,11 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
-          {/* ── Apple Health + Connected Devices Carousel ── */}
-          {!healthPromoCardDismissed && (
+          {/* ── Apple Health Promo (hidden once connected) ── */}
+          {!healthPromoCardDismissed && !appleHealthEnabled && (
             <View style={{ marginBottom: 16 }}>
               <AppleHealthPromoCard
                 onConnect={() => router.push('/settings/apple-health' as any)}
-                onExplore={() => router.push('/settings/connected-devices' as any)}
                 onDismiss={dismissHealthPromoCard}
               />
             </View>
@@ -1352,8 +1380,8 @@ export default function HomeScreen() {
           {isToday && !weeklyCheckinCardDismissed && (() => {
             // Read directly from logStore so deletion updates the card synchronously,
             // without waiting for the async personalization plan recompute.
-            const allLoggedAts = Object.values(logStore.weeklyCheckins)
-              .flat()
+            const allRows = Object.values(logStore.weeklyCheckins).flat();
+            const allLoggedAts = allRows
               .map(r => r.logged_at as string)
               .filter(Boolean);
 
@@ -1361,9 +1389,23 @@ export default function HomeScreen() {
               ? allLoggedAts.reduce((a, b) => (a > b ? a : b))
               : null;
 
+            // Gate to one check-in per program week. A week is "done" if any
+            // check-in row falls inside the current program-week window.
+            const cur = currentWeekWindow(profile.startDate);
+            const currentWeekComplete = cur
+              ? allRows.some(r => isWithinWindow(r.logged_at as string, cur))
+              : false;
+            const nextWin = cur ? getWeekWindow(profile.startDate, cur.index + 1) : null;
+
             return (
               <View style={{ marginBottom: 16 }}>
-                <WeeklyCheckinCard lastLoggedAt={lastLoggedAt} isDaily={scheduleMode === 'intraday'} onDismiss={dismissWeeklyCheckinCard} />
+                <WeeklyCheckinCard
+                  lastLoggedAt={lastLoggedAt}
+                  currentWeekComplete={currentWeekComplete}
+                  nextAvailableAt={nextWin?.startStr ?? null}
+                  isDaily={scheduleMode === 'intraday'}
+                  onDismiss={dismissWeeklyCheckinCard}
+                />
               </View>
             );
           })()}

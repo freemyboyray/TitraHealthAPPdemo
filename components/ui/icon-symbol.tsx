@@ -14,7 +14,7 @@ import {
   CircleCheck, Brain, Smile, Hospital, Search,
   TrendingDown, Mic, MessageCircle, User, BarChart3,
   Flame, CircleDashed, Percent, Sparkles, Info,
-  Hand, HelpCircle, Paintbrush, Calendar, Check,
+  Hand, HelpCircle, Paintbrush, Calendar, Check, RefreshCw,
 } from 'lucide-react-native';
 
 // ─── Fallback mapping: SF Symbol name → Lucide component ───────────────────
@@ -83,6 +83,7 @@ const MAPPING: Record<string, LucideIcon> = {
   'percent':          Percent,
   'sparkles':         Sparkles,
   'calendar':         Calendar,
+  'arrow.triangle.2.circlepath': RefreshCw,
 
   // Legacy (kept for backward compat)
   'paperplane.fill':  ArrowUp,

@@ -18,6 +18,7 @@ import {
   type SpikeAlert,
 } from '@/lib/side-effect-insights';
 import type { AppColors } from '@/constants/theme';
+import { SEVERITY_TIERS, severityColor, severityLabel, severityTier } from '@/constants/side-effects';
 import { smoothPath } from '@/lib/chart-utils';
 import { isOralDrug, doseNoun, hasMeaningfulCycle } from '@/constants/drug-pk';
 import { ChevronLeft, TriangleAlert } from 'lucide-react-native';
@@ -61,22 +62,13 @@ function EffectIcon({ type, size = 20, color }: { type: string; size?: number; c
   return <LucideIconByName name={iconName} size={size} color={color} />;
 }
 
-function severityTrendColor(avg: number): string {
-  if (avg <= 3) return '#27AE60';
-  if (avg <= 6) return '#F6CB45';
-  return '#E74C3C';
-}
-
 // ─── Severity zones (semantic background bands for the cycle chart) ─────────
-
-const SEV_MILD = '#27AE60';
-const SEV_MOD  = '#F6CB45';
-const SEV_SEV  = '#E74C3C';
+// Colors come from the shared SEVERITY_TIERS source of truth.
 
 const SEVERITY_ZONES = [
-  { min: 0,  max: 3,  color: SEV_MILD, label: 'Mild' },
-  { min: 3,  max: 6,  color: SEV_MOD,  label: 'Moderate' },
-  { min: 6,  max: 10, color: SEV_SEV,  label: 'Severe' },
+  { min: 0,  max: 3,  color: SEVERITY_TIERS.mild.color,     label: 'Mild' },
+  { min: 3,  max: 6,  color: SEVERITY_TIERS.moderate.color, label: 'Moderate' },
+  { min: 6,  max: 10, color: SEVERITY_TIERS.severe.color,   label: 'Severe' },
 ];
 
 // ─── Co-occurrence interpretations ──────────────────────────────────────────
@@ -254,16 +246,40 @@ function buildTrendsHeadline(trends: SymptomTrend[]): string {
   if (improving.length > 0 && worsening.length === 0) {
     if (improving.length === trends.length) return `All ${trends.length} symptoms are improving.`;
     const best = improving.sort((a, b) => a.trendDeltaPct - b.trendDeltaPct)[0];
-    return `${EFFECT_LABELS[best.type] ?? best.type} is improving fastest, down ${Math.abs(best.trendDeltaPct)}%.`;
+    return `${EFFECT_LABELS[best.type] ?? best.type} is improving fastest.`;
   }
   if (worsening.length > 0 && improving.length === 0) {
     const worst = worsening.sort((a, b) => b.trendDeltaPct - a.trendDeltaPct)[0];
-    return `${EFFECT_LABELS[worst.type] ?? worst.type} is trending up ${Math.abs(worst.trendDeltaPct)}% — worth watching.`;
+    return `${EFFECT_LABELS[worst.type] ?? worst.type} is trending up — worth watching.`;
   }
   if (improving.length > 0 && worsening.length > 0) {
     return `${improving.length} symptom${improving.length === 1 ? '' : 's'} improving, ${worsening.length} worsening.`;
   }
   return `Severity is steady across ${trends.length} symptom${trends.length === 1 ? '' : 's'}.`;
+}
+
+// ─── Trend row copy (distribution + recency) ──────────────────────────────────
+
+/** "3 mild · 2 moderate · 1 severe" — only tiers that actually occurred. */
+function distributionLine(b: SymptomTrend['breakdown']): string {
+  const parts: string[] = [];
+  if (b.mild) parts.push(`${b.mild} mild`);
+  if (b.moderate) parts.push(`${b.moderate} moderate`);
+  if (b.severe) parts.push(`${b.severe} severe`);
+  return parts.join(' · ');
+}
+
+/**
+ * Recency context. Streak first ("Moderate the last 3 times"), then a fresh
+ * high ("Severe — first time this month"), then a plain last-time comparison.
+ * Returns null when there's only one log to talk about.
+ */
+function recencyLine(b: SymptomTrend['breakdown']): string | null {
+  const cur = SEVERITY_TIERS[b.currentTier].label;
+  if (b.currentStreak >= 2) return `${cur} the last ${b.currentStreak} times`;
+  if (b.isFreshHigh) return `${cur} — first time this month`;
+  if (b.prevTier) return `Last time: ${SEVERITY_TIERS[b.prevTier].label}`;
+  return null;
 }
 
 function buildClustersHeadline(pairs: CoOccurrencePair[], totalLogs: number): string {
@@ -340,13 +356,18 @@ export default function SideEffectsInsightsScreen() {
 function SpikeCard({ spike, colors }: { spike: SpikeAlert; colors: AppColors }) {
   const s = useMemo(() => createStyles(colors), [colors]);
   const label = EFFECT_LABELS[spike.type] ?? spike.type;
+  const recentTier = severityLabel(spike.recentSev);
+  const baseTier = severityLabel(spike.baselineSev);
+  const title = baseTier === recentTier
+    ? `${label} spiked to ${recentTier}`
+    : `${label} spiked to ${recentTier} — usually ${baseTier}`;
   return (
     <View style={s.alertCard}>
       <View style={s.alertIconWrap}>
         <TriangleAlert size={18} color="#E74C3C" />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={s.alertTitle}>{label} spike — {spike.recentSev}/10, +{spike.deltaPct}% vs usual</Text>
+        <Text style={s.alertTitle}>{title}</Text>
         <Text style={s.alertBody}>
           Common triggers: high-fat meal, missed hydration, recent dose change.
         </Text>
@@ -363,6 +384,14 @@ const CHART_PAD_R = 56;  // room for right-side zone labels
 const CHART_PAD_T = 26;
 const CHART_PAD_B = 28;
 const DOT_R = 5;
+
+/** Deterministic −0.5..0.5 offset from a log id, so stacked dots (same day +
+ *  tier) fan out a little instead of perfectly overlapping. Stable per render. */
+function dotJitter(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+  return h / 1000 - 0.5;
+}
 
 function CyclePatternCard({
   points, freqDays, oral, colors, hasInjections, meaningfulCycle,
@@ -520,12 +549,14 @@ function CyclePatternCard({
                     {t.label}
                   </SvgText>
                 ))}
-                {/* Data dots */}
+                {/* Data dots — plotted at the center of their severity band
+                    (Mild/Moderate/Severe), not the raw 0–10 value, with light
+                    jitter so same-day/same-tier logs don't perfectly overlap. */}
                 {points.map(p => (
                   <Circle
                     key={p.id}
                     cx={toX(p.dayInCycle)}
-                    cy={toY(p.severity)}
+                    cy={toY(SEVERITY_TIERS[severityTier(p.severity)].chartValue) + dotJitter(p.id) * 16}
                     r={DOT_R}
                     fill={colorMap.get(p.type) ?? OTHER_COLOR}
                     opacity={0.95}
@@ -634,14 +665,17 @@ function SymptomTrendsCard({ trends, colors }: { trends: SymptomTrend[]; colors:
 
 function SymptomRow({ trend, colors }: { trend: SymptomTrend; colors: AppColors }) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const color = severityTrendColor(trend.avgSev);
+  const color = severityColor(trend.avgSev);
   const name = EFFECT_LABELS[trend.type] ?? trend.type;
+
+  const distribution = distributionLine(trend.breakdown);
+  const recency = recencyLine(trend.breakdown);
 
   let trendIcon: string = 'Minus';
   let trendColor = w(0.4);
-  let trendLabel = 'Flat';
-  if (trend.trend === 'improving') { trendIcon = 'ArrowDown'; trendColor = '#27AE60'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↓`; }
-  else if (trend.trend === 'worsening') { trendIcon = 'ArrowUp'; trendColor = '#E74C3C'; trendLabel = `${Math.abs(trend.trendDeltaPct)}% ↑`; }
+  let trendLabel = 'Steady';
+  if (trend.trend === 'improving') { trendIcon = 'ArrowDown'; trendColor = '#27AE60'; trendLabel = 'Improving'; }
+  else if (trend.trend === 'worsening') { trendIcon = 'ArrowUp'; trendColor = '#E74C3C'; trendLabel = 'Worsening'; }
   else if (trend.trend === 'insufficient') { trendLabel = 'New'; }
 
   return (
@@ -652,15 +686,20 @@ function SymptomRow({ trend, colors }: { trend: SymptomTrend; colors: AppColors 
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{name}</Text>
         <Text style={{ fontSize: 12, color: w(0.45), fontFamily: FF, marginTop: 2 }}>
-          {trend.count}× · avg {trend.avgSev}/10
+          {distribution}
         </Text>
+        {recency && (
+          <Text style={{ fontSize: 12, color: w(0.45), fontFamily: FF, marginTop: 1 }}>
+            {recency}
+          </Text>
+        )}
       </View>
       <Sparkline values={trend.sparkline} color={color} />
       <View style={{
         flexDirection: 'row', alignItems: 'center', gap: 3,
         backgroundColor: trendColor + '1A', borderRadius: 8,
         paddingHorizontal: 8, paddingVertical: 4,
-        minWidth: 56, justifyContent: 'center',
+        minWidth: 72, justifyContent: 'center',
       }}>
         {trend.trend !== 'insufficient' && trend.trend !== 'flat' && <LucideIconByName name={trendIcon as any} size={10} color={trendColor} />}
         <Text style={{ fontSize: 11, fontWeight: '700', color: trendColor, fontFamily: FF }}>{trendLabel}</Text>

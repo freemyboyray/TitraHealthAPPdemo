@@ -27,10 +27,6 @@ function subDays(d: Date, n: number): Date {
   return r;
 }
 
-function dayStartMs(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WeeklySummaryData {
@@ -90,16 +86,26 @@ export function computeWeeklySummary(
   logs: LogsInput,
   targets: DailyTargets,
   waterByDate: Record<string, number>,
+  /**
+   * Explicit week window to summarize. When omitted, defaults to the rolling
+   * 7-day window ending yesterday. Pass a program-week window (from
+   * lib/program-week.ts) to produce a frozen, week-keyed snapshot.
+   */
+  window?: { windowStart: string; windowEnd: string },
 ): WeeklySummaryData {
-  const today      = new Date();
-  const yesterday  = subDays(today, 1);
-  const windowStart = subDays(today, 7);
+  let windowStartStr: string;
+  let windowEndStr: string;
+  if (window) {
+    windowStartStr = window.windowStart;
+    windowEndStr   = window.windowEnd;
+  } else {
+    const today = new Date();
+    windowStartStr = toDateStr(subDays(today, 7));
+    windowEndStr   = toDateStr(subDays(today, 1));
+  }
 
-  const windowStartStr = toDateStr(windowStart);
-  const windowEndStr   = toDateStr(yesterday);
-
-  const windowStartMs = dayStartMs(windowStart);
-  const windowEndMs   = dayStartMs(yesterday) + 86400000 - 1; // inclusive end
+  const windowStartMs = new Date(`${windowStartStr}T00:00:00`).getTime();
+  const windowEndMs   = new Date(`${windowEndStr}T00:00:00`).getTime() + 86400000 - 1; // inclusive end
 
   function tsInWindow(ts: string): boolean {
     try {
@@ -173,10 +179,10 @@ export function computeWeeklySummary(
     ? Math.round(allStepsValues.reduce((a, b) => a + b, 0) / allStepsValues.length)
     : null;
 
-  // 7-slot day flags (slot 0 = windowStart, slot 6 = yesterday)
+  // 7-slot day flags (slot 0 = windowStart, slot 6 = windowEnd)
   const dayFlags: boolean[] = Array(7).fill(false);
   for (let i = 0; i < 7; i++) {
-    const dateStr = toDateStr(subDays(today, 7 - i));
+    const dateStr = toDateStr(new Date(windowStartMs + i * 86400000));
     dayFlags[i] = (stepsByDate.get(dateStr) ?? 0) > 0;
   }
 

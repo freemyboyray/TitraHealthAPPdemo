@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titrahealth.app",
-      "buildNumber": "40",
+      "buildNumber": "42",
       "infoPlist": {
         "NSHealthShareUsageDescription": "TitraHealth reads your steps, heart rate, HRV, sleep, weight, blood glucose, and nutrition from Apple Health to display health trends alongside your medication journey.",
         "NSHealthUpdateUsageDescription": "TitraHealth saves your logged weight and nutrition data to Apple Health to keep your health records in sync.",
@@ -29,6 +29,8 @@
       }
     },
     "android": {
+      "package": "com.titrahealth.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E8581A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

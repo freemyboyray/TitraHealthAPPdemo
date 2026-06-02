@@ -3,7 +3,14 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FF = 'System';
@@ -31,7 +38,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Your Cycle',
-    icon: 'arrow.trianglehead.2.clockwise.rotate.90',
+    icon: 'arrow.triangle.2.circlepath',
     iconColor: '#27AE60',
     iconBg: 'rgba(39,174,96,0.15)',
     items: [
@@ -118,13 +125,77 @@ const SECTIONS: Section[] = [
   },
 ];
 
+const ANIM = { duration: 280, easing: Easing.out(Easing.cubic) };
+
+function SectionCard({ section, isOpen, onToggle, s, colors }: {
+  section: Section;
+  isOpen: boolean;
+  onToggle: () => void;
+  s: ReturnType<typeof createStyles>;
+  colors: AppColors;
+}) {
+  const progress = useSharedValue(isOpen ? 1 : 0);
+  const [bodyHeight, setBodyHeight] = useState(0);
+
+  // Drive the animation from the open state.
+  progress.value = withTiming(isOpen ? 1 : 0, ANIM);
+
+  const onBodyLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setBodyHeight(h);
+  }, []);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    height: bodyHeight === 0 ? undefined : progress.value * bodyHeight,
+    opacity: progress.value,
+  }));
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
+  }));
+
+  return (
+    <View style={s.sectionCard}>
+      <Pressable
+        style={s.sectionHeader}
+        onPress={onToggle}
+        accessibilityLabel={`${section.title}, ${isOpen ? 'collapse' : 'expand'}`}
+        accessibilityRole="button"
+      >
+        <View style={s.sectionLeft}>
+          <View style={[s.iconBadge, { backgroundColor: section.iconBg }]}>
+            <IconSymbol name={section.icon as any} size={18} color={section.iconColor} />
+          </View>
+          <Text style={s.sectionTitle}>{section.title}</Text>
+        </View>
+        <Animated.View style={chevronStyle}>
+          <IconSymbol name="chevron.down" size={14} color={colors.textMuted} />
+        </Animated.View>
+      </Pressable>
+
+      <Animated.View style={[s.sectionClip, containerStyle]}>
+        {/* Absolutely positioned so its height can be measured independent of the clip. */}
+        <View style={s.sectionMeasure} onLayout={onBodyLayout}>
+          <View style={s.sectionBody}>
+            {section.items.map((item, iIdx) => (
+              <View key={item.label} style={[s.itemRow, iIdx > 0 && s.itemDivider]}>
+                <Text style={s.itemLabel}>{item.label}</Text>
+                <Text style={s.itemDetail}>{item.detail}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function TutorialScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const toggle = useCallback((idx: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
@@ -149,42 +220,16 @@ export default function TutorialScreen() {
             Learn how to get the most out of Titra. Tap any section below to expand.
           </Text>
 
-          {SECTIONS.map((section, sIdx) => {
-            const isOpen = expanded.has(sIdx);
-            return (
-              <View key={section.title} style={s.sectionCard}>
-                <Pressable
-                  style={s.sectionHeader}
-                  onPress={() => toggle(sIdx)}
-                  accessibilityLabel={`${section.title}, ${isOpen ? 'collapse' : 'expand'}`}
-                  accessibilityRole="button"
-                >
-                  <View style={s.sectionLeft}>
-                    <View style={[s.iconBadge, { backgroundColor: section.iconBg }]}>
-                      <IconSymbol name={section.icon as any} size={18} color={section.iconColor} />
-                    </View>
-                    <Text style={s.sectionTitle}>{section.title}</Text>
-                  </View>
-                  <IconSymbol
-                    name={isOpen ? 'chevron.up' : 'chevron.down'}
-                    size={14}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
-
-                {isOpen && (
-                  <View style={s.sectionBody}>
-                    {section.items.map((item, iIdx) => (
-                      <View key={item.label} style={[s.itemRow, iIdx > 0 && s.itemDivider]}>
-                        <Text style={s.itemLabel}>{item.label}</Text>
-                        <Text style={s.itemDetail}>{item.detail}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          {SECTIONS.map((section, sIdx) => (
+            <SectionCard
+              key={section.title}
+              section={section}
+              isOpen={expanded.has(sIdx)}
+              onToggle={() => toggle(sIdx)}
+              s={s}
+              colors={colors}
+            />
+          ))}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -220,6 +265,8 @@ function createStyles(c: AppColors) {
     iconBadge: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     sectionTitle: { fontSize: 17, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
 
+    sectionClip: { overflow: 'hidden' },
+    sectionMeasure: { position: 'absolute', left: 0, right: 0, top: 0 },
     sectionBody: {
       paddingHorizontal: 16, paddingBottom: 16,
       borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSubtle,

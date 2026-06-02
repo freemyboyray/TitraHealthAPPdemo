@@ -1,5 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { compactVerify, decodeProtectedHeader, importX509 } from 'https://esm.sh/jose@5';
+import {
+  compactVerify,
+  decodeProtectedHeader,
+  importX509,
+  importPKCS8,
+  SignJWT,
+} from 'https://esm.sh/jose@5';
 import { X509Certificate } from 'https://esm.sh/@peculiar/x509@1';
 
 /**
@@ -8,6 +14,8 @@ import { X509Certificate } from 'https://esm.sh/@peculiar/x509@1';
  * Receives and processes subscription events from:
  * 1. Apple App Store Server Notifications V2 (JWS signature + x5c chain verification)
  * 2. Stripe Webhooks (HMAC-SHA256 signature verification)
+ * 3. Google Play Real-Time Developer Notifications (Pub/Sub push → authoritative
+ *    state re-fetched from the Play Developer API; shared-secret query token gate)
  *
  * Updates the `subscriptions` table and `profiles.is_premium` flag.
  *
@@ -16,6 +24,10 @@ import { X509Certificate } from 'https://esm.sh/@peculiar/x509@1';
  *   APPLE_ROOT_CA_FINGERPRINT  — SHA-256 hex of Apple Root CA - G3 DER certificate
  *     (curl -sO https://www.apple.com/certificateauthority/AppleRootCA-G3.cer && shasum -a 256 AppleRootCA-G3.cer)
  *   STRIPE_WEBHOOK_SECRET      — whsec_... from Stripe dashboard
+ *   GOOGLE_PLAY_SA_CLIENT_EMAIL — Play Developer API service-account email
+ *   GOOGLE_PLAY_SA_PRIVATE_KEY  — that service account's PEM private key (literal \n ok)
+ *   ANDROID_PACKAGE_NAME        — com.titrahealth.app (validates the RTDN packageName)
+ *   GOOGLE_RTDN_VERIFY_TOKEN    — shared secret; must match the ?token= on the Pub/Sub push URL
  */
 
 const CORS = {
@@ -220,6 +232,8 @@ Deno.serve(async (req: Request) => {
         rawBody,
         body as { type: string; data: { object: Record<string, unknown> } },
       );
+    } else if ((body.message as Record<string, unknown>)?.data) {
+      return await handleGooglePlayRTDN(req, supabase, body);
     } else {
       console.error('[subscription-webhook] Unknown payload shape:', Object.keys(body));
       return new Response(JSON.stringify({ error: 'Unknown event source' }), {
@@ -518,6 +532,258 @@ async function handleStripeEvent(
   }
 
   console.log(`[stripe-webhook] Updated user=${userId.slice(0, 8)}… status=${status} premium=${isPremium}`);
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
+// ─── Google Play Real-Time Developer Notifications ───────────────────────────
+
+/**
+ * Mint a Google OAuth access token for the Play Developer API using the
+ * service-account JWT-bearer flow (RS256-signed assertion → token endpoint).
+ */
+async function getGooglePlayAccessToken(): Promise<string> {
+  const clientEmail = Deno.env.get('GOOGLE_PLAY_SA_CLIENT_EMAIL');
+  const privateKeyRaw = Deno.env.get('GOOGLE_PLAY_SA_PRIVATE_KEY');
+  if (!clientEmail || !privateKeyRaw) {
+    throw new Error('GOOGLE_PLAY_SA_CLIENT_EMAIL / GOOGLE_PLAY_SA_PRIVATE_KEY not set');
+  }
+
+  // Env vars commonly store the PEM with escaped "\n" — restore real newlines.
+  const pem = privateKeyRaw.replace(/\\n/g, '\n');
+  const privateKey = await importPKCS8(pem, 'RS256');
+
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = await new SignJWT({
+    scope: 'https://www.googleapis.com/auth/androidpublisher',
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .setIssuer(clientEmail)
+    .setAudience('https://oauth2.googleapis.com/token')
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(privateKey);
+
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Google token exchange failed: ${resp.status} ${await resp.text()}`);
+  }
+  const json = (await resp.json()) as { access_token?: string };
+  if (!json.access_token) throw new Error('Google token exchange returned no access_token');
+  return json.access_token;
+}
+
+/** Map Play `subscriptionState` to our internal status + premium flag. */
+function mapGoogleSubscriptionState(state: string): {
+  status: SubscriptionStatus;
+  isPremium: boolean;
+} {
+  switch (state) {
+    case 'SUBSCRIPTION_STATE_ACTIVE':
+      return { status: 'active', isPremium: true };
+    case 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD':
+      return { status: 'past_due', isPremium: true }; // keep access during grace period
+    case 'SUBSCRIPTION_STATE_CANCELED':
+      return { status: 'canceled', isPremium: true }; // canceled but active until expiry
+    case 'SUBSCRIPTION_STATE_ON_HOLD':
+    case 'SUBSCRIPTION_STATE_PAUSED':
+      return { status: 'past_due', isPremium: false };
+    case 'SUBSCRIPTION_STATE_EXPIRED':
+    case 'SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED':
+      return { status: 'expired', isPremium: false };
+    default:
+      return { status: 'expired', isPremium: false };
+  }
+}
+
+/**
+ * Handle a Google Play RTDN Pub/Sub push.
+ *
+ * Trust model: the Pub/Sub message itself is unauthenticated, so we (1) gate on a
+ * shared-secret `?token=` query param and (2) never trust the notification body for
+ * entitlement — we re-fetch the authoritative subscription state from the Play
+ * Developer API using the purchaseToken. Fails closed like the Apple/Stripe handlers.
+ */
+async function handleGooglePlayRTDN(
+  req: Request,
+  supabase: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  // 1. Verify the push is genuine via shared-secret query token (fail closed).
+  const expectedToken = Deno.env.get('GOOGLE_RTDN_VERIFY_TOKEN');
+  if (!expectedToken) {
+    console.error('[play-webhook] GOOGLE_RTDN_VERIFY_TOKEN env var not set');
+    return new Response(JSON.stringify({ error: 'Webhook verification not configured' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+  const providedToken = new URL(req.url).searchParams.get('token') ?? '';
+  if (!timingSafeEqual(providedToken, expectedToken)) {
+    console.error('[play-webhook] Invalid verification token');
+    return new Response(JSON.stringify({ error: 'Invalid verification token' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // 2. Decode the base64 Pub/Sub message → DeveloperNotification.
+  const message = body.message as Record<string, unknown> | undefined;
+  const dataB64 = message?.data as string | undefined;
+  if (!dataB64) {
+    // Pub/Sub verification / empty message — ack so it isn't retried.
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let notification: Record<string, unknown>;
+  try {
+    notification = JSON.parse(new TextDecoder().decode(base64ToUint8Array(dataB64)));
+  } catch (err) {
+    console.error('[play-webhook] Failed to decode RTDN data:', (err as Error).message);
+    return new Response(JSON.stringify({ error: 'Invalid RTDN payload' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Validate the package name when configured.
+  const expectedPackage = Deno.env.get('ANDROID_PACKAGE_NAME');
+  const packageName = notification.packageName as string | undefined;
+  if (expectedPackage && packageName !== expectedPackage) {
+    console.error(`[play-webhook] Package mismatch: ${packageName}`);
+    return new Response(JSON.stringify({ error: 'Unexpected package' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Only subscriptionNotification carries entitlement state. Test / one-time /
+  // voided-purchase notifications are acknowledged and ignored.
+  const subNotification = notification.subscriptionNotification as
+    | { notificationType: number; purchaseToken: string; subscriptionId: string }
+    | undefined;
+  if (!subNotification?.purchaseToken) {
+    console.log('[play-webhook] Non-subscription notification, ignoring');
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { purchaseToken, subscriptionId, notificationType } = subNotification;
+  console.log(`[play-webhook] type=${notificationType} sub=${subscriptionId}`);
+
+  // 3. Mint an access token and fetch the authoritative subscription state.
+  let accessToken: string;
+  try {
+    accessToken = await getGooglePlayAccessToken();
+  } catch (err) {
+    console.error('[play-webhook] Access token error:', (err as Error).message);
+    return new Response(JSON.stringify({ error: 'Auth failed' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const base = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
+  const getUrl = `${base}/${packageName}/purchases/subscriptionsv2/tokens/${purchaseToken}`;
+  const apiResp = await fetch(getUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!apiResp.ok) {
+    console.error(
+      `[play-webhook] subscriptionsv2.get failed: ${apiResp.status} ${await apiResp.text()}`,
+    );
+    return new Response(JSON.stringify({ error: 'Play API error' }), {
+      status: 502,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+  const purchase = (await apiResp.json()) as Record<string, any>;
+
+  // 4. Map the user via obfuscatedExternalAccountId (= Supabase user.id set at purchase).
+  const userId = purchase.externalAccountIdentifiers?.obfuscatedExternalAccountId as
+    | string
+    | undefined;
+  if (!userId) {
+    console.error('[play-webhook] No obfuscatedExternalAccountId on purchase');
+    return new Response(JSON.stringify({ error: 'No user mapping' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const lineItems = (purchase.lineItems as Array<Record<string, unknown>>) ?? [];
+  const expiryTimeRaw = lineItems[lineItems.length - 1]?.expiryTime as string | undefined;
+  const expiresDate = expiryTimeRaw ? new Date(expiryTimeRaw).toISOString() : null;
+
+  let { status, isPremium } = mapGoogleSubscriptionState(purchase.subscriptionState as string);
+
+  // Safety net: never grant premium past the real expiry, regardless of state label.
+  if (expiresDate && new Date(expiresDate).getTime() < Date.now()) {
+    status = 'expired';
+    isPremium = false;
+  }
+
+  // 5. Acknowledge the purchase if Google is still awaiting it (required within 3 days).
+  if (purchase.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING') {
+    const ackUrl =
+      `${base}/${packageName}/purchases/subscriptions/${subscriptionId}/tokens/${purchaseToken}:acknowledge`;
+    const ackResp = await fetch(ackUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!ackResp.ok) {
+      console.error(`[play-webhook] acknowledge failed: ${ackResp.status} ${await ackResp.text()}`);
+    }
+  }
+
+  // 6. Upsert subscription record + denormalized premium flag (same pattern as Apple/Stripe).
+  const plan = subscriptionId?.includes('annual') ? 'annual' : 'monthly';
+  const { error: subError } = await supabase
+    .from('subscriptions')
+    .upsert(
+      {
+        user_id: userId,
+        status,
+        plan,
+        provider: 'play_store',
+        provider_subscription_id: purchaseToken,
+        current_period_end: expiresDate,
+        cancel_at_period_end: status === 'canceled',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
+
+  if (subError) {
+    console.error('[play-webhook] Subscription upsert error:', subError.message);
+  }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ is_premium: isPremium })
+    .eq('id', userId);
+
+  if (profileError) {
+    console.error('[play-webhook] Profile update error:', profileError.message);
+  }
+
+  console.log(`[play-webhook] Updated user=${userId.slice(0, 8)}… status=${status} premium=${isPremium}`);
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

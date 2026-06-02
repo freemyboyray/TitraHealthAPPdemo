@@ -12,6 +12,7 @@ export const MOCK_PROFILE: FullUserProfile = {
   doseMg: 1.0,
   initialDoseMg: 0.25,
   doseStartDate: '2024-09-01',
+  medicationStartDate: '2024-09-01',
   doseTime: '',
   injectionFrequencyDays: 7,
   lastInjectionDate: (() => {

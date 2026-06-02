@@ -22,6 +22,7 @@ import {
   type EnergyComponent,
 } from '@/constants/scoring';
 import { pkConcentrationPct } from '@/constants/drug-pk';
+import { isOnTreatment } from '@/constants/user-profile';
 import { useUiStore } from '@/stores/ui-store';
 import { useBiometricStore } from '@/stores/biometric-store';
 import { buildEnergyTimeline } from '@/lib/energy-timeline';
@@ -203,6 +204,7 @@ export default function EnergyDetailScreen() {
   const { openAiChat } = useUiStore();
 
   const { actuals, targets, profile, wearable } = healthData;
+  const onTx = isOnTreatment(profile);
   const freq = profile.injectionFrequencyDays ?? 7;
   const dayNum = daysSinceInjection(profile.lastInjectionDate, new Date(), freq);
   const phase = dayNum <= Math.round(freq * 0.15) ? 'shot' as const
@@ -216,7 +218,7 @@ export default function EnergyDetailScreen() {
   const tHours = dayNum * 24;
   const glp1Type = profile.glp1Type;
   const intervalH = freq * 24;
-  const pkPct = glp1Type && tHours > 0
+  const pkPct = onTx && glp1Type && tHours > 0
     ? pkConcentrationPct(tHours, glp1Type as any, true, intervalH)
     : null;
   const fatigueLogs = seLogs.filter(l => l.effect_type === 'fatigue');
@@ -224,7 +226,7 @@ export default function EnergyDetailScreen() {
     ? computeSideEffectBurden(fatigueLogs, phase, 14)
     : { burden: 0 };
   const biometricBaseline = useBiometricStore(st => st.baseline);
-  const result = computeEnergyBank(wearable, actuals, targets, phase, seBurden, pkPct, fatigueBurden, biometricBaseline);
+  const result = computeEnergyBank(wearable, actuals, targets, phase, seBurden, pkPct, fatigueBurden, biometricBaseline, onTx);
 
   // Build energy timeline for today's chart
   const timelineData = useMemo(() => {
@@ -247,6 +249,7 @@ export default function EnergyDetailScreen() {
       pkHoursSinceInjection: tHours,
       glp1Type: glp1Type as any,
       injectionFrequencyDays: freq,
+      isOnTreatment: onTx,
       todayFoodLogs: todayFood.map(f => ({
         logged_at: f.logged_at, calories: f.calories, protein_g: f.protein_g, fiber_g: f.fiber_g,
       })),
@@ -255,7 +258,7 @@ export default function EnergyDetailScreen() {
         logged_at: se.logged_at, severity: se.severity ?? 0, effect_type: se.effect_type,
       })),
     });
-  }, [logStore.foodLogs, logStore.sideEffectLogs, wearable, targets, phase, seBurden, fatigueBurden, biometricBaseline, tHours, glp1Type, freq, actuals.waterMl]);
+  }, [logStore.foodLogs, logStore.sideEffectLogs, wearable, targets, phase, seBurden, fatigueBurden, biometricBaseline, tHours, glp1Type, freq, actuals.waterMl, onTx]);
 
   const color = energyColor(result.score);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;

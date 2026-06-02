@@ -8,7 +8,7 @@ import { BRAND_DISPLAY_NAMES, type FullUserProfile } from '@/constants/user-prof
 import type { AppColors } from '@/constants/theme';
 import type { ShotPhase, IntradayPhase } from '@/constants/scoring';
 import { InjectionCycleTimeline } from '@/components/today/injection-cycle-timeline';
-import { ArrowLeftRight, PlusCircle } from 'lucide-react-native';
+import { ArrowLeftRight, PauseCircle, PlusCircle } from 'lucide-react-native';
 
 const FF = 'System';
 
@@ -110,19 +110,41 @@ export function MedicationStatusTile(props: Props) {
     onLongPress,
   } = props;
 
+  // ── Pending-transition labels (shared by old_med + washout phases) ──
+  const isWashout = transitionPhase === 'washout';
+  const pendingStart = profile.pendingFirstDoseDate
+    ? new Date(profile.pendingFirstDoseDate + 'T00:00:00')
+    : null;
+  const daysAway = pendingStart
+    ? Math.max(0, Math.ceil((pendingStart.getTime() - today.getTime()) / 86400000))
+    : 0;
+  const startLabel = pendingStart?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '';
+  const newBrandLabel = BRAND_DISPLAY_NAMES[profile.pendingMedicationBrand as keyof typeof BRAND_DISPLAY_NAMES]
+    ?? profile.pendingMedicationBrand ?? '';
+  const oldDoneLabel = profile.pendingLastDoseOld
+    ? new Date(profile.pendingLastDoseOld + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+
+  // During washout the old med is finished, so the headline leads with the
+  // new (pending) med in a "not started yet" state rather than the stale one.
+  const headlineName = isWashout && newBrandLabel ? newBrandLabel : medName;
+  const headlineDose = isWashout
+    ? (profile.pendingDoseMg != null ? `${profile.pendingDoseMg}mg` : null)
+    : medDose;
+
   return (
     <Pressable
       style={{ flex: 1 }}
       onLongPress={onLongPress}
       delayLongPress={500}
-      accessibilityLabel={`Treatment progress card. ${medName}${medDose ? `, ${medDose}` : ''}. Long press for AI insights.`}
+      accessibilityLabel={`Treatment progress card. ${headlineName}${headlineDose ? `, ${headlineDose}` : ''}. Long press for AI insights.`}
       accessibilityRole="button"
     >
       <View style={s.heroCard}>
         {/* Medication row */}
         <View style={s.heroTopRow}>
           <Text style={s.heroMedLabel}>
-            {medName}{medDose ? ` · ${medDose}` : ''}
+            {headlineName}{headlineDose ? ` · ${headlineDose}` : ''}
           </Text>
           <Pressable
             style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
@@ -135,29 +157,35 @@ export function MedicationStatusTile(props: Props) {
           </Pressable>
         </View>
 
-        {/* Transition banner during washout */}
-        {(transitionPhase === 'washout' || transitionPhase === 'old_med') && profile.pendingFirstDoseDate && (
-          (() => {
-            const startDate = new Date(profile.pendingFirstDoseDate + 'T00:00:00');
-            const daysAway = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / 86400000));
-            const dateLabel2 = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const newBrandLabel = BRAND_DISPLAY_NAMES[profile.pendingMedicationBrand as keyof typeof BRAND_DISPLAY_NAMES] ?? profile.pendingMedicationBrand ?? '';
-            return (
-              <View style={s.transitionBanner}>
-                <View style={s.transitionRow}>
-                  <ArrowLeftRight size={16} color={colors.orange} />
-                  <Text style={s.transitionTitle}>Switching Medication</Text>
-                </View>
-                <Text style={s.transitionBody}>
-                  Starting {newBrandLabel} {profile.pendingDoseMg}mg on {dateLabel2}
-                  {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
-                </Text>
-                {transitionPhase === 'washout' && (
-                  <Text style={s.transitionHint}>Washout period — no active dose cycle</Text>
-                )}
-              </View>
-            );
-          })()
+        {/* Washout: new med not started yet — calm "not started" state */}
+        {isWashout && profile.pendingFirstDoseDate && (
+          <View style={s.washoutBlock}>
+            <View style={s.transitionRow}>
+              <PauseCircle size={16} color={colors.textSecondary} />
+              <Text style={s.washoutTitle}>Not started yet</Text>
+            </View>
+            <Text style={s.transitionBody}>
+              Starts {startLabel}
+              {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
+            </Text>
+            <Text style={s.transitionHint}>
+              Washout — {medName}{oldDoneLabel ? ` complete ${oldDoneLabel}` : ' complete'}
+            </Text>
+          </View>
+        )}
+
+        {/* Still on the old med, but a switch is scheduled */}
+        {transitionPhase === 'old_med' && profile.pendingFirstDoseDate && (
+          <View style={s.transitionBanner}>
+            <View style={s.transitionRow}>
+              <ArrowLeftRight size={16} color={colors.orange} />
+              <Text style={s.transitionTitle}>Switching Medication</Text>
+            </View>
+            <Text style={s.transitionBody}>
+              Starting {newBrandLabel} {profile.pendingDoseMg}mg on {startLabel}
+              {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
+            </Text>
+          </View>
         )}
 
         {/* Injection cycle timeline — hidden during washout and off-treatment */}
@@ -255,6 +283,20 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginTop: 12,
+  },
+  washoutBlock: {
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    borderWidth: 1,
+    borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  washoutTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: c.textSecondary,
+    fontFamily: FF,
   },
   transitionRow: {
     flexDirection: 'row',

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { ScrollTitle } from '@/components/ui/scroll-title';
+import { HelpButton } from '@/components/ui/help-button';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
@@ -140,8 +141,9 @@ export default function EducationScreen() {
             scrollEventThrottle={16}
           >
             <GradientBackground />
-            <View style={s.heroHeader}>
+            <View style={[s.heroHeader, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
               <Text style={s.heroTitle}>Education</Text>
+              <HelpButton color={minimalHeader && !colors.isDark ? '#000000' : '#FFFFFF'} size={26} />
             </View>
 
             {/* Article cards */}

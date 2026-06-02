@@ -1,4 +1,4 @@
-import { ActivityLevel, FullUserProfile } from './user-profile';
+import { ActivityLevel, FullUserProfile, Glp1Type } from './user-profile';
 import { applyAdjustments, type RecentSideEffectLog } from '@/lib/targets';
 import { localDateStr } from '@/lib/date-utils';
 
@@ -1095,45 +1095,152 @@ const SLEEP_TIPS = [
 
 // ─── Phase-aware motivational messages for Daily Focuses card ────────────────
 
-const PHASE_FOCUS_MESSAGES: Record<ShotPhase, { title: string; messages: string[] }> = {
-  shot: {
-    title: 'Shot Day',
-    messages: [
-      'Appetite suppression kicks in fast today. Focus on hydration and light, protein-rich meals.',
-      'Your body is absorbing the medication. Sip water steadily and keep meals small.',
-      'Nausea risk is highest today. Prioritize electrolytes and avoid heavy foods.',
-    ],
+// Drugs differ in how fast they peak after a dose, which changes the phase
+// narrative. Semaglutide-class drugs build slowly (Tmax ~2\u20133 days), so shot day
+// is NOT peak suppression; tirzepatide ramps quickly (Tmax ~1 day); daily/oral
+// drugs sit near steady state and have no meaningful within-cycle taper.
+type PeakProfile = 'building' | 'fast' | 'daily';
+
+function peakProfileFor(glp1Type?: Glp1Type): PeakProfile {
+  switch (glp1Type) {
+    case 'tirzepatide':
+      return 'fast';
+    case 'liraglutide':
+    case 'oral_semaglutide':
+    case 'orforglipron':
+      return 'daily';
+    // semaglutide, dulaglutide (slow-building weekly drugs)
+    default:
+      return 'building';
+  }
+}
+
+/** Human cadence word for the dosing interval (drives schedule-aware copy). */
+function cadenceWord(injFreqDays: number): string {
+  if (injFreqDays <= 1) return 'daily';
+  if (injFreqDays === 7) return 'weekly';
+  if (injFreqDays === 14) return 'every 2 weeks';
+  return `every ${injFreqDays} days`;
+}
+
+const DRUG_PHASE_MESSAGES: Record<PeakProfile, Record<ShotPhase, { title: string; messages: string[] }>> = {
+  // Semaglutide / dulaglutide: levels build over 2\u20133 days after the dose.
+  building: {
+    shot: {
+      title: 'Dose Day',
+      messages: [
+        'Levels are just starting to climb \u2014 this drug class builds slowly and peaks around days 2\u20133, so appetite suppression ramps up over the next couple of days rather than today.',
+        'Today\u2019s dose stacks onto what\u2019s already in your system. Effects build gradually, so keep meals light and sip water steadily as levels rise.',
+      ],
+    },
+    peak: {
+      title: 'Peak Phase',
+      messages: [
+        'Medication is near its peak (days 2\u20133 for this class). Appetite is most suppressed \u2014 make every bite protein-forward.',
+        'You may have little hunger right now, but your body still needs fuel. Small, frequent, high-protein meals work best.',
+      ],
+    },
+    balance: {
+      title: 'Steady State',
+      messages: [
+        'Levels are stable and predictable \u2014 a great window to build protein and activity habits.',
+        'Appetite is balanced today. Focus on hitting your fiber and water targets.',
+      ],
+    },
+    reset: {
+      title: 'Winding Down',
+      messages: [
+        'Hunger may start returning as levels taper toward your next dose. Lean on your habits to stay on track.',
+        'Appetite creeping up is normal pharmacology, not failure. High-protein meals help bridge the gap.',
+      ],
+    },
   },
-  peak: {
-    title: 'Peak Phase',
-    messages: [
-      'GLP-1 levels are at their highest. Appetite is most suppressed \u2014 make every bite count with protein.',
-      'You may not feel hungry, but your body still needs fuel. Small, frequent meals work best.',
-      'Peak medication effect today. Light movement is enough \u2014 don\u2019t push too hard.',
-    ],
+  // Tirzepatide: ramps quickly, peaks ~24h.
+  fast: {
+    shot: {
+      title: 'Dose Day',
+      messages: [
+        'This drug ramps quickly \u2014 it peaks around 24 hours, so appetite suppression sets in fast. Lean on hydration and light, protein-rich meals.',
+        'Effects come on quickly today and tomorrow. Nausea risk is highest now \u2014 sip water, favor electrolytes, and avoid heavy foods.',
+      ],
+    },
+    peak: {
+      title: 'Peak Phase',
+      messages: [
+        'Medication peaks around day 1 for this drug. Appetite is most suppressed \u2014 make every bite count with protein.',
+        'Strongest suppression is early in the cycle. Small, frequent meals keep you fueled even when hunger is low.',
+      ],
+    },
+    balance: {
+      title: 'Steady State',
+      messages: [
+        'Past the early peak, levels are settling. A strong window to build protein and movement habits.',
+        'Appetite is balanced. Focus on fiber, water, and consistent activity today.',
+      ],
+    },
+    reset: {
+      title: 'Winding Down',
+      messages: [
+        'Hunger may return as levels taper toward your next dose. Stay consistent with protein and hydration.',
+        'Appetite returning late in the cycle is expected \u2014 lean on your habits to bridge to the next dose.',
+      ],
+    },
   },
-  balance: {
-    title: 'Steady State',
-    messages: [
-      'Medication levels are stable. Great window to build protein and activity habits.',
-      'Your appetite is balanced. Focus on hitting your fiber and water targets today.',
-      'Stable levels mean consistent energy. This is your best day for movement goals.',
-    ],
-  },
-  reset: {
-    title: 'Winding Down',
-    messages: [
-      'Hunger may start returning as levels taper. Lean on your habits to stay on track.',
-      'Medication is tapering toward your next dose. High-protein meals help bridge the gap.',
-      'Appetite may increase \u2014 that\u2019s normal pharmacology, not failure. Stay consistent.',
-    ],
+  // Daily / oral drugs: near steady state, no meaningful within-cycle taper.
+  daily: {
+    shot: {
+      title: 'Daily Rhythm',
+      messages: [
+        'Daily dosing keeps your levels fairly steady \u2014 there\u2019s no big within-day cycle. Take your dose consistently and aim for protein at each meal.',
+        'Consistency is everything here. Same time each day keeps levels even and appetite predictable.',
+      ],
+    },
+    peak: {
+      title: 'Daily Rhythm',
+      messages: [
+        'Your level stays close to steady through the day. Protein and hydration matter more than timing your meals to a phase.',
+        'Appetite suppression is fairly constant. Focus on hitting protein, fiber, and water targets every day.',
+      ],
+    },
+    balance: {
+      title: 'Daily Rhythm',
+      messages: [
+        'Steady levels mean steady energy \u2014 a good day for movement and habit-building.',
+        'Nothing dramatic in the curve today. Keep meals protein-forward and stay hydrated.',
+      ],
+    },
+    reset: {
+      title: 'Daily Rhythm',
+      messages: [
+        'Hunger can creep up before your next dose \u2014 a protein-rich snack helps bridge the gap.',
+        'If you feel hungrier toward dose time, that\u2019s normal. Stay consistent with timing and protein.',
+      ],
+    },
   },
 };
 
-export function getPhaseFocusMessage(phase: ShotPhase): { title: string; message: string } {
+/**
+ * Phase narrative tailored to the user's drug and dosing schedule.
+ * @param phase        computed shot phase
+ * @param glp1Type     drug type (drives peak-timing copy)
+ * @param injFreqDays  dosing interval in days (drives schedule-aware taper copy)
+ */
+export function getPhaseFocusMessage(
+  phase: ShotPhase,
+  glp1Type?: Glp1Type,
+  injFreqDays: number = 7,
+): { title: string; message: string } {
   const doy = getDayOfYear(new Date());
-  const entry = PHASE_FOCUS_MESSAGES[phase];
-  return { title: entry.title, message: dailyPick(entry.messages, doy) };
+  const profile = peakProfileFor(glp1Type);
+  const entry = DRUG_PHASE_MESSAGES[profile][phase];
+  let message = dailyPick(entry.messages, doy);
+
+  // Schedule-aware note for non-weekly injectable cadences (e.g. biweekly).
+  if (phase === 'reset' && profile !== 'daily' && injFreqDays !== 7) {
+    message += ` Your doses are spaced ${cadenceWord(injFreqDays)}, so this taper window runs ${injFreqDays > 7 ? 'longer' : 'shorter'} than a standard weekly cycle.`;
+  }
+
+  return { title: entry.title, message };
 }
 
 function buildFocusItem(
@@ -1813,6 +1920,7 @@ export function computeEnergyBank(
   pkConcentration?: number | null,
   fatigueBurden?: number,
   baseline?: { hrvMs: number | null; restingHR: number | null; sleepMinutes: number | null; sampleCount: number } | null,
+  isOnTreatment: boolean = true,
 ): EnergyBankResult {
   const hasSleep = wearable.sleepMinutes != null;
   const hasHRV = wearable.hrvMs != null;
@@ -1892,14 +2000,16 @@ export function computeEnergyBank(
   }
   raw.push({
     id: 'drugLevel', label: 'Drug Level', score: drugScore, baseWeight: 0.18,
-    available: true,
-    detail: buildDrugLevelDetail(
-      hasPK ? pkConcentration! : null,
-      phase,
-      targets.programPhase,
-      sideEffectBurden,
-      fatigueBurden ?? 0,
-    ),
+    available: isOnTreatment,
+    detail: isOnTreatment
+      ? buildDrugLevelDetail(
+          hasPK ? pkConcentration! : null,
+          phase,
+          targets.programPhase,
+          sideEffectBurden,
+          fatigueBurden ?? 0,
+        )
+      : 'Paused — not counted while you’re between medications',
   });
 
   // ── 4. Nutrition — Calories (60%) + Protein (40%) (17%) ─────────────────
@@ -1952,8 +2062,10 @@ export function computeEnergyBank(
   const seScore = Math.max(0, Math.round(100 - blendedBurden));
   raw.push({
     id: 'sideEffects', label: 'Side Effects', score: seScore, baseWeight: 0.10,
-    available: true,
-    detail: blendedBurden > 0
+    available: isOnTreatment,
+    detail: !isOnTreatment
+      ? 'Paused — not counted while you’re between medications'
+      : blendedBurden > 0
       ? `${Math.round(blendedBurden)}% burden${fatigueBurden != null && fatigueBurden > 0 ? ' (fatigue-weighted)' : ''} — ${blendedBurden >= 40 ? 'significant drain on energy' : 'mild impact'}`
       : 'No recent side effects — positive for energy',
   });
