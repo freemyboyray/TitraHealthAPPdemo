@@ -20,7 +20,7 @@ export default function SupportScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
             <IconSymbol name="chevron.left" size={22} color={colors.orange} />
           </Pressable>
-          <Text style={s.headerTitle}>Support & Legal</Text>
+          <Text style={s.headerTitle}>Help & Support</Text>
           <View style={{ width: 22 }} />
         </View>
 
@@ -38,12 +38,12 @@ export default function SupportScreen() {
 
             <View style={s.divider} />
 
-            <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Terms & Privacy" accessibilityRole="button">
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/tutorial' as any)} accessibilityLabel="App Tutorial" accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
-                  <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
+                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
+                  <IconSymbol name="book.fill" size={18} color="#FF742A" />
                 </View>
-                <Text style={s.rowLabel}>Terms & Privacy</Text>
+                <Text style={s.rowLabel}>App Tutorial</Text>
               </View>
               <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
             </Pressable>

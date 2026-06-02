@@ -268,12 +268,24 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/support' as any)} accessibilityLabel="Support & Legal" accessibilityRole="button">
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/support' as any)} accessibilityLabel="Help & Support" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
                 <IconSymbol name="questionmark.circle.fill" size={18} color="#32ADE6" />
               </View>
-              <Text style={s.rowLabel}>Support & Legal</Text>
+              <Text style={s.rowLabel}>Help & Support</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+          </Pressable>
+
+          <View style={s.divider} />
+
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Legal" accessibilityRole="button">
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
+                <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
+              </View>
+              <Text style={s.rowLabel}>Legal</Text>
             </View>
             <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </Pressable>
