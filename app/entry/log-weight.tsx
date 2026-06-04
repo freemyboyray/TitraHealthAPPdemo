@@ -272,10 +272,9 @@ export default function LogWeightScreen() {
       })();
       // Auto-fill body composition from HealthKit if available
       const hk = useHealthKitStore.getState();
-      if (hk.bodyFat != null || hk.leanMass != null || hk.waist != null) {
+      if (hk.bodyFat != null || hk.leanMass != null) {
         if (hk.bodyFat != null) setBodyFat(hk.bodyFat);
         if (hk.leanMass != null) setLeanMass(hk.leanMass);
-        if (hk.waist != null) setWaistIn(hk.waist);
         setHkBodyCompUsed(true);
         setBodyCompOpen(true);
       }

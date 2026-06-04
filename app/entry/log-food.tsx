@@ -1055,7 +1055,7 @@ export default function LogFoodScreen() {
                           onPress={() => toggleFavorite(item.food_name)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <LucideIconByName name={item.is_favorite ? 'star' : 'star-outline'}
+                          <LucideIconByName name="Star"
                             size={16}
                             color={item.is_favorite ? colors.orange : (colors.isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')} />
                         </TouchableOpacity>

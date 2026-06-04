@@ -217,6 +217,7 @@ describe('computeGlp1Support', () => {
     carbsG: 200,
     fatG: 60,
     activeCaloriesTarget: 300,
+    exerciseMinutesTarget: 30,
     proteinPriority: false,
     programPhase: 'titration',
   };
@@ -229,6 +230,10 @@ describe('computeGlp1Support', () => {
       steps: 8000,
       caloriesKcal: 2000,
       injectionLogged: true,
+      exerciseMinutes: 30,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      flightsClimbed: 0,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(100);
   });
@@ -241,6 +246,10 @@ describe('computeGlp1Support', () => {
       steps: 0,
       caloriesKcal: 0,
       injectionLogged: false,
+      exerciseMinutes: 0,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      flightsClimbed: 0,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(0);
   });
@@ -253,6 +262,10 @@ describe('computeGlp1Support', () => {
       steps: 16000,  // over target
       caloriesKcal: 3000,
       injectionLogged: true,
+      exerciseMinutes: 60,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      flightsClimbed: 0,
     };
     expect(computeGlp1Support(actuals, targets)).toBe(100);
   });
@@ -260,7 +273,7 @@ describe('computeGlp1Support', () => {
   it('medication component is 15 or 0', () => {
     const base: DailyActuals = {
       proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0,
-      injectionLogged: false,
+      injectionLogged: false, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0,
     };
     expect(computeGlp1Support(base, targets)).toBe(0);
     expect(computeGlp1Support({ ...base, injectionLogged: true }, targets)).toBe(15);

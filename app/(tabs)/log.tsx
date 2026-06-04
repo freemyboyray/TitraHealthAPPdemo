@@ -49,7 +49,6 @@ import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScrollTitle } from '@/components/ui/scroll-title';
-import { HelpButton } from '@/components/ui/help-button';
 
 
 // ─── Health Monitor types + helpers ──────────────────────────────────────────
@@ -83,21 +82,9 @@ function hmBodyFatLabel(pct: number): string { return pct <= 20 ? 'Lean' : pct <
 // Lean mass — informational
 function hmLeanMassStatus(): HMStatus { return 'normal'; }
 function hmLeanMassLabel(): string { return 'Latest'; }
-// Waist — informational
-function hmWaistStatus(): HMStatus { return 'normal'; }
-function hmWaistLabel(): string { return 'Latest'; }
-// BMI
-function hmBmiStatus(v: number): HMStatus { return v < 18.5 ? 'low' : v < 25 ? 'good' : v < 30 ? 'normal' : 'elevated'; }
-function hmBmiLabel(v: number): string { return v < 18.5 ? 'Underweight' : v < 25 ? 'Normal' : v < 30 ? 'Overweight' : 'Obese'; }
-// VO2 Max
-function hmVo2Status(v: number): HMStatus { return v >= 45 ? 'good' : v >= 35 ? 'normal' : 'low'; }
-function hmVo2Label(v: number): string { return v >= 45 ? 'Excellent' : v >= 35 ? 'Normal' : 'Below Avg'; }
 // SpO2
 function hmSpo2Status(v: number): HMStatus { return v >= 96 ? 'good' : v >= 92 ? 'normal' : 'low'; }
 function hmSpo2Label(v: number): string { return v >= 96 ? 'Normal' : v >= 92 ? 'Borderline' : 'Low'; }
-// Blood pressure
-function hmBpStatus(sys: number): HMStatus { return sys < 120 ? 'good' : sys < 140 ? 'normal' : 'elevated'; }
-function hmBpLabel(sys: number): string { return sys < 120 ? 'Normal' : sys < 140 ? 'Elevated' : 'High'; }
 // Exercise minutes
 function hmExMinStatus(v: number): HMStatus { return v >= 30 ? 'good' : v >= 15 ? 'normal' : 'low'; }
 function hmExMinLabel(v: number): string { return v >= 30 ? 'On Target' : v >= 15 ? 'Normal' : 'Below Goal'; }
@@ -119,9 +106,6 @@ function hmMindfulLabel(m: number): string { return m >= 15 ? 'Great' : m >= 5 ?
 // TDEE (basal + active)
 function hmTdeeStatus(cal: number): HMStatus { return cal >= 1800 ? 'good' : cal >= 1400 ? 'normal' : 'low'; }
 function hmTdeeLabel(cal: number): string { return cal >= 1800 ? 'Normal' : cal >= 1400 ? 'Low' : 'Very Low'; }
-// Glucose time-in-range
-function hmTirStatus(pct: number): HMStatus { return pct >= 70 ? 'good' : pct >= 50 ? 'normal' : 'low'; }
-function hmTirLabel(pct: number): string { return pct >= 70 ? 'On Target' : pct >= 50 ? 'Needs Work' : 'Low'; }
 function fmtSleep(min: number): string { return `${Math.floor(min / 60)}h ${min % 60}m`; }
 // Workout type name cleanup
 function fmtWorkoutType(raw: string): string {
@@ -141,16 +125,11 @@ function hmGaugePos(id: string, rawVal: number | null): number | null {
     case 'hrv':       return c((rawVal - 15) / 85);             // 15-100 ms, higher = top
     case 'sleep':     return c((rawVal - 240) / 360);           // 4h-10h, higher = top
     case 'spo2':      return c((rawVal - 88) / 12);             // 88-100%, higher = top
-    case 'glucose':   return c(1 - (rawVal - 70) / 80);        // 70-150, lower = top
     case 'steps':     return c(rawVal / 15000);                 // 0-15k, higher = top
     case 'activeCal': return c(rawVal / 800);                   // 0-800 kcal
     case 'weight':    return 0.5;                               // informational
     case 'bodyFat':   return c(1 - (rawVal - 5) / 40);         // 5-45%, lower = top
     case 'leanMass':  return 0.5;                               // informational
-    case 'waist':     return 0.5;                               // informational
-    case 'bmi':       return c(1 - (rawVal - 15) / 25);        // 15-40, lower = top
-    case 'vo2max':    return c((rawVal - 20) / 40);             // 20-60, higher = top
-    case 'bp':        return c(1 - (rawVal - 90) / 70);        // 90-160 sys, lower = top
     case 'exMin':     return c(rawVal / 60);                    // 0-60 min
     case 'water':     return c(rawVal / 100);                   // 0-100 fl oz
     case 'respRate':  return c(1 - Math.abs(rawVal - 16) / 12); // 16 bpm ideal, penalize deviation
@@ -973,17 +952,13 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
   const hrv = hkStore.hrv;
   const sleep = hkStore.sleepHours;
   const sleepMin = sleep != null ? Math.round(sleep * 60) : null;
-  const glucose = hkStore.bloodGlucose;
   const spo2 = hkStore.spo2;
-  const bp = hkStore.bloodPressure;
   const respRate = hkStore.respiratoryRate;
   const vitals: HealthMetric[] = [
     rhr != null ? { id: 'rhr', label: 'Resting HR', value: String(rhr), unit: 'bpm', status: hmRhrStatus(rhr), lucideIcon: 'Heart', rangeLabel: hmRhrLabel(rhr), gaugePosition: hmGaugePos('rhr', rhr) } : hmEmpty('rhr', 'Resting HR', 'Heart'),
     hrv != null ? { id: 'hrv', label: 'HRV', value: String(hrv), unit: 'ms', status: hmHrvStatus(hrv), lucideIcon: 'TrendingUp', rangeLabel: hmHrvLabel(hrv), gaugePosition: hmGaugePos('hrv', hrv) } : hmEmpty('hrv', 'HRV', 'TrendingUp'),
     sleepMin != null ? { id: 'sleep', label: 'Sleep', value: fmtSleep(sleepMin), unit: '', status: hmSleepStatus(sleepMin), lucideIcon: 'Moon', rangeLabel: hmSleepLabel(sleepMin), gaugePosition: hmGaugePos('sleep', sleepMin) } : hmEmpty('sleep', 'Sleep', 'Moon'),
-    glucose != null ? { id: 'glucose', label: 'Blood Glucose', value: String(glucose), unit: 'mg/dL', status: glucose < 100 ? 'good' : glucose < 125 ? 'normal' : 'elevated', lucideIcon: 'Droplet', rangeLabel: glucose < 100 ? 'Normal' : glucose < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', glucose) } : hmEmpty('glucose', 'Blood Glucose', 'Droplet'),
     spo2 != null ? { id: 'spo2', label: 'SpO2', value: `${spo2}`, unit: '%', status: hmSpo2Status(spo2), lucideIcon: 'Wind', rangeLabel: hmSpo2Label(spo2), gaugePosition: hmGaugePos('spo2', spo2) } : hmEmpty('spo2', 'SpO2', 'Wind'),
-    bp != null ? { id: 'bp', label: 'Blood Pressure', value: `${bp.systolic}/${bp.diastolic}`, unit: 'mmHg', status: hmBpStatus(bp.systolic), lucideIcon: 'HeartPulse', rangeLabel: hmBpLabel(bp.systolic), gaugePosition: hmGaugePos('bp', bp.systolic) } : hmEmpty('bp', 'Blood Pressure', 'HeartPulse'),
     respRate != null ? { id: 'respRate', label: 'Resp. Rate', value: `${respRate}`, unit: 'bpm', status: hmRespRateStatus(respRate), lucideIcon: 'Leaf', rangeLabel: hmRespRateLabel(respRate), gaugePosition: hmGaugePos('respRate', respRate) } : hmEmpty('respRate', 'Resp. Rate', 'Leaf'),
   ];
   groups.push({ category: 'Vitals', metrics: vitals });
@@ -996,10 +971,6 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
   if (bf != null) body.push({ id: 'bodyFat', label: 'Body Fat', value: `${bf}`, unit: '%', status: hmBodyFatStatus(bf), lucideIcon: 'PersonStanding', rangeLabel: hmBodyFatLabel(bf), gaugePosition: hmGaugePos('bodyFat', bf) });
   const lm = hkStore.leanMass;
   if (lm != null) body.push({ id: 'leanMass', label: 'Lean Mass', value: `${lm}`, unit: 'lbs', status: hmLeanMassStatus(), lucideIcon: 'Dumbbell', rangeLabel: hmLeanMassLabel(), gaugePosition: hmGaugePos('leanMass', lm) });
-  const waist = hkStore.waist;
-  if (waist != null) body.push({ id: 'waist', label: 'Waist', value: `${waist}`, unit: 'in', status: hmWaistStatus(), lucideIcon: 'Ruler', rangeLabel: hmWaistLabel(), gaugePosition: hmGaugePos('waist', waist) });
-  const bmi = hkStore.bmi;
-  if (bmi != null) body.push({ id: 'bmi', label: 'BMI', value: `${bmi}`, unit: '', status: hmBmiStatus(bmi), lucideIcon: 'Scale', rangeLabel: hmBmiLabel(bmi), gaugePosition: hmGaugePos('bmi', bmi) });
   if (body.length > 0) groups.push({ category: 'Body Composition', metrics: body });
 
   // ── Activity ── (always show the full set we track; greyed when no data)
@@ -1007,7 +978,6 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
   // fallback). We keep TDEE/exMin/VO2/etc. here since those are HK-only.
   const cal = hkStore.activeCalories; // used for TDEE calc below
   const exMin = hkStore.exerciseMinutes;
-  const vo2 = hkStore.vo2max;
   const dist = hkStore.distance;
   const flights = hkStore.flightsClimbed;
   const basal = hkStore.basalEnergy;
@@ -1016,7 +986,6 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
     exMin != null && exMin > 0 ? { id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), lucideIcon: 'Clock', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) } : hmEmpty('exMin', 'Exercise', 'Clock'),
     dist != null ? { id: 'distance', label: 'Distance', value: `${dist}`, unit: 'mi', status: hmDistanceStatus(dist), lucideIcon: 'Map', rangeLabel: hmDistanceLabel(dist), gaugePosition: hmGaugePos('distance', dist) } : hmEmpty('distance', 'Distance', 'Map'),
     flights != null ? { id: 'flights', label: 'Flights', value: `${flights}`, unit: '', status: hmFlightsStatus(flights), lucideIcon: 'TrendingUp', rangeLabel: hmFlightsLabel(flights), gaugePosition: hmGaugePos('flights', flights) } : hmEmpty('flights', 'Flights', 'TrendingUp'),
-    vo2 != null ? { id: 'vo2max', label: 'VO2 Max', value: `${vo2}`, unit: 'mL/kg/min', status: hmVo2Status(vo2), lucideIcon: 'Gauge', rangeLabel: hmVo2Label(vo2), gaugePosition: hmGaugePos('vo2max', vo2) } : hmEmpty('vo2max', 'VO2 Max', 'Gauge'),
     tdee != null ? { id: 'tdee', label: 'TDEE', value: tdee.toLocaleString(), unit: 'cal', status: hmTdeeStatus(tdee), lucideIcon: 'Zap', rangeLabel: hmTdeeLabel(tdee), gaugePosition: hmGaugePos('tdee', tdee) } : hmEmpty('tdee', 'TDEE', 'Zap'),
   ];
   groups.push({ category: 'Activity', metrics: activity });
@@ -1047,17 +1016,6 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
   // Nutrition + Water are intentionally NOT shown here — those metrics flow
   // into the protein/fiber/carbs/hydration daily metric cards above (with HK
   // fallback when no in-app log exists), so we don't duplicate them.
-
-  // ── Glucose (CGM time-series stats) ──
-  const gStats = hkStore.glucoseStats;
-  if (gStats != null && gStats.sampleCount >= 3) {
-    const glucoseMetrics: HealthMetric[] = [
-      { id: 'glucoseAvg', label: 'Avg Glucose', value: `${gStats.average}`, unit: 'mg/dL', status: gStats.average < 100 ? 'good' : gStats.average < 125 ? 'normal' : 'elevated', lucideIcon: 'Droplet', rangeLabel: gStats.average < 100 ? 'Normal' : gStats.average < 125 ? 'Pre-range' : 'High', gaugePosition: hmGaugePos('glucose', gStats.average) },
-      { id: 'tir', label: 'Time in Range', value: `${gStats.timeInRange}`, unit: '%', status: hmTirStatus(gStats.timeInRange), lucideIcon: 'Target', rangeLabel: hmTirLabel(gStats.timeInRange), gaugePosition: hmGaugePos('tir', gStats.timeInRange) },
-      { id: 'glucoseRange', label: 'Range', value: `${gStats.min}–${gStats.max}`, unit: 'mg/dL', status: 'normal', lucideIcon: 'ArrowUpDown', rangeLabel: `${gStats.sampleCount} readings`, gaugePosition: null },
-    ];
-    groups.push({ category: 'Glucose (24h)', metrics: glucoseMetrics });
-  }
 
   return groups;
 }
@@ -3661,7 +3619,6 @@ export default function InsightsScreen() {
           {/* ── Hero title ── */}
           <View style={[s.heroHeader, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
             <Text style={s.heroTitle}>Insights</Text>
-            <HelpButton color={minimalHeader && !colors.isDark ? '#000000' : '#FFFFFF'} size={26} />
           </View>
 
           {/* ── Segmented Control ── */}

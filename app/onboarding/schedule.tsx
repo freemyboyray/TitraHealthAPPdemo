@@ -103,19 +103,6 @@ export default function ScheduleScreen() {
                   ? 'This medication is taken every day as a pill. Your schedule is automatically set to once daily.'
                   : 'This medication is injected once every day. Your schedule is automatically set to daily.'}
               </Text>
-              {isOral && (
-                <View style={s.tipCard}>
-                  <Text style={s.tipTitle}>Important: Take on an empty stomach</Text>
-                  <Text style={s.tipBody}>
-                    Oral semaglutide must be taken first thing in the morning with at most{' '}
-                    <Text style={s.tipBold}>4 oz (120 mL) of plain water</Text>, then wait{' '}
-                    <Text style={s.tipBold}>at least 30 minutes</Text> before eating, drinking,
-                    or taking other medications. Food or excess water can reduce absorption by
-                    up to 90%.
-                  </Text>
-                </View>
-              )}
-
               <Text style={s.sectionLabel}>What time do you take your {doseNoun}?</Text>
               <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
                 We'll send you a daily reminder at this time.

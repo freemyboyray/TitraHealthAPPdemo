@@ -89,6 +89,9 @@ type PreferencesStore = {
   dismissWeeklyCheckinCard: () => void;
   weeklySummaryCardDismissed: boolean;
   dismissWeeklySummaryCard: () => void;
+  /** Whether the one-time consent prompt has already been shown (persisted so it never re-appears). */
+  consentPromptShown: boolean;
+  markConsentPromptShown: () => void;
   reset: () => void;
 };
 
@@ -160,6 +163,8 @@ export const usePreferencesStore = create<PreferencesStore>()(
       dismissWeeklyCheckinCard: () => set({ weeklyCheckinCardDismissed: true }),
       weeklySummaryCardDismissed: false,
       dismissWeeklySummaryCard: () => set({ weeklySummaryCardDismissed: true }),
+      consentPromptShown: false,
+      markConsentPromptShown: () => set({ consentPromptShown: true }),
       hasReviewedApp: false,
       reviewPromptLastShown: null,
       reviewPromptDismissCount: 0,
@@ -174,7 +179,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         appOpenCount: s.appOpenCount + 1,
         firstOpenDate: s.firstOpenDate ?? todayKey(),
       })),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, consentPromptShown: false, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

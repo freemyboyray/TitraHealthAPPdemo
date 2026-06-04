@@ -9,7 +9,6 @@ import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingVi
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
-import { HelpButton } from '@/components/ui/help-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
@@ -77,7 +76,7 @@ const INJECTION_SITES = [
   'Left Thigh', 'Right Thigh',
   'Left Upper Arm', 'Right Upper Arm',
 ];
-const FF = 'System';
+const FF = 'Inter_400Regular';
 
 const MED_BRAND: Record<string, string> = {
   semaglutide: 'Ozempic',
@@ -314,7 +313,7 @@ function DayTile({ item, onSelect, colors }: { item: StripDay; onSelect: (d: Dat
       accessibilityRole="button"
     >
       <Text style={{
-        fontSize: 10, fontWeight: '600', fontFamily: 'System',
+        fontSize: 10, fontWeight: '600', fontFamily: FF,
         color: isHighlighted ? 'rgba(255,255,255,0.8)'
           : dk ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
         marginBottom: 2,
@@ -322,7 +321,7 @@ function DayTile({ item, onSelect, colors }: { item: StripDay; onSelect: (d: Dat
         {item.dayLabel}
       </Text>
       <Text style={{
-        fontSize: 17, fontWeight: '800', fontFamily: 'System',
+        fontSize: 17, fontWeight: '800', fontFamily: FF,
         color: isHighlighted ? '#FFFFFF'
           : dk ? '#FFFFFF' : '#000000',
       }}>
@@ -895,7 +894,7 @@ export default function HomeScreen() {
   }, [profile?.startDate, profile?.doseMg, profile?.glp1Type]);
 
   // ── Date-scoped display values ──────────────────────────────────────────────
-  const ZERO_ACTUALS: DailyActuals = { proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false };
+  const ZERO_ACTUALS: DailyActuals = { proteinG: 0, waterMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 };
 
   const displayActuals: DailyActuals = isToday
     ? actuals
@@ -1234,7 +1233,6 @@ export default function HomeScreen() {
               </Text>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <HelpButton variant="chip" diameter={52} size={26} />
                 <Pressable
                   onPress={() => router.push('/streak')}
                   style={{
@@ -1519,19 +1517,19 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
-  greetingText: { fontSize: 28, fontWeight: '600', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
-  greetingName: { fontSize: 28, fontWeight: '900', color: headerText, letterSpacing: -0.5, fontFamily: 'System' },
-  dateTitle: { fontSize: 18, fontWeight: '700', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -0.3, fontFamily: 'System' },
+  greetingText: { fontSize: 28, fontWeight: '600', color: headerText, letterSpacing: -0.5, fontFamily: FF },
+  greetingName: { fontSize: 28, fontWeight: '900', color: headerText, letterSpacing: -0.5, fontFamily: FF },
+  dateTitle: { fontSize: 18, fontWeight: '700', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -0.3, fontFamily: FF },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  medPillText: { fontSize: 14, fontWeight: '600', color: c.textMuted, fontFamily: 'System' },
-  phaseLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: 'System' },
-  futureNote: { fontSize: 13, color: headerText, opacity: 0.7, marginTop: 4, fontWeight: '600', fontFamily: 'System', textAlign: 'center' as const },
-  connectHealthKit: { fontSize: 14, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: 'System' },
+  medPillText: { fontSize: 14, fontWeight: '600', color: c.textMuted, fontFamily: FF },
+  phaseLabel: { fontSize: 15, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+  futureNote: { fontSize: 13, color: headerText, opacity: 0.7, marginTop: 4, fontWeight: '600', fontFamily: FF, textAlign: 'center' as const },
+  connectHealthKit: { fontSize: 14, color: 'rgba(255,116,42,0.7)', fontWeight: '500', marginTop: 4, textDecorationLine: 'underline', fontFamily: FF },
 
   // Card containers
   cardWrap: { borderRadius: 28, ...(c.isDark
@@ -1541,9 +1539,9 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Insights card (kept for DailyLogSummaryCard insightsTitle usage)
   insightsHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  insightsTitle: { fontSize: 19, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
-  shotPhase: { fontSize: 12, fontWeight: '700', color: c.orange, letterSpacing: 1.2, fontFamily: 'System' },
-  insightsParagraph: { fontSize: 17, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: 'System' },
+  insightsTitle: { fontSize: 19, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+  shotPhase: { fontSize: 12, fontWeight: '700', color: c.orange, letterSpacing: 1.2, fontFamily: FF },
+  insightsParagraph: { fontSize: 17, color: w(0.75), fontWeight: '400', lineHeight: 23, fontFamily: FF },
 
   // Treatment Hero card
   heroCard: {
@@ -1574,13 +1572,13 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.8,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   heroMedLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: c.textSecondary,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   heroStats: {
     flexDirection: 'row',
@@ -1600,7 +1598,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
     fontSize: 26,
     fontWeight: '800',
     color: c.textPrimary,
-    fontFamily: 'System',
+    fontFamily: FF,
     letterSpacing: -0.5,
   },
   heroStatLbl: {
@@ -1608,7 +1606,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
     color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 14,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   heroCycleRow: {
     gap: 8,
@@ -1621,7 +1619,7 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   heroCycleLbl: {
     fontSize: 13,
     color: c.textSecondary,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   heroCycleBar: {
     height: 4,
@@ -1651,29 +1649,29 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
     fontSize: 15,
     fontWeight: '700',
     color: '#FF742A',
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   transitionBody: {
     fontSize: 15,
     fontWeight: '600',
     color: c.textPrimary,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
   transitionHint: {
     fontSize: 13,
     color: c.textSecondary,
     marginTop: 4,
-    fontFamily: 'System',
+    fontFamily: FF,
   },
 
   // Section title
-  sectionTitle: { fontSize: 22, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, lineHeight: 28, marginTop: 12, marginBottom: 16, fontFamily: 'System' },
+  sectionTitle: { fontSize: 22, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, lineHeight: 28, marginTop: 12, marginBottom: 16, fontFamily: FF },
   pendingBadge: {
     backgroundColor: 'rgba(255,116,42,0.15)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
   },
   pendingBadgeText: {
-    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: 'System',
+    fontSize: 13, fontWeight: '700', color: '#FF742A', fontFamily: FF,
   },
 
   // Escalation Phase Banner
@@ -1687,27 +1685,27 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
     alignItems: 'flex-start',
   },
   phaseDisplayName: {
-    fontSize: 15, fontWeight: '700', color: '#FF742A', fontFamily: 'System',
+    fontSize: 15, fontWeight: '700', color: '#FF742A', fontFamily: FF,
   },
   phaseWeek: {
     fontSize: 13, fontWeight: '600', color: w(0.4),
     backgroundColor: c.borderSubtle, borderRadius: 8,
-    paddingHorizontal: 6, paddingVertical: 2, fontFamily: 'System',
+    paddingHorizontal: 6, paddingVertical: 2, fontFamily: FF,
   },
   plasticityBadge: {
     backgroundColor: 'rgba(255,116,42,0.2)', borderRadius: 8,
     paddingHorizontal: 6, paddingVertical: 2,
   },
   plasticityText: {
-    fontSize: 11, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: 'System',
+    fontSize: 11, fontWeight: '800', color: '#FF742A', letterSpacing: 0.8, fontFamily: FF,
   },
   phaseFocus: {
-    fontSize: 14, color: w(0.55), lineHeight: 17, fontFamily: 'System',
+    fontSize: 14, color: w(0.55), lineHeight: 17, fontFamily: FF,
   },
 
-  medDisclaimer: { fontSize: 12, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 20, paddingHorizontal: 8, fontFamily: 'System' },
+  medDisclaimer: { fontSize: 12, color: w(0.30), textAlign: 'center', lineHeight: 16, marginTop: 20, paddingHorizontal: 8, fontFamily: FF },
   sourcesLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, marginBottom: 8 },
-  sourcesLinkText: { fontSize: 13, fontWeight: '600', color: '#FF742A', fontFamily: 'System' },
+  sourcesLinkText: { fontSize: 13, fontWeight: '600', color: '#FF742A', fontFamily: FF },
 
   });
 };
@@ -1724,13 +1722,13 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   },
   inner:      { padding: 16 },
   monthRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  monthLabel: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
+  monthLabel: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
   weekRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  dayHeader:  { width: 36, textAlign: 'center', fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: 'System' },
+  dayHeader:  { width: 36, textAlign: 'center', fontSize: 12, fontWeight: '600', color: c.textMuted, fontFamily: FF },
   cell:       { width: 36, height: 42, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 3 },
   dayCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   daySelected: { backgroundColor: '#FF742A' },
-  dayNum:     { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: 'System' },
+  dayNum:     { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
   dayNumSel:  { fontWeight: '800' },
   dayFuture:  { opacity: 0.45 },
   todayDot:   { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#5AC8FA', marginTop: 2 },
@@ -1739,5 +1737,5 @@ const createCalStyles = (c: AppColors) => StyleSheet.create({
   legend:      { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
   legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:   { width: 6, height: 6, borderRadius: 3 },
-  legendLabel: { fontSize: 13, color: c.textMuted, fontFamily: 'System' },
+  legendLabel: { fontSize: 13, color: c.textMuted, fontFamily: FF },
 });

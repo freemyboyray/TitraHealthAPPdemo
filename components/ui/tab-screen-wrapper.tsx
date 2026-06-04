@@ -1,35 +1,13 @@
-import { useFocusEffect } from 'expo-router';
-import React, { useCallback } from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 type Props = { children: React.ReactNode; style?: object };
 
 export function TabScreenWrapper({ children, style }: Props) {
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.97);
-
-  useFocusEffect(
-    useCallback(() => {
-      opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
-      scale.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
-    }, []),
-  );
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
-    <Animated.View style={[styles.fill, animStyle, style]}>
+    <View style={[styles.fill, style]}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 

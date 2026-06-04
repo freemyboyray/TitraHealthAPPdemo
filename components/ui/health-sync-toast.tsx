@@ -52,7 +52,7 @@ export function HealthSyncToast() {
           },
         ]}
       >
-        <LucideIconByName name={Platform.OS === 'ios' ? 'heart' : 'fitness'}
+        <LucideIconByName name={Platform.OS === 'ios' ? 'Heart' : 'Activity'}
           size={15}
           color="#FF2D55" />
         <Text

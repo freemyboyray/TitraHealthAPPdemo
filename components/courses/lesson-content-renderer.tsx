@@ -176,7 +176,7 @@ function ChecklistRenderer({ items, colors }: { items: string[]; colors: AppColo
       <Text style={s.checkTitle}>Checklist</Text>
       {items.map((item, i) => (
         <Pressable key={i} style={s.checkRow} onPress={() => toggle(i)}>
-          <LucideIconByName name={checked.has(i) ? 'checkbox' : 'square-outline'}
+          <LucideIconByName name={checked.has(i) ? 'CircleCheck' : 'Circle'}
             size={20}
             color={checked.has(i) ? '#27AE60' : 'rgba(255,255,255,0.3)'} />
           <Text style={[s.checkText, checked.has(i) && s.checkTextDone]}>{item}</Text>

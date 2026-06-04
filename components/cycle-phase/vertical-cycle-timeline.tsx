@@ -17,8 +17,8 @@ const PHASE_LABELS: Record<ShotPhase, string> = {
 
 const PHASE_DESCRIPTIONS: Record<ShotPhase, string> = {
   shot: 'Medication absorbing',
-  peak: 'Strongest appetite suppression',
-  balance: 'Stable medication levels',
+  peak: 'Peak suppression',
+  balance: 'Steady levels',
   reset: 'Levels tapering off',
 };
 
@@ -243,6 +243,7 @@ export function VerticalCycleTimeline({
                 {node.label}
               </Text>
               <Text
+                numberOfLines={1}
                 style={[
                   styles.labelSub,
                   {
@@ -279,6 +280,7 @@ const styles = StyleSheet.create({
   },
   labelRow: {
     position: 'absolute',
+    maxWidth: 180,
   },
   labelTitle: {
     fontFamily: FF,

@@ -71,7 +71,7 @@ export default function ActivityDetailScreen() {
           </View>
         ) : routedHealthGroups.activity.length === 0 ? (
           <Text style={s.emptyText}>
-            No Apple Health activity data yet. Workouts, exercise minutes, and VO2 Max will populate here as Apple Health collects them.
+            No Apple Health activity data yet. Workouts, exercise minutes, and distance will populate here as Apple Health collects them.
           </Text>
         ) : (
           (() => {

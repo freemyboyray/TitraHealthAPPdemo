@@ -128,6 +128,10 @@ export const usePersonalizationStore = create<PersonalizationStore>((set, get) =
           .reduce((s, a) => s + (a.steps ?? 0), 0),
         injectionLogged:  (freshLogState.injectionLogs ?? [])
           .some(i => i.injection_date === new Date().toISOString().split('T')[0]),
+        exerciseMinutes: 0,
+        workoutMinutes: 0,
+        workoutCalories: 0,
+        flightsClimbed: 0,
       };
 
       const profile = mergeProfileData(freshLogState.profile, {});

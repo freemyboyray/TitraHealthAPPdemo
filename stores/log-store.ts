@@ -61,6 +61,8 @@ type LogStore = {
   profile: ProfileRow | null;
   userGoals: UserGoalsRow | null;
 
+  /** Reset all in-memory state (called on sign-out to prevent stale data bleeding into the next account). */
+  resetAll: () => void;
   fetchInsightsData: () => Promise<void>;
 
   // Weight - DB stores lbs
@@ -807,6 +809,23 @@ export const useLogStore = create<LogStore>((set, get) => ({
     const { error } = await supabase.from('side_effect_logs').update(fields).eq('id', id).eq('user_id', user.id);
     if (!error) await get().fetchInsightsData();
   },
+
+  resetAll: () => set({
+    loading: false,
+    hydrated: false,
+    error: null,
+    weightLogs: [],
+    injectionLogs: [],
+    foodLogs: [],
+    activityLogs: [],
+    sideEffectLogs: [],
+    foodNoiseLogs: [],
+    energyLogs: [],
+    weeklyCheckins: {},
+    weeklySummaries: [],
+    profile: null,
+    userGoals: null,
+  }),
 
   fetchWeeklyCheckins: async (type) => {
     const { data: { user } } = await supabase.auth.getUser();

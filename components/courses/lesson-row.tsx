@@ -19,10 +19,10 @@ type Props = {
 };
 
 const CONTENT_TYPE_ICONS: Record<string, string> = {
-  article: 'document-text-outline',
-  checklist: 'checkbox-outline',
-  exercise: 'pencil-outline',
-  breathing: 'leaf-outline',
+  article: 'FileText',
+  checklist: 'CircleCheck',
+  exercise: 'Pencil',
+  breathing: 'Leaf',
 };
 
 export function LessonRow({ title, subtitle, estimatedMinutes, contentType, isCompleted, isLast, onPress }: Props) {
@@ -37,7 +37,7 @@ export function LessonRow({ title, subtitle, estimatedMinutes, contentType, isCo
         {isCompleted ? (
           <Check size={14} color="#FFFFFF" />
         ) : (
-          <LucideIconByName name={(CONTENT_TYPE_ICONS[contentType] ?? 'document-text-outline') as any}
+          <LucideIconByName name={(CONTENT_TYPE_ICONS[contentType] ?? 'FileText') as any}
             size={14}
             color={w(0.4)} />
         )}

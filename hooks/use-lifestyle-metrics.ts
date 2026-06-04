@@ -28,7 +28,7 @@ import {
 
 export type HealthMetricGroup = { category: string; metrics: HealthMetric[] };
 
-const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'glucose', 'bp', 'respRate', 'vo2max']);
+const PREMIUM_METRIC_IDS = new Set(['hrv', 'spo2', 'respRate']);
 
 /**
  * Shared data layer for the Lifestyle tab and its three detail screens

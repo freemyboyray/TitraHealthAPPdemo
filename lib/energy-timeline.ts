@@ -105,6 +105,10 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
       steps: 0,
       caloriesKcal: cumCalories,
       injectionLogged: false,
+      exerciseMinutes: 0,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      flightsClimbed: 0,
     };
 
     const result = computeEnergyBank(

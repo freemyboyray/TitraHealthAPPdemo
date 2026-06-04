@@ -53,23 +53,19 @@ const GROUPS: Group[] = [
     rows: [
       { key: 'bodyFat',   label: 'Body Fat %',     sub: 'Lean mass preservation is the killer GLP-1 metric', icon: 'PersonStanding' },
       { key: 'leanMass',  label: 'Lean Body Mass', sub: '',                    icon: 'Dumbbell' },
-      { key: 'waist',     label: 'Waist',          sub: '',                    icon: 'Ruler' },
-      { key: 'bmi',       label: 'BMI',            sub: '',                    icon: 'BarChart3' },
     ],
   },
   {
     title: 'CARDIOVASCULAR',
     rows: [
-      { key: 'vo2max',           label: 'VO₂ Max',        sub: 'Cardiorespiratory fitness',        icon: 'Dumbbell' },
       { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'Droplet' },
-      { key: ['bpSystolic', 'bpDiastolic'], label: 'Blood Pressure', sub: '', icon: 'HeartPulse' },
       { key: 'respiratoryRate',  label: 'Respiratory Rate', sub: 'Recovery scoring signal',         icon: 'Leaf' },
     ],
   },
   {
     title: 'NUTRITION',
     rows: [
-      { key: 'water',        label: 'Hydration',      sub: 'Common GLP-1 issue',                    icon: 'water' },
+      { key: 'water',        label: 'Hydration',      sub: 'Common GLP-1 issue',                    icon: 'Droplet' },
       { key: 'calories',     label: 'Calories',       sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'Flame' },
       { key: 'protein',      label: 'Protein',        sub: 'Critical for preserving lean mass',     icon: 'Apple' },
       { key: 'saturatedFat', label: 'Saturated Fat',  sub: 'Cardiovascular health tracking',        icon: 'Circle' },
@@ -91,12 +87,6 @@ const GROUPS: Group[] = [
       { key: 'symptomDizziness',        label: 'Dizziness',    sub: '', icon: 'RefreshCw' },
       { key: 'symptomAppetite',         label: 'Appetite Changes', sub: '', icon: 'Utensils' },
       { key: 'symptomMood',             label: 'Mood Changes', sub: '', icon: 'Smile' },
-    ],
-  },
-  {
-    title: 'METABOLIC',
-    rows: [
-      { key: 'glucose', label: 'Blood Glucose', sub: 'Dexcom, Libre, Stelo sync automatically', icon: 'BarChart3' },
     ],
   },
   {

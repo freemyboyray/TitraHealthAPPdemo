@@ -1,3 +1,4 @@
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 // expo-notifications requires a dev build; guard so Expo Go doesn't crash.
 let Notifications: typeof import('expo-notifications') | undefined;
@@ -21,6 +22,7 @@ import { useUserStore } from '@/stores/user-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { useLogStore } from '@/stores/log-store';
 import { syncNotifications } from '@/stores/reminders-store';
 // react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let iapModule: typeof import('@/lib/storekit') | undefined;
@@ -123,6 +125,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         cancelAllReminders().catch(() => {});
         AsyncStorage.clear().catch(() => {});
         resetProfile();
+        usePreferencesStore.getState().reset();
+        useLogStore.getState().resetAll();
         posthog?.reset();
         router.replace('/auth/welcome');
       }
@@ -233,12 +237,18 @@ function ConsentPromptLayer() {
   const consentMigrationDone = useUserStore((s) => s.consentMigrationDone);
   const aiDataConsent = usePreferencesStore((s) => s.aiDataConsent);
   const foodDbConsent = usePreferencesStore((s) => s.foodDbConsent);
+  const consentPromptShown = usePreferencesStore((s) => s.consentPromptShown);
+  const markConsentPromptShown = usePreferencesStore((s) => s.markConsentPromptShown);
   const { pendingEvent } = useAchievementDetector();
-  const [dismissed, setDismissed] = useState(false);
+  const { profile } = useProfile();
 
   if (!sessionLoaded || !consentMigrationDone) return null;
   if (!session) return null;
-  if (dismissed) return null;
+  // Don't show until onboarding is complete — otherwise it can flash during
+  // the splash → onboarding transition for brand-new accounts
+  if (!profile?.onboardingCompletedAt) return null;
+  // Once the prompt has been shown once (persisted), never show it again
+  if (consentPromptShown) return null;
   if (pendingEvent) return null;
   if (aiDataConsent && foodDbConsent) return null;
   // Don't interrupt onboarding / auth / TOS-update flows
@@ -253,10 +263,10 @@ function ConsentPromptLayer() {
       missingAi={!aiDataConsent}
       missingFood={!foodDbConsent}
       onReview={() => {
-        setDismissed(true);
+        markConsentPromptShown();
         router.push('/settings/privacy');
       }}
-      onDismiss={() => setDismissed(true)}
+      onDismiss={() => markConsentPromptShown()}
     />
   );
 }
@@ -348,6 +358,15 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <PostHogProvider {...posthogConfig}>
       <AppThemeProvider>

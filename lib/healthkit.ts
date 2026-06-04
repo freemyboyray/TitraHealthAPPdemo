@@ -34,14 +34,9 @@ export const HK_CATEGORIES = {
   // Body composition
   bodyFat: 'HKQuantityTypeIdentifierBodyFatPercentage',
   leanMass: 'HKQuantityTypeIdentifierLeanBodyMass',
-  waist: 'HKQuantityTypeIdentifierWaistCircumference',
-  bmi: 'HKQuantityTypeIdentifierBodyMassIndex',
 
   // Cardiovascular
-  vo2max: 'HKQuantityTypeIdentifierVO2Max',
   spo2: 'HKQuantityTypeIdentifierOxygenSaturation',
-  bpSystolic: 'HKQuantityTypeIdentifierBloodPressureSystolic',
-  bpDiastolic: 'HKQuantityTypeIdentifierBloodPressureDiastolic',
 
   // Nutrition — core macros
   protein: 'HKQuantityTypeIdentifierDietaryProtein',
@@ -53,9 +48,6 @@ export const HK_CATEGORIES = {
   water: 'HKQuantityTypeIdentifierDietaryWater',
   saturatedFat: 'HKQuantityTypeIdentifierDietaryFatSaturated',
   cholesterol: 'HKQuantityTypeIdentifierDietaryCholesterol',
-
-  // Metabolic
-  glucose: 'HKQuantityTypeIdentifierBloodGlucose',
 
   // Activity
   exerciseMinutes: 'HKQuantityTypeIdentifierAppleExerciseTime',
@@ -460,15 +452,6 @@ export async function readLastNightSleep(): Promise<number | null> {
   } catch (e) { err('readLastNightSleep', e); return null; }
 }
 
-export async function readLatestBloodGlucose(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.glucose, 'mg/dL');
-    return v != null ? parseFloat(v.toFixed(1)) : null;
-  } catch (e) { err('readLatestBloodGlucose', e); return null; }
-}
-
 // ─── Extended readers: body composition ──────────────────────────────────────
 
 export async function readLatestBodyFat(): Promise<number | null> {
@@ -489,34 +472,7 @@ export async function readLatestLeanMass(): Promise<number | null> {
   } catch (e) { err('readLatestLeanMass', e); return null; }
 }
 
-export async function readLatestWaist(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.waist, 'in');
-    return v != null ? parseFloat(v.toFixed(1)) : null;
-  } catch (e) { err('readLatestWaist', e); return null; }
-}
-
-export async function readLatestBMI(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.bmi, 'count');
-    return v != null ? parseFloat(v.toFixed(1)) : null;
-  } catch (e) { err('readLatestBMI', e); return null; }
-}
-
 // ─── Extended readers: cardiovascular ────────────────────────────────────────
-
-export async function readLatestVO2Max(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.vo2max, 'mL/kg*min');
-    return v != null ? parseFloat(v.toFixed(1)) : null;
-  } catch (e) { err('readLatestVO2Max', e); return null; }
-}
 
 export async function readLatestSpO2(): Promise<number | null> {
   const HK = getHK();
@@ -525,19 +481,6 @@ export async function readLatestSpO2(): Promise<number | null> {
     const v = await latestQuantity(HK, HK_CATEGORIES.spo2, '%');
     return v != null ? parseFloat((v * 100).toFixed(1)) : null;
   } catch (e) { err('readLatestSpO2', e); return null; }
-}
-
-export async function readLatestBloodPressure(): Promise<{ systolic: number; diastolic: number } | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const [sys, dia] = await Promise.all([
-      latestQuantity(HK, HK_CATEGORIES.bpSystolic, 'mmHg'),
-      latestQuantity(HK, HK_CATEGORIES.bpDiastolic, 'mmHg'),
-    ]);
-    if (sys == null || dia == null) return null;
-    return { systolic: Math.round(sys), diastolic: Math.round(dia) };
-  } catch (e) { err('readLatestBloodPressure', e); return null; }
 }
 
 // ─── Extended readers: activity (watch) ──────────────────────────────────────
@@ -637,54 +580,6 @@ export async function readTodayMindfulMinutes(): Promise<number | null> {
     }
     return totalMs > 0 ? Math.round(totalMs / 60000) : null;
   } catch (e) { err('readTodayMindfulMinutes', e); return null; }
-}
-
-// ─── Extended readers: blood glucose time-series (for CGM users) ─────────────
-
-export type GlucoseSample = {
-  value: number;   // mg/dL
-  timestamp: Date;
-  source: string;
-};
-
-export async function readGlucoseTimeSeries(hoursBack: number = 24): Promise<GlucoseSample[]> {
-  const HK = getHK();
-  if (!HK) return [];
-  try {
-    const from = new Date(Date.now() - hoursBack * 3600000);
-    const samples = await HK.queryQuantitySamples(
-      HK_CATEGORIES.glucose,
-      dateRangeOptions(from, new Date(), 'mg/dL'),
-    );
-    if (!Array.isArray(samples) || samples.length === 0) return [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return samples.map((s: any) => ({
-      value: parseFloat((s.quantity as number).toFixed(1)),
-      timestamp: new Date(s.startDate),
-      source: s.sourceRevision?.source?.name ?? 'Unknown',
-    }));
-  } catch (e) { err('readGlucoseTimeSeries', e); return []; }
-}
-
-export type GlucoseStats = {
-  average: number;
-  min: number;
-  max: number;
-  timeInRange: number; // percentage of readings between 70-140 mg/dL
-  sampleCount: number;
-};
-
-export function computeGlucoseStats(samples: GlucoseSample[]): GlucoseStats | null {
-  if (samples.length === 0) return null;
-  const values = samples.map(s => s.value);
-  const inRange = values.filter(v => v >= 70 && v <= 140).length;
-  return {
-    average: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
-    min: Math.round(Math.min(...values)),
-    max: Math.round(Math.max(...values)),
-    timeInRange: Math.round((inRange / values.length) * 100),
-    sampleCount: samples.length,
-  };
 }
 
 // ─── Extended readers: weight with source info (for conflict UX) ─────────────

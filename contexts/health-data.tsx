@@ -32,6 +32,10 @@ const ZERO_ACTUALS: DailyActuals = {
   steps: 0,
   caloriesKcal: 0,
   injectionLogged: false,
+  exerciseMinutes: 0,
+  workoutMinutes: 0,
+  workoutCalories: 0,
+  flightsClimbed: 0,
 };
 
 function todayWaterKey(): string {
@@ -156,23 +160,43 @@ export function HealthProvider({
   const [state, dispatch] = useReducer(reducer, profile, buildInitialState);
 
   const hkSteps = useHealthKitStore(s => s.steps);
+  const hkExerciseMinutes = useHealthKitStore(s => s.exerciseMinutes);
+  const hkFlightsClimbed = useHealthKitStore(s => s.flightsClimbed);
+  const hkWorkouts = useHealthKitStore(s => s.workouts);
+  const hkMindfulMinutes = useHealthKitStore(s => s.mindfulMinutes);
 
   // Sync profile into scoring engine whenever it changes (e.g. after async load or settings update)
   useEffect(() => {
     dispatch({ type: 'SYNC_PROFILE', profile });
   }, [profile]);
 
-  // Sync live wearable data from HealthKit into scoring engine
+  // Sync live wearable data from HealthKit into scoring engine (including mindful minutes)
   useEffect(() => {
     if (!liveWearable || Object.keys(liveWearable).length === 0) return;
-    dispatch({ type: 'SYNC_WEARABLE', wearable: liveWearable as WearableData });
-  }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct, liveWearable?.respRateRpm]);
+    const wearable: Partial<WearableData> = { ...liveWearable };
+    if (hkMindfulMinutes != null && hkMindfulMinutes > 0) wearable.mindfulMinutes = hkMindfulMinutes;
+    dispatch({ type: 'SYNC_WEARABLE', wearable: wearable as WearableData });
+  }, [liveWearable?.hrvMs, liveWearable?.restingHR, liveWearable?.sleepMinutes, liveWearable?.spo2Pct, liveWearable?.respRateRpm, hkMindfulMinutes]);
 
   // Sync HealthKit steps - prefer whichever is higher (HealthKit is live; Supabase is manually logged)
   useEffect(() => {
     if (hkSteps == null) return;
     dispatch({ type: 'SYNC_HK_STEPS', steps: hkSteps });
   }, [hkSteps]);
+
+  // Sync HealthKit activity metrics into actuals
+  useEffect(() => {
+    const updates: Partial<DailyActuals> = {};
+    if (hkExerciseMinutes != null) updates.exerciseMinutes = hkExerciseMinutes;
+    if (hkFlightsClimbed != null) updates.flightsClimbed = hkFlightsClimbed;
+    if (hkWorkouts && hkWorkouts.length > 0) {
+      updates.workoutMinutes = hkWorkouts.reduce((s, w) => s + w.duration, 0);
+      updates.workoutCalories = hkWorkouts.reduce((s, w) => s + (w.totalEnergyBurned ?? 0), 0);
+    }
+    if (Object.keys(updates).length > 0) {
+      dispatch({ type: 'FETCH_ACTUALS', actuals: { ...state.actuals, ...updates } });
+    }
+  }, [hkExerciseMinutes, hkFlightsClimbed, hkWorkouts]);
 
   // Load today's actuals from Supabase (protein/fiber/steps/injection) + AsyncStorage (water)
   async function fetchTodayActuals() {
@@ -206,7 +230,7 @@ export function HealthProvider({
     const injectionLogged = (injRes.data ?? []).length > 0;
     dispatch({
       type: 'FETCH_ACTUALS',
-      actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
+      actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
     });
   }
 
@@ -287,7 +311,7 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
-      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false },
+      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
       foodLogs: [],
       activityLogs: [],
       weightLog: null,
@@ -338,7 +362,7 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
   const injectionLogged = (injRes.data ?? []).length > 0;
 
   return {
-    actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
+    actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
     foodLogs: foods.map(f => ({
       id:        f.id,
       food_name: f.food_name,

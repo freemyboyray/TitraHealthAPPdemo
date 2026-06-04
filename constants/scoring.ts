@@ -17,6 +17,7 @@ export type DailyTargets = {
   carbsG: number;
   fatG: number;
   activeCaloriesTarget: number;
+  exerciseMinutesTarget: number;
   proteinPriority: boolean;
   programPhase: ProgramPhase;
   // Side-effect adjustment metadata (only populated when adjustments apply)
@@ -36,6 +37,10 @@ export type DailyActuals = {
   steps: number;
   caloriesKcal: number;
   injectionLogged: boolean;
+  exerciseMinutes: number;
+  workoutMinutes: number;
+  workoutCalories: number;
+  flightsClimbed: number;
 };
 
 export type WearableData = {
@@ -44,6 +49,7 @@ export type WearableData = {
   restingHR?: number;    // e.g. 58
   spo2Pct?: number;      // e.g. 98
   respRateRpm?: number;  // normal: 12–20; elevated = illness/stress (HealthKit Phase 2)
+  mindfulMinutes?: number; // meditation/mindfulness sessions today
 };
 
 // ─── Shot Phase Type ──────────────────────────────────────────────────────────
@@ -158,6 +164,13 @@ const activeCaloriesMap: Record<ActivityLevel, number> = {
   very_active: 450,
 };
 
+const exerciseMinutesMap: Record<ActivityLevel, number> = {
+  sedentary: 15,
+  light: 30,
+  active: 45,
+  very_active: 60,
+};
+
 export function getDailyTargets(
   profile: FullUserProfile,
   opts?: {
@@ -221,6 +234,11 @@ export function getDailyTargets(
   if (programPhase === 'titration') activeCaloriesTarget = Math.round(activeCaloriesTarget * 0.9);
   else if (programPhase === 'maintenance') activeCaloriesTarget = Math.round(activeCaloriesTarget * 1.05);
 
+  // Exercise minutes: activity level driven, phase-adjusted
+  let exerciseMinutesTarget = exerciseMinutesMap[profile.activityLevel] ?? 30;
+  if (programPhase === 'titration') exerciseMinutesTarget = Math.round(exerciseMinutesTarget * 0.8);
+  else if (programPhase === 'maintenance') exerciseMinutesTarget = Math.round(exerciseMinutesTarget * 1.1);
+
   // Calories: use stored onboarding target (TDEE−500) or rough estimate fallback
   const estimatedBase = Math.round(profile.weightKg * 28); // rough TDEE−500 fallback
   let caloriesTarget = opts?.baseCaloriesTarget ?? estimatedBase;
@@ -246,6 +264,7 @@ export function getDailyTargets(
     carbsG,
     fatG,
     activeCaloriesTarget,
+    exerciseMinutesTarget,
     proteinPriority: programPhase === 'titration',
     programPhase,
   };
@@ -396,6 +415,8 @@ export function computeRecovery(wearable: Partial<WearableData>, phase?: ShotPha
     components.push({ score: scoreSPO2(wearable.spo2Pct), weight: 10 });
   if (wearable.respRateRpm != null)
     components.push({ score: scoreRespRate(wearable.respRateRpm), weight: 10 });
+  if (wearable.mindfulMinutes != null && wearable.mindfulMinutes > 0)
+    components.push({ score: Math.min(wearable.mindfulMinutes / 30, 1), weight: 5 });
 
   if (components.length === 0) return null;
 
@@ -604,11 +625,16 @@ export function computeGlp1AdherenceScore(
     components.push({ score: proteinScore, weight: w.nutrition });
   }
 
-  // Activity - only if steps or activity data is available
-  const includeActivity = hasActivityData !== undefined ? hasActivityData : actual.steps > 0;
+  // Activity - blend steps (55%), exercise minutes (35%), flights intensity bonus (10%)
+  const includeActivity = hasActivityData !== undefined ? hasActivityData
+    : (actual.steps > 0 || actual.exerciseMinutes > 0 || actual.flightsClimbed > 0);
   if (includeActivity) {
     const stepsPct = Math.min(actual.steps / targets.steps, 1);
-    components.push({ score: stepsPct * 100, weight: w.activity });
+    const exercisePct = targets.exerciseMinutesTarget > 0
+      ? Math.min(actual.exerciseMinutes / targets.exerciseMinutesTarget, 1) : 0;
+    const intensityBonus = Math.min(actual.flightsClimbed / 10, 1);
+    const activityScore = (stepsPct * 0.55 + exercisePct * 0.35 + intensityBonus * 0.10) * 100;
+    components.push({ score: activityScore, weight: w.activity });
   }
 
   const totalWeight = components.reduce((s, c) => s + c.weight, 0);
@@ -1420,7 +1446,10 @@ export function generateFocuses(
     hydration: Math.max(0, (targets.waterMl - actuals.waterMl) / targets.waterMl * 100),
     protein:   Math.max(0, (targets.proteinG - actuals.proteinG) / targets.proteinG * 100),
     fiber:     Math.max(0, (targets.fiberG - actuals.fiberG) / targets.fiberG * 100),
-    activity:  Math.max(0, (targets.steps - actuals.steps) / targets.steps * 100),
+    activity:  Math.max(0,
+      ((targets.steps - actuals.steps) / targets.steps * 0.55 +
+       (targets.exerciseMinutesTarget > 0 ? (targets.exerciseMinutesTarget - actuals.exerciseMinutes) / targets.exerciseMinutesTarget * 0.35 : 0) +
+       (1 - Math.min(actuals.flightsClimbed / 10, 1)) * 0.10) * 100),
     sleep:     wearable.sleepMinutes != null ? (1 - scoreSleep(wearable.sleepMinutes)) * 100 : 0,
     recovery:  Math.max(0, 70 - recovery),
     rest:      phase === 'peak' ? Math.max(0, 65 - recovery) : 0,
@@ -1610,6 +1639,10 @@ export function computeRollingAdherenceScore(params: {
       steps,
       caloriesKcal: dayFood.reduce((s, f) => s + ((f as any).calories ?? 0), 0),
       injectionLogged: hasInjection,
+      exerciseMinutes: 0,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      flightsClimbed: 0,
     };
 
     // Find last injection on or before this day (for streak + daysLate scoring)

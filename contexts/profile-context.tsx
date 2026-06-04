@@ -309,8 +309,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       startWeight > 0 && currentWeight > 0 && startWeight > currentWeight
         ? startWeight - currentWeight
         : 0;
+    // Compute historical days on treatment so we suppress treatment milestones
+    // the user already passed before installing the app.
+    let initialDaysOnTreatment = 0;
+    if (complete.startDate) {
+      const start = new Date(complete.startDate + 'T12:00:00');
+      const now = new Date();
+      now.setHours(12, 0, 0, 0);
+      initialDaysOnTreatment = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86400000));
+    }
     usePreferencesStore.getState().resetMilestoneTracking(
-      getUnlockedAchievementIds(0, initialWeightLost, 0),
+      getUnlockedAchievementIds(0, initialWeightLost, initialDaysOnTreatment),
       getReachedPhotoMilestones(initialWeightLost),
     );
 

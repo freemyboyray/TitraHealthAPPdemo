@@ -14,20 +14,20 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 's7',   name: 'First Week',      label: '7 days',   icon: 'Flame',            category: 'streak',    threshold: 7,   description: "7 days in a row" },
   { id: 's14',  name: 'Two Weeks',       label: '14 days',  icon: 'Flame',            category: 'streak',    threshold: 14,  description: "Two weeks of consistency" },
   { id: 's30',  name: 'Monthly',         label: '30 days',  icon: 'Flame',            category: 'streak',    threshold: 30,  description: "A full month of daily logging" },
-  { id: 's60',  name: 'Dedicated',       label: '60 days',  icon: 'fitness',          category: 'streak',    threshold: 60,  description: "60 days of dedication" },
+  { id: 's60',  name: 'Dedicated',       label: '60 days',  icon: 'Dumbbell',         category: 'streak',    threshold: 60,  description: "60 days of dedication" },
   { id: 's100', name: 'Century',         label: '100 days', icon: 'Star',             category: 'streak',    threshold: 100, description: "100 days strong" },
   { id: 's365', name: 'Full Year',       label: '365 days', icon: 'Trophy',           category: 'streak',    threshold: 365, description: "A full year of daily logging" },
   // Weight
   { id: 'w5',   name: 'First 5',         label: '5 lbs',    icon: 'TrendingDown',    category: 'weight',    threshold: 5,   description: "Your first 5 lbs lost" },
   { id: 'w10',  name: 'Double Digits',   label: '10 lbs',   icon: 'TrendingDown',    category: 'weight',    threshold: 10,  description: "Double digits \u2014 10 lbs lost" },
-  { id: 'w25',  name: 'Quarter Century', label: '25 lbs',   icon: 'ribbon',           category: 'weight',    threshold: 25,  description: "25 lbs gone for good" },
+  { id: 'w25',  name: 'Quarter Century', label: '25 lbs',   icon: 'Award',            category: 'weight',    threshold: 25,  description: "25 lbs gone for good" },
   { id: 'w50',  name: 'Half Century',    label: '50 lbs',   icon: 'Trophy',           category: 'weight',    threshold: 50,  description: "An incredible 50 lbs lost" },
   // Treatment
   { id: 't7',   name: 'Getting Started', label: '1 week',   icon: 'Hospital',          category: 'treatment', threshold: 7,   description: "Your first week on treatment" },
   { id: 't30',  name: 'One Month In',    label: '30 days',  icon: 'Hospital',          category: 'treatment', threshold: 30,  description: "One month on your treatment plan" },
   { id: 't90',  name: 'Committed',       label: '3 months', icon: 'ShieldCheck', category: 'treatment', threshold: 90,  description: "Three months of commitment" },
   { id: 't180', name: 'Half Year',       label: '6 months', icon: 'ShieldCheck', category: 'treatment', threshold: 180, description: "Six months on treatment" },
-  { id: 't365', name: 'Veteran',         label: '1 year',   icon: 'medal',            category: 'treatment', threshold: 365, description: "A full year on treatment" },
+  { id: 't365', name: 'Veteran',         label: '1 year',   icon: 'Medal',            category: 'treatment', threshold: 365, description: "A full year on treatment" },
 ];
 
 /** Return IDs of all achievements currently earned based on user stats. */

@@ -66,9 +66,9 @@
           "image": "./assets/images/titra-logo.png",
           "imageWidth": 80,
           "resizeMode": "contain",
-          "backgroundColor": "#F2F2F7",
+          "backgroundColor": "#DC8E5A",
           "dark": {
-            "backgroundColor": "#111111"
+            "backgroundColor": "#7A4028"
           }
         }
       ],

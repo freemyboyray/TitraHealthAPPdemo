@@ -235,11 +235,7 @@ export default function TabLayout() {
           )}
           screenOptions={{
             headerShown: false,
-            animation: 'fade',
-            transitionSpec: {
-              animation: 'timing',
-              config: { duration: 350 },
-            },
+            animation: 'none',
           }}>
           <Tabs.Screen name="index" />
           <Tabs.Screen name="log" />

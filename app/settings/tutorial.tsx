@@ -72,9 +72,9 @@ const SECTIONS: Section[] = [
     iconBg: 'rgba(59,154,225,0.15)',
     items: [
       { label: 'Overview', detail: 'The Lifestyle tab shows your daily nutrition, activity, and vitals in one place. Data comes from both your in-app logs and Apple Health.' },
-      { label: 'Vitals', detail: 'Heart rate variability (HRV), resting heart rate, sleep duration, blood glucose, SpO2, blood pressure, and respiratory rate — all pulled from Apple Health.' },
-      { label: 'Body Composition', detail: 'Body fat percentage, lean mass, waist circumference, and BMI from Apple Health-connected devices like smart scales.' },
-      { label: 'Activity', detail: 'Steps, exercise minutes, distance, flights climbed, VO2 max, and total daily energy expenditure (TDEE) from your Apple Watch or phone.' },
+      { label: 'Vitals', detail: 'Heart rate variability (HRV), resting heart rate, sleep duration, SpO2, and respiratory rate — all pulled from Apple Health.' },
+      { label: 'Body Composition', detail: 'Body fat percentage and lean mass from Apple Health-connected devices like smart scales.' },
+      { label: 'Activity', detail: 'Steps, exercise minutes, distance, flights climbed, and total daily energy expenditure (TDEE) from your Apple Watch or phone.' },
       { label: 'Workouts', detail: 'Structured workout sessions synced from Apple Health, showing activity type, duration, calories burned, and source app.' },
     ],
   },
@@ -96,7 +96,7 @@ const SECTIONS: Section[] = [
     iconColor: '#FF2D55',
     iconBg: 'rgba(255,45,85,0.15)',
     items: [
-      { label: 'What We Read', detail: 'Steps, calories, heart rate, HRV, sleep, weight, body composition, VO2 max, blood glucose, workouts, and more — over 30 data types from Apple Health.' },
+      { label: 'What We Read', detail: 'Steps, calories, heart rate, HRV, sleep, weight, body composition, workouts, mindfulness, and more from Apple Health.' },
       { label: 'What We Write', detail: 'Weight, nutrition (protein, calories, carbs, fat, fiber), and water logged in Titra are pushed back to Apple Health so everything stays in sync.' },
       { label: 'How Often', detail: 'Data refreshes automatically every 60 seconds while the app is open, plus whenever you switch tabs or return from another app.' },
       { label: 'Privacy', detail: 'All health data stays on your device and in your private account. We never sell or share your health data with third parties.' },
