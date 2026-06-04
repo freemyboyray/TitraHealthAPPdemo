@@ -14,7 +14,7 @@ export function PremiumUpsellCard() {
 
   const onPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/settings/subscription' as any);
+    router.push('/upgrade' as any);
   };
 
   return (

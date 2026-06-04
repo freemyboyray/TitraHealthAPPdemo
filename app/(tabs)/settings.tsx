@@ -233,7 +233,7 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/subscription' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
+          <Pressable style={s.cardRow} onPress={() => router.push('/upgrade' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                 <IconSymbol name="bolt.fill" size={18} color={colors.orange} />

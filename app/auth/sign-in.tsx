@@ -64,6 +64,14 @@ export default function SignInScreen() {
   const [isLoginMode, setIsLoginMode]     = useState(false);
   const anyLoading = googleLoading || appleLoading || signUpLoading;
 
+  // Inline email-confirmation (6-digit code) state — keeps verification on this
+  // same screen instead of pushing to a separate page.
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const [code, setCode]                   = useState('');
+  const [verifying, setVerifying]         = useState(false);
+  const [resending, setResending]         = useState(false);
+  const [resendNotice, setResendNotice]   = useState<string | null>(null);
+
   // Crossfade animation for mode toggle
   const modeOpacity = useSharedValue(1);
   const swapMode = () => { setIsLoginMode(m => !m); setError(null); };
@@ -103,15 +111,64 @@ export default function SignInScreen() {
       const { data, error: signUpErr } = await supabase.auth.signUp({ email: trimmed, password });
       if (signUpErr) { setError(signUpErr.message); return; }
       if (data.session) {
+        // No email confirmation required → straight into the app.
         await finishAuth(data.session);
       } else {
-        router.push('/auth/sign-up');
+        // Email confirmation required → show the inline 6-digit code step.
+        setCode('');
+        setResendNotice(null);
+        setConfirmationSent(true);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-up failed');
     } finally {
       setSignUpLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async () => {
+    const trimmed = email.trim();
+    const token = code.trim();
+    if (token.length < 6) { setError('Please enter the 6-digit code from your email.'); return; }
+    setError(null);
+    setVerifying(true);
+    try {
+      const { data, error: verifyErr } = await supabase.auth.verifyOtp({ email: trimmed, token, type: 'signup' });
+      if (verifyErr) { setError(verifyErr.message); return; }
+      if (data.session) {
+        await finishAuth(data.session);
+      } else {
+        setError('Verification succeeded but no session was returned. Please try signing in.');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Verification failed');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    setResending(true);
+    setError(null);
+    setResendNotice(null);
+    try {
+      const { error: resendErr } = await supabase.auth.resend({ type: 'signup', email: trimmed });
+      if (resendErr) { setError(resendErr.message); return; }
+      setResendNotice('A new code is on its way.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not resend code');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const exitVerification = () => {
+    setConfirmationSent(false);
+    setCode('');
+    setError(null);
+    setResendNotice(null);
   };
 
   // ── Entrance animations ──────────────────────────────────────────────────
@@ -318,7 +375,7 @@ export default function SignInScreen() {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Back button */}
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignSelf: 'flex-start' }} accessibilityLabel="Back" accessibilityRole="button">
+        <Pressable onPress={() => (confirmationSent ? exitVerification() : router.back())} hitSlop={12} style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignSelf: 'flex-start' }} accessibilityLabel="Back" accessibilityRole="button">
           <ChevronLeft size={26} color={c.isDark ? '#FFFFFF' : '#1A1A1A'} />
         </Pressable>
 
@@ -334,9 +391,68 @@ export default function SignInScreen() {
               style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 16 }}
               resizeMode="cover"
             />
-            <Text style={s.tagline}>Built to track more,{'\n'}so you can achieve more.</Text>
+            <Text style={s.tagline}>
+              {confirmationSent
+                ? 'Verify your email'
+                : 'Built to track more,\nso you can achieve more.'}
+            </Text>
+            {confirmationSent ? (
+              <Text style={s.verifySubtitle}>
+                Enter the 6-digit code we sent to{'\n'}
+                <Text style={s.verifyEmail}>{email.trim()}</Text>
+              </Text>
+            ) : null}
           </View>
 
+          {confirmationSent ? (
+            /* ── Inline 6-digit code verification ── */
+            <>
+              <View style={s.inputContainer}>
+                <TextInput
+                  style={[s.input, { textAlign: 'center', letterSpacing: 8, fontSize: 22, fontWeight: '700' }]}
+                  placeholder="000000"
+                  placeholderTextColor="#999"
+                  value={code}
+                  onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  maxLength={6}
+                  editable={!verifying}
+                  onSubmitEditing={handleVerifyOtp}
+                />
+              </View>
+
+              {resendNotice && !error ? <Text style={s.resendNotice}>{resendNotice}</Text> : null}
+
+              <TouchableOpacity
+                style={[s.emailBtn, { marginTop: 4 }, (verifying || code.length < 6) && s.btnDisabled]}
+                onPress={handleVerifyOtp}
+                activeOpacity={0.85}
+                disabled={verifying || code.length < 6}
+              >
+                {verifying ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={s.emailBtnText}>Verify &amp; Continue</Text>
+                )}
+              </TouchableOpacity>
+
+              {error ? <Text style={s.errorText}>{error}</Text> : null}
+
+              <View style={s.footer}>
+                <Text style={s.legalText}>
+                  Didn&apos;t get a code?{' '}
+                  <Text style={s.legalLink} onPress={resending ? undefined : handleResendCode}>
+                    {resending ? 'Sending…' : 'Resend'}
+                  </Text>
+                </Text>
+              </View>
+            </>
+          ) : (
+          <>
           {/* Email & Password inputs */}
           <View style={s.inputContainer}>
             <TextInput
@@ -442,6 +558,8 @@ export default function SignInScreen() {
               </Text>
             </Text>
           </Animated.View>
+          </>
+          )}
         </View>
         </ScrollView>
         </KeyboardAvoidingView>
@@ -495,6 +613,26 @@ const createStyles = (c: AppColors) =>
       fontFamily: FONT,
       letterSpacing: -0.5,
       lineHeight: 40,
+    },
+    verifySubtitle: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: c.isDark ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.9)',
+      fontFamily: FONT,
+      lineHeight: 22,
+      marginTop: 10,
+    },
+    verifyEmail: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    resendNotice: {
+      fontSize: 14,
+      color: '#FFFFFF',
+      textAlign: 'center',
+      fontFamily: FONT,
+      lineHeight: 20,
+      marginBottom: 12,
     },
 
     // ── Auth buttons ──

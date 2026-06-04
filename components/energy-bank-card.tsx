@@ -156,7 +156,7 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
     return (
       <TouchableOpacity
         style={s.wrap}
-        onPress={() => router.push('/settings/subscription' as any)}
+        onPress={() => router.push('/upgrade' as any)}
         activeOpacity={0.82}
         accessibilityLabel="Energy Bank — premium feature, tap to unlock"
         accessibilityRole="button"

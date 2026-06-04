@@ -297,6 +297,7 @@ function RootLayoutInner() {
                 <Stack.Screen name="day-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="injection-history" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="upgrade" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="cycle-phase" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="medication-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="insights" options={{ headerShown: false, animation: 'slide_from_right' }} />

@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  Image,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Heart } from 'lucide-react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -119,10 +119,9 @@ export default function HealthSyncScreen() {
         </Text>
 
         <View style={s.illustration}>
-          <Image
-            source={require('@/assets/images/apple-health-icon.png')}
-            style={s.healthIcon}
-          />
+          <View style={s.healthIcon}>
+            <Heart size={56} color="#FF2D55" fill="#FF2D55" />
+          </View>
           <Text style={s.healthLabel}>Apple Health</Text>
           <Text style={s.healthDesc}>
             Sync sleep, HRV, resting heart rate, steps, and more to power your recovery ring.
@@ -159,6 +158,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   healthLabel: {
     fontSize: 20,

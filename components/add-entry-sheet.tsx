@@ -348,7 +348,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     <UpgradePrompt
       visible={upgradeVisible}
       onClose={() => setUpgradeVisible(false)}
-      onUpgrade={() => { setUpgradeVisible(false); router.push('/settings/subscription' as any); }}
+      onUpgrade={() => { setUpgradeVisible(false); router.push('/upgrade' as any); }}
       title="Daily food log limit reached"
       description="You've logged 5 foods today on the free plan. Upgrade to Titra Pro for unlimited food logging."
       feature="food_log"

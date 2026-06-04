@@ -48,7 +48,7 @@ export function PremiumGate({
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const access = useSubscriptionStore((s) => s.checkFeatureAccess(feature));
-  const handleUpgrade = onUpgrade ?? (() => router.push('/settings/subscription' as any));
+  const handleUpgrade = onUpgrade ?? (() => router.push('/upgrade' as any));
 
   // Premium users or allowed features — render children directly
   if (access === 'allowed') return <>{children}</>;

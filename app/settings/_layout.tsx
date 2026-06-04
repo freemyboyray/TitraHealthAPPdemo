@@ -7,7 +7,6 @@ export default function SettingsLayout() {
       <Stack.Screen name="preferences" />
       <Stack.Screen name="privacy" />
       <Stack.Screen name="support" />
-      <Stack.Screen name="subscription" />
       <Stack.Screen name="reminders" />
       <Stack.Screen name="edit-treatment" />
       <Stack.Screen name="edit-profile" />
