@@ -376,6 +376,11 @@ async function handleAppleNotification(
 
   if (subError) {
     console.error('[apple-webhook] Subscription upsert error:', subError.message);
+    // Return 500 so the payment provider retries — prevents orphaned premium grants
+    return new Response(JSON.stringify({ error: 'Subscription update failed' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
   }
 
   // Update denormalized premium flag
@@ -386,6 +391,10 @@ async function handleAppleNotification(
 
   if (profileError) {
     console.error('[apple-webhook] Profile update error:', profileError.message);
+    return new Response(JSON.stringify({ error: 'Profile update failed' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
   }
 
   console.log(`[apple-webhook] Updated user=${userId.slice(0, 8)}… status=${status} premium=${isPremium}`);

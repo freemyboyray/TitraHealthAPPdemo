@@ -207,7 +207,7 @@ export default function SideEffectImpactScreen() {
   const bannerSub = tier === 'severe'
     ? `Tuned to be easier on your body while ${primaryEffect} is strong.`
     : tier === 'moderate'
-      ? 'Tuned to work with how you’re feeling today.'
+      ? "Tuned to work with how you're feeling today."
       : 'Minor changes to keep you on track.';
 
   // Collect all triggered citations for metric rows

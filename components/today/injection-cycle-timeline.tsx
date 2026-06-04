@@ -19,10 +19,11 @@ const PHASE_ORDER: ShotPhase[] = ['shot', 'peak', 'balance', 'reset'];
 
 // ── Semicircle geometry ──
 // Arc goes from left (9 o'clock) to right (3 o'clock) across the top.
-// SVG viewBox is 280 x 160.
+// SVG viewBox is 340 x 170. Arc is centered with enough padding so the
+// dot glow + phase labels at the far left/right don't clip.
 const ARC_CX = 170;
-const ARC_CY = 140;
-const ARC_R = 110;
+const ARC_CY = 145;
+const ARC_R = 105;
 const ARC_STROKE = 12;
 
 // The arc spans 180° (left, 9 o'clock) → 0° (right, 3 o'clock) across the top.
@@ -148,12 +149,17 @@ export function InjectionCycleTimeline({
   const progress = freq > 0 ? Math.max(0, Math.min(1, todayDayNum / freq)) : 0;
   const dot = polarToXY(ARC_CX, ARC_CY, ARC_R, fracToAngle(progress));
 
+  // Dot color matches the arc segment it physically sits on, not the computed
+  // phase — avoids a green dot appearing on the orange segment at boundaries.
+  const dotSegmentIdx = boundaries.findIndex((_, i) => i < boundaries.length - 1 && progress >= boundaries[i] && progress < boundaries[i + 1]);
+  const dotColor = PHASE_COLORS[PHASE_ORDER[dotSegmentIdx >= 0 ? dotSegmentIdx : currentIdx]];
+
   return (
     <View style={s.container}>
       {/* Semicircle arc gauge — hidden for daily/oral drugs (no injection cycle) */}
       {!hideArc && (
       <View style={s.arcContainer}>
-        <Svg width="100%" height={160} viewBox="0 0 340 160">
+        <Svg width="100%" height={170} viewBox="0 0 340 170">
           {/* Background track */}
           <Path
             d={arcPath(ARC_CX, ARC_CY, ARC_R, 180, 0)}
@@ -171,6 +177,9 @@ export function InjectionCycleTimeline({
             const isCurrent = i === currentIdx;
             const opacity = isPast || isCurrent ? 0.85 : 0.15;
 
+            // Round caps on the first/last segments for smooth arc ends;
+            // butt caps on middle segments to prevent dark overlap dots.
+            const cap = (i === 0 || i === PHASE_ORDER.length - 1) ? 'round' : 'butt';
             return (
               <Path
                 key={phase}
@@ -178,21 +187,21 @@ export function InjectionCycleTimeline({
                 fill="none"
                 stroke={PHASE_COLORS[phase]}
                 strokeWidth={ARC_STROKE}
-                strokeLinecap="round"
+                strokeLinecap={cap}
                 opacity={opacity}
               />
             );
           })}
 
           {/* Current position dot with glow */}
-          <Circle cx={dot.x} cy={dot.y} r={14} fill={phaseColor} opacity={0.2} />
-          <Circle cx={dot.x} cy={dot.y} r={8} fill={phaseColor} />
+          <Circle cx={dot.x} cy={dot.y} r={14} fill={dotColor} opacity={0.2} />
+          <Circle cx={dot.x} cy={dot.y} r={8} fill={dotColor} />
 
           {/* Phase labels along the arc */}
           {PHASE_ORDER.map((phase, i) => {
             const isCurrent = i === currentIdx;
             const midFrac = (boundaries[i] + boundaries[i + 1]) / 2;
-            const pos = polarToXY(ARC_CX, ARC_CY, ARC_R + 22, fracToAngle(midFrac));
+            const pos = polarToXY(ARC_CX, ARC_CY, ARC_R + 26, fracToAngle(midFrac));
             return (
               <SvgText
                 key={phase}
@@ -265,8 +274,8 @@ const createStyles = (c: AppColors) =>
     },
     centerContent: {
       alignItems: 'center',
-      marginTop: -40,
-      marginBottom: 8,
+      marginTop: -48,
+      marginBottom: 4,
     },
     phaseNameLarge: {
       fontSize: 22,

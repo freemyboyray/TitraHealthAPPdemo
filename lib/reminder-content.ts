@@ -154,21 +154,21 @@ const MEALS_MORNING_VARIANTS = [
   { title: 'Log Your Breakfast', body: 'Tap to log what you had this morning.' },
   { title: 'Breakfast Time', body: 'A quick log keeps your day on track.' },
   { title: 'Morning Fuel', body: 'What did you have this morning? Log it in seconds.' },
-  { title: 'Start the Day Logged', body: 'Capture breakfast while it’s fresh.' },
+  { title: 'Start the Day Logged', body: "Capture breakfast while it's fresh." },
 ];
 
 const MEALS_EVENING_VARIANTS = [
   { title: 'Log Your Dinner', body: 'End the day strong. Log your evening meal.' },
-  { title: 'Dinner Check-In', body: 'A few taps to round out today’s log.' },
+  { title: 'Dinner Check-In', body: "A few taps to round out today's log." },
   { title: 'Evening Meal', body: 'Log dinner to keep your day complete.' },
-  { title: 'Wind Down Logged', body: 'What’s for dinner tonight? Log it before bed.' },
+  { title: 'Wind Down Logged', body: "What's for dinner tonight? Log it before bed." },
 ];
 
 const WEIGHT_MORNING_VARIANTS = [
   { title: 'Morning Weigh-In', body: 'Log your weight to track your progress.' },
   { title: 'Step on the Scale', body: 'A morning weigh-in keeps your trend honest.' },
   { title: 'Daily Weigh-In', body: 'Quick weight log, best taken first thing.' },
-  { title: 'Track Your Trend', body: 'Log today’s weight to see the bigger picture.' },
+  { title: 'Track Your Trend', body: "Log today's weight to see the bigger picture." },
 ];
 
 const SIDE_EFFECTS_VARIANTS = [
@@ -179,17 +179,17 @@ const SIDE_EFFECTS_VARIANTS = [
 ];
 
 const DAILY_PLAN_VARIANTS = [
-  { title: 'Your Daily Focus', body: 'Open TitraHealth to see today’s priorities.' },
-  { title: 'Today’s Plan', body: 'A quick look at what matters today.' },
+  { title: 'Your Daily Focus', body: "Open TitraHealth to see today's priorities." },
+  { title: "Today's Plan", body: 'A quick look at what matters today.' },
   { title: 'Start Your Day', body: 'Check your focus areas for today.' },
   { title: 'Daily Check-In', body: 'See where to put your energy today.' },
 ];
 
 // Low-pressure copy for users who have gone quiet (dormant tier).
 const DAILY_PLAN_DORMANT_VARIANTS = [
-  { title: 'No pressure', body: 'We’re here whenever you’re ready to pick back up.' },
+  { title: 'No pressure', body: "We're here whenever you're ready to pick back up." },
   { title: 'Still here for you', body: 'One small log is enough to get going again.' },
-  { title: ‘Whenever you’re ready’, body: ‘No rush. Your progress is waiting when you are.’ },
+  { title: "Whenever you're ready", body: 'No rush. Your progress is waiting when you are.' },
 ];
 
 // ─── Content builders per slot ───────────────────────────────────────────────

@@ -1911,10 +1911,10 @@ function buildDrugLevelDetail(
           : 'Dose just taken. Levels climbing.';
       case 'peak':
         return hasSymptoms
-          ? ‘Near peak in your cycle, which tracks with the side effects you’ve logged’
+          ? 'Near peak in your cycle, which tracks with the side effects you\'ve logged'
           : acclimating
-          ? ‘Near peak in your cycle; side effects can run higher here while you adjust’
-          : ‘Near peak in your cycle. You’ve been tolerating this window well.’;
+          ? 'Near peak in your cycle; side effects can run higher here while you adjust'
+          : 'Near peak in your cycle. You\'ve been tolerating this window well.';
       case 'balance':
         return 'Levels steady mid-cycle. A stable window.';
       default:
@@ -1932,10 +1932,10 @@ function buildDrugLevelDetail(
   let note: string;
   if (pct >= 55) {
     note = hasSymptoms
-      ? 'tracks with the side effects you’ve logged'
+      ? 'tracks with the side effects you\'ve logged'
       : acclimating
       ? 'fatigue or nausea can show up while you adjust to this dose'
-      : 'you’ve been tolerating peak levels well';
+      : 'you\'ve been tolerating peak levels well';
   } else {
     note = hasSymptoms
       ? 'levels easing should help your energy return'
@@ -2056,12 +2056,12 @@ export function computeEnergyBank(
           sideEffectBurden,
           fatigueBurden ?? 0,
         )
-      : ‘Paused. Not counted while you’re between medications.’,
+      : 'Paused. Not counted while you\'re between medications.',
   });
 
   // ── 4. Nutrition — Calories (60%) + Protein (40%) (17%) ─────────────────
   let nutritionScore = 0;
-  let nutritionDetail = ‘Not tracked. Log food to include nutrition in your score.’;
+  let nutritionDetail = 'Not tracked. Log food to include nutrition in your score.';
   if (hasNutrition) {
     const calScore = actuals.caloriesKcal > 0 && targets.caloriesTarget > 0
       ? scoreCalories(actuals.caloriesKcal, targets.caloriesTarget)
@@ -2111,10 +2111,10 @@ export function computeEnergyBank(
     id: 'sideEffects', label: 'Side Effects', score: seScore, baseWeight: 0.10,
     available: isOnTreatment,
     detail: !isOnTreatment
-      ? ‘Paused. Not counted while you’re between medications.’
+      ? 'Paused. Not counted while you\'re between medications.'
       : blendedBurden > 0
-      ? `${Math.round(blendedBurden)}% burden${fatigueBurden != null && fatigueBurden > 0 ? ‘ (fatigue-weighted)’ : ‘’}: ${blendedBurden >= 40 ? ‘significant drain on energy’ : ‘mild impact’}`
-      : ‘No recent side effects. Positive for energy.’,
+      ? `${Math.round(blendedBurden)}% burden${fatigueBurden != null && fatigueBurden > 0 ? ' (fatigue-weighted)' : ''}: ${blendedBurden >= 40 ? 'significant drain on energy' : 'mild impact'}`
+      : 'No recent side effects. Positive for energy.',
   });
 
   // ── Redistribute weights ─────────────────────────────────────────────────

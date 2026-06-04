@@ -13,7 +13,7 @@ export function describeErrorMessage(err: unknown): string {
     return "You've reached today's free food logging limit. Upgrade to Titra Pro for unlimited logging.";
   }
   if (err instanceof DataConsentError) {
-    return 'Enable “AI Data Processing” in Settings › Privacy & Data to use this.';
+    return 'Enable "AI Data Processing" in Settings › Privacy & Data to use this.';
   }
   if (err instanceof Error && err.message === 'AUTH_EXPIRED') {
     return 'Your session expired. Please sign out and back in.';
