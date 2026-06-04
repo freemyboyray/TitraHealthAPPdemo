@@ -169,27 +169,45 @@ export function InjectionCycleTimeline({
             strokeLinecap="round"
           />
 
-          {/* Phase segments — widths scale with the cycle length */}
+          {/* Phase segments — widths scale with the cycle length.
+              Past segments are fully colored, the current segment is colored
+              only up to the progress dot, and future segments are dimmed. */}
           {PHASE_ORDER.map((phase, i) => {
-            const startAngle = fracToAngle(boundaries[i]);
-            const endAngle = fracToAngle(boundaries[i + 1]);
+            const segStart = boundaries[i];
+            const segEnd = boundaries[i + 1];
+            const startAngle = fracToAngle(segStart);
             const isPast = i < currentIdx;
-            const isCurrent = i === currentIdx;
-            const opacity = isPast || isCurrent ? 0.85 : 0.15;
+            const isFuture = i > currentIdx;
 
-            // Round caps on the first/last segments for smooth arc ends;
-            // butt caps on middle segments to prevent dark overlap dots.
             const cap = (i === 0 || i === PHASE_ORDER.length - 1) ? 'round' : 'butt';
+
+            if (isFuture) {
+              return (
+                <Path key={phase} d={arcPath(ARC_CX, ARC_CY, ARC_R, startAngle, fracToAngle(segEnd))}
+                  fill="none" stroke={PHASE_COLORS[phase]} strokeWidth={ARC_STROKE} strokeLinecap={cap} opacity={0.15} />
+              );
+            }
+            if (isPast) {
+              return (
+                <Path key={phase} d={arcPath(ARC_CX, ARC_CY, ARC_R, startAngle, fracToAngle(segEnd))}
+                  fill="none" stroke={PHASE_COLORS[phase]} strokeWidth={ARC_STROKE} strokeLinecap={cap} opacity={0.85} />
+              );
+            }
+            // Current segment: filled up to the dot, dimmed for the rest
+            const filledEnd = Math.min(progress, segEnd);
             return (
-              <Path
-                key={phase}
-                d={arcPath(ARC_CX, ARC_CY, ARC_R, startAngle, endAngle)}
-                fill="none"
-                stroke={PHASE_COLORS[phase]}
-                strokeWidth={ARC_STROKE}
-                strokeLinecap={cap}
-                opacity={opacity}
-              />
+              <React.Fragment key={phase}>
+                {filledEnd > segStart && (
+                  <Path d={arcPath(ARC_CX, ARC_CY, ARC_R, startAngle, fracToAngle(filledEnd))}
+                    fill="none" stroke={PHASE_COLORS[phase]} strokeWidth={ARC_STROKE}
+                    strokeLinecap={i === 0 ? 'round' : 'butt'} opacity={0.85} />
+                )}
+                {filledEnd < segEnd && (
+                  <Path d={arcPath(ARC_CX, ARC_CY, ARC_R, fracToAngle(filledEnd), fracToAngle(segEnd))}
+                    fill="none" stroke={PHASE_COLORS[phase]} strokeWidth={ARC_STROKE}
+                    strokeLinecap={i === PHASE_ORDER.length - 1 ? 'round' : 'butt'} opacity={0.15} />
+                )}
+              </React.Fragment>
             );
           })}
 

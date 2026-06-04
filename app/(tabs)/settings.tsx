@@ -55,7 +55,7 @@ function computeNextDose(lastDate: string | undefined, freqDays: number | undefi
 export default function SettingsScreen() {
   const { profile: authProfile, session, signOut, deleteAccount } = useUserStore();
   const [deleting, setDeleting] = useState(false);
-  const { profile } = useProfile();
+  const { profile, reloadProfile } = useProfile();
   const { masterEnabled } = useRemindersStore();
   const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle, aiDataConsent, setAiDataConsent, foodDbConsent, setFoodDbConsent } = usePreferencesStore();
   const { lastRefreshed, liveCategories } = useHealthKitStore();
