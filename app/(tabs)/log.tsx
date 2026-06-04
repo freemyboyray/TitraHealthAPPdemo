@@ -923,7 +923,7 @@ export function HealthDataConnectPrompt() {
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
       <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'System' }}>
-        Connect Apple Health in Settings to see your vitals, body composition, activity, and more — all in one place.
+        Connect Apple Health in Settings to see your vitals, body composition, activity, and more. All in one place.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
@@ -981,7 +981,8 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
   const dist = hkStore.distance;
   const flights = hkStore.flightsClimbed;
   const basal = hkStore.basalEnergy;
-  const tdee = basal != null && cal != null ? basal + cal : null;
+  const rawTdee = basal != null && cal != null ? basal + cal : null;
+  const tdee = rawTdee != null && rawTdee > 0 ? rawTdee : null;
   const activity: HealthMetric[] = [
     exMin != null && exMin > 0 ? { id: 'exMin', label: 'Exercise', value: String(exMin), unit: 'min', status: hmExMinStatus(exMin), lucideIcon: 'Clock', rangeLabel: hmExMinLabel(exMin), gaugePosition: hmGaugePos('exMin', exMin) } : hmEmpty('exMin', 'Exercise', 'Clock'),
     dist != null ? { id: 'distance', label: 'Distance', value: `${dist}`, unit: 'mi', status: hmDistanceStatus(dist), lucideIcon: 'Map', rangeLabel: hmDistanceLabel(dist), gaugePosition: hmGaugePos('distance', dist) } : hmEmpty('distance', 'Distance', 'Map'),
@@ -1069,7 +1070,7 @@ function pkTierInfo(pct: number): { label: string; color: string; body: string }
   return {
     label: 'Trough',
     color: '#9A9490',
-    body: "Levels are near their lowest before your next dose. GLP-1 RAs maintain a floor level — they don't drop to zero. Returning hunger is a normal pharmacological effect, not a treatment failure.",
+    body: "Levels are near their lowest before your next dose. GLP-1 RAs maintain a floor level; they don't drop to zero. Returning hunger is a normal pharmacological effect, not a treatment failure.",
   };
 }
 
@@ -1278,7 +1279,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   // Daily drugs are flat — there's no weekly peak-and-trough cycle to narrate.
   const dailyConsistencyNote =
     glp1Type === 'oral_semaglutide' ? 'Take fasted at the same time daily; wait 30 min before eating'
-    : glp1Type === 'orforglipron'   ? 'Take at the same time daily — no food restrictions'
+    : glp1Type === 'orforglipron'   ? 'Take at the same time daily; no food restrictions'
     : 'Take at the same time each day';
 
   // Build real-date X-axis labels when injection timestamp is available
@@ -1617,7 +1618,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                     <Text style={{ fontSize: 17, fontWeight: '700', color: '#27AE60', fontFamily: 'System' }}>Steady all day</Text>
                   </View>
                   <Text style={{ fontSize: 14, lineHeight: 20, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', fontFamily: 'System' }}>
-                    {`${oral ? 'Daily oral' : 'Daily'} dosing keeps your level nearly flat — there's no weekly peak-and-trough cycle. ${halfLifeInfo.troughNote ? `Day-to-day ${halfLifeInfo.troughNote}.` : ''}`.trim()}
+                    {`${oral ? 'Daily oral' : 'Daily'} dosing keeps your level nearly flat. There's no weekly peak-and-trough cycle. ${halfLifeInfo.troughNote ? `Day-to-day ${halfLifeInfo.troughNote}.` : ''}`.trim()}
                   </Text>
                 </View>
               ) : (
@@ -1716,7 +1717,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 <Text style={[s.eduTitle, { marginBottom: 12 }]}>What to Expect</Text>
                 {(isDailyDrug ? [
                   { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel}` },
-                  { icon: 'Utensils', color: '#5B8BF5', label: 'Steady through the day', when: halfLifeInfo.troughNote ? `Stays near peak — ${halfLifeInfo.troughNote}` : 'Level stays nearly flat' },
+                  { icon: 'Utensils', color: '#5B8BF5', label: 'Steady through the day', when: halfLifeInfo.troughNote ? `Stays near peak. ${halfLifeInfo.troughNote}` : 'Level stays nearly flat' },
                   { icon: 'TrendingUp', color: '#F6CB45', label: oral ? 'Consistency matters' : 'Daily timing matters', when: dailyConsistencyNote },
                 ] : [
                   { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel} post-dose` },
@@ -2408,8 +2409,8 @@ function ProgressStatCard({
   };
   return (
     <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI}>
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={s.dailyInner}>
+      <View style={[s.cardBody, { flex: 1, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
+        <View style={[s.dailyInner, { flex: 1 }]}>
           <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
             <View style={s.dailyIconWrap}>{icon}</View>
           </View>
@@ -3873,14 +3874,16 @@ export default function InsightsScreen() {
                   </PremiumGate>
 
                   {leanPreservationResult && (
-                    <PremiumGate
-                      feature="lean_preservation"
-                      variant="hard"
-                      title="Lean Mass Preservation"
-                      teaser="Track how well you're preserving muscle during weight loss."
-                    >
-                      <LeanMassPreservationCard result={leanPreservationResult} medicationBrand={health.profile.medicationBrand} />
-                    </PremiumGate>
+                    <View style={{ marginTop: 8 }}>
+                      <PremiumGate
+                        feature="lean_preservation"
+                        variant="hard"
+                        title="Lean Mass Preservation"
+                        teaser="Track how well you're preserving muscle during weight loss."
+                      >
+                        <LeanMassPreservationCard result={leanPreservationResult} medicationBrand={health.profile.medicationBrand} />
+                      </PremiumGate>
+                    </View>
                   )}
                 </>
               )}

@@ -157,7 +157,7 @@ const proteinTrend: Generator = (ctx) => {
     iconColor: up ? GREEN : YELLOW,
     tagline: 'PROTEIN TREND',
     title: `Protein ${up ? 'up' : 'down'} ${pct}% this week`,
-    body: `Avg ${Math.round(recentAvg)}g/day vs ${Math.round(priorAvg)}g/day prior. ${up ? 'Keep it going — protein protects lean mass.' : 'Lean mass loss is a key GLP-1 risk; aim for your target.'}`,
+    body: `Avg ${Math.round(recentAvg)}g/day vs ${Math.round(priorAvg)}g/day prior. ${up ? 'Keep it going. Protein protects lean mass.' : 'Lean mass loss is a key GLP-1 risk; aim for your target.'}`,
     stats: [
       { value: `${Math.round(recentAvg)}g`, label: 'this week' },
       { value: `${Math.round(priorAvg)}g`, label: 'last week' },
@@ -317,7 +317,7 @@ const topSideEffect: Generator = (ctx) => {
     icon: 'HeartPulse',
     iconColor: YELLOW,
     tagline: 'MOST FREQUENT SYMPTOM',
-    title: `${label} — ${topDays} day${topDays === 1 ? '' : 's'} this month`,
+    title: `${label}: ${topDays} day${topDays === 1 ? '' : 's'} this month`,
     body: 'Patterns often emerge around shot timing or specific foods. Log consistently to surface what triggers it.',
   };
 };
@@ -335,7 +335,7 @@ const connectAppleHealth: Generator = (ctx) => {
     iconColor: '#E74C3C',
     tagline: 'UNLOCK MORE INSIGHTS',
     title: 'Connect Apple Health',
-    body: 'Sync steps, sleep, HRV, and resting heart rate — GLP-1s measurably affect all of these.',
+    body: 'Sync steps, sleep, HRV, and resting heart rate. GLP-1s measurably affect all of these.',
     cta: { label: 'Connect', route: '/settings' },
   };
 };
@@ -382,7 +382,7 @@ const TIPS: { title: string; body: string }[] = [
   },
   {
     title: '60% of weight loss is regained within 18 months of stopping',
-    body: 'The habits you build now — not the drug — are what protect the loss long-term.',
+    body: 'The habits you build now, not the drug, are what protect the loss long-term.',
   },
 ];
 const glp1Tip: Generator = (ctx) => {

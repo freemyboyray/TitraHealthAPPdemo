@@ -40,6 +40,8 @@ type HealthKitStore = {
   permissionsGranted: boolean;
   lastRefreshed: Date | null;
 
+  /** Reset all in-memory state (called on sign-out / account deletion). */
+  reset(): void;
   requestPermissions(): Promise<boolean>;
   fetchAll(): Promise<void>;
   refreshLive(): Promise<void>;
@@ -166,6 +168,17 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
       steps, activeCalories, hrv, restingHR, sleepHours, latestWeight, todayNutrition,
       ...extended,
       lastRefreshed: new Date(),
+    });
+  },
+
+  reset() {
+    set({
+      steps: null, activeCalories: null, hrv: null, restingHR: null,
+      sleepHours: null, latestWeight: null, todayNutrition: null,
+      bodyFat: null, leanMass: null, spo2: null, exerciseMinutes: null,
+      waterToday: null, respiratoryRate: null, basalEnergy: null,
+      distance: null, flightsClimbed: null, workouts: [], mindfulMinutes: null,
+      liveCategories: new Set(), permissionsGranted: false, lastRefreshed: null,
     });
   },
 

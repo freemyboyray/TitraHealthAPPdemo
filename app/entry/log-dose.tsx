@@ -180,7 +180,7 @@ export default function LogDoseScreen() {
     }
     const date = todayString();
     const emptyStomachNote = isOral && emptyStomach !== null
-      ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water — absorption may be reduced)')
+      ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water; absorption may be reduced)')
       : '';
     const combinedNotes = [notes.trim(), emptyStomachNote].filter(Boolean).join(' ');
     const success = await addInjectionLog(
@@ -347,7 +347,7 @@ export default function LogDoseScreen() {
                   accessibilityState={{ selected: emptyStomach === val }}
                 >
                   <Text style={[s.siteBtnText, emptyStomach === val ? s.siteBtnTextActive : s.siteBtnTextInactive]}>
-                    {val ? 'Yes — empty stomach' : 'No — had food/water'}
+                    {val ? 'Yes, empty stomach' : 'No, had food/water'}
                   </Text>
                 </TouchableOpacity>
               ))}

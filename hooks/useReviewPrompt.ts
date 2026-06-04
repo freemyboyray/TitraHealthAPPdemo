@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { usePreferencesStore } from '@/stores/preferences-store';
 
-const MIN_APP_OPENS = 10;
-const MIN_STREAK = 5;
-const MIN_DAYS_SINCE_INSTALL = 14;
-const COOLDOWN_DAYS = 60;
+const MIN_APP_OPENS = 5;
+const MIN_STREAK = 7;
+const MIN_DAYS_SINCE_INSTALL = 7;
+const COOLDOWN_DAYS = 90;
 const MAX_PROMPTS = 3;
 const SHOW_DELAY_MS = 3000;
 

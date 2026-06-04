@@ -38,7 +38,12 @@ export function LeanMassPreservationCard({ result, medicationBrand }: Props) {
 
   return (
     <View style={s.card}>
-      <Text style={s.title}>Lean Mass Preservation</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={s.title}>Lean Mass Preservation</Text>
+        <View style={[s.badge, { backgroundColor: w(0.06), paddingHorizontal: 7, paddingVertical: 3 }]}>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: w(0.4) }}>Estimate</Text>
+        </View>
+      </View>
 
       {/* Hero metric */}
       <View style={s.heroRow}>

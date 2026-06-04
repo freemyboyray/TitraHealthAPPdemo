@@ -160,6 +160,7 @@ export default function UpgradeScreen() {
           <Text style={s.skipText}>Maybe later</Text>
         </TouchableOpacity>
       </View>
+
     </SafeAreaView>
   );
 }

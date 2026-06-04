@@ -263,7 +263,7 @@ export async function scheduleWeeklyCheckinReminderAt(triggerDate: Date): Promis
     identifier: CHECKIN_ID,
     content: {
       title: 'Your weekly check-in is ready',
-      body: 'A new week has started — track how last week felt on your dose.',
+      body: 'A new week has started. Track how last week felt on your dose.',
       data: { url: 'titrahealth://entry/weekly-checkin' },
     },
     trigger: {

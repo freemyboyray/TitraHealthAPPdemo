@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -18,7 +19,6 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { requestPermissionsDetailed } from '@/lib/healthkit';
 import type { AppColors } from '@/constants/theme';
-import { Heart } from 'lucide-react-native';
 
 export default function HealthSyncScreen() {
   const router = useRouter();
@@ -119,9 +119,10 @@ export default function HealthSyncScreen() {
         </Text>
 
         <View style={s.illustration}>
-          <View style={s.healthIcon}>
-            <Heart size={64} color="#FF2D55" />
-          </View>
+          <Image
+            source={require('@/assets/images/apple-health-icon.png')}
+            style={s.healthIcon}
+          />
           <Text style={s.healthLabel}>Apple Health</Text>
           <Text style={s.healthDesc}>
             Sync sleep, HRV, resting heart rate, steps, and more to power your recovery ring.
@@ -158,13 +159,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,45,85,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF2D55',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
   },
   healthLabel: {
     fontSize: 20,

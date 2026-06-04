@@ -81,13 +81,6 @@ function getCategories(isOnMedication: boolean): Category[] {
       subtitle: 'Monitor your progress',
       slots: healthSlots,
     },
-    {
-      title: 'Daily Planning',
-      subtitle: 'Set your daily intention',
-      slots: [
-        { slot: 'daily_plan_morning', label: 'Daily Focus', subtitle: 'See today\'s priorities', icon: 'Compass', color: '#5AC8FA' },
-      ],
-    },
   ];
 }
 
@@ -325,7 +318,7 @@ export default function RemindersScreen() {
 
   function handleAddPreset(preset: typeof CUSTOM_PRESETS[number]) {
     if (store.customReminders.length >= MAX_CUSTOM_REMINDERS) return;
-    const id = crypto.randomUUID?.() ?? Date.now().toString();
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
     store.addCustomReminder({
       id,
       label: preset.label,
@@ -339,7 +332,7 @@ export default function RemindersScreen() {
   function handleAddCustom() {
     if (!customLabel.trim()) return;
     if (store.customReminders.length >= MAX_CUSTOM_REMINDERS) return;
-    const id = crypto.randomUUID?.() ?? Date.now().toString();
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
     store.addCustomReminder({
       id,
       label: customLabel.trim(),

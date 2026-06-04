@@ -25,7 +25,7 @@ export function EnergyBankTile({ result, phase }: Props) {
       onPress={onPress}
       accessibilityLabel={isPremium
         ? `Energy Bank ${result.score}%, ${result.label}`
-        : 'Energy Bank — premium feature, tap to unlock'}
+        : 'Energy Bank: premium feature, tap to unlock'}
       accessibilityRole="button"
     >
       <EnergyBankCard result={result} phase={phase} bare />

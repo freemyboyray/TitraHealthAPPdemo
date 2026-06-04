@@ -179,7 +179,7 @@ export default function LogFoodScreen() {
     loading,
   } = useMealTrayStore();
   const hkStore = useHealthKitStore();
-  const { refreshActuals } = useHealthData();
+  const { refreshActuals, dispatch: healthDispatch, actuals: healthActuals } = useHealthData();
   const startFoodTask = useFoodTaskStore((s) => s.startTask);
   const setInsightsDefaultTab = useUiStore((s) => s.setInsightsDefaultTab);
 
@@ -721,6 +721,13 @@ export default function LogFoodScreen() {
       fiber: parseFloat(trayItems.reduce((s, it) => s + it.fiber_g, 0).toFixed(1)),
     };
     await logMeal('snack');
+    // Optimistic update — immediately reflect logged food in focuses/scores
+    // so Today's Focus updates without waiting for the Supabase round-trip
+    healthDispatch({ type: 'MERGE_ACTUALS', updates: {
+      proteinG: healthActuals.proteinG + totals.protein,
+      fiberG: healthActuals.fiberG + totals.fiber,
+      caloriesKcal: healthActuals.caloriesKcal + totals.calories,
+    }});
     const synced = await hkStore.writeNutrition(totals);
     if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
     refreshActuals();

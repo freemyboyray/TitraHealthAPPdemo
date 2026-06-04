@@ -38,7 +38,7 @@ const BRAND_GROUPS: BrandGroup[] = [
   },
   {
     heading: 'Oral Pill',
-    subheading: 'Taken by mouth — no injections',
+    subheading: 'Taken by mouth, no injections',
     brands: [
       { value: 'oral_wegovy',  label: 'Oral Wegovy',    note: 'Semaglutide' },
       { value: 'rybelsus',     label: 'Rybelsus',       note: 'Semaglutide' },

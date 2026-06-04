@@ -341,7 +341,7 @@ export function computeCycleIntelligence(
       : hasUnusual ? 'Monitor closely'
       : 'Normal GLP-1 effects';
     const drugSuffix = glp1Drug ? ` · ${glp1Drug}` : '';
-    headerLabel = `Day ${cycleDay}${drugSuffix} · ${phaseLabel ?? 'Active'} — ${statusNote}`;
+    headerLabel = `Day ${cycleDay}${drugSuffix} · ${phaseLabel ?? 'Active'}: ${statusNote}`;
   }
 
   return { hrv, rhr, sleep, cycleDay, shotPhase: phase, headerLabel };

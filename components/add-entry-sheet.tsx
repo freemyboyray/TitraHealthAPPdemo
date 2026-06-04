@@ -42,7 +42,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { openAiChat } = useUiStore();
-  const { dispatch, profile } = useHealthData();
+  const { dispatch, profile, actuals } = useHealthData();
   const { profile: fullProfile } = useProfile();
   const oral = isOralDrug(fullProfile?.glp1Type);
   const { addFoodLog } = useLogStore();
@@ -125,6 +125,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
         source: 'manual',
       });
       if (parsedFood.proteinG > 0) dispatch({ type: 'LOG_PROTEIN', grams: parsedFood.proteinG });
+      if (parsedFood.fiberG > 0 || parsedFood.calories > 0) dispatch({ type: 'MERGE_ACTUALS', updates: { fiberG: actuals.fiberG + (parsedFood.fiberG ?? 0), caloriesKcal: actuals.caloriesKcal + (parsedFood.calories ?? 0) } });
       resetForm();
       closeSheet();
       return;

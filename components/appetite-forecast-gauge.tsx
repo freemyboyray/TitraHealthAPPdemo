@@ -31,7 +31,7 @@ function advisoryTip(state: ForecastDay['state']): string {
     case 'moderate_suppression':
       return 'Good window for your most nutrient-dense meal of the day.';
     case 'returning':
-      return 'Hunger signals may be coming back — having balanced meals planned can help.';
+      return 'Hunger signals may be coming back. Having balanced meals planned can help.';
     case 'near_baseline':
       return 'Lean on the healthy habits you\'ve built. Your next dose will restart the cycle.';
   }

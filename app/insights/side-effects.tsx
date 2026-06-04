@@ -250,7 +250,7 @@ function buildTrendsHeadline(trends: SymptomTrend[]): string {
   }
   if (worsening.length > 0 && improving.length === 0) {
     const worst = worsening.sort((a, b) => b.trendDeltaPct - a.trendDeltaPct)[0];
-    return `${EFFECT_LABELS[worst.type] ?? worst.type} is trending up — worth watching.`;
+    return `${EFFECT_LABELS[worst.type] ?? worst.type} is trending up; worth watching.`;
   }
   if (improving.length > 0 && worsening.length > 0) {
     return `${improving.length} symptom${improving.length === 1 ? '' : 's'} improving, ${worsening.length} worsening.`;
@@ -277,7 +277,7 @@ function distributionLine(b: SymptomTrend['breakdown']): string {
 function recencyLine(b: SymptomTrend['breakdown']): string | null {
   const cur = SEVERITY_TIERS[b.currentTier].label;
   if (b.currentStreak >= 2) return `${cur} the last ${b.currentStreak} times`;
-  if (b.isFreshHigh) return `${cur} — first time this month`;
+  if (b.isFreshHigh) return `${cur}, first time this month`;
   if (b.prevTier) return `Last time: ${SEVERITY_TIERS[b.prevTier].label}`;
   return null;
 }
@@ -286,7 +286,7 @@ function buildClustersHeadline(pairs: CoOccurrencePair[], totalLogs: number): st
   if (pairs.length === 0) {
     return totalLogs < 4
       ? 'Patterns emerge with more variety in logs.'
-      : 'No repeated pairs — symptoms appear independently.';
+      : 'No repeated pairs; symptoms appear independently.';
   }
   const top = pairs[0];
   const a = EFFECT_LABELS[top.a] ?? top.a;
@@ -360,7 +360,7 @@ function SpikeCard({ spike, colors }: { spike: SpikeAlert; colors: AppColors }) 
   const baseTier = severityLabel(spike.baselineSev);
   const title = baseTier === recentTier
     ? `${label} spiked to ${recentTier}`
-    : `${label} spiked to ${recentTier} — usually ${baseTier}`;
+    : `${label} spiked to ${recentTier}, usually ${baseTier}`;
   return (
     <View style={s.alertCard}>
       <View style={s.alertIconWrap}>

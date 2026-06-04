@@ -214,89 +214,54 @@ IMPORTANT: All health information you provide is for educational purposes only a
 
 // ─── Edge Function Proxy ─────────────────────────────────────────────────────
 
-const MAX_RETRIES = 2;    // up to 3 total attempts
-
+// No retries — each proxy call increments usage, so retrying would burn
+// through the free-tier limit (5/day) on transient failures.
 async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   requireAiConsent();
-  let lastError: Error = new Error('Request failed');
+  __DEV__ && console.log(`[OpenAI] calling proxy, model: ${body.model}`);
+  const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      __DEV__ && console.log(`[OpenAI] attempt ${attempt + 1}/${MAX_RETRIES + 1}, model: ${body.model}`);
-      const { data, error } = await supabase.functions.invoke('openai-proxy', { body });
+  if (error) {
+    const errMsg = error.message ?? '';
+    let errJson = '';
+    try { errJson = JSON.stringify(error).slice(0, 500); } catch {}
+    __DEV__ && console.warn('[OpenAI] proxy error:', errMsg);
 
-      if (error) {
-        const errMsg = error.message ?? '';
-        let errJson = '';
-        try { errJson = JSON.stringify(error).slice(0, 500); } catch {}
-        __DEV__ && console.warn(`[OpenAI] proxy error (attempt ${attempt + 1}):`, errMsg);
-
-        // Don't retry auth errors — the session is expired/invalid
-        if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
-            errJson.includes('401') || errJson.includes('Invalid or expired token')) {
-          throw new Error('AUTH_EXPIRED');
-        }
-
-        // Don't retry usage limit errors — user needs to upgrade
-        // FunctionsHttpError includes status:429 in the serialized context
-        if (errJson.includes('429') || errJson.includes('USAGE_LIMIT') ||
-            errMsg.includes('429') || errMsg.includes('USAGE_LIMIT')) {
-          throw new UsageLimitError('ai_chat', 5, 5);
-        }
-
-        // Don't retry payload-too-large — retrying won't shrink the request
-        if (errJson.includes('413') || errJson.includes('Payload too large') ||
-            errMsg.includes('413') || errMsg.includes('Payload too large')) {
-          throw new Error('Image too large to analyze. Please try a different photo.');
-        }
-
-        lastError = new Error(`OpenAI proxy error: ${errMsg}`);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
-          continue;
-        }
-        throw lastError;
-      }
-
-      // Check if the response itself is an auth error (edge function returned 401 as JSON)
-      if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
-        __DEV__ && console.error('[OpenAI] auth error from proxy:', data.error);
-        throw new Error('AUTH_EXPIRED');
-      }
-
-      // Check if the response is a usage limit error (edge function returned 429)
-      if (data?.error === 'USAGE_LIMIT') {
-        __DEV__ && console.log('[OpenAI] usage limit hit:', data.feature, data.used, '/', data.limit);
-        throw new UsageLimitError(data.feature ?? 'ai', data.limit ?? 0, data.used ?? 0, !!data.is_premium);
-      }
-
-      // Check if the proxy wrapped an upstream OpenAI error
-      if (data?.openai_error) {
-        __DEV__ && console.error(`[OpenAI] upstream error (attempt ${attempt + 1}): status=${data.openai_status}`);
-        lastError = new Error(`OpenAI API error ${data.openai_status}`);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
-          continue;
-        }
-        throw lastError;
-      }
-
-      __DEV__ && console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
-      return data as Record<string, unknown>;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      // Don't retry auth or usage limit errors
-      if (lastError.message === 'AUTH_EXPIRED') throw lastError;
-      if (lastError instanceof UsageLimitError) throw lastError;
-      __DEV__ && console.error(`[OpenAI] caught error (attempt ${attempt + 1}):`, lastError.message);
-      if (attempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
-        continue;
-      }
+    if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
+        errJson.includes('401') || errJson.includes('Invalid or expired token')) {
+      throw new Error('AUTH_EXPIRED');
     }
+
+    if (errJson.includes('429') || errJson.includes('USAGE_LIMIT') ||
+        errMsg.includes('429') || errMsg.includes('USAGE_LIMIT')) {
+      throw new UsageLimitError('ai_chat', 5, 5);
+    }
+
+    if (errJson.includes('413') || errJson.includes('Payload too large') ||
+        errMsg.includes('413') || errMsg.includes('Payload too large')) {
+      throw new Error('Image too large to analyze. Please try a different photo.');
+    }
+
+    throw new Error(`OpenAI proxy error: ${errMsg}`);
   }
 
-  throw lastError;
+  if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
+    __DEV__ && console.error('[OpenAI] auth error from proxy:', data.error);
+    throw new Error('AUTH_EXPIRED');
+  }
+
+  if (data?.error === 'USAGE_LIMIT') {
+    __DEV__ && console.log('[OpenAI] usage limit hit:', data.feature, data.used, '/', data.limit);
+    throw new UsageLimitError(data.feature ?? 'ai', data.limit ?? 0, data.used ?? 0, !!data.is_premium);
+  }
+
+  if (data?.openai_error) {
+    __DEV__ && console.error('[OpenAI] upstream error:', data.openai_status);
+    throw new Error(`OpenAI API error ${data.openai_status}`);
+  }
+
+  __DEV__ && console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
+  return data as Record<string, unknown>;
 }
 
 // ─── Base OpenAI call ──────────────────────────────────────────────────────────

@@ -158,7 +158,7 @@ const MEALS_MORNING_VARIANTS = [
 ];
 
 const MEALS_EVENING_VARIANTS = [
-  { title: 'Log Your Dinner', body: 'End the day strong — log your evening meal.' },
+  { title: 'Log Your Dinner', body: 'End the day strong. Log your evening meal.' },
   { title: 'Dinner Check-In', body: 'A few taps to round out today’s log.' },
   { title: 'Evening Meal', body: 'Log dinner to keep your day complete.' },
   { title: 'Wind Down Logged', body: 'What’s for dinner tonight? Log it before bed.' },
@@ -167,7 +167,7 @@ const MEALS_EVENING_VARIANTS = [
 const WEIGHT_MORNING_VARIANTS = [
   { title: 'Morning Weigh-In', body: 'Log your weight to track your progress.' },
   { title: 'Step on the Scale', body: 'A morning weigh-in keeps your trend honest.' },
-  { title: 'Daily Weigh-In', body: 'Quick weight log — best taken first thing.' },
+  { title: 'Daily Weigh-In', body: 'Quick weight log, best taken first thing.' },
   { title: 'Track Your Trend', body: 'Log today’s weight to see the bigger picture.' },
 ];
 
@@ -189,7 +189,7 @@ const DAILY_PLAN_VARIANTS = [
 const DAILY_PLAN_DORMANT_VARIANTS = [
   { title: 'No pressure', body: 'We’re here whenever you’re ready to pick back up.' },
   { title: 'Still here for you', body: 'One small log is enough to get going again.' },
-  { title: 'Whenever you’re ready', body: 'No rush — your progress is waiting when you are.' },
+  { title: ‘Whenever you’re ready’, body: ‘No rush. Your progress is waiting when you are.’ },
 ];
 
 // ─── Content builders per slot ───────────────────────────────────────────────
@@ -218,14 +218,14 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
     if (gap > 20) {
       return {
         title: 'Start Strong This Morning',
-        body: `You had ${Math.round(ydProtein)}g protein yesterday — aim for a high-protein breakfast to close the gap.`,
+        body: `You had ${Math.round(ydProtein)}g protein yesterday. Aim for a high-protein breakfast to close the gap.`,
         deepLink: '/entry/log-food',
       };
     }
     if (ydProtein >= proteinTarget) {
       return {
         title: 'Great Protein Day Yesterday!',
-        body: `${Math.round(ydProtein)}g — keep it going. Log your breakfast to stay on track.`,
+        body: `${Math.round(ydProtein)}g. Keep it going. Log your breakfast to stay on track.`,
         deepLink: '/entry/log-food',
       };
     }
@@ -236,7 +236,7 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
   if (streak >= 3) {
     return {
       title: 'Log Your Breakfast',
-      body: `${streak}-day food logging streak — don't break the chain!`,
+      body: `${streak}-day food logging streak! Don't break the chain!`,
       deepLink: '/entry/log-food',
     };
   }
@@ -246,7 +246,7 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
   if (gap >= 2 && gap < 30) {
     return {
       title: 'Log Your Breakfast',
-      body: `It's been ${gap} days since your last food log — one tap to get back on track.`,
+      body: `It's been ${gap} days since your last food log. One tap to get back on track.`,
       deepLink: '/entry/log-food',
     };
   }
@@ -274,14 +274,14 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
     if (remaining > 10) {
       return {
         title: 'Evening Meal Time',
-        body: `You're at ${Math.round(todayProtein)}g protein today — aim for ${Math.round(remaining)}g more at dinner.`,
+        body: `You're at ${Math.round(todayProtein)}g protein today. Aim for ${Math.round(remaining)}g more at dinner.`,
         deepLink: '/entry/log-food',
       };
     }
     if (remaining <= 10) {
       return {
         title: 'You Crushed Protein Today',
-        body: `${Math.round(todayProtein)}g protein — log dinner to cap off a strong day.`,
+        body: `${Math.round(todayProtein)}g protein. Log dinner to cap off a strong day.`,
         deepLink: '/entry/log-food',
       };
     }
@@ -293,7 +293,7 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
     if (phase === 'Waning Phase') {
       return {
         title: 'Appetite May Be Returning',
-        body: `You're in the waning phase of ${drugLabel(ctx.profile)} — log dinner to stay mindful.`,
+        body: `You're in the waning phase of ${drugLabel(ctx.profile)}. Log dinner to stay mindful.`,
         deepLink: '/entry/log-food',
       };
     }
@@ -311,7 +311,7 @@ export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
   if (progress) {
     return {
       title: 'Morning Weigh-In',
-      body: `Down ${progress} from your start — keep tracking to see your trend.`,
+      body: `Down ${progress} from your start. Keep tracking to see your trend.`,
       deepLink: '/entry/log-weight',
     };
   }
@@ -321,7 +321,7 @@ export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
   if (streak >= 3) {
     return {
       title: 'Morning Weigh-In',
-      body: `${streak}-day weigh-in streak — consistency is key!`,
+      body: `${streak}-day weigh-in streak. Consistency is key!`,
       deepLink: '/entry/log-weight',
     };
   }
@@ -331,7 +331,7 @@ export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
   if (gap >= 2 && gap < 30) {
     return {
       title: 'Morning Weigh-In',
-      body: `Haven't logged weight in ${gap} days — one tap to get back on track.`,
+      body: `Haven't logged weight in ${gap} days. One tap to get back on track.`,
       deepLink: '/entry/log-weight',
     };
   }
@@ -350,7 +350,7 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
   if (phase === 'Peak Phase') {
     return {
       title: 'Peak Phase Check-In',
-      body: `${doseLabel(ctx.profile)} is peaking — log any symptoms while they're fresh.`,
+      body: `${doseLabel(ctx.profile)} is peaking. Log any symptoms while they're fresh.`,
       deepLink: '/entry/side-effects',
     };
   }
@@ -368,7 +368,7 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
   if (weeks !== null && weeks <= 3) {
     return {
       title: 'How Are You Feeling?',
-      body: `Week ${weeks + 1} on ${doseLabel(ctx.profile)} — GI symptoms often shift around now. Any changes?`,
+      body: `Week ${weeks + 1} on ${doseLabel(ctx.profile)}. GI symptoms often shift around now. Any changes?`,
       deepLink: '/entry/side-effects',
     };
   }
@@ -382,7 +382,7 @@ export function getSideEffectsEveningContent(ctx: ReminderContext): ReminderCont
     if (avgSeverity >= 5) {
       return {
         title: 'Side Effect Tracker',
-        body: 'Your symptoms have been elevated this week — logging helps spot patterns.',
+        body: 'Your symptoms have been elevated this week. Logging helps spot patterns.',
         deepLink: '/entry/side-effects',
       };
     }
@@ -404,7 +404,7 @@ export function getDailyPlanMorningContent(ctx: ReminderContext): ReminderConten
     if (phase === 'Waning Phase') {
       return {
         title: 'Your Daily Focus',
-        body: `Waning phase — appetite may return. Stay ahead of cravings today.`,
+        body: `Waning phase: appetite may return. Stay ahead of cravings today.`,
         deepLink: '/(tabs)',
       };
     }
@@ -446,7 +446,7 @@ export function getDoseReminderContent(ctx: ReminderContext): {
   eveBody: string;
 } {
   const weeks = weeksOnCurrentDose(ctx.profile);
-  const weeksStr = weeks !== null ? ` — week ${weeks + 1} on your current dose` : '';
+  const weeksStr = weeks !== null ? ` (week ${weeks + 1} on your current dose)` : '';
 
   const oral = isOralDrug(ctx.profile?.medication_type as Glp1Type | undefined);
   return {
@@ -536,7 +536,7 @@ export function getProteinCheckContent(
     }
     const perMeal = Math.round(remaining / (3 - mealIndex || 1));
     return {
-      title: `Protein check — ${mealLabel}`,
+      title: `Protein check: ${mealLabel}`,
       body: `You're at ${todayProtein}g of ${targetProtein}g. Aim for ~${perMeal}g this ${mealLabel}.`,
       deepLink: '/entry/log-food',
     };
@@ -544,13 +544,13 @@ export function getProteinCheckContent(
 
   // Fallback if no tracking data
   const fallbacks = [
-    'Start with protein first — eggs, Greek yogurt, or a shake.',
+    'Start with protein first: eggs, Greek yogurt, or a shake.',
     'Protein preserves lean muscle on GLP-1. Prioritize it every meal.',
     'Even a small protein-rich snack counts. Try cottage cheese or a handful of nuts.',
   ];
 
   return {
-    title: `Protein first — ${mealLabel}`,
+    title: `Protein first: ${mealLabel}`,
     body: fallbacks[mealIndex % fallbacks.length],
     deepLink: '/entry/log-food',
   };

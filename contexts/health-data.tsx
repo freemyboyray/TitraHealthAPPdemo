@@ -4,6 +4,7 @@ import { localDateStr } from '@/lib/date-utils';
 
 import { supabase } from '@/lib/supabase';
 import { useHealthKitStore } from '@/stores/healthkit-store';
+import { useQuickAdjustStore } from '@/stores/quick-adjust-store';
 import { FullUserProfile } from '@/constants/user-profile';
 import {
   DailyActuals,
@@ -66,6 +67,7 @@ type Action =
   | { type: 'FETCH_ACTUALS'; actuals: DailyActuals }
   | { type: 'SYNC_WEARABLE'; wearable: WearableData }
   | { type: 'SYNC_HK_STEPS'; steps: number }
+  | { type: 'MERGE_ACTUALS'; updates: Partial<DailyActuals> }
   | { type: 'SYNC_PROFILE'; profile: FullUserProfile }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -126,6 +128,8 @@ function reducer(state: HealthState, action: Action): HealthState {
       return { ...state, lastLogAction: null };
     case 'FETCH_ACTUALS':
       return recompute({ ...state, actuals: action.actuals, lastLogAction: null });
+    case 'MERGE_ACTUALS':
+      return recompute({ ...state, actuals: { ...state.actuals, ...action.updates } });
     case 'SYNC_WEARABLE':
       return recompute({ ...state, wearable: { ...state.wearable, ...action.wearable } });
     case 'SYNC_HK_STEPS': {
@@ -185,6 +189,8 @@ export function HealthProvider({
   }, [hkSteps]);
 
   // Sync HealthKit activity metrics into actuals
+  // Uses MERGE_ACTUALS so we don't clobber Supabase-sourced fields (protein, fiber, etc.)
+  // with stale closure values — only the HealthKit fields are updated.
   useEffect(() => {
     const updates: Partial<DailyActuals> = {};
     if (hkExerciseMinutes != null) updates.exerciseMinutes = hkExerciseMinutes;
@@ -194,7 +200,7 @@ export function HealthProvider({
       updates.workoutCalories = hkWorkouts.reduce((s, w) => s + (w.totalEnergyBurned ?? 0), 0);
     }
     if (Object.keys(updates).length > 0) {
-      dispatch({ type: 'FETCH_ACTUALS', actuals: { ...state.actuals, ...updates } });
+      dispatch({ type: 'MERGE_ACTUALS', updates });
     }
   }, [hkExerciseMinutes, hkFlightsClimbed, hkWorkouts]);
 
@@ -212,7 +218,7 @@ export function HealthProvider({
     if (!user) {
       // Unauthenticated: still apply any logged water
       if (waterMl > 0) {
-        dispatch({ type: 'FETCH_ACTUALS', actuals: { ...ZERO_ACTUALS, waterMl } });
+        dispatch({ type: 'MERGE_ACTUALS', updates: { waterMl } });
       }
       return;
     }
@@ -223,14 +229,18 @@ export function HealthProvider({
       supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
     ]);
     const foods = foodRes.data ?? [];
-    const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0);
-    const fiberG = foods.reduce((s, f) => s + (f.fiber_g ?? 0), 0);
-    const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0);
-    const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0);
+    // Quick-adjust offsets (local +/- taps on Nutrition screen) are stored in
+    // AsyncStorage, not Supabase. Merge them so focuses/scores stay in sync.
+    await useQuickAdjustStore.getState().hydrate();
+    const qa = useQuickAdjustStore.getState().qa;
+    const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0) + qa.proteinG;
+    const fiberG = foods.reduce((s, f) => s + (f.fiber_g ?? 0), 0) + qa.fiberG;
+    const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0) + qa.calories;
+    const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0) + qa.steps;
     const injectionLogged = (injRes.data ?? []).length > 0;
     dispatch({
-      type: 'FETCH_ACTUALS',
-      actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
+      type: 'MERGE_ACTUALS',
+      updates: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
     });
   }
 

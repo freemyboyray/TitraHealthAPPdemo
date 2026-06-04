@@ -76,7 +76,7 @@ const INJECTION_SITES = [
   'Left Thigh', 'Right Thigh',
   'Left Upper Arm', 'Right Upper Arm',
 ];
-const FF = 'Inter_400Regular';
+const FF = 'System';
 
 const MED_BRAND: Record<string, string> = {
   semaglutide: 'Ozempic',
@@ -1408,8 +1408,8 @@ export default function HomeScreen() {
             );
           })()}
 
-          {/* ── Weekly Summary (today only) ── */}
-          {isToday && !weeklySummaryCardDismissed && (
+          {/* ── Weekly Summary (today only, after at least 7 days on treatment) ── */}
+          {isToday && !weeklySummaryCardDismissed && (daysOnTreatment ?? 0) >= 7 && (
             <View style={{ marginBottom: 16 }}>
               <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} onDismiss={dismissWeeklySummaryCard} />
             </View>

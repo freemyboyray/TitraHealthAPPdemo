@@ -1,4 +1,3 @@
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 // expo-notifications requires a dev build; guard so Expo Go doesn't crash.
 let Notifications: typeof import('expo-notifications') | undefined;
@@ -31,8 +30,7 @@ import { AiChatOverlay } from '@/components/ai-chat-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
-import { ReviewPrompt } from '@/components/review-prompt';
-import { ConsentPrompt } from '@/components/consent-prompt';
+import * as StoreReview from 'expo-store-review';
 import { useAchievementDetector } from '@/hooks/useAchievementDetector';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 
@@ -220,55 +218,20 @@ function MilestoneLayer() {
 
 function ReviewPromptLayer() {
   const { pendingEvent } = useAchievementDetector();
-  const { shouldShowReview, onReview, onDismiss } = useReviewPrompt();
+  const { shouldShowReview, onDismiss } = useReviewPrompt();
 
-  // Don't show review prompt while a milestone modal is active
-  if (pendingEvent) return null;
-  if (!shouldShowReview) return null;
+  useEffect(() => {
+    if (!shouldShowReview || pendingEvent) return;
+    StoreReview.isAvailableAsync().then((available) => {
+      if (available) {
+        StoreReview.requestReview();
+      }
+      // Mark as shown regardless so we respect the cooldown
+      onDismiss();
+    });
+  }, [shouldShowReview, pendingEvent]);
 
-  return <ReviewPrompt onReview={onReview} onDismiss={onDismiss} />;
-}
-
-function ConsentPromptLayer() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const session = useUserStore((s) => s.session);
-  const sessionLoaded = useUserStore((s) => s.sessionLoaded);
-  const consentMigrationDone = useUserStore((s) => s.consentMigrationDone);
-  const aiDataConsent = usePreferencesStore((s) => s.aiDataConsent);
-  const foodDbConsent = usePreferencesStore((s) => s.foodDbConsent);
-  const consentPromptShown = usePreferencesStore((s) => s.consentPromptShown);
-  const markConsentPromptShown = usePreferencesStore((s) => s.markConsentPromptShown);
-  const { pendingEvent } = useAchievementDetector();
-  const { profile } = useProfile();
-
-  if (!sessionLoaded || !consentMigrationDone) return null;
-  if (!session) return null;
-  // Don't show until onboarding is complete — otherwise it can flash during
-  // the splash → onboarding transition for brand-new accounts
-  if (!profile?.onboardingCompletedAt) return null;
-  // Once the prompt has been shown once (persisted), never show it again
-  if (consentPromptShown) return null;
-  if (pendingEvent) return null;
-  if (aiDataConsent && foodDbConsent) return null;
-  // Don't interrupt onboarding / auth / TOS-update flows
-  if (
-    pathname?.startsWith('/auth') ||
-    pathname?.startsWith('/onboarding') ||
-    pathname?.startsWith('/tos-update')
-  ) return null;
-
-  return (
-    <ConsentPrompt
-      missingAi={!aiDataConsent}
-      missingFood={!foodDbConsent}
-      onReview={() => {
-        markConsentPromptShown();
-        router.push('/settings/privacy');
-      }}
-      onDismiss={() => markConsentPromptShown()}
-    />
-  );
+  return null;
 }
 
 function ScreenTracker() {
@@ -348,7 +311,6 @@ function RootLayoutInner() {
               <HealthSyncToast />
               <MilestoneLayer />
               <ReviewPromptLayer />
-              <ConsentPromptLayer />
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>
@@ -358,15 +320,6 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-  });
-
-  if (!fontsLoaded) return null;
-
   return (
     <PostHogProvider {...posthogConfig}>
       <AppThemeProvider>

@@ -215,7 +215,12 @@ export function ClinicalBenchmarkCard({ result, medicationBrand }: Props) {
     <Pressable style={s.card} onLongPress={handleLongPress}>
       {/* Title + week */}
       <View style={s.header}>
-        <Text style={s.title}>Clinical Benchmark</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={s.title}>Clinical Benchmark</Text>
+          <View style={{ backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>Estimate</Text>
+          </View>
+        </View>
         <Text style={s.weekLabel}>Week {treatmentWeek}</Text>
       </View>
 

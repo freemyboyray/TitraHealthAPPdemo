@@ -1163,7 +1163,7 @@ export default function EditTreatmentScreen() {
               {/* ── STEP: BRAND ── */}
               {wizardStep === 'brand' && (
                 <MedicationPicker
-                  currentBrand={profile?.medicationBrand}
+                  currentBrand={wasOffTreatment ? null : (profile?.medicationBrand ?? null)}
                   selectedBrand={brand}
                   onSelectBrand={handleBrandChange}
                 />
@@ -1173,7 +1173,7 @@ export default function EditTreatmentScreen() {
               {wizardStep === 'dose' && (
                 <DoseSelector
                   brand={brand}
-                  currentDose={profile?.doseMg}
+                  currentDose={wasOffTreatment ? null : (profile?.doseMg ?? null)}
                   selectedDose={dose}
                   customDose={customDose}
                   onSelectDose={(d) => { if (d === 'custom') { setDose('custom'); } else { setDose(d); setCustomDose(''); } }}

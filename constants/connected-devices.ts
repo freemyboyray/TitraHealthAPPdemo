@@ -24,7 +24,7 @@ export const DEVICE_CATEGORIES: DeviceCategory[] = [
     id: 'smart-scales',
     title: 'Smart Scales',
     subtitle: 'The most impactful device for GLP-1 tracking',
-    whyItMatters: 'Track weight trends, body fat %, and lean mass to see if you\'re losing fat — not muscle.',
+    whyItMatters: 'Track weight trends, body fat %, and lean mass to see if you\'re losing fat, not muscle.',
     icon: 'Scale',
     accent: '#5AC8FA',
     hkKeys: ['weight', 'bodyFat', 'leanMass'],

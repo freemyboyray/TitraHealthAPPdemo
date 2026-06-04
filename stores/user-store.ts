@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { ProfileRow } from './log-store';
 import { usePreferencesStore } from './preferences-store';
+import { useLogStore } from './log-store';
+import { useHealthKitStore } from './healthkit-store';
 
 type UserStore = {
   session: Session | null;
@@ -65,6 +67,8 @@ export const useUserStore = create<UserStore>((set) => ({
       if (appKeys.length > 0) await AsyncStorage.multiRemove(appKeys);
     } catch {}
     usePreferencesStore.getState().reset();
+    useLogStore.getState().resetAll();
+    useHealthKitStore.getState().reset();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 
@@ -89,6 +93,8 @@ export const useUserStore = create<UserStore>((set) => ({
     await supabase.auth.signOut();
     await AsyncStorage.clear().catch(() => {});
     usePreferencesStore.getState().reset();
+    useLogStore.getState().resetAll();
+    useHealthKitStore.getState().reset();
     set({ session: null, profile: null, demoMode: false, sessionLoaded: true });
   },
 }));

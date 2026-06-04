@@ -63,7 +63,7 @@ export function PremiumGate({
         style={[styles.softCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={handleUpgrade}
         activeOpacity={0.7}
-        accessibilityLabel={title ? `${title} — premium feature, tap to unlock` : 'Premium feature — tap to unlock'}
+        accessibilityLabel={title ? `${title}: premium feature, tap to unlock` : 'Premium feature: tap to unlock'}
         accessibilityRole="button"
         accessibilityHint="Opens the subscription upgrade screen"
       >

@@ -31,7 +31,7 @@ function advisoryTip(state: ForecastDay['state']): string {
     case 'moderate_suppression':
       return 'Good window for your highest-protein meal of the day.';
     case 'returning':
-      return 'You may notice hunger returning — plan satisfying, balanced meals.';
+      return 'You may notice hunger returning. Plan satisfying, balanced meals.';
     case 'near_baseline':
       return 'Hunger may feel normal today. Lean on the habits you\'ve been building.';
   }
@@ -40,8 +40,8 @@ function advisoryTip(state: ForecastDay['state']): string {
 function advisoryPhaseLabel(phase: HourBlock['phase']): string {
   switch (phase) {
     case 'peak':      return 'Appetite may be at its lowest right now';
-    case 'post_dose': return 'Medication absorbing — appetite may start to decrease';
-    case 'trough':    return 'Medication levels are lower — appetite may feel more normal';
+    case 'post_dose': return 'Medication absorbing; appetite may start to decrease';
+    case 'trough':    return 'Medication levels are lower; appetite may feel more normal';
   }
 }
 
@@ -366,7 +366,7 @@ export function AppetiteForecastWave({
           <View style={s.advisoryRow}>
             <View style={[s.advisoryDot, { backgroundColor: '#FF742A' }]} />
             <Text style={s.advisoryLabel}>
-              {activeDay.isToday ? 'Today — Day ' + activeDay.cycleDay : 'Day ' + activeDay.cycleDay}
+              {activeDay.isToday ? 'Today, Day ' + activeDay.cycleDay : 'Day ' + activeDay.cycleDay}
             </Text>
             {activeDay.isProjected && (
               <Text style={s.projectedBadge}>ESTIMATE</Text>

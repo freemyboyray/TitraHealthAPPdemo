@@ -24,7 +24,7 @@ export type TargetRationale = {
 export const TARGET_RATIONALE: Record<string, TargetRationale> = {
   Protein: {
     rationale:
-      'Set to preserve lean muscle while GLP-1 suppresses appetite — scaled to your body weight, dose, and treatment phase (1.2–1.6 g/kg/day).',
+      'Set to preserve lean muscle while GLP-1 suppresses appetite, scaled to your body weight, dose, and treatment phase (1.2–1.6 g/kg/day).',
     citations: [
       { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: '≥1.2 g/kg/day protein to preserve lean mass on GLP-1 therapy' },
       { label: 'PMC12536186', shortDesc: 'Lean mass preservation on GLP-1/GIP receptor agonists' },
@@ -39,21 +39,21 @@ export const TARGET_RATIONALE: Record<string, TargetRationale> = {
   },
   Carbs: {
     rationale:
-      'Fills the calories remaining after protein and fat are set — so when your protein target shifts, carbs adjust to keep your overall energy balanced.',
+      'Fills the calories remaining after protein and fat are set, so when your protein target shifts, carbs adjust to keep your overall energy balanced.',
     citations: [
       { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: 'Macronutrient priorities for GLP-1 therapy' },
     ],
   },
   Fat: {
     rationale:
-      'Set to roughly 28% of your daily calories — a balanced mid-range that also limits the GI burden of high-fat meals on GLP-1.',
+      'Set to roughly 28% of your daily calories, a balanced mid-range that also limits the GI burden of high-fat meals on GLP-1.',
     citations: [
       { label: '2025 ACLM/ASN/OMA/TOS Joint Advisory', shortDesc: 'Macronutrient priorities for GLP-1 therapy' },
     ],
   },
   Water: {
     rationale:
-      'About 30 mL per kg of body weight — the adequate-intake benchmark, which also helps manage common GI side effects and supports medication absorption.',
+      'About 30 mL per kg of body weight, the adequate-intake benchmark, which also helps manage common GI side effects and supports medication absorption.',
     citations: [
       { label: 'National Academies DRI (Water & Electrolytes, 2005)', shortDesc: 'Adequate water intake reference (~30 mL/kg/day)' },
     ],
@@ -74,7 +74,7 @@ export const TARGET_RATIONALE: Record<string, TargetRationale> = {
   },
   'Active Cal': {
     rationale:
-      'Your daily active-calorie burn target — eased during dose escalation when capacity is lower, and raised at maintenance to protect progress.',
+      'Your daily active-calorie burn target, eased during dose escalation when capacity is lower, and raised at maintenance to protect progress.',
     citations: [
       { label: 'Physical Activity Guidelines for Americans, 2nd ed. (2018)', shortDesc: 'Daily movement recommendations for adults' },
     ],

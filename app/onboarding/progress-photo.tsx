@@ -84,10 +84,16 @@ export default function ProgressPhotoScreen() {
             <View style={s.center}>
               <Image source={{ uri: photoUri }} style={s.preview} />
               <Text style={s.capturedLabel}>Looking great!</Text>
-              <TouchableOpacity onPress={takePhoto} activeOpacity={0.7} style={s.retakeBtn}>
-                <Camera size={16} color={colors.orange} />
-                <Text style={s.retakeText}>Retake</Text>
-              </TouchableOpacity>
+              <View style={s.retakeRow}>
+                <TouchableOpacity onPress={takePhoto} activeOpacity={0.7} style={s.retakeBtn}>
+                  <Camera size={16} color={colors.orange} />
+                  <Text style={s.retakeText}>Retake</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={chooseFromGallery} activeOpacity={0.7} style={s.retakeBtn}>
+                  <Images size={16} color={colors.orange} />
+                  <Text style={s.retakeText}>Choose Different</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             /* ── Initial state ── */
@@ -181,6 +187,9 @@ const createStyles = (c: AppColors) => {
     capturedLabel: {
       fontSize: 18, fontWeight: '700', color: c.textPrimary,
       fontFamily: FF, marginBottom: 8,
+    },
+    retakeRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
     },
     retakeBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6,

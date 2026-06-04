@@ -133,7 +133,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Shared logic for loading the profile from cache / Supabase.
   // Called on mount and again after sign-in to ensure fresh state.
-  async function loadProfileFromServer(attempt = 0) {
+  async function loadProfileFromServer(attempt = 0, forceRefresh = false) {
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 1500;
     setIsLoading(true);
@@ -166,9 +166,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Try AsyncStorage (fast, offline-capable) — but only if it belongs to this user
+      //    Skip cache when forceRefresh is true (e.g. after logging a new weight)
       const json = await AsyncStorage.getItem(STORAGE_KEY);
       const cachedUserId = await AsyncStorage.getItem(STORAGE_KEY + '_uid');
-      if (json) {
+      if (json && !forceRefresh) {
         // Only trust cache if we have a matching uid (no uid = legacy cache, discard it)
         if (cachedUserId && (!user || cachedUserId === user.id)) {
           setProfile(JSON.parse(json) as FullUserProfile);
@@ -621,7 +622,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider
-      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, reloadProfile: loadProfileFromServer, updateProfile, applyPendingTransition, setProfile, isLoading }}>
+      value={{ profile, draft, updateDraft, completeOnboarding, resetProfile, reloadProfile: () => loadProfileFromServer(0, true), updateProfile, applyPendingTransition, setProfile, isLoading }}>
       {children}
     </ProfileContext.Provider>
   );

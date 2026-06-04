@@ -924,7 +924,7 @@ export function getRecoveryRowNotes(phase: ShotPhase): string[] {
     hrvNote,
     rhrNote,
     "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
-    "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration — common during GLP-1 dose escalation.",
+    "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration, which is common during GLP-1 dose escalation.",
   ];
 }
 
@@ -937,23 +937,23 @@ export function getGLP1RowNotes(phase: ShotPhase): string[] {
   return [
     proteinNote,
     "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects. (National Academies DRI for Water)",
-    "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue. (Blundell JE, et al. Obesity Reviews. 2022)",
+    "Daily movement improves insulin sensitivity and supports appetite regulation during GLP-1 therapy. (Blundell JE, et al. Obes Rev. 2015;16(Suppl 1):67-76)",
     "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes. (Weickert MO, Pfeiffer AFH. J Nutr. 2018)",
   ];
 }
 
 export const RECOVERY_ROW_NOTES = [
   "Below 7h blunts GLP-1 appetite control by reducing leptin and elevating ghrelin. (Spiegel K, et al. Ann Intern Med. 2004;141(11):846-850)",
-  "GLP-1 medications cause an average −6.2ms HRV decrease via direct sinus node activation. Exercise counteracts this. (Smits MM, et al. Diabetes Obes Metab. 2019;21(7):1517-1522)",
-  "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm improvement over 12 weeks. (Smits MM, et al. Diabetes Obes Metab. 2019)",
+  "GLP-1 receptor agonists increase heart rate via direct sinus node activation. Exercise counteracts this. (Smits MM, et al. Eur J Endocrinol. 2017;176(1):77-86)",
+  "Resting HR reflects autonomic tone. GLP-1 users typically see 2–4 bpm increase that stabilizes over 12 weeks. (Smits MM, et al. Eur J Endocrinol. 2017;176(1):77-86)",
   "SpO₂ below 96% signals respiratory stress or altitude effects unrelated to GLP-1 therapy.",
-  "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration — common during GLP-1 dose escalation.",
+  "Resting respiratory rate 12–20 bpm is normal. Elevated rates can signal illness, stress, or dehydration, which is common during GLP-1 dose escalation.",
 ];
 
 export const GLP1_ROW_NOTES = [
   "GLP-1 medications suppress appetite broadly - intentional protein intake (1.0-1.6 g/kg/day) prevents muscle loss alongside fat. (Mechanick JI, et al. Obesity. 2013;21(S1):S1-S27)",
   "Adequate hydration reduces nausea and constipation, the most common GLP-1 side effects. (National Academies DRI for Water)",
-  "Daily movement improves insulin sensitivity and enhances GLP-1 receptor expression in muscle tissue. (Blundell JE, et al. Obesity Reviews. 2022;23(S1):e13403)",
+  "Daily movement improves insulin sensitivity and supports appetite regulation during GLP-1 therapy. (Blundell JE, et al. Obes Rev. 2015;16(Suppl 1):67-76)",
   "Fiber slows gastric emptying, complementing GLP-1's mechanism and reducing post-meal blood sugar spikes. (Weickert MO, Pfeiffer AFH. J Nutr. 2018;148(1):7-12)",
 ];
 
@@ -1092,7 +1092,7 @@ const PROTEIN_TIPS = [
   'Try chicken, Greek yogurt, eggs, or cottage cheese',
   'Small, frequent, high-protein meals work best',
   'A protein shake is an easy win on busy days',
-  'GLP-1s reduce appetite — front-load protein early',
+  'GLP-1s reduce appetite, so front-load protein early',
 ];
 
 const HYDRATION_TIPS = [
@@ -1104,14 +1104,14 @@ const HYDRATION_TIPS = [
 
 const FIBER_TIPS = [
   'Beans, berries, avocado, and oats are great choices',
-  'Fiber slows digestion — space it out to avoid bloating',
+  'Fiber slows digestion, so space it out to avoid bloating',
   'Add veggies to your next meal for an easy fiber boost',
 ];
 
 const ACTIVITY_TIPS = [
   'A 10-minute walk after meals improves glucose response',
   'Resistance training preserves lean mass on GLP-1s',
-  'Even light movement counts — take the stairs',
+  'Even light movement counts. Take the stairs.',
 ];
 
 const SLEEP_TIPS = [
@@ -1302,7 +1302,7 @@ function buildFocusItem(
         phase === 'peak'
           ? 'Electrolytes critical today'
           : status === 'completed'
-          ? `${targetOz}oz reached — great work`
+          ? `${targetOz}oz reached. Great work!`
           : dailyPick(HYDRATION_TIPS, dayOfYear);
       return {
         id: 'hydration', label, subtitle,
@@ -1325,7 +1325,7 @@ function buildFocusItem(
         phase === 'shot'
           ? 'Try a protein shake on shot day'
           : status === 'completed'
-          ? `${targets.proteinG}g reached — lean mass protected`
+          ? `${targets.proteinG}g reached. Lean mass protected.`
           : dailyPick(PROTEIN_TIPS, dayOfYear);
       return {
         id: 'protein', label, subtitle,
@@ -1340,13 +1340,13 @@ function buildFocusItem(
       const pct = actuals.fiberG / targets.fiberG;
       const label =
         status === 'completed'
-          ? 'Fiber goal hit — nice work'
+          ? 'Fiber goal hit. Nice work!'
           : pct >= 0.75
           ? 'Almost at your fiber goal'
           : 'Add fiber to your next meal';
       const subtitle =
         status === 'completed'
-          ? `${targets.fiberG}g reached — digestion supported`
+          ? `${targets.fiberG}g reached. Digestion supported.`
           : dailyPick(FIBER_TIPS, dayOfYear);
       return {
         id: 'fiber', label, subtitle,
@@ -1366,7 +1366,7 @@ function buildFocusItem(
           : 'Get some movement in today';
       const subtitle =
         status === 'completed'
-          ? `${actuals.steps.toLocaleString()} steps — well done`
+          ? `${actuals.steps.toLocaleString()} steps. Well done!`
           : dailyPick(ACTIVITY_TIPS, dayOfYear);
       return {
         id: 'activity', label, subtitle,
@@ -1385,7 +1385,7 @@ function buildFocusItem(
           : 'Prioritize sleep tonight';
       const subtitle =
         status === 'completed'
-          ? `${hrs}h last night — recovery on track`
+          ? `${hrs}h last night. Recovery on track.`
           : dailyPick(SLEEP_TIPS, dayOfYear) + phaseNote;
       return {
         id: 'sleep', label, subtitle,
@@ -1399,7 +1399,7 @@ function buildFocusItem(
       const recovery = computeRecovery(wearable, phase);
       return {
         id: 'recovery',
-        label: 'Recovery day — take it easy',
+        label: 'Recovery day. Take it easy.',
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
           ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '-'}`
           : 'Connect Apple Health to see recovery details',
@@ -1411,7 +1411,7 @@ function buildFocusItem(
       return {
         id: 'rest',
         label: 'Rest & recover today',
-        subtitle: 'Peak GLP-1 day — light movement only',
+        subtitle: 'Peak GLP-1 day. Light movement only.',
         lucideIcon: 'Brain',
         status,
       };
@@ -1893,16 +1893,16 @@ function buildDrugLevelDetail(
     switch (phase) {
       case 'shot':
         return acclimating
-          ? 'Dose just taken — levels climbing as your body adjusts'
-          : 'Dose just taken — levels climbing';
+          ? 'Dose just taken. Levels climbing as your body adjusts.'
+          : 'Dose just taken. Levels climbing.';
       case 'peak':
         return hasSymptoms
-          ? 'Near peak in your cycle — tracks with the side effects you’ve logged'
+          ? ‘Near peak in your cycle, which tracks with the side effects you’ve logged’
           : acclimating
-          ? 'Near peak in your cycle — side effects can run higher here while you adjust'
-          : 'Near peak in your cycle — you’ve been tolerating this window well';
+          ? ‘Near peak in your cycle; side effects can run higher here while you adjust’
+          : ‘Near peak in your cycle. You’ve been tolerating this window well.’;
       case 'balance':
-        return 'Levels steady mid-cycle — a stable window';
+        return 'Levels steady mid-cycle. A stable window.';
       default:
         return 'Levels tapering before your next dose';
     }
@@ -1910,10 +1910,10 @@ function buildDrugLevelDetail(
 
   const pct = Math.round(pkConcentration);
   const conc =
-    pct >= 80 ? `${pct}% of peak — near your cycle high`
-    : pct >= 55 ? `${pct}% of peak — still elevated`
-    : pct >= 30 ? `${pct}% of peak — easing off`
-    : `${pct}% of peak — dose wearing off before your next one`;
+    pct >= 80 ? `${pct}% of peak, near your cycle high`
+    : pct >= 55 ? `${pct}% of peak, still elevated`
+    : pct >= 30 ? `${pct}% of peak, easing off`
+    : `${pct}% of peak, dose wearing off before your next one`;
 
   let note: string;
   if (pct >= 55) {
@@ -1928,7 +1928,7 @@ function buildDrugLevelDetail(
       : 'a lighter window for side effects';
   }
 
-  return `${conc} — ${note}`;
+  return `${conc}; ${note}`;
 }
 
 /**
@@ -1978,13 +1978,13 @@ export function computeEnergyBank(
     id: 'sleep', label: 'Sleep', score: sleepScore, baseWeight: 0.25,
     available: hasSleep,
     detail: hasSleep
-      ? `${sleepHrs} logged — ${sleepScore >= 75 ? 'good recovery window' : sleepScore >= 50 ? 'adequate but could improve' : 'insufficient for recovery'}`
-      : 'Not tracked — connect Apple Health to include sleep in your score',
+      ? `${sleepHrs} logged: ${sleepScore >= 75 ? 'good recovery window' : sleepScore >= 50 ? 'adequate but could improve' : 'insufficient for recovery'}`
+      : 'Not tracked. Connect Apple Health to include sleep in your score.',
   });
 
   // ── 2. Recovery — HRV (65%) + RHR (35%) (20%) ───────────────────────────
   let recoveryScore = 0;
-  let recoveryDetail = 'Not tracked — wear Apple Watch to sleep for recovery data';
+  let recoveryDetail = 'Not tracked. Wear Apple Watch to sleep for recovery data.';
   if (hasRecovery) {
     let hrvSub = 0.5;
     let rhrSub = 0.5;
@@ -2011,7 +2011,7 @@ export function computeEnergyBank(
     if (hasHRV) parts.push(`HRV ${wearable.hrvMs}ms`);
     if (hasRHR) parts.push(`RHR ${wearable.restingHR}bpm`);
     const baselineNote = hasBaseline ? ' (vs. your baseline)' : '';
-    recoveryDetail = `${parts.join(' · ')}${baselineNote} — ${recoveryScore >= 75 ? 'strong recovery' : recoveryScore >= 50 ? 'moderate recovery' : 'low recovery — rest may help'}`;
+    recoveryDetail = `${parts.join(' · ')}${baselineNote}: ${recoveryScore >= 75 ? 'strong recovery' : recoveryScore >= 50 ? 'moderate recovery' : 'low recovery; rest may help'}`;
   }
   raw.push({
     id: 'recovery', label: 'Recovery', score: recoveryScore, baseWeight: 0.20,
@@ -2042,12 +2042,12 @@ export function computeEnergyBank(
           sideEffectBurden,
           fatigueBurden ?? 0,
         )
-      : 'Paused — not counted while you’re between medications',
+      : ‘Paused. Not counted while you’re between medications.’,
   });
 
   // ── 4. Nutrition — Calories (60%) + Protein (40%) (17%) ─────────────────
   let nutritionScore = 0;
-  let nutritionDetail = 'Not tracked — log food to include nutrition in your score';
+  let nutritionDetail = ‘Not tracked. Log food to include nutrition in your score.’;
   if (hasNutrition) {
     const calScore = actuals.caloriesKcal > 0 && targets.caloriesTarget > 0
       ? scoreCalories(actuals.caloriesKcal, targets.caloriesTarget)
@@ -2065,7 +2065,7 @@ export function computeEnergyBank(
     const parts: string[] = [];
     if (actuals.caloriesKcal > 0) parts.push(`${Math.round(actuals.caloriesKcal)} / ${Math.round(targets.caloriesTarget)} cal`);
     if (actuals.proteinG > 0) parts.push(`${Math.round(actuals.proteinG)}g / ${Math.round(targets.proteinG)}g protein`);
-    nutritionDetail = `${parts.join(' · ')} — ${nutritionScore >= 75 ? 'well fueled' : nutritionScore >= 40 ? 'needs more fuel' : 'under-eating drains energy'}`;
+    nutritionDetail = `${parts.join(' · ')}: ${nutritionScore >= 75 ? 'well fueled' : nutritionScore >= 40 ? 'needs more fuel' : 'under-eating drains energy'}`;
   }
   raw.push({
     id: 'nutrition', label: 'Nutrition', score: nutritionScore, baseWeight: 0.17,
@@ -2084,8 +2084,8 @@ export function computeEnergyBank(
     id: 'hydration', label: 'Hydration', score: hydrationScore, baseWeight: 0.10,
     available: hasHydration,
     detail: hasHydration
-      ? `${loggedOz}oz / ${targetOz}oz — ${hydrationScore >= 75 ? 'well hydrated' : hydrationScore >= 40 ? 'drink more water' : 'dehydration causes fatigue on GLP-1s'}`
-      : 'Not tracked — log water to include hydration in your score',
+      ? `${loggedOz}oz / ${targetOz}oz: ${hydrationScore >= 75 ? 'well hydrated' : hydrationScore >= 40 ? 'drink more water' : 'dehydration causes fatigue on GLP-1s'}`
+      : 'Not tracked. Log water to include hydration in your score.',
   });
 
   // ── 6. Side Effects (10%) — fatigue up-weighted ──────────────────────────
@@ -2097,10 +2097,10 @@ export function computeEnergyBank(
     id: 'sideEffects', label: 'Side Effects', score: seScore, baseWeight: 0.10,
     available: isOnTreatment,
     detail: !isOnTreatment
-      ? 'Paused — not counted while you’re between medications'
+      ? ‘Paused. Not counted while you’re between medications.’
       : blendedBurden > 0
-      ? `${Math.round(blendedBurden)}% burden${fatigueBurden != null && fatigueBurden > 0 ? ' (fatigue-weighted)' : ''} — ${blendedBurden >= 40 ? 'significant drain on energy' : 'mild impact'}`
-      : 'No recent side effects — positive for energy',
+      ? `${Math.round(blendedBurden)}% burden${fatigueBurden != null && fatigueBurden > 0 ? ‘ (fatigue-weighted)’ : ‘’}: ${blendedBurden >= 40 ? ‘significant drain on energy’ : ‘mild impact’}`
+      : ‘No recent side effects. Positive for energy.’,
   });
 
   // ── Redistribute weights ─────────────────────────────────────────────────

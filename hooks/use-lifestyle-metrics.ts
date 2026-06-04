@@ -131,7 +131,7 @@ export function useLifestyleMetrics() {
   const adjustMetric = useCallback((field: keyof QuickAdj, delta: number) => {
     adjust(field, delta);
     if (field === 'proteinG') health.dispatch({ type: 'LOG_PROTEIN', grams: delta });
-    else if (field === 'fiberG') health.dispatch({ type: 'FETCH_ACTUALS', actuals: { ...health.actuals, fiberG: health.actuals.fiberG + delta } });
+    else if (field === 'fiberG') health.dispatch({ type: 'MERGE_ACTUALS', updates: { fiberG: health.actuals.fiberG + delta } });
     else if (field === 'steps') health.dispatch({ type: 'LOG_STEPS', steps: delta });
   }, [adjust, health]);
 

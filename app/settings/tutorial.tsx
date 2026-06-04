@@ -45,7 +45,7 @@ const SECTIONS: Section[] = [
       { label: 'Shot Day', detail: 'The day you take your injection. Your body is absorbing the medication. Focus on hydration and light, protein-rich meals.' },
       { label: 'Peak', detail: 'GLP-1 levels are at their highest. Appetite suppression is strongest. Make every bite count with protein and stay hydrated.' },
       { label: 'Balance', detail: 'Medication levels are stable. Great window to build habits around protein intake, fiber, and activity goals.' },
-      { label: 'Reset', detail: 'Levels are tapering toward your next dose. Hunger may return — this is normal pharmacology. Lean on your habits to stay consistent.' },
+      { label: 'Reset', detail: 'Levels are tapering toward your next dose. Hunger may return. This is normal pharmacology. Lean on your habits to stay consistent.' },
     ],
   },
   {
@@ -72,7 +72,7 @@ const SECTIONS: Section[] = [
     iconBg: 'rgba(59,154,225,0.15)',
     items: [
       { label: 'Overview', detail: 'The Lifestyle tab shows your daily nutrition, activity, and vitals in one place. Data comes from both your in-app logs and Apple Health.' },
-      { label: 'Vitals', detail: 'Heart rate variability (HRV), resting heart rate, sleep duration, SpO2, and respiratory rate — all pulled from Apple Health.' },
+      { label: 'Vitals', detail: 'Heart rate variability (HRV), resting heart rate, sleep duration, SpO2, and respiratory rate. All pulled from Apple Health.' },
       { label: 'Body Composition', detail: 'Body fat percentage and lean mass from Apple Health-connected devices like smart scales.' },
       { label: 'Activity', detail: 'Steps, exercise minutes, distance, flights climbed, and total daily energy expenditure (TDEE) from your Apple Watch or phone.' },
       { label: 'Workouts', detail: 'Structured workout sessions synced from Apple Health, showing activity type, duration, calories burned, and source app.' },
