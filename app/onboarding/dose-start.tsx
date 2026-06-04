@@ -10,13 +10,26 @@ import { toDateString } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
+// Parse a YYYY-MM-DD string into a local Date (avoids UTC day-shift from new Date(str)).
+const parseYMD = (s?: string) => {
+  if (!s) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+};
+
 export default function DoseStartScreen() {
   const router = useRouter();
-  const { updateDraft } = useProfile();
+  const { updateDraft, draft } = useProfile();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [doseStartDate, setDoseStartDate] = useState(new Date());
+  // The current dose must have started on or before the last shot/pill of that dose,
+  // so cap the picker at the last-injection date (set on the previous step).
+  const lastShotDate = useMemo(() => parseYMD(draft.lastInjectionDate), [draft.lastInjectionDate]);
+  const maxDate = lastShotDate ?? new Date();
+
+  const [doseStartDate, setDoseStartDate] = useState(() => maxDate);
 
   const handleContinue = () => {
     updateDraft({ doseStartDate: toDateString(doseStartDate) });
@@ -38,7 +51,7 @@ export default function DoseStartScreen() {
               value={doseStartDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              maximumDate={new Date()}
+              maximumDate={maxDate}
               onChange={(_, date) => { if (date) setDoseStartDate(date); }}
               style={s.datePicker}
               themeVariant={isDark ? 'dark' : 'light'}

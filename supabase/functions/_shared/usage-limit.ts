@@ -7,7 +7,11 @@ const LIMITS: Record<FeatureKey, number> = {
   ai_chat: 5,
   photo_analysis: 3,
   voice_log: 3,
-  food_parse: 30,
+  // Generous safety net only — food logging is really gated by the 5-entries/day
+  // save cap (checkFoodLogQuota) + the entry-point gate. One described meal fans
+  // out into several food_parse calls (variants + per-item macros + match
+  // select), so this must sit well above 5 entries' worth of calls.
+  food_parse: 100,
 };
 
 export type UsageCheckResult = {
@@ -44,8 +48,22 @@ export async function checkUsageLimit(
 
   if (error) {
     console.error(`[usage-limit] RPC error for ${featureKey}:`, error.message);
-    // On error, allow the request (fail open to avoid blocking paying users)
-    return null;
+    // Fail closed — deny the request on RPC errors to prevent limit bypass.
+    // Premium users with legitimate access will succeed on retry once the DB recovers.
+    return new Response(
+      JSON.stringify({
+        error: 'USAGE_LIMIT',
+        feature: featureKey,
+        limit: limit,
+        used: limit,
+        remaining: 0,
+        is_premium: false,
+      }),
+      {
+        status: 429,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      },
+    );
   }
 
   const result = data as UsageCheckResult;

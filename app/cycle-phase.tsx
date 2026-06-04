@@ -15,6 +15,7 @@ import {
   rawDaysSinceInjection,
   getShotPhase,
   getPhaseFocusMessage,
+  cycleDisplayDay,
   type ShotPhase,
 } from '@/constants/scoring';
 import type { AppColors } from '@/constants/theme';
@@ -131,7 +132,7 @@ export default function CyclePhaseScreen() {
               {phaseFocus.title}
             </Text>
             <Text style={s.heroSub}>
-              Day {Math.max(1, todayDayNum)} of {freq}
+              Day {cycleDisplayDay(todayDayNum, freq)} of {freq}
             </Text>
 
             <View style={s.timelineWrap}>

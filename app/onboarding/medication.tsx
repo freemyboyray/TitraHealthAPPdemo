@@ -13,43 +13,35 @@ import type { AppColors } from '@/constants/theme';
 type BrandOption = { value: MedicationBrand; label: string; note?: string };
 type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] };
 
+// Grouped by route (Injection vs Oral). Each group ends in its own "Other"
+// entry so an unlisted drug still tells us the route — which drives whether we
+// show injection-specific features. Frequency is confirmed on the next step.
 const BRAND_GROUPS: BrandGroup[] = [
   {
-    heading: 'Weekly Injection',
-    subheading: 'Once a week',
+    heading: 'Injection',
+    subheading: 'A shot you give yourself',
     brands: [
       { value: 'zepbound',               label: 'Zepbound',                note: 'Tirzepatide' },
       { value: 'mounjaro',               label: 'Mounjaro',                note: 'Tirzepatide' },
       { value: 'wegovy',                 label: 'Wegovy',                  note: 'Semaglutide' },
       { value: 'ozempic',                label: 'Ozempic',                 note: 'Semaglutide' },
       { value: 'trulicity',              label: 'Trulicity',               note: 'Dulaglutide' },
-      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide' },
-      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide' },
-    ],
-  },
-  {
-    heading: 'Daily Injection',
-    subheading: 'Once a day',
-    brands: [
       { value: 'saxenda',                label: 'Saxenda',                 note: 'Liraglutide' },
       { value: 'victoza',                label: 'Victoza',                 note: 'Liraglutide' },
+      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide' },
+      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide' },
       { value: 'compounded_liraglutide', label: 'Compounded Liraglutide' },
+      { value: 'other_injection',        label: 'Other injection' },
     ],
   },
   {
     heading: 'Oral Pill',
     subheading: 'Taken by mouth, no injections',
     brands: [
-      { value: 'oral_wegovy',  label: 'Oral Wegovy',    note: 'Semaglutide' },
       { value: 'rybelsus',     label: 'Rybelsus',       note: 'Semaglutide' },
-      { value: 'orforglipron', label: 'Orforglipron',   note: 'Eli Lilly' },
-    ],
-  },
-  {
-    heading: 'Other',
-    subheading: '',
-    brands: [
-      { value: 'other', label: 'Other / Not listed' },
+      { value: 'oral_wegovy',  label: 'Oral Wegovy',    note: 'Semaglutide' },
+      { value: 'orforglipron', label: 'Foundayo',       note: 'Orforglipron' },
+      { value: 'other_oral',   label: 'Other oral' },
     ],
   },
 ];

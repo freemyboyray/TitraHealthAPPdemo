@@ -18,17 +18,11 @@ const SECTIONS = [
   { key: 'rest', label: 'Rest', colorKey: 'sleep',     focusIds: ['sleep'] },
 ];
 
-const FALLBACK_ITEMS: Record<string, FocusItem> = {
-  sleep: {
-    id: 'sleep',
-    label: 'Get 7–9 hours of sleep',
-    subtitle: 'Connect Apple Health to track',
-    lucideIcon: 'Moon',
-    status: 'pending',
-    progressPct: 0,
-    valueLabel: '— / 7–9h',
-  },
-};
+// Focus categories with no manual log path — they can only be populated from a
+// wearable. When a section is made up *only* of these and has no data, its ring
+// shows a dash (data unmeasurable) rather than 0% (goal achieved: none). Eat/Move
+// are loggable, so an empty day there is a genuine, actionable 0%.
+const HEALTH_ONLY_FOCUS = ['sleep'];
 
 // ─── Progress Ring ──────────────────────────────────────────────────────────
 
@@ -38,30 +32,38 @@ const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 function ProgressRing({
-  pct, accent, allDone,
+  pct, accent, allDone, noData,
 }: {
-  pct: number; accent: string; allDone: boolean;
+  pct: number; accent: string; allDone: boolean; noData: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const clamped = Math.min(100, Math.max(0, pct));
   const dashArray = `${(clamped / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`;
 
   return (
     <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={RING_SIZE} height={RING_SIZE}>
+        {/* Track — muted/neutral when there's no data to measure */}
         <Circle
           cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
-          fill="none" stroke={accent + '20'} strokeWidth={STROKE_WIDTH}
+          fill="none" stroke={noData ? w(0.1) : accent + '20'} strokeWidth={STROKE_WIDTH}
         />
-        <Circle
-          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
-          fill="none" stroke={allDone ? '#4CAF50' : accent}
-          strokeWidth={STROKE_WIDTH} strokeDasharray={dashArray}
-          strokeLinecap="round" rotation={-90}
-          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-        />
+        {/* Progress arc — omitted entirely for the no-data state */}
+        {!noData && (
+          <Circle
+            cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
+            fill="none" stroke={allDone ? '#4CAF50' : accent}
+            strokeWidth={STROKE_WIDTH} strokeDasharray={dashArray}
+            strokeLinecap="round" rotation={-90}
+            origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+          />
+        )}
       </Svg>
       <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
-        {allDone ? (
+        {noData ? (
+          <Text style={{ fontSize: 18, fontWeight: '700', color: w(0.3), fontFamily: 'System' }}>—</Text>
+        ) : allDone ? (
           <Check size={18} color="#4CAF50" strokeWidth={2.5} />
         ) : (
           <Text style={{ fontSize: 15, fontWeight: '700', color: accent, fontFamily: 'System' }}>
@@ -94,9 +96,14 @@ export function DailyTaskCards({ focuses }: DailyTaskCardsProps) {
   const sectionItems = useMemo(() => {
     return SECTIONS.map(section => {
       const items = section.focusIds
-        .map(id => focusMap.get(id) ?? FALLBACK_ITEMS[id])
+        .map(id => focusMap.get(id))
         .filter(Boolean) as FocusItem[];
-      return { section, items };
+      // Dash-only state: the section is purely health-only (e.g. Rest→sleep) and
+      // produced no data. Loggable sections (Eat/Move) keep their real 0%.
+      const noData =
+        items.length === 0 &&
+        section.focusIds.every(id => HEALTH_ONLY_FOCUS.includes(id));
+      return { section, items, noData };
     });
   }, [focusMap]);
 
@@ -112,16 +119,16 @@ export function DailyTaskCards({ focuses }: DailyTaskCardsProps) {
     >
       <Text style={[styles.header, { color: w(0.4) }]}>Today's Focus</Text>
       <View style={styles.ringRow}>
-        {sectionItems.map(({ section, items }) => {
+        {sectionItems.map(({ section, items, noData }) => {
           const accent = categoryColor(colors.isDark, section.colorKey);
-          const allDone = items.length > 0 && items.every(i => i.status === 'completed');
+          const allDone = !noData && items.length > 0 && items.every(i => i.status === 'completed');
           const avgPct = items.length > 0
             ? items.reduce((sum, i) => sum + (i.progressPct ?? (i.status === 'completed' ? 100 : 0)), 0) / items.length
             : 0;
 
           return (
             <View key={section.key} style={{ alignItems: 'center' }}>
-              <ProgressRing pct={avgPct} accent={accent} allDone={allDone} />
+              <ProgressRing pct={avgPct} accent={accent} allDone={allDone} noData={noData} />
               <Text style={[styles.ringLabel, { color: w(0.65) }]}>{section.label}</Text>
             </View>
           );

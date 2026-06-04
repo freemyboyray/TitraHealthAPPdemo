@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { WaterLogSheet } from '@/components/water-log-sheet';
+import { DescribeFoodSheet } from '@/components/describe-food-sheet';
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
@@ -45,10 +47,12 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const { dispatch, profile, actuals } = useHealthData();
   const { profile: fullProfile } = useProfile();
   const oral = isOralDrug(fullProfile?.glp1Type);
-  const { addFoodLog } = useLogStore();
+  const { addFoodLog, checkFoodLogQuota } = useLogStore();
 
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
+  const [describeVisible, setDescribeVisible] = useState(false);
+  const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [waterInput, setWaterInput] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodCalories, setFoodCalories] = useState('');
@@ -80,6 +84,20 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   // ─── Action handlers ────────────────────────────────────────────────────────
+
+  // Gate the AI food-logging entry points (describe / capture / scan) behind the
+  // free 5-logs-per-day quota. If the user is out of logs, show the upgrade
+  // prompt instead of opening the page — so they never type a meal only to be
+  // blocked at the end. Premium users always pass (checkFoodLogQuota returns
+  // limited:false for them).
+  const gateFood = async (proceed: () => void) => {
+    const q = await checkFoodLogQuota(1);
+    if (!q.allowed && q.limited) {
+      setUpgradeVisible(true);
+      return;
+    }
+    proceed();
+  };
 
   const handleAskAI = () => {
     closeSheet();
@@ -157,7 +175,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'DESCRIBE FOOD',
       icon: <IconSymbol name="fork.knife" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=describe' as any), 300); },
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => setDescribeVisible(true), 300); }),
     },
     ...(onTreatment ? [{
       label: oral ? 'LOG DOSE' : 'LOG INJECTION',
@@ -167,12 +185,12 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'CAPTURE FOOD',
       icon: <IconSymbol name="camera.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); },
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); }),
     },
     {
       label: 'SCAN FOOD',
       icon: <IconSymbol name="barcode.viewfinder" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); },
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); }),
     },
     {
       label: 'ASK AI',
@@ -326,8 +344,25 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     }
   }, [visible]);
 
+  const upgradePrompt = (
+    <UpgradePrompt
+      visible={upgradeVisible}
+      onClose={() => setUpgradeVisible(false)}
+      onUpgrade={() => { setUpgradeVisible(false); router.push('/settings/subscription' as any); }}
+      title="Daily food log limit reached"
+      description="You've logged 5 foods today on the free plan. Upgrade to Titra Pro for unlimited food logging."
+      feature="food_log"
+    />
+  );
+
   if (!rendered) {
-    return <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />;
+    return (
+      <>
+        <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
+        <DescribeFoodSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
+        {upgradePrompt}
+      </>
+    );
   }
 
   return (
@@ -403,6 +438,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     </View>
 
     <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
+    <DescribeFoodSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
+    {upgradePrompt}
     </>
   );
 }

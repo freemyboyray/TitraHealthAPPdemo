@@ -38,10 +38,15 @@ export type Component = {
   resolving?: boolean;     // true while a re-describe swap is in flight
 };
 
-// A composite entity the user eats as a unit. Macros = sum of components.
+// A composite entity the user eats as a unit. Macros = sum of components × portion.
 export type Dish = {
   name: string;
   components: Component[];
+  // Whole-dish multiplier applied AFTER summing components (default 1). The
+  // card-level Portion stepper edits this; per-ingredient steppers edit each
+  // component's qty. They never touch the same number → no double-counting.
+  portion: number;
+  emoji?: string;          // optional card icon
 };
 
 export type ParsedComponent = { item: string; estimated_g: number; quantity?: number };
@@ -51,14 +56,21 @@ export type ParsedDish = {
   components: ParsedComponent[];
 };
 
+// Every add path now funnels into a FoodTask. AI paths ('describe'/'voice'/
+// 'camera') resolve asynchronously; direct DB picks ('search'/'barcode'/
+// 'manual') are created already-ready via addReadyDish.
+export type TaskSource = 'describe' | 'voice' | 'camera' | 'search' | 'barcode' | 'manual';
+
 export type FoodTask = {
   id: string;
   status: TaskStatus;
-  source: 'describe' | 'voice' | 'camera';
+  source: TaskSource;
   createdAt: number;
   dishes: Dish[];
   parsedDishes: ParsedDish[];
   error?: string;
+  photoUris?: string[];    // review-only display; never persisted to Storage
+  loggedAt?: number;       // editable date/time (epoch ms); defaults to now at confirm
 };
 
 type FoodTaskStore = {
@@ -69,11 +81,29 @@ type FoodTaskStore = {
     parsedDishes?: ParsedDish[];
     photoBase64?: string;
     description?: string;
+    photoUris?: string[];
   }) => string;
+
+  // Direct DB pick (search / barcode / saved meal item / custom food) → a
+  // single-component, already-ready dish. Appends to `taskId` when given
+  // (so the review "+" accumulates), else creates a new ready task. Returns
+  // the task id the dish landed in.
+  addReadyDish: (params: {
+    source: TaskSource;
+    result: FoodResult;
+    dishName?: string;
+    photoUri?: string;
+    taskId?: string;
+    hydrate?: boolean;     // default true: fetch full micros/serving options first
+  }) => Promise<string>;
 
   updateComponent: (taskId: string, dishIdx: number, compIdx: number, patch: Partial<Component>) => void;
   removeComponent: (taskId: string, dishIdx: number, compIdx: number) => void;
   swapComponent: (taskId: string, dishIdx: number, compIdx: number, newDescription: string) => void;
+  updateDish: (taskId: string, dishIdx: number, patch: Partial<Dish>) => void;
+  removeDish: (taskId: string, dishIdx: number) => void;
+  addComponentToDish: (taskId: string, dishIdx: number, result: FoodResult, hydrate?: boolean) => Promise<void>;
+  replaceComponentWithResult: (taskId: string, dishIdx: number, compIdx: number, result: FoodResult, hydrate?: boolean) => Promise<void>;
   removeTask: (taskId: string) => void;
   retryTask: (taskId: string) => void;
   clearStaleTasks: () => void;
@@ -187,8 +217,27 @@ async function resolveDishes(parsedDishes: ParsedDish[]): Promise<Dish[]> {
   let cursor = 0;
   return parsedDishes.map((d) => {
     const components = d.components.map(() => resolvedFlat[cursor++]).filter(Boolean);
-    return { name: d.name, components };
+    return { name: d.name, components, portion: 1 };
   });
+}
+
+// Build a single Component from an already-resolved FoodResult (direct DB pick,
+// no AI candidates/alternatives). Picks the default serving option, else 100g.
+function componentFromResult(result: FoodResult): Component {
+  const opts = result.serving_options ?? [];
+  const def = opts.find((o) => o.isDefault) ?? opts[0];
+  const unitGrams = def?.grams ?? result.serving_size_g ?? 100;
+  const unitLabel = def?.label ?? (result.serving_description || '100g');
+  return {
+    item: result.name,
+    estimated_g: unitGrams,
+    quantity: 1,
+    results: [result],
+    selectedIdx: 0,
+    qty: '1',
+    unitGrams,
+    unitLabel,
+  };
 }
 
 // Background-fetch full serving options for the top match of every component.
@@ -286,7 +335,7 @@ async function fetchComponentServingOptions(
 export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
   tasks: [],
 
-  startTask: ({ source, parsedDishes, photoBase64, description }) => {
+  startTask: ({ source, parsedDishes, photoBase64, description, photoUris }) => {
     const id = uuid();
     const task: FoodTask = {
       id,
@@ -295,6 +344,7 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
       createdAt: Date.now(),
       dishes: [],
       parsedDishes: parsedDishes ?? [],
+      photoUris,
     };
 
     set((s) => ({ tasks: [...s.tasks, task] }));
@@ -424,6 +474,143 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
     })();
   },
 
+  addReadyDish: async ({ source, result, dishName, photoUri, taskId, hydrate = true }) => {
+    // Hydrate full micros + serving options BEFORE the card renders so the
+    // numbers are stable (search payloads omit extended nutrients).
+    let food = result;
+    const needsHydrate =
+      hydrate &&
+      result.fdcId > 0 &&
+      (!result.serving_options?.length || result.saturated_fat_g == null);
+    if (needsHydrate) {
+      try {
+        const detail = await getFatSecretFood(result.fdcId);
+        if (detail) food = { ...result, ...detail };
+      } catch (err) {
+        console.warn('[FoodTask] addReadyDish hydrate failed:', err);
+      }
+    }
+
+    const dish: Dish = {
+      name: dishName || food.name,
+      components: [componentFromResult(food)],
+      portion: 1,
+    };
+
+    // Append to an existing (still-present) task when asked → the review "+"
+    // accumulates foods into one review screen.
+    if (taskId && get().tasks.some((t) => t.id === taskId)) {
+      set((s) => ({
+        tasks: s.tasks.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                dishes: [...t.dishes, dish],
+                photoUris: photoUri ? [...(t.photoUris ?? []), photoUri] : t.photoUris,
+              }
+            : t,
+        ),
+      }));
+      return taskId;
+    }
+
+    const id = uuid();
+    const task: FoodTask = {
+      id,
+      status: 'ready',
+      source,
+      createdAt: Date.now(),
+      dishes: [dish],
+      parsedDishes: [],
+      photoUris: photoUri ? [photoUri] : undefined,
+    };
+    set((s) => ({ tasks: [...s.tasks, task] }));
+    return id;
+  },
+
+  updateDish: (taskId, dishIdx, patch) => {
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === taskId
+          ? { ...t, dishes: t.dishes.map((d, i) => (i === dishIdx ? { ...d, ...patch } : d)) }
+          : t,
+      ),
+    }));
+  },
+
+  removeDish: (taskId, dishIdx) => {
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === taskId ? { ...t, dishes: t.dishes.filter((_, i) => i !== dishIdx) } : t,
+      ),
+    }));
+  },
+
+  addComponentToDish: async (taskId, dishIdx, result, hydrate = true) => {
+    let food = result;
+    const needsHydrate =
+      hydrate &&
+      result.fdcId > 0 &&
+      (!result.serving_options?.length || result.saturated_fat_g == null);
+    if (needsHydrate) {
+      try {
+        const detail = await getFatSecretFood(result.fdcId);
+        if (detail) food = { ...result, ...detail };
+      } catch (err) {
+        console.warn('[FoodTask] addComponentToDish hydrate failed:', err);
+      }
+    }
+    const comp = componentFromResult(food);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              dishes: t.dishes.map((d, i) =>
+                i === dishIdx ? { ...d, components: [...d.components, comp] } : d,
+              ),
+            }
+          : t,
+      ),
+    }));
+  },
+
+  // Replace one component's food with a user-picked DB search result (used by
+  // the "Customize" → search flow). Unlike swapComponent (AI re-describe), this
+  // takes an explicit FoodResult the user chose, hydrates it, and pulls full
+  // serving options for the new match.
+  replaceComponentWithResult: async (taskId, dishIdx, compIdx, result, hydrate = true) => {
+    let food = result;
+    const needsHydrate =
+      hydrate &&
+      result.fdcId > 0 &&
+      (!result.serving_options?.length || result.saturated_fat_g == null);
+    if (needsHydrate) {
+      try {
+        const detail = await getFatSecretFood(result.fdcId);
+        if (detail) food = { ...result, ...detail };
+      } catch (err) {
+        console.warn('[FoodTask] replaceComponentWithResult hydrate failed:', err);
+      }
+    }
+    const comp = componentFromResult(food);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              dishes: t.dishes.map((d, i) =>
+                i === dishIdx
+                  ? { ...d, components: d.components.map((c, j) => (j === compIdx ? comp : c)) }
+                  : d,
+              ),
+            }
+          : t,
+      ),
+    }));
+    fetchComponentServingOptions(taskId, dishIdx, compIdx, comp, set);
+  },
+
   removeTask: (taskId) => {
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== taskId) }));
   },
@@ -431,6 +618,8 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
   retryTask: (taskId) => {
     const task = get().tasks.find((t) => t.id === taskId);
     if (!task) return;
+    // Only AI-resolved tasks can fail/retry; ready DB picks never reach here.
+    if (task.source !== 'describe' && task.source !== 'voice' && task.source !== 'camera') return;
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== taskId) }));
     get().startTask({ source: task.source, parsedDishes: task.parsedDishes });
   },

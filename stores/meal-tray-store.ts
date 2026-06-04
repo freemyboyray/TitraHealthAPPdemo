@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useLogStore, type MealType, type FoodSource } from './log-store';
@@ -85,7 +86,7 @@ type MealTrayStore = {
   removeFromTray: (id: string) => void;
   updateTrayItem: (id: string, patch: Partial<TrayItem>) => void;
   clearTray: () => void;
-  logMeal: (meal_type: MealType) => Promise<void>;
+  logMeal: (meal_type: MealType, logged_at?: string) => Promise<void>;
   saveAsMeal: (name: string) => Promise<void>;
   loadSavedMeal: (meal: SavedMeal) => void;
 
@@ -170,12 +171,28 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
 
   clearTray: () => set({ trayItems: [] }),
 
-  logMeal: async (meal_type) => {
+  logMeal: async (meal_type, logged_at) => {
     const { trayItems } = get();
     if (trayItems.length === 0) return;
+
+    // Gate the WHOLE meal once up front so a free user never gets a partial
+    // log (some items saved, then a mid-loop limit Alert). Counts every tray
+    // item against the target day's quota.
+    const { addFoodLog, checkFoodLogQuota } = useLogStore.getState();
+    const quota = await checkFoodLogQuota(trayItems.length, logged_at);
+    if (!quota.allowed) {
+      Alert.alert(
+        'Daily limit reached',
+        quota.remaining === 0
+          ? "You've used all 5 free food logs for that day. Upgrade to Titra Pro for unlimited logging."
+          : `This meal has ${trayItems.length} items but you have only ${quota.remaining} free log${quota.remaining === 1 ? '' : 's'} left that day. Upgrade to Titra Pro for unlimited logging.`,
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
     set({ loading: true });
     try {
-      const { addFoodLog } = useLogStore.getState();
       for (const item of trayItems) {
         await addFoodLog({
           food_name: item.food_name,
@@ -185,6 +202,7 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
           fat_g: item.fat_g,
           fiber_g: item.fiber_g,
           meal_type,
+          logged_at,
           source: item.source,
           barcode: item.barcode,
           raw_ai_response: item.raw_ai_response,

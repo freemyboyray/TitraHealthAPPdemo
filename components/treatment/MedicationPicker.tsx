@@ -13,42 +13,36 @@ import { useAppTheme } from '@/contexts/theme-context';
 type BrandOption = { value: MedicationBrand; label: string; note?: string };
 type BrandGroup = { heading: string; subheading: string; brands: BrandOption[] };
 
+// Grouped by route (Injection vs Oral) to match onboarding. Each group ends in
+// its own catch-all (other_injection / other_oral) so an unlisted drug still
+// pins the route. Frequency is confirmed separately, not implied by the group.
 const BRAND_GROUPS: BrandGroup[] = [
   {
-    heading: 'Weekly Injection',
-    subheading: 'Administered once a week by subcutaneous injection',
+    heading: 'Injection',
+    subheading: 'Given by subcutaneous injection',
     brands: [
       { value: 'zepbound',               label: 'Zepbound\u00AE',              note: 'Tirzepatide' },
       { value: 'mounjaro',               label: 'Mounjaro\u00AE',              note: 'Tirzepatide' },
       { value: 'wegovy',                 label: 'Wegovy\u00AE',                note: 'Semaglutide' },
       { value: 'ozempic',                label: 'Ozempic\u00AE',               note: 'Semaglutide (off-label)' },
       { value: 'trulicity',              label: 'Trulicity\u00AE',             note: 'Dulaglutide' },
-      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide',      note: 'Weekly' },
-      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide',      note: 'Weekly' },
-    ],
-  },
-  {
-    heading: 'Daily Injection',
-    subheading: 'Administered once a day by subcutaneous injection',
-    brands: [
       { value: 'saxenda',                label: 'Saxenda\u00AE',               note: 'Liraglutide 3 mg' },
       { value: 'victoza',                label: 'Victoza\u00AE',               note: 'Liraglutide (off-label)' },
-      { value: 'compounded_liraglutide', label: 'Compounded Liraglutide',      note: 'Daily' },
+      { value: 'compounded_semaglutide', label: 'Compounded Semaglutide',      note: 'Semaglutide' },
+      { value: 'compounded_tirzepatide', label: 'Compounded Tirzepatide',      note: 'Tirzepatide' },
+      { value: 'compounded_liraglutide', label: 'Compounded Liraglutide',      note: 'Liraglutide' },
+      { value: 'other_injection',        label: 'Other injection',             note: 'Not listed' },
     ],
   },
   {
-    heading: 'Daily Oral Pill',
-    subheading: 'Taken by mouth once a day \u2014 no injections',
+    heading: 'Oral Pill',
+    subheading: 'Taken by mouth \u2014 no injections',
     brands: [
-      { value: 'oral_wegovy',  label: 'Oral Wegovy\u00AE',  note: 'Semaglutide 25 mg' },
       { value: 'rybelsus',     label: 'Rybelsus\u00AE',     note: 'Semaglutide 3/7/14 mg' },
-      { value: 'orforglipron', label: 'Orforglipron',        note: 'Eli Lilly' },
+      { value: 'oral_wegovy',  label: 'Oral Wegovy\u00AE',  note: 'Semaglutide 25 mg' },
+      { value: 'orforglipron', label: 'Foundayo\u00AE',     note: 'Orforglipron' },
+      { value: 'other_oral',   label: 'Other oral',          note: 'Not listed' },
     ],
-  },
-  {
-    heading: 'Other',
-    subheading: '',
-    brands: [{ value: 'other', label: 'Other / Not listed' }],
   },
 ];
 

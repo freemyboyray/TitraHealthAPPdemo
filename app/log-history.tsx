@@ -527,7 +527,7 @@ const createStyles = (c: AppColors) => {
     root: { flex: 1, backgroundColor: c.bg },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 20, paddingVertical: 12,
+      paddingHorizontal: 20, paddingTop: 0, paddingBottom: 12, marginTop: -24,
     },
     headerTitle: {
       flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700',

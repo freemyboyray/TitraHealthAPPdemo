@@ -120,6 +120,9 @@ type LogStore = {
     source: FoodSource;
     barcode?: string;
     raw_ai_response?: object;
+    // Optional override for when the meal was eaten (ISO string). Defaults to
+    // the DB's now() when omitted. Lets users backfill past meals.
+    logged_at?: string;
     // Extended nutrition fields (scaled to logged serving). All optional.
     saturated_fat_g?: number;
     sugar_g?: number;
@@ -143,6 +146,14 @@ type LogStore = {
     fatsecret_food_id?: number;
     fatsecret_category_name?: string;
   }) => Promise<void>;
+
+  // Pre-flight quota check so a multi-item meal can be gated ONCE up front
+  // (instead of partially logging then hitting the per-call limit mid-loop).
+  // Returns whether `count` new logs fit on the day of `logged_at` (or today).
+  checkFoodLogQuota: (
+    count: number,
+    logged_at?: string,
+  ) => Promise<{ allowed: boolean; used: number; remaining: number; limited: boolean }>;
 
   // Food Noise Questionnaire (FNQ)
   addFoodNoiseLog: (params: {
@@ -592,37 +603,59 @@ export const useLogStore = create<LogStore>((set, get) => ({
     set({ loading: false, error: error?.message ?? null });
   },
 
+  checkFoodLogQuota: async (count, logged_at) => {
+    const FREE_LIMIT = 5;
+    const { isPremium, loaded: subLoaded } = useSubscriptionStore.getState();
+    // Premium (or subscription not yet loaded → fail open) = unlimited.
+    if (!subLoaded || isPremium) {
+      return { allowed: true, used: 0, remaining: Infinity, limited: false };
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { allowed: false, used: 0, remaining: 0, limited: true };
+
+    // Count against the calendar day the meal is being logged FOR (its
+    // logged_at), not always "today" — so backdated logs count toward the
+    // correct day's quota. Build a [dayStart, nextDayStart) window.
+    const refDate = logged_at ? new Date(logged_at) : new Date();
+    const nextDate = new Date(refDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const dayStartISO = localDateStr(refDate) + 'T00:00:00';
+    const nextDayStartISO = localDateStr(nextDate) + 'T00:00:00';
+    const { count: used, error: countErr } = await supabase
+      .from('food_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('logged_at', dayStartISO)
+      .lt('logged_at', nextDayStartISO);
+    if (countErr) {
+      console.warn('[checkFoodLogQuota] count query failed:', countErr.message);
+      // Fail closed — block if we can't verify.
+      return { allowed: false, used: 0, remaining: 0, limited: true };
+    }
+    const u = used ?? 0;
+    const remaining = Math.max(0, FREE_LIMIT - u);
+    return { allowed: count <= remaining, used: u, remaining, limited: true };
+  },
+
   addFoodLog: async (entry) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
 
-    // Check usage limit for free users (query DB for accurate today count)
-    const { isPremium, loaded: subLoaded } = useSubscriptionStore.getState();
-    if (subLoaded && !isPremium) {
-      // Use local date string (YYYY-MM-DD) to build UTC midnight boundary
-      // so the count window matches the user's calendar day
-      const todayISO = localDateStr(new Date()) + 'T00:00:00';
-      const { count, error: countErr } = await supabase
-        .from('food_logs')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('logged_at', todayISO);
-      if (countErr) {
-        console.warn('[addFoodLog] count query failed:', countErr.message);
-        // Fail closed — block if we can't verify
-        set({ loading: false, error: 'Unable to verify daily limit' });
-        return;
-      }
-      if ((count ?? 0) >= 5) {
+    // Usage limit for free users (counts against the logged_at day).
+    const quota = await get().checkFoodLogQuota(1, entry.logged_at);
+    if (!quota.allowed) {
+      if (quota.limited && quota.remaining === 0) {
         Alert.alert(
           'Daily limit reached',
-          "You've used all 5 free food logs for today. Upgrade to Titra Pro for unlimited logging.",
+          "You've used all 5 free food logs for that day. Upgrade to Titra Pro for unlimited logging.",
           [{ text: 'OK' }],
         );
         set({ loading: false, error: 'FOOD_LOG_LIMIT' });
-        return;
+      } else {
+        set({ loading: false, error: 'Unable to verify daily limit' });
       }
+      return;
     }
 
     const { error } = await supabase
@@ -630,6 +663,9 @@ export const useLogStore = create<LogStore>((set, get) => ({
       .insert({
         ...entry,
         user_id: user.id,
+        // Omit when undefined so the column default now() applies (column is
+        // non-null) — never pass null.
+        logged_at: entry.logged_at ?? undefined,
         raw_ai_response: entry.raw_ai_response ?? null,
         barcode: entry.barcode ?? null,
         saturated_fat_g: entry.saturated_fat_g ?? null,

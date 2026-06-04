@@ -8,7 +8,6 @@ export default function EntryLayout() {
       <Stack.Screen name="log-dose" />
       <Stack.Screen name="log-activity" />
       <Stack.Screen name="search-food" />
-      <Stack.Screen name="describe-food" />
       <Stack.Screen name="scan-food" />
       <Stack.Screen name="capture-food" />
       <Stack.Screen name="ask-ai" />
@@ -28,6 +27,11 @@ export default function EntryLayout() {
       <Stack.Screen name="weekly-summary-history" />
       <Stack.Screen name="report-preview" />
       <Stack.Screen name="review-food" />
+      <Stack.Screen name="edit-food" />
+      <Stack.Screen
+        name="add-food-search"
+        options={{ presentation: 'modal' }}
+      />
     </Stack>
   );
 }

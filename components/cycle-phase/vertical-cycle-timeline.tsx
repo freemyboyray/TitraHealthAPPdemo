@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import type { AppColors } from '@/constants/theme';
-import type { ShotPhase } from '@/constants/scoring';
+import { cycleDisplayDay, type ShotPhase } from '@/constants/scoring';
 
 const FF = 'System';
 
@@ -210,7 +210,7 @@ export function VerticalCycleTimeline({
           const labelOnLeft = node.x > SVG_W / 2;
 
           const subtitle = isCurrent
-            ? `Day ${Math.max(1, todayDayNum)} of ${freq}${nextDoseText ? ` \u00b7 ${nextDoseText}` : ''}`
+            ? `Day ${cycleDisplayDay(todayDayNum, freq)} of ${freq}${nextDoseText ? ` \u00b7 ${nextDoseText}` : ''}`
             : isPast
               ? 'Complete'
               : i === 4

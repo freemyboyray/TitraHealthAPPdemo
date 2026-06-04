@@ -2,7 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Check, ChevronRight, Moon } from 'lucide-react-native';
+import { ChevronLeft, Check, ChevronRight, Minus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -31,20 +31,46 @@ const SECTIONS: TaskSection[] = [
 ];
 
 // Focus categories that can ONLY be populated from Apple Health / a wearable —
-// there is no manual logging path for these. When the data is missing we show a
-// "Connect Apple Health" CTA instead of an uncompletable checkbox that would
-// otherwise inflate the section's "done" count.
+// there is no manual logging path for these. When the data is missing we keep the
+// row visible but render its checkbox as an inert dash (it can't be hand-completed),
+// and tapping it routes to the Apple Health connect screen instead of doing nothing.
 const HEALTH_ONLY_FOCUS: FocusCategory[] = ['sleep'];
+
+// A focus item plus a UI-only flag marking it as a non-completable placeholder
+// (health-only focus with no data yet). Lives here rather than on FocusItem so the
+// shared scoring type stays purely about real, computed focuses.
+type RenderFocus = FocusItem & { placeholder?: boolean };
+
+// Build the stand-in sleep row shown when no sleep value is available today.
+// The discriminator is whether Apple Health is *connected* — NOT whether sleep
+// data is flowing. A connected user with no sleep data just needs to wear a device
+// to bed; only a disconnected user should be told to connect. (Keying this off the
+// "data flowing" signal would wrongly tell connected-but-no-data users to reconnect.)
+function makeSleepPlaceholder(connected: boolean): RenderFocus {
+  return {
+    id: 'sleep',
+    label: 'Prioritize sleep tonight',
+    subtitle: connected
+      ? 'No sleep data yet — wear your device to bed to track it.'
+      : 'Connect Apple Health to track sleep automatically.',
+    status: 'pending',
+    lucideIcon: 'Moon',
+    progressPct: 0,
+    valueLabel: '—',
+    placeholder: true,
+  };
+}
 
 // ─── Focus Row ──────────────────────────────────────────────────────────────
 
 function FocusRow({
   item, accent, onTap, colors, isLast,
 }: {
-  item: FocusItem; accent: string; onTap: (item: FocusItem) => void;
+  item: RenderFocus; accent: string; onTap: (item: RenderFocus) => void;
   colors: AppColors; isLast: boolean;
 }) {
   const done = item.status === 'completed';
+  const placeholder = item.placeholder === true;
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const pct = Math.min(item.progressPct ?? 0, 100);
   const barColor = focusCategoryColor(colors.isDark, item.id);
@@ -57,22 +83,33 @@ function FocusRow({
     <Pressable
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onTap(item); }}
       style={{ paddingVertical: 14 }}
-      accessibilityLabel={`${item.label}, ${done ? 'completed' : 'incomplete'}`}
+      accessibilityLabel={
+        placeholder
+          ? `${item.label}, no data yet, tap to connect Apple Health`
+          : `${item.label}, ${done ? 'completed' : 'incomplete'}`
+      }
       accessibilityRole="button"
     >
       {/* Label row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 10 }}>
-        <View style={{
-          width: 20, height: 20, borderRadius: 10,
-          borderWidth: done ? 0 : 1.5, borderColor: w(0.15),
-          backgroundColor: done ? '#4CAF50' : 'transparent',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          {done && <Check size={11} color="#fff" strokeWidth={3} />}
-        </View>
+        {placeholder ? (
+          // Inert dash — this row can't be hand-completed; data has to sync from a wearable.
+          <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+            <Minus size={14} color={w(0.2)} strokeWidth={2.5} />
+          </View>
+        ) : (
+          <View style={{
+            width: 20, height: 20, borderRadius: 10,
+            borderWidth: done ? 0 : 1.5, borderColor: w(0.15),
+            backgroundColor: done ? '#4CAF50' : 'transparent',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            {done && <Check size={11} color="#fff" strokeWidth={3} />}
+          </View>
+        )}
         <Text style={{
           fontSize: 15, fontWeight: '600', flex: 1,
-          color: done ? w(0.35) : colors.textPrimary, fontFamily: FF,
+          color: placeholder ? w(0.4) : done ? w(0.35) : colors.textPrimary, fontFamily: FF,
           textDecorationLine: done ? 'line-through' : 'none',
         }}>
           {item.label}
@@ -83,14 +120,23 @@ function FocusRow({
         <ChevronRight size={14} color={w(0.15)} />
       </View>
 
-      {/* Progress bar */}
-      <View style={{ height: 6, borderRadius: 3, backgroundColor: barColor + '15', overflow: 'hidden', marginLeft: 30 }}>
-        <View style={{
-          width: `${Math.max(pct, pct > 0 ? 2 : 0)}%` as any,
-          height: 6, borderRadius: 3,
-          backgroundColor: done ? '#4CAF50' : barColor,
-          opacity: done ? 0.6 : 1,
-        }} />
+      {/* Subtitle / hint — only the placeholder surfaces it inline, as its affordance text */}
+      {placeholder && !!item.subtitle && (
+        <Text style={{ fontSize: 13, color: w(0.4), fontFamily: FF, marginLeft: 30, marginBottom: 8 }}>
+          {item.subtitle}
+        </Text>
+      )}
+
+      {/* Progress bar — muted, fill-less track for placeholders */}
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: barColor + (placeholder ? '0D' : '15'), overflow: 'hidden', marginLeft: 30 }}>
+        {!placeholder && (
+          <View style={{
+            width: `${Math.max(pct, pct > 0 ? 2 : 0)}%` as any,
+            height: 6, borderRadius: 3,
+            backgroundColor: done ? '#4CAF50' : barColor,
+            opacity: done ? 0.6 : 1,
+          }} />
+        )}
       </View>
 
       {/* Separator */}
@@ -101,95 +147,41 @@ function FocusRow({
   );
 }
 
-// ─── Connect-Apple-Health CTA ─────────────────────────────────────────────────
-// Shown in place of a health-only focus row when its data isn't available.
-
-function HealthConnectCard({
-  metricLabel, appleHealthEnabled, onConnect, colors,
-}: {
-  metricLabel: string; appleHealthEnabled: boolean;
-  onConnect: () => void; colors: AppColors;
-}) {
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-
-  // Connected, but no samples have synced yet (e.g. didn't wear a device to bed).
-  if (appleHealthEnabled) {
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 }}>
-        <Moon size={18} color={w(0.3)} />
-        <Text style={{ flex: 1, fontSize: 14, color: w(0.4), fontFamily: FF }}>
-          No {metricLabel} data yet — wear your device to bed to track it.
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onConnect(); }}
-      style={{
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-        borderRadius: 14, backgroundColor: w(0.04),
-        borderWidth: StyleSheet.hairlineWidth, borderColor: w(0.08),
-        padding: 14, marginTop: 8,
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`Connect Apple Health to track ${metricLabel}`}
-    >
-      <View style={{
-        width: 34, height: 34, borderRadius: 17,
-        backgroundColor: 'rgba(255,116,42,0.12)',
-        alignItems: 'center', justifyContent: 'center',
-      }}>
-        <Moon size={18} color={colors.orange} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, fontFamily: FF }}>
-          Connect Apple Health to track {metricLabel}
-        </Text>
-        <Text style={{ fontSize: 12.5, color: w(0.4), fontFamily: FF, marginTop: 2 }}>
-          {metricLabel === 'sleep' ? 'Sleep' : 'This'} syncs automatically from your watch or phone.
-        </Text>
-      </View>
-      <ChevronRight size={16} color={w(0.25)} />
-    </Pressable>
-  );
-}
-
 // ─── Section ────────────────────────────────────────────────────────────────
 
 function Section({
-  section, items, showHealthCta, appleHealthEnabled, onFocusTap, onConnect, colors,
+  section, items, onFocusTap, colors,
 }: {
-  section: TaskSection; items: FocusItem[];
-  showHealthCta: boolean; appleHealthEnabled: boolean;
-  onFocusTap: (item: FocusItem) => void; onConnect: () => void; colors: AppColors;
+  section: TaskSection; items: RenderFocus[];
+  onFocusTap: (item: RenderFocus) => void; colors: AppColors;
 }) {
   const accent = categoryColor(colors.isDark, section.colorKey);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
 
-  // Aggregate progress for the big value display
-  const completedCount = items.filter(i => i.status === 'completed').length;
-  const total = items.length;
+  // Counter + progress reflect only actionable rows — a data-pending placeholder
+  // (e.g. sleep with no wearable sync) isn't something the user can check off.
+  const countable = items.filter(i => !i.placeholder);
+  const completedCount = countable.filter(i => i.status === 'completed').length;
+  const total = countable.length;
   const avgPct = total > 0
-    ? Math.round(items.reduce((sum, i) => sum + (i.progressPct ?? (i.status === 'completed' ? 100 : 0)), 0) / total)
+    ? Math.round(countable.reduce((sum, i) => sum + (i.progressPct ?? (i.status === 'completed' ? 100 : 0)), 0) / total)
     : 0;
 
   // Overall progress bar
   const overallBarPct = Math.min(avgPct, 100);
 
-  // When the section has no countable items (only a connect CTA), suppress the
-  // misleading "0/0 DONE" counter and progress bar.
-  const ctaOnly = total === 0 && showHealthCta;
+  // No countable items (e.g. Rest with only a data-pending sleep row) → suppress the
+  // misleading "0/0 DONE" counter and progress bar, but keep the section + its row.
+  const headerOnly = total === 0;
 
   return (
     <View style={{ marginBottom: 32 }}>
       {/* Section header — Apple Fitness style */}
-      <Text style={{ fontSize: 22, fontWeight: '400', color: w(0.85), fontFamily: FF, marginBottom: ctaOnly ? 4 : 2 }}>
+      <Text style={{ fontSize: 22, fontWeight: '400', color: w(0.85), fontFamily: FF, marginBottom: headerOnly ? 4 : 2 }}>
         {section.label}
       </Text>
 
-      {!ctaOnly && (
+      {!headerOnly && (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 10 }}>
             <Text style={{ fontSize: 34, fontWeight: '800', color: accent, fontFamily: FF, letterSpacing: -1 }}>
@@ -221,16 +213,6 @@ function Section({
           isLast={i === items.length - 1}
         />
       ))}
-
-      {/* Connect CTA for missing health-only focuses (e.g. sleep) */}
-      {showHealthCta && (
-        <HealthConnectCard
-          metricLabel="sleep"
-          appleHealthEnabled={appleHealthEnabled}
-          onConnect={onConnect}
-          colors={colors}
-        />
-      )}
     </View>
   );
 }
@@ -242,6 +224,9 @@ export default function DailyFocusScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { focuses } = useHealthData();
+  // Connect-vs-"wear your device" wording keys off whether Apple Health is
+  // connected at all — a connected user with no sleep data shouldn't be told to
+  // reconnect; they just haven't synced a night yet.
   const appleHealthEnabled = usePreferencesStore(s => s.appleHealthEnabled);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
 
@@ -253,20 +238,25 @@ export default function DailyFocusScreen() {
 
   const sectionData = useMemo(() => {
     return SECTIONS.map(section => {
-      const items = section.focusIds
-        .map(id => focusMap.get(id))
-        .filter(Boolean) as FocusItem[];
-      // A health-only focus (e.g. sleep) is missing → surface the connect CTA
-      // instead of an uncompletable checkbox.
-      const showHealthCta = section.focusIds.some(
-        id => HEALTH_ONLY_FOCUS.includes(id) && !focusMap.has(id),
-      );
-      return { section, items, showHealthCta };
+      const items: RenderFocus[] = [];
+      for (const id of section.focusIds) {
+        const f = focusMap.get(id);
+        if (f) { items.push(f); continue; }
+        // A health-only focus (e.g. sleep) with no data → keep the row visible as
+        // an inert placeholder rather than dropping it from the section.
+        if (HEALTH_ONLY_FOCUS.includes(id) && id === 'sleep') {
+          items.push(makeSleepPlaceholder(appleHealthEnabled));
+        }
+      }
+      return { section, items };
     });
-  }, [focusMap]);
+  }, [focusMap, appleHealthEnabled]);
 
-  const handleFocusTap = useCallback((item: FocusItem) => {
+  const handleFocusTap = useCallback((item: RenderFocus) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // A data-pending health row routes to the Apple Health connect screen so the
+    // user can see/fix their connection rather than tapping a dead checkbox.
+    if (item.placeholder) { router.push('/settings/apple-health' as any); return; }
     if (item.id === 'hydration') { setWaterLogVisible(true); return; }
     const routes: Record<string, string> = {
       protein: '/entry/log-food',
@@ -299,15 +289,12 @@ export default function DailyFocusScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 80 }}
       >
-        {sectionData.map(({ section, items, showHealthCta }) => (
+        {sectionData.map(({ section, items }) => (
           <Section
             key={section.key}
             section={section}
             items={items}
-            showHealthCta={showHealthCta}
-            appleHealthEnabled={appleHealthEnabled}
             onFocusTap={handleFocusTap}
-            onConnect={() => router.push('/settings' as any)}
             colors={colors}
           />
         ))}

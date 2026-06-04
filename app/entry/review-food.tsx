@@ -1,8 +1,11 @@
 import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,18 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  FadeOutUp,
-  LinearTransition,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFoodTaskStore, type Component as FoodComponent, type Dish, type ParsedDish } from '../../stores/food-task-store';
-import { callOpenAI } from '../../lib/openai';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFoodTaskStore, type ParsedDish } from '../../stores/food-task-store';
+import { parseDescriptionToDishes } from '../../lib/food-parse';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useHealthData } from '@/contexts/health-data';
@@ -30,131 +26,70 @@ import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import {
+  MACRO_COLORS,
+  EMPTY,
+  componentMacros,
+  addMacros,
+  dishMacros,
+  r0,
+  r1,
+  type Macros,
+} from '@/lib/food-macros';
+import { NutritionLabelModal } from '@/components/food/nutrition-label-modal';
+import {
   AlertCircle,
-  Apple,
-  ChevronDown,
+  CalendarDays,
   ChevronLeft,
+  ChevronRight,
+  CupSoda,
   Droplet,
   Dumbbell,
-  Flame,
+  EggFried,
+  ImagePlus,
   Leaf,
-  Minus,
-  Plus,
-  RefreshCw,
-  Sparkles,
+  Pencil,
+  Trash2,
   Utensils,
   X,
 } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
+import { classifyBeverage, hydrationMl, mlToOz, type BeverageInfo } from '@/lib/beverage';
 
-// ─── Macro icon colors (semantic, theme-independent) ────────────────────────
-const MACRO_COLORS = {
-  cal: '#FF742A',
-  protein: '#E74C6F',
-  carbs: '#F6A623',
-  fat: '#5B8BF5',
-  fiber: '#34C759',
+// Map a task source to the DB food_source enum.
+const SOURCE_MAP: Record<string, 'manual' | 'barcode' | 'photo_ai' | 'search_db'> = {
+  camera: 'photo_ai',
+  describe: 'manual',
+  voice: 'manual',
+  search: 'search_db',
+  barcode: 'barcode',
+  manual: 'manual',
 };
 
-type Macros = {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber: number;
-  grams: number;
-  saturated_fat?: number;
-  sugar?: number;
-  sodium?: number;
-  cholesterol?: number;
-  trans_fat?: number;
-  polyunsaturated_fat?: number;
-  monounsaturated_fat?: number;
-  potassium?: number;
-  added_sugars?: number;
-  vitamin_a?: number;
-  vitamin_c?: number;
-  vitamin_d?: number;
-  calcium?: number;
-  iron?: number;
-};
-
-const EMPTY: Macros = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, grams: 0 };
-
-// Grams currently selected for a component (qty × grams-per-unit).
-function componentGrams(comp: FoodComponent): number {
-  const q = parseFloat(comp.qty) || 1;
-  return q * comp.unitGrams;
+// Classify a dish as a beverage (only single-item dishes can be a drink).
+function dishBeverage(dish: { name: string; components: { results: any[]; selectedIdx: number }[] }): BeverageInfo {
+  if (dish.components.length !== 1) return { isBeverage: false, kind: 'other', hydrationFactor: 0 };
+  const food = dish.components[0].results[dish.components[0].selectedIdx];
+  return classifyBeverage(food?.name ?? dish.name, food?.category_name);
 }
 
-// Macros for a single component at its selected serving.
-function componentMacros(comp: FoodComponent): Macros {
-  const food = comp.results[comp.selectedIdx];
-  if (!food) return { ...EMPTY };
-  const g = componentGrams(comp);
-  const scale = g / 100;
-  const opt = (v?: number) => (v == null ? undefined : v * scale);
-  return {
-    calories: food.calories * scale,
-    protein: food.protein_g * scale,
-    carbs: food.carbs_g * scale,
-    fat: food.fat_g * scale,
-    fiber: food.fiber_g * scale,
-    grams: g,
-    saturated_fat: opt(food.saturated_fat_g),
-    sugar: opt(food.sugar_g),
-    sodium: opt(food.sodium_mg),
-    cholesterol: opt(food.cholesterol_mg),
-    trans_fat: opt(food.trans_fat_g),
-    polyunsaturated_fat: opt(food.polyunsaturated_fat_g),
-    monounsaturated_fat: opt(food.monounsaturated_fat_g),
-    potassium: opt(food.potassium_mg),
-    added_sugars: opt(food.added_sugars_g),
-    vitamin_a: opt(food.vitamin_a_mcg),
-    vitamin_c: opt(food.vitamin_c_mg),
-    vitamin_d: opt(food.vitamin_d_mcg),
-    calcium: opt(food.calcium_mg),
-    iron: opt(food.iron_mg),
-  };
+// A single dish's user-facing serving label for the card row.
+// The unitLabel already names ONE serving (e.g. "1 miniature (8g)", "100g"), so
+// qty is a multiplier — render it as "N ×", never juxtaposed (which read as a
+// duplicate number like "1 1 miniature").
+function dishServingLabel(dish: { components: { qty: string; unitLabel: string }[]; portion: number }): string {
+  let base: string;
+  if (dish.components.length === 1) {
+    const c = dish.components[0];
+    const q = parseFloat(c.qty) || 1;
+    base = c.unitLabel === 'g'
+      ? `${r0(q)} g`
+      : q === 1 ? c.unitLabel : `${r1(q)} × ${c.unitLabel}`;
+  } else {
+    base = `${dish.components.length} ingredients`;
+  }
+  return dish.portion !== 1 ? `${r1(dish.portion)} × ${base}` : base;
 }
-
-function addMacros(a: Macros, b: Macros): Macros {
-  const add = (x?: number, y?: number) =>
-    x == null && y == null ? undefined : (x ?? 0) + (y ?? 0);
-  return {
-    calories: a.calories + b.calories,
-    protein: a.protein + b.protein,
-    carbs: a.carbs + b.carbs,
-    fat: a.fat + b.fat,
-    fiber: a.fiber + b.fiber,
-    grams: a.grams + b.grams,
-    saturated_fat: add(a.saturated_fat, b.saturated_fat),
-    sugar: add(a.sugar, b.sugar),
-    sodium: add(a.sodium, b.sodium),
-    cholesterol: add(a.cholesterol, b.cholesterol),
-    trans_fat: add(a.trans_fat, b.trans_fat),
-    polyunsaturated_fat: add(a.polyunsaturated_fat, b.polyunsaturated_fat),
-    monounsaturated_fat: add(a.monounsaturated_fat, b.monounsaturated_fat),
-    potassium: add(a.potassium, b.potassium),
-    added_sugars: add(a.added_sugars, b.added_sugars),
-    vitamin_a: add(a.vitamin_a, b.vitamin_a),
-    vitamin_c: add(a.vitamin_c, b.vitamin_c),
-    vitamin_d: add(a.vitamin_d, b.vitamin_d),
-    calcium: add(a.calcium, b.calcium),
-    iron: add(a.iron, b.iron),
-  };
-}
-
-function dishMacros(dish: Dish): Macros {
-  return dish.components.reduce((acc, c) => addMacros(acc, componentMacros(c)), { ...EMPTY });
-}
-
-const r0 = (n: number) => Math.round(n);
-const r1 = (n: number) => parseFloat(n.toFixed(1));
 
 // ─── Animated number (JS count-up; renders as plain Text) ────────────────────
-// Tweens the displayed value toward `target` with easeOutCubic. Each instance
-// only re-renders itself, so a handful animating at once stays cheap.
 function useCountUp(target: number, duration = 350): number {
   const [val, setVal] = useState(target);
   const displayed = useRef(target);
@@ -206,34 +141,18 @@ function AnimatedNumber({
   return <Text style={style}>{`${v.toFixed(decimals)}${suffix}`}</Text>;
 }
 
-function ExpandChevron({ open, color }: { open: boolean; color: string }) {
-  const style = useAnimatedStyle(() => ({
-    transform: [{ rotate: withTiming(open ? '180deg' : '0deg', { duration: 200 }) }],
-  }));
-  return (
-    <Animated.View style={style}>
-      <ChevronDown size={16} color={color} />
-    </Animated.View>
-  );
-}
-
-// ─── Prompt for description when vision fails ────────────────────────────────
-
-const PARSE_SYSTEM = `You are a food logging assistant. Extract each distinct food item from the user's input.
-Return ONLY a valid JSON array, no other text:
-[{"name": "Dish Name", "components": [{"item": "specific food name", "estimated_g": 150}]}]
-Group items into logical dishes. Estimate typical portion size in grams if not specified.`;
-
-// Food icon grid for the background texture
-const GRID_ICONS = [
-  Flame, Droplet, Leaf, Dumbbell, Apple, Utensils,
-  Sparkles, Droplet, Flame, Apple, Leaf, Dumbbell,
-  Utensils, Sparkles, Dumbbell, Flame, Droplet, Leaf,
-] as const;
-
-function FailedStateWithDescribe({ taskId, error, insets, colors, s }: {
-  taskId: string; error?: string;
-  insets: { top: number }; colors: any; s: any;
+// ─── Failed-state describe fallback ──────────────────────────────────────────
+function FailedStateWithDescribe({
+  taskId,
+  insets,
+  colors,
+  s,
+}: {
+  taskId: string;
+  error?: string;
+  insets: { top: number };
+  colors: AppColors;
+  s: any;
 }) {
   const [description, setDescription] = useState('');
   const [parsing, setParsing] = useState(false);
@@ -241,23 +160,12 @@ function FailedStateWithDescribe({ taskId, error, insets, colors, s }: {
   const { startTask, retryTask, removeTask } = useFoodTaskStore();
   const router = useRouter();
 
-  const iconOpacity = colors.isDark ? 0.06 : 0.05;
-
   const handleLookup = async () => {
     if (!description.trim()) return;
     setParsing(true);
     setParseError(null);
     try {
-      const raw = await callOpenAI(
-        [{ role: 'user', content: description.trim() }],
-        PARSE_SYSTEM,
-        'food_parse',
-      );
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Could not parse response');
-      const parsed: ParsedDish[] = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No items found');
-
+      const parsed: ParsedDish[] = await parseDescriptionToDishes(description.trim());
       removeTask(taskId);
       const newId = startTask({ source: 'describe', parsedDishes: parsed });
       router.setParams({ taskId: newId });
@@ -273,100 +181,21 @@ function FailedStateWithDescribe({ taskId, error, insets, colors, s }: {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={s.headerTitle}>Review Meal</Text>
+        <Text style={s.headerTitle}>Log food</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
-        {/* ── Illustration card ── */}
-        <View style={{
-          backgroundColor: colors.surface,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: colors.border,
-          overflow: 'hidden',
-          marginBottom: 24,
-        }}>
-          {/* Background icon grid */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, padding: 16 }}>
-            {[0, 1, 2].map(row => (
-              <View key={row} style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
-                {GRID_ICONS.slice(row * 6, row * 6 + 6).map((Icon, i) => (
-                  <Icon key={`${row}-${i}`} size={22} color={colors.textPrimary} style={{ opacity: iconOpacity }} />
-                ))}
-              </View>
-            ))}
-          </View>
-
-          {/* Center illustration — food ○—X—○ food */}
-          <View style={{ alignItems: 'center', paddingTop: 50, paddingBottom: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0, marginBottom: 28 }}>
-              {/* Left: food icon (matched) */}
-              <View style={{
-                width: 52, height: 52, borderRadius: 14, backgroundColor: colors.orange,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Utensils size={24} color="#FFFFFF" />
-              </View>
-
-              {/* Dashed connector */}
-              <View style={{ width: 20, height: 1.5, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.textMuted, marginHorizontal: 4 }} />
-
-              {/* Center: X mark */}
-              <View style={{
-                width: 44, height: 44, borderRadius: 22, backgroundColor: colors.isDark ? 'rgba(255,116,42,0.15)' : 'rgba(232,101,42,0.12)',
-                borderWidth: 1.5, borderColor: colors.orange,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <X size={20} color={colors.orange} strokeWidth={2.5} />
-              </View>
-
-              {/* Dashed connector */}
-              <View style={{ width: 20, height: 1.5, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.textMuted, marginHorizontal: 4 }} />
-
-              {/* Right: food icon (unmatched / faded) */}
-              <View style={{
-                width: 52, height: 52, borderRadius: 14,
-                backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                borderWidth: 1, borderColor: colors.border,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Utensils size={24} color={colors.textMuted} />
-              </View>
-            </View>
-
-            {/* Title */}
-            <Text style={{
-              fontSize: 20, fontWeight: '800', color: colors.textPrimary,
-              textAlign: 'center', letterSpacing: -0.3, fontFamily: 'System', marginBottom: 8,
-            }}>
-              Meal not recognized
-            </Text>
-
-            {/* Subtitle */}
-            <Text style={{
-              fontSize: 14, color: colors.textSecondary, textAlign: 'center',
-              lineHeight: 20, fontFamily: 'System', paddingHorizontal: 24, marginBottom: 4,
-            }}>
-              We couldn't match your photo with items in our food database. Describe what you're eating below.
-            </Text>
-          </View>
+        <View style={s.failIllu}>
+          <Utensils size={32} color={colors.textMuted} />
+          <Text style={s.failTitle}>Meal not recognized</Text>
+          <Text style={s.failSub}>
+            We couldn't match your photo with items in our food database. Describe what you're eating below.
+          </Text>
         </View>
 
-        {/* ── Description input ── */}
         <TextInput
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            padding: 16,
-            fontSize: 16,
-            color: colors.textPrimary,
-            minHeight: 80,
-            textAlignVertical: 'top',
-            fontFamily: 'System',
-          }}
+          style={s.failInput}
           placeholder={`e.g. "2 fried eggs and toast"`}
           placeholderTextColor={colors.textMuted}
           value={description}
@@ -376,38 +205,19 @@ function FailedStateWithDescribe({ taskId, error, insets, colors, s }: {
           editable={!parsing}
         />
 
-        {parseError && (
-          <Text style={{ fontSize: 13, color: '#E74C3C', marginTop: 8, fontFamily: 'System' }}>{parseError}</Text>
-        )}
+        {parseError && <Text style={s.failError}>{parseError}</Text>}
 
-        {/* ── Look it up button ── */}
         <TouchableOpacity
           onPress={handleLookup}
           disabled={parsing || !description.trim()}
           activeOpacity={0.85}
-          style={{
-            backgroundColor: colors.orange,
-            borderRadius: 16,
-            paddingVertical: 16,
-            alignItems: 'center',
-            marginTop: 16,
-            opacity: parsing || !description.trim() ? 0.45 : 1,
-          }}
+          style={[s.failBtn, { opacity: parsing || !description.trim() ? 0.45 : 1 }]}
         >
-          {parsing ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFF', fontFamily: 'System' }}>Look it up</Text>
-          )}
+          {parsing ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.failBtnText}>Look it up</Text>}
         </TouchableOpacity>
 
-        {/* ── Retry secondary action ── */}
-        <TouchableOpacity
-          onPress={() => retryTask(taskId)}
-          style={{ alignSelf: 'center', marginTop: 20, paddingVertical: 10 }}
-          disabled={parsing}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, fontFamily: 'System' }}>Retry photo analysis</Text>
+        <TouchableOpacity onPress={() => retryTask(taskId)} style={{ alignSelf: 'center', marginTop: 20, paddingVertical: 10 }} disabled={parsing}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>Retry photo analysis</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -422,137 +232,125 @@ export default function ReviewFoodScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const task = useFoodTaskStore((st) => st.tasks.find((t) => t.id === taskId));
-  const updateComponent = useFoodTaskStore((st) => st.updateComponent);
-  const removeComponent = useFoodTaskStore((st) => st.removeComponent);
-  const swapComponent = useFoodTaskStore((st) => st.swapComponent);
+  const removeDish = useFoodTaskStore((st) => st.removeDish);
   const removeTask = useFoodTaskStore((st) => st.removeTask);
-  const retryTask = useFoodTaskStore((st) => st.retryTask);
 
   const { addToTray, logMeal } = useMealTrayStore();
   const hkStore = useHealthKitStore();
-  const { refreshActuals } = useHealthData();
+  const { refreshActuals, dispatch } = useHealthData();
   const setInsightsDefaultTab = useUiStore((st) => st.setInsightsDefaultTab);
 
   const dishes = task?.dishes ?? [];
 
-  // Which dishes will be logged (default: all)
-  const [included, setIncluded] = useState<Set<number>>(new Set());
-  // Which dish compositions are expanded
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  // Inline re-describe state: "di:ci" → draft text
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
   const [logging, setLogging] = useState(false);
+  const [loggedDate, setLoggedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [labelOpen, setLabelOpen] = useState(false);
+  // Review-only photos: seeded from the task, addable in-screen, never persisted.
+  const [photos, setPhotos] = useState<string[]>([]);
 
   useEffect(() => {
-    if (task?.status === 'ready') {
-      setIncluded(new Set(task.dishes.map((_, i) => i)));
-    }
-  }, [task?.status]);
+    if (task?.photoUris) setPhotos(task.photoUris);
+  }, [task?.id]);
 
-  const toggleInclude = useCallback((idx: number) => {
-    setIncluded((prev) => {
-      const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
-      return next;
-    });
-  }, []);
-
-  const toggleExpand = useCallback((idx: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
-      return next;
-    });
-  }, []);
-
-  // Meal total across included dishes
+  // Meal total across all dishes (each already portion-scaled by dishMacros).
   const total = useMemo(() => {
     let acc: Macros = { ...EMPTY };
-    for (const idx of Array.from(included)) {
-      const dish = dishes[idx];
-      if (dish) acc = addMacros(acc, dishMacros(dish));
-    }
+    for (const dish of dishes) acc = addMacros(acc, dishMacros(dish));
     return acc;
-  }, [dishes, included]);
+  }, [dishes]);
 
-  // ── Quantity stepper (unit-aware) ──────────────────────────────────────────
-  const adjustQty = useCallback(
-    (dishIdx: number, compIdx: number, dir: 1 | -1) => {
+  const handleRemoveDish = useCallback(
+    (di: number) => {
       if (!taskId) return;
-      const comp = dishes[dishIdx]?.components[compIdx];
-      if (!comp) return;
-      const step = comp.unitLabel === 'g' ? 5 : 1;
-      const min = comp.unitLabel === 'g' ? 5 : 1;
-      const current = parseFloat(comp.qty) || 1;
-      const next = Math.max(min, current + dir * step);
-      updateComponent(taskId, dishIdx, compIdx, {
-        qty: String(next % 1 === 0 ? next : r1(next)),
-      });
+      if (dishes.length <= 1) {
+        removeTask(taskId);
+        router.back();
+        return;
+      }
+      removeDish(taskId, di);
     },
-    [taskId, dishes, updateComponent],
+    [taskId, dishes.length, removeDish, removeTask, router],
   );
 
-  const openRedescribe = useCallback((dishIdx: number, compIdx: number) => {
-    setEditing(`${dishIdx}:${compIdx}`);
-    setEditText('');
+  const handleEditDish = useCallback(
+    (di: number) => {
+      router.push(`/entry/edit-food?taskId=${taskId}&dishIdx=${di}` as any);
+    },
+    [taskId, router],
+  );
+
+  const handleAddFood = useCallback(() => {
+    router.push(`/entry/add-food-search?taskId=${taskId}` as any);
+  }, [taskId, router]);
+
+  const handleDiscard = useCallback(() => {
+    if (taskId) removeTask(taskId);
+    router.back();
+  }, [taskId, removeTask, router]);
+
+  const handleAttachPhoto = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setPhotos((prev) => [...prev, result.assets[0].uri]);
+    }
   }, []);
-
-  const submitRedescribe = useCallback(
-    (dishIdx: number, compIdx: number) => {
-      if (!taskId || !editText.trim()) return;
-      swapComponent(taskId, dishIdx, compIdx, editText.trim());
-      setEditing(null);
-      setEditText('');
-    },
-    [taskId, editText, swapComponent],
-  );
 
   const handleConfirm = useCallback(async () => {
     if (!task || !taskId) return;
     setLogging(true);
     try {
-      for (const idx of Array.from(included)) {
-        const dish = dishes[idx];
+      let hydrationCredit = 0; // mL credited to daily water from beverages
+      for (const dish of dishes) {
         if (!dish || dish.components.length === 0) continue;
 
         const m = dishMacros(dish);
+        const bev = dishBeverage(dish);
+        if (bev.isBeverage && bev.hydrationFactor > 0) {
+          hydrationCredit += hydrationMl(m.grams, bev.hydrationFactor);
+        }
+        // Components are stored at portion=1 (the base recipe); the flat dish
+        // row carries the portion-scaled truth. Persist a per-component scale so
+        // raw_ai_response reflects the logged amount.
         const composition = dish.components.map((c) => {
           const food = c.results[c.selectedIdx];
           const cm = componentMacros(c);
+          const p = dish.portion;
           return {
             item: c.item,
             matched_name: food?.name ?? c.item,
             brand: food?.brand || undefined,
             qty: c.qty,
             unit: c.unitLabel,
-            grams: r0(cm.grams),
-            calories: r0(cm.calories),
-            protein_g: r1(cm.protein),
-            carbs_g: r1(cm.carbs),
-            fat_g: r1(cm.fat),
-            fiber_g: r1(cm.fiber),
-            // Full extended nutrients per ingredient, so Top Contributors and
-            // future per-ingredient analysis can attribute micros (sodium, sat
-            // fat, etc.) to the ingredient — not just the composite dish.
-            saturated_fat_g: cm.saturated_fat != null ? r1(cm.saturated_fat) : undefined,
-            sugar_g: cm.sugar != null ? r1(cm.sugar) : undefined,
-            sodium_mg: cm.sodium != null ? r0(cm.sodium) : undefined,
-            cholesterol_mg: cm.cholesterol != null ? r0(cm.cholesterol) : undefined,
-            trans_fat_g: cm.trans_fat != null ? r1(cm.trans_fat) : undefined,
-            polyunsaturated_fat_g: cm.polyunsaturated_fat != null ? r1(cm.polyunsaturated_fat) : undefined,
-            monounsaturated_fat_g: cm.monounsaturated_fat != null ? r1(cm.monounsaturated_fat) : undefined,
-            potassium_mg: cm.potassium != null ? r0(cm.potassium) : undefined,
-            added_sugars_g: cm.added_sugars != null ? r1(cm.added_sugars) : undefined,
-            vitamin_a_mcg: cm.vitamin_a != null ? r1(cm.vitamin_a) : undefined,
-            vitamin_c_mg: cm.vitamin_c != null ? r1(cm.vitamin_c) : undefined,
-            vitamin_d_mcg: cm.vitamin_d != null ? r1(cm.vitamin_d) : undefined,
-            calcium_mg: cm.calcium != null ? r0(cm.calcium) : undefined,
-            iron_mg: cm.iron != null ? r1(cm.iron) : undefined,
-            fatsecret_food_id:
-              food && Number.isFinite(food.fdcId) && food.fdcId > 0 ? food.fdcId : undefined,
+            portion: p,
+            grams: r0(cm.grams * p),
+            calories: r0(cm.calories * p),
+            protein_g: r1(cm.protein * p),
+            carbs_g: r1(cm.carbs * p),
+            fat_g: r1(cm.fat * p),
+            fiber_g: r1(cm.fiber * p),
+            saturated_fat_g: cm.saturated_fat != null ? r1(cm.saturated_fat * p) : undefined,
+            sugar_g: cm.sugar != null ? r1(cm.sugar * p) : undefined,
+            sodium_mg: cm.sodium != null ? r0(cm.sodium * p) : undefined,
+            cholesterol_mg: cm.cholesterol != null ? r0(cm.cholesterol * p) : undefined,
+            trans_fat_g: cm.trans_fat != null ? r1(cm.trans_fat * p) : undefined,
+            polyunsaturated_fat_g: cm.polyunsaturated_fat != null ? r1(cm.polyunsaturated_fat * p) : undefined,
+            monounsaturated_fat_g: cm.monounsaturated_fat != null ? r1(cm.monounsaturated_fat * p) : undefined,
+            potassium_mg: cm.potassium != null ? r0(cm.potassium * p) : undefined,
+            added_sugars_g: cm.added_sugars != null ? r1(cm.added_sugars * p) : undefined,
+            vitamin_a_mcg: cm.vitamin_a != null ? r1(cm.vitamin_a * p) : undefined,
+            vitamin_c_mg: cm.vitamin_c != null ? r1(cm.vitamin_c * p) : undefined,
+            vitamin_d_mcg: cm.vitamin_d != null ? r1(cm.vitamin_d * p) : undefined,
+            calcium_mg: cm.calcium != null ? r0(cm.calcium * p) : undefined,
+            iron_mg: cm.iron != null ? r1(cm.iron * p) : undefined,
+            fatsecret_food_id: food && Number.isFinite(food.fdcId) && food.fdcId > 0 ? food.fdcId : undefined,
           };
         });
+
+        const food0 = dish.components[0]?.results[dish.components[0]?.selectedIdx];
 
         addToTray({
           food_name: dish.name,
@@ -562,9 +360,8 @@ export default function ReviewFoodScreen() {
           fat_g: r1(m.fat),
           fiber_g: r1(m.fiber),
           serving_g: r0(m.grams),
-          source: task.source === 'camera' ? 'photo_ai' : 'manual',
-          serving_description:
-            dish.components.length > 1 ? `${dish.components.length} ingredients` : undefined,
+          source: SOURCE_MAP[task.source] ?? 'manual',
+          serving_description: dishServingLabel(dish),
           saturated_fat_g: m.saturated_fat != null ? r1(m.saturated_fat) : undefined,
           sugar_g: m.sugar != null ? r1(m.sugar) : undefined,
           sodium_mg: m.sodium != null ? r0(m.sodium) : undefined,
@@ -579,11 +376,12 @@ export default function ReviewFoodScreen() {
           vitamin_d_mcg: m.vitamin_d != null ? r1(m.vitamin_d) : undefined,
           calcium_mg: m.calcium != null ? r0(m.calcium) : undefined,
           iron_mg: m.iron != null ? r1(m.iron) : undefined,
-          raw_ai_response: { kind: 'composite', dish: dish.name, components: composition },
+          image_url: food0?.image_url,
+          raw_ai_response: { kind: 'composite', dish: dish.name, portion: dish.portion, components: composition },
         });
       }
 
-      await logMeal('snack');
+      await logMeal('snack', loggedDate.toISOString());
       const synced = await hkStore.writeNutrition({
         calories: r0(total.calories),
         protein: r1(total.protein),
@@ -592,6 +390,15 @@ export default function ReviewFoodScreen() {
         fiber: r1(total.fiber),
       });
       if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
+
+      // Credit beverage fluid to today's hydration (drinks add water too). Only
+      // for meals logged today — water is tracked per calendar day.
+      const isToday = loggedDate.toDateString() === new Date().toDateString();
+      if (hydrationCredit > 0 && isToday) {
+        dispatch({ type: 'LOG_WATER', ml: hydrationCredit });
+        hkStore.writeWater(hydrationCredit);
+      }
+
       refreshActuals();
       removeTask(taskId);
       setInsightsDefaultTab('lifestyle');
@@ -599,7 +406,7 @@ export default function ReviewFoodScreen() {
     } catch {
       setLogging(false);
     }
-  }, [task, taskId, included, dishes, total]);
+  }, [task, taskId, dishes, total, loggedDate]);
 
   // ── Loading / Error / Not-found states ──────────────────────────────────────
 
@@ -639,210 +446,120 @@ export default function ReviewFoodScreen() {
     return <FailedStateWithDescribe taskId={taskId!} error={task.error} insets={insets} colors={colors} s={s} />;
   }
 
-  // ── Ready state ──────────────────────────────────────────────────────────
-
+  // ── Ready state (Bevel "Log food") ───────────────────────────────────────
   return (
     <View style={s.screen}>
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <ChevronLeft size={24} color={colors.textPrimary} />
+        <Pressable onPress={handleDiscard} hitSlop={12} style={s.headerIconBtn}>
+          <Trash2 size={20} color="#E74C3C" />
         </Pressable>
-        <Text style={s.headerTitle}>Review Meal</Text>
-        <View style={{ width: 24 }} />
+        <Text style={s.headerTitle}>Log food</Text>
+        <Pressable onPress={handleAddFood} hitSlop={12} style={s.headerIconBtn}>
+          <Text style={s.headerPlus}>＋</Text>
+        </Pressable>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 160 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 200 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Meal total ── */}
-        <View style={s.totalCard}>
-          <Text style={s.totalLabel}>MEAL TOTAL</Text>
-          <View style={s.totalCalRow}>
-            <Flame size={26} color={MACRO_COLORS.cal} />
-            <AnimatedNumber value={total.calories} style={s.totalCalValue} />
-            <Text style={s.totalCalUnit}>cal</Text>
-          </View>
-          <View style={s.totalMacroRow}>
-            <TotalMacro label="Protein" value={total.protein} color={MACRO_COLORS.protein} s={s} />
-            <TotalMacro label="Carbs" value={total.carbs} color={MACRO_COLORS.carbs} s={s} />
-            <TotalMacro label="Fat" value={total.fat} color={MACRO_COLORS.fat} s={s} />
-            <TotalMacro label="Fiber" value={total.fiber} color={MACRO_COLORS.fiber} s={s} />
-          </View>
-        </View>
+        {/* ── Photo row (review-only) ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.photoRow}>
+          {photos.map((uri, i) => (
+            <Image key={i} source={{ uri }} style={s.photoThumb} />
+          ))}
+          <TouchableOpacity style={s.photoAttach} onPress={handleAttachPhoto} activeOpacity={0.7}>
+            <ImagePlus size={22} color={colors.textMuted} />
+          </TouchableOpacity>
+        </ScrollView>
 
-        {/* ── Dishes ── */}
+        {/* ── Food cards ── */}
         {dishes.map((dish, di) => {
-          const isIncluded = included.has(di);
-          const isOpen = expanded.has(di);
           const m = dishMacros(dish);
-
+          const food0 = dish.components[0]?.results[dish.components[0]?.selectedIdx];
+          const img = food0?.image_url;
+          const bev = dishBeverage(dish);
+          const hydrOz = bev.isBeverage && bev.hydrationFactor > 0 ? Math.round(mlToOz(hydrationMl(m.grams, bev.hydrationFactor))) : 0;
           return (
-            <Animated.View
-              key={di}
-              layout={LinearTransition.duration(220)}
-              style={[s.card, !isIncluded && { opacity: 0.45 }]}
-            >
-              {/* Header: checkbox + name + dish calories */}
-              <View style={s.dishHeader}>
-                <TouchableOpacity onPress={() => toggleInclude(di)} hitSlop={8} style={{ marginTop: 2 }}>
-                  <LucideIconByName
-                    name={isIncluded ? 'CircleCheck' : 'Circle'}
-                    size={22}
-                    color={isIncluded ? colors.orange : colors.textMuted}
-                  />
-                </TouchableOpacity>
+            <Animated.View key={di} layout={LinearTransition.duration(220)} style={s.card}>
+              <View style={s.cardTop}>
+                <View style={s.cardThumb}>
+                  {img ? (
+                    <Image source={{ uri: img }} style={s.cardThumbImg} />
+                  ) : bev.isBeverage ? (
+                    <CupSoda size={20} color={colors.textMuted} />
+                  ) : (
+                    <Utensils size={20} color={colors.textMuted} />
+                  )}
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.dishName} numberOfLines={2}>{dish.name}</Text>
-                  <Text style={s.dishSub}>
-                    {dish.components.length} ingredient{dish.components.length !== 1 ? 's' : ''} · {r0(m.grams)}g
+                  <Text style={s.cardName} numberOfLines={2}>
+                    {dish.name}
                   </Text>
-                </View>
-                <View style={s.dishCal}>
-                  <AnimatedNumber value={m.calories} style={s.dishCalValue} />
-                  <Text style={s.dishCalUnit}>cal</Text>
+                  <Text style={s.cardSub}>
+                    {food0?.brand || 'Common'} · {r0(m.calories)} calories
+                  </Text>
+                  {hydrOz > 0 && (
+                    <View style={s.hydrChip}>
+                      <Droplet size={12} color="#3FA9F5" fill="#3FA9F5" />
+                      <Text style={s.hydrChipText}>+{hydrOz} oz hydration</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              {/* Dish macro chips */}
-              <View style={s.chipRow}>
-                <MacroChip icon={<Dumbbell size={13} color={MACRO_COLORS.protein} />} value={m.protein} s={s} />
-                <MacroChip icon={<Leaf size={13} color={MACRO_COLORS.carbs} />} value={m.carbs} s={s} />
-                <MacroChip icon={<Droplet size={13} color={MACRO_COLORS.fat} />} value={m.fat} s={s} />
-              </View>
-
-              {/* What's this made of? */}
-              <TouchableOpacity style={s.expandBtn} onPress={() => toggleExpand(di)} activeOpacity={0.7}>
-                <Sparkles size={15} color={colors.orange} />
-                <Text style={s.expandBtnText}>
-                  {isOpen ? 'Hide ingredients' : "What's this made of?"}
-                </Text>
-                <ExpandChevron open={isOpen} color={colors.textMuted} />
+              {/* Serving selector → opens edit */}
+              <TouchableOpacity style={s.servingRow} onPress={() => handleEditDish(di)} activeOpacity={0.7}>
+                <Text style={s.servingText}>{dishServingLabel(dish)}</Text>
+                <ChevronRight size={18} color={colors.textMuted} />
               </TouchableOpacity>
 
-              {/* ── Composition ── */}
-              {isOpen && (
-                <Animated.View
-                  style={s.composition}
-                  entering={FadeInDown.duration(200)}
-                  exiting={FadeOutUp.duration(160)}
-                >
-                  {dish.components.map((comp, ci) => {
-                    const food = comp.results[comp.selectedIdx];
-                    const cm = componentMacros(comp);
-                    const key = `${di}:${ci}`;
-                    const isEditing = editing === key;
-                    const servingLabel = comp.unitLabel !== 'g' ? comp.unitLabel : `${r0(componentGrams(comp))}g`;
-
-                    return (
-                      <Animated.View key={ci} layout={LinearTransition.duration(220)} style={s.compRow}>
-                        {comp.resolving && (
-                          <Animated.View
-                            style={s.compLoading}
-                            entering={FadeIn.duration(150)}
-                            exiting={FadeOut.duration(150)}
-                          >
-                            <ActivityIndicator size="small" color={colors.orange} />
-                          </Animated.View>
-                        )}
-
-                        {/* Top line: name + remove */}
-                        <View style={s.compTop}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.compName} numberOfLines={2}>
-                              {food ? food.name : comp.item}
-                            </Text>
-                            {food?.brand ? <Text style={s.compBrand}>{food.brand}</Text> : null}
-                            {!food ? (
-                              <Text style={s.compMissing}>No match — re-describe below</Text>
-                            ) : null}
-                          </View>
-                          <Pressable onPress={() => removeComponent(taskId!, di, ci)} hitSlop={8} style={s.compRemove}>
-                            <X size={16} color={colors.textMuted} />
-                          </Pressable>
-                        </View>
-
-                        {/* Stepper + per-ingredient serving & macros */}
-                        <View style={s.compMid}>
-                          <View style={s.stepper}>
-                            <Pressable onPress={() => adjustQty(di, ci, -1)} style={s.stepperBtn} hitSlop={6}>
-                              <Minus size={16} color={colors.textPrimary} />
-                            </Pressable>
-                            <Text style={s.stepperValue}>{comp.qty}</Text>
-                            <Pressable onPress={() => adjustQty(di, ci, 1)} style={s.stepperBtn} hitSlop={6}>
-                              <Plus size={16} color={colors.textPrimary} />
-                            </Pressable>
-                          </View>
-                          <View style={s.compInfo}>
-                            <Text style={s.compUnit} numberOfLines={2}>{servingLabel}</Text>
-                            <Text style={s.compMacro} numberOfLines={1}>
-                              {r0(cm.calories)} cal · {r1(cm.protein)}P · {r1(cm.carbs)}C · {r1(cm.fat)}F
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Alternatives (already-fetched matches) */}
-                        {comp.results.length > 1 && (
-                          <View style={s.altRow}>
-                            {comp.results.slice(0, 4).map((alt, ai) => {
-                              const sel = ai === comp.selectedIdx;
-                              return (
-                                <TouchableOpacity
-                                  key={ai}
-                                  onPress={() => updateComponent(taskId!, di, ci, { selectedIdx: ai })}
-                                  style={[s.altPill, sel && { borderColor: colors.orange, backgroundColor: colors.orangeDim }]}
-                                >
-                                  <Text
-                                    style={[s.altPillText, sel && { color: colors.orange, fontWeight: '700' }]}
-                                    numberOfLines={1}
-                                  >
-                                    {alt.name}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-                        )}
-
-                        {/* Re-describe */}
-                        {isEditing ? (
-                          <View style={s.redescribeRow}>
-                            <TextInput
-                              value={editText}
-                              onChangeText={setEditText}
-                              placeholder={`e.g. "2 fried eggs"`}
-                              placeholderTextColor={colors.textMuted}
-                              style={s.redescribeInput}
-                              autoFocus
-                              returnKeyType="search"
-                              onSubmitEditing={() => submitRedescribe(di, ci)}
-                            />
-                            <TouchableOpacity
-                              style={[s.redescribeBtn, !editText.trim() && { opacity: 0.4 }]}
-                              disabled={!editText.trim()}
-                              onPress={() => submitRedescribe(di, ci)}
-                            >
-                              <RefreshCw size={15} color="#FFF" />
-                            </TouchableOpacity>
-                            <Pressable onPress={() => setEditing(null)} hitSlop={8} style={{ paddingHorizontal: 4 }}>
-                              <X size={16} color={colors.textMuted} />
-                            </Pressable>
-                          </View>
-                        ) : (
-                          <TouchableOpacity style={s.changeBtn} onPress={() => openRedescribe(di, ci)}>
-                            <Text style={s.changeBtnText}>Not right? Describe it</Text>
-                          </TouchableOpacity>
-                        )}
-                      </Animated.View>
-                    );
-                  })}
-                </Animated.View>
-              )}
+              {/* Remove / Edit */}
+              <View style={s.cardActions}>
+                <TouchableOpacity style={s.cardAction} onPress={() => handleRemoveDish(di)} activeOpacity={0.7}>
+                  <X size={15} color="#E74C3C" />
+                  <Text style={[s.cardActionText, { color: '#E74C3C' }]}>Remove</Text>
+                </TouchableOpacity>
+                <View style={s.cardActionDivider} />
+                <TouchableOpacity style={s.cardAction} onPress={() => handleEditDish(di)} activeOpacity={0.7}>
+                  <Pencil size={14} color={colors.textSecondary} />
+                  <Text style={s.cardActionText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
             </Animated.View>
           );
         })}
+
+        {/* ── When did you eat this? ── */}
+        <View style={s.dateCard}>
+          <TouchableOpacity style={s.dateRow} onPress={() => setShowDatePicker((v) => !v)} activeOpacity={0.7}>
+            <CalendarDays size={18} color={colors.textMuted} />
+            <Text style={s.dateLabel}>Date</Text>
+            <Text style={s.dateValue}>
+              {loggedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {' at '}
+              {loggedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <View style={s.datePickerWrap}>
+              <DateTimePicker
+                value={loggedDate}
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
+                onChange={(_, date) => {
+                  if (Platform.OS !== 'ios') setShowDatePicker(false);
+                  if (date) setLoggedDate(date);
+                }}
+                themeVariant={colors.isDark ? 'dark' : 'light'}
+                style={{ alignSelf: 'center' }}
+              />
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* ── Sticky Footer ── */}
@@ -854,42 +571,40 @@ export default function ReviewFoodScreen() {
             { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)' },
           ]}
         />
+
+        {/* Tappable summary → nutrition label */}
+        <TouchableOpacity style={s.summaryRow} onPress={() => setLabelOpen(true)} activeOpacity={0.7}>
+          <AnimatedNumber value={total.calories} suffix=" calories" style={s.summaryCal} />
+          <View style={s.summaryPills}>
+            <SummaryPill icon={<Dumbbell size={12} color={MACRO_COLORS.protein} />} value={total.protein} s={s} />
+            <SummaryPill icon={<Leaf size={12} color={MACRO_COLORS.carbs} />} value={total.carbs} s={s} />
+            <SummaryPill icon={<EggFried size={12} color={MACRO_COLORS.fat} />} value={total.fat} s={s} />
+            <ChevronRight size={16} color={colors.textMuted} />
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity
-          style={[s.confirmBtn, (included.size === 0 || logging) && { opacity: 0.4 }]}
+          style={[s.confirmBtn, (dishes.length === 0 || logging) && { opacity: 0.4 }]}
           onPress={handleConfirm}
-          disabled={included.size === 0 || logging}
+          disabled={dishes.length === 0 || logging}
           activeOpacity={0.85}
         >
-          {logging ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Text style={s.confirmBtnText}>
-              Log Meal · {r0(total.calories)} cal
-            </Text>
-          )}
+          {logging ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={s.confirmBtnText}>Add to log</Text>}
         </TouchableOpacity>
       </View>
+
+      <NutritionLabelModal visible={labelOpen} onClose={() => setLabelOpen(false)} macros={total} />
     </View>
   );
 }
 
 // ─── Small presentational helpers ───────────────────────────────────────────
 
-function TotalMacro({ label, value, color, s }: { label: string; value: number; color: string; s: any }) {
+function SummaryPill({ icon, value, s }: { icon: React.ReactNode; value: number; s: any }) {
   return (
-    <View style={s.totalMacro}>
-      <View style={[s.totalMacroDot, { backgroundColor: color }]} />
-      <AnimatedNumber value={value} decimals={1} suffix="g" style={s.totalMacroValue} />
-      <Text style={s.totalMacroLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function MacroChip({ icon, value, s }: { icon: React.ReactNode; value: number; s: any }) {
-  return (
-    <View style={s.macroChip}>
+    <View style={s.summaryPill}>
       {icon}
-      <AnimatedNumber value={value} decimals={1} suffix="g" style={s.macroChipText} />
+      <AnimatedNumber value={value} decimals={0} suffix="g" style={s.summaryPillText} />
     </View>
   );
 }
@@ -903,128 +618,155 @@ function createStyles(c: AppColors) {
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     emptyText: { fontSize: 17, color: c.textSecondary, textAlign: 'center' },
     backBtn: {
-      marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20,
+      marginTop: 20,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 20,
       backgroundColor: c.borderSubtle,
     },
     backBtnText: { fontSize: 16, fontWeight: '700', color: c.textPrimary },
+
     header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 20, paddingBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingBottom: 12,
     },
     headerTitle: { fontSize: 19, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3 },
+    headerIconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    headerPlus: { fontSize: 26, fontWeight: '500', color: c.textPrimary, lineHeight: 28 },
 
-    // ─── Meal total ───────────────────────────────────────────────
-    totalCard: {
-      backgroundColor: c.cardBg,
-      borderRadius: 22,
-      padding: 20,
-      marginBottom: 18,
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
+    // ─── Photo row ────────────────────────────────────────────────
+    photoRow: { gap: 10, paddingBottom: 18, alignItems: 'center' },
+    photoThumb: { width: 64, height: 64, borderRadius: 14, backgroundColor: w(0.06) },
+    photoAttach: {
+      width: 64,
+      height: 64,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    totalLabel: {
-      fontSize: 11, fontWeight: '700', color: c.textMuted,
-      letterSpacing: 2, marginBottom: 8,
-    },
-    totalCalRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16 },
-    totalCalValue: { fontSize: 42, fontWeight: '800', color: c.textPrimary, letterSpacing: -1, lineHeight: 44 },
-    totalCalUnit: { fontSize: 16, fontWeight: '600', color: c.textMuted, marginBottom: 5 },
-    totalMacroRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    totalMacro: { flex: 1, alignItems: 'flex-start' },
-    totalMacroDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 6 },
-    totalMacroValue: { fontSize: 17, fontWeight: '800', color: c.textPrimary },
-    totalMacroLabel: { fontSize: 11, fontWeight: '500', color: c.textMuted, marginTop: 1, letterSpacing: 0.2 },
 
-    // ─── Dish card ────────────────────────────────────────────────
+    // ─── Food card ────────────────────────────────────────────────
     card: {
       backgroundColor: c.cardBg,
       borderRadius: 20,
-      padding: 18,
-      marginBottom: 16,
+      padding: 16,
+      marginBottom: 14,
       borderWidth: 1,
       borderColor: c.borderSubtle,
     },
-    dishHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-    dishName: { fontSize: 19, fontWeight: '700', color: c.textPrimary, lineHeight: 25 },
-    dishSub: { fontSize: 13, color: c.textMuted, marginTop: 3 },
-    dishCal: { alignItems: 'flex-end' },
-    dishCalValue: { fontSize: 22, fontWeight: '800', color: MACRO_COLORS.cal, letterSpacing: -0.5 },
-    dishCalUnit: { fontSize: 11, fontWeight: '600', color: c.textMuted, marginTop: -2 },
-
-    chipRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    macroChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: w(0.04), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    cardThumb: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: w(0.06),
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
     },
-    macroChipText: { fontSize: 13, fontWeight: '700', color: c.textSecondary },
+    cardThumbImg: { width: 44, height: 44 },
+    cardName: { fontSize: 16, fontWeight: '700', color: c.textPrimary, lineHeight: 21 },
+    cardSub: { fontSize: 13, color: c.textMuted, marginTop: 2 },
+    hydrChip: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, alignSelf: 'flex-start' },
+    hydrChipText: { fontSize: 12, fontWeight: '700', color: '#3FA9F5' },
 
-    expandBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      marginTop: 14, paddingVertical: 10, paddingHorizontal: 12,
-      borderRadius: 12, borderWidth: 1, borderColor: c.border,
+    servingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.border,
       backgroundColor: w(0.02),
     },
-    expandBtnText: { flex: 1, fontSize: 14, fontWeight: '700', color: c.textPrimary },
+    servingText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
 
-    // ─── Composition ──────────────────────────────────────────────
-    composition: { marginTop: 12, gap: 12 },
-    compRow: {
-      backgroundColor: w(0.03), borderRadius: 16, padding: 14,
-      borderWidth: 1, borderColor: c.borderSubtle,
+    cardActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+      paddingTop: 4,
     },
-    compLoading: {
-      ...StyleSheet.absoluteFillObject,
-      borderRadius: 16,
-      backgroundColor: c.isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)',
-      alignItems: 'center', justifyContent: 'center', zIndex: 2,
-    },
-    compTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-    compName: { fontSize: 16, fontWeight: '700', color: c.textPrimary, lineHeight: 21 },
-    compBrand: { fontSize: 12, color: c.textMuted, marginTop: 1 },
-    compMissing: { fontSize: 12, color: '#E74C3C', marginTop: 3, fontWeight: '600' },
-    compRemove: { padding: 2 },
+    cardAction: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+    cardActionDivider: { width: StyleSheet.hairlineWidth, height: 20, backgroundColor: c.border },
+    cardActionText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
 
-    compMid: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
-    stepper: {
-      flexDirection: 'row', alignItems: 'center',
-      borderRadius: 10, borderWidth: 1, borderColor: c.border, overflow: 'hidden',
+    // ─── Date card ────────────────────────────────────────────────
+    dateCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 18,
+      marginTop: 2,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: c.borderSubtle,
+      overflow: 'hidden',
     },
-    stepperBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-    stepperValue: { fontSize: 15, fontWeight: '700', color: c.textPrimary, minWidth: 26, textAlign: 'center' },
-    compInfo: { flex: 1, minWidth: 0 },
-    compUnit: { fontSize: 13, fontWeight: '600', color: c.textSecondary, lineHeight: 17 },
-    compMacro: { fontSize: 12, color: c.textMuted, fontWeight: '600', marginTop: 3 },
-
-    altRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-    altPill: {
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9,
-      borderWidth: 1, borderColor: c.border, maxWidth: '100%',
-    },
-    altPillText: { fontSize: 12, color: c.textSecondary, fontWeight: '500' },
-
-    changeBtn: { marginTop: 10, alignSelf: 'flex-start' },
-    changeBtnText: { fontSize: 13, fontWeight: '700', color: c.orange },
-
-    redescribeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-    redescribeInput: {
-      flex: 1, height: 40, borderRadius: 12, borderWidth: 1, borderColor: c.border,
-      paddingHorizontal: 12, color: c.textPrimary, fontSize: 14, backgroundColor: w(0.03),
-    },
-    redescribeBtn: {
-      width: 40, height: 40, borderRadius: 12, backgroundColor: c.orange,
-      alignItems: 'center', justifyContent: 'center',
-    },
+    dateRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 16 },
+    dateLabel: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+    dateValue: { flex: 1, textAlign: 'right', fontSize: 15, fontWeight: '600', color: c.textSecondary },
+    datePickerWrap: { borderTopWidth: 1, borderTopColor: c.borderSubtle, paddingVertical: 8 },
 
     // ─── Footer ───────────────────────────────────────────────────
     footer: {
-      position: 'absolute', bottom: 0, left: 0, right: 0,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden',
-      paddingTop: 16, paddingHorizontal: 20,
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      overflow: 'hidden',
+      paddingTop: 14,
+      paddingHorizontal: 20,
     },
+    summaryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      marginBottom: 6,
+    },
+    summaryCal: { fontSize: 18, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3 },
+    summaryPills: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    summaryPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    summaryPillText: { fontSize: 14, fontWeight: '700', color: c.textSecondary },
     confirmBtn: {
       backgroundColor: c.isDark ? '#1A1A1A' : '#111111',
-      borderRadius: 28, paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
+      borderRadius: 28,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     confirmBtnText: { fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: 0.3 },
+
+    // ─── Failed state ─────────────────────────────────────────────
+    failIllu: { alignItems: 'center', paddingVertical: 24 },
+    failTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, marginTop: 14, marginBottom: 8 },
+    failSub: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
+    failInput: {
+      backgroundColor: c.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 16,
+      fontSize: 16,
+      color: c.textPrimary,
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    failError: { fontSize: 13, color: '#E74C3C', marginTop: 8 },
+    failBtn: { backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
+    failBtnText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
   });
 }

@@ -992,6 +992,20 @@ export type FocusItem = {
  *   balanceEnd ≈ 85% of cycle  (up to ~85%)
  *   remainder  = reset phase
  */
+/**
+ * Cycle day for display ("Day N of freq"). `daysSinceShot` (a.k.a. todayDayNum)
+ * is days *elapsed* since the shot — 0 on shot day. Clinical convention calls
+ * the shot day "Day 1", so the display day is elapsed + 1, capped at the cycle
+ * length so an overdue shot never reads "Day 8 of 7". This keeps the day count
+ * internally consistent with "In N days" (Day N + days-until = next cycle's Day 1).
+ *
+ * Single source of truth for the cycle-day label — use everywhere the cycle day
+ * is shown (home gauge, vertical timeline, cycle-phase hero) so they never drift.
+ */
+export function cycleDisplayDay(daysSinceShot: number, injFreqDays: number = 7): number {
+  return Math.min(daysSinceShot + 1, injFreqDays);
+}
+
 export function getShotPhase(daysSinceShot: number, injFreqDays: number = 7): ShotPhase {
   const shotEnd    = Math.max(1, Math.round(injFreqDays * 0.15));
   const peakEnd    = Math.max(2, Math.round(injFreqDays * 0.50));

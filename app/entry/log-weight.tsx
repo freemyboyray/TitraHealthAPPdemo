@@ -558,7 +558,7 @@ export default function LogWeightScreen() {
                   <BodyCompField label="Body Water" value={bodyWater} onChange={setBodyWater} suffix="%" placeholder="e.g. 55" />
                   <BodyCompField label={`Muscle Mass`} value={muscleMass} onChange={setMuscleMass} suffix={unit} placeholder="e.g. 72" />
                   <BodyCompField label={`Bone Mass`} value={boneMass} onChange={setBoneMass} suffix={unit} placeholder="e.g. 7.2" />
-                  <BodyCompField label="BMR" value={bmrKcal} onChange={setBmrKcal} suffix="kcal" placeholder="e.g. 1650" />
+                  <BodyCompField label="BMR" value={bmrKcal} onChange={setBmrKcal} suffix="calories" placeholder="e.g. 1650" />
                 </View>
               )}
             </View>

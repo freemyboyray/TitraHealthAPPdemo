@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -9,7 +9,7 @@ import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { OptionPill } from '@/components/onboarding/option-pill';
 import { useProfile } from '@/contexts/profile-context';
-import { DRUG_IS_ORAL, DRUG_DEFAULT_FREQ_DAYS } from '@/constants/drug-pk';
+import { DRUG_IS_ORAL } from '@/constants/drug-pk';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
@@ -27,29 +27,27 @@ export default function ScheduleScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const glp1Type  = draft.glp1Type;
-  const isOral    = glp1Type ? DRUG_IS_ORAL[glp1Type]            : false;
-  const isDaily   = glp1Type ? DRUG_DEFAULT_FREQ_DAYS[glp1Type] === 1 : false;
-  const lockedFreq = isDaily ? 1 : null;
+  const isOral    = glp1Type ? DRUG_IS_ORAL[glp1Type] : false;
 
-  const [freq, setFreq] = useState<number | 'custom' | null>(lockedFreq);
+  // We always ask for the frequency outright — nothing is pre-selected, even
+  // for drugs with a fixed on-label cadence. The user confirms it every time.
+  const [freq, setFreq] = useState<number | 'custom' | null>(null);
   const [customFreq, setCustomFreq] = useState('');
-  // dose_time: default to 8:00 AM for daily drugs
+  // dose_time: default to 8:00 AM, surfaced once a daily cadence is chosen
   const [doseTime, setDoseTime] = useState(() => {
     const d = new Date(); d.setHours(8, 0, 0, 0); return d;
   });
-
-  useEffect(() => {
-    if (lockedFreq !== null) setFreq(lockedFreq);
-  }, [lockedFreq]);
 
   const freqDays =
     freq === 'custom' ? (customFreq !== '' ? parseInt(customFreq, 10) : null) : freq;
 
   const isValid = freqDays !== null;
+  const isDailySelected = freqDays === 1;
 
   const handleContinue = () => {
     if (!isValid) return;
-    const formattedDoseTime = isDaily
+    // Capture a reminder time only when they're on a daily cadence.
+    const formattedDoseTime = isDailySelected
       ? `${String(doseTime.getHours()).padStart(2, '0')}:${String(doseTime.getMinutes()).padStart(2, '0')}`
       : '';
     updateDraft({
@@ -59,7 +57,7 @@ export default function ScheduleScreen() {
     router.push('/onboarding/last-shot');
   };
 
-  const doseNoun  = isOral ? 'pill' : isDaily ? 'injection' : 'shot';
+  const doseNoun  = isOral ? 'pill' : 'shot';
 
   return (
     <SafeAreaView style={s.safe}>
@@ -67,42 +65,32 @@ export default function ScheduleScreen() {
         <OnboardingHeader step={5} total={15} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-          {!isDaily ? (
+          <Text style={s.title}>How often do you take your {doseNoun}?</Text>
+          <Text style={s.subtitle}>Select the frequency that matches your prescription.</Text>
+          <View style={s.options}>
+            {INJECTABLE_FREQUENCIES.map((f) => (
+              <OptionPill
+                key={String(f.days)}
+                label={f.label}
+                selected={freq === f.days}
+                onPress={() => setFreq(f.days)}
+              />
+            ))}
+            {freq === 'custom' && (
+              <TextInput
+                style={s.input}
+                placeholder="Frequency in days (e.g. 10)"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="number-pad"
+                value={customFreq}
+                onChangeText={setCustomFreq}
+                autoFocus
+              />
+            )}
+          </View>
+
+          {isDailySelected && (
             <>
-              <Text style={s.title}>How often do you take your {doseNoun}?</Text>
-              <Text style={s.subtitle}>Select the frequency that matches your prescription.</Text>
-              <View style={s.options}>
-                {INJECTABLE_FREQUENCIES.map((f) => (
-                  <OptionPill
-                    key={String(f.days)}
-                    label={f.label}
-                    selected={freq === f.days}
-                    onPress={() => setFreq(f.days)}
-                  />
-                ))}
-                {freq === 'custom' && (
-                  <TextInput
-                    style={s.input}
-                    placeholder="Frequency in days (e.g. 10)"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="number-pad"
-                    value={customFreq}
-                    onChangeText={setCustomFreq}
-                    autoFocus
-                  />
-                )}
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={s.title}>
-                {isOral ? 'Daily oral medication' : 'Daily injection'}
-              </Text>
-              <Text style={s.subtitle}>
-                {isOral
-                  ? 'This medication is taken every day as a pill. Your schedule is automatically set to once daily.'
-                  : 'This medication is injected once every day. Your schedule is automatically set to daily.'}
-              </Text>
               <Text style={s.sectionLabel}>What time do you take your {doseNoun}?</Text>
               <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
                 We'll send you a daily reminder at this time.

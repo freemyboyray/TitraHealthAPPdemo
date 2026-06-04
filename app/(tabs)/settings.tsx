@@ -23,9 +23,10 @@ import { supabase } from '@/lib/supabase';
 const BRAND_LABEL: Record<string, string> = {
   zepbound: 'Zepbound', mounjaro: 'Mounjaro', wegovy: 'Wegovy', ozempic: 'Ozempic',
   trulicity: 'Trulicity', saxenda: 'Saxenda', victoza: 'Victoza', rybelsus: 'Rybelsus',
-  oral_wegovy: 'Oral Wegovy', orforglipron: 'Orforglipron',
+  oral_wegovy: 'Oral Wegovy', orforglipron: 'Foundayo',
   compounded_semaglutide: 'Compounded (Sema)', compounded_tirzepatide: 'Compounded (Tirz)',
-  compounded_liraglutide: 'Compounded (Lira)', other: 'Other',
+  compounded_liraglutide: 'Compounded (Lira)',
+  other_injection: 'Other injection', other_oral: 'Other oral', other: 'Other',
 };
 
 const SEX_DISPLAY: Record<string, string> = {

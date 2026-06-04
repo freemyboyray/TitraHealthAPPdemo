@@ -270,6 +270,11 @@ export async function callOpenAI(
   messages: { role: 'user' | 'assistant'; content: string }[],
   systemPrompt: string,
   feature?: 'ai_chat' | 'photo_analysis' | 'food_parse',
+  // The proxy classifies usage server-side and only counts a request as
+  // food_parse (vs the stricter ai_chat bucket) when it's sent in JSON mode.
+  // Food-parsing callers MUST pass jsonMode:true so they don't burn the chat
+  // limit. The systemPrompt must instruct the model to return a JSON object.
+  jsonMode = false,
 ): Promise<string> {
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
@@ -280,6 +285,7 @@ export async function callOpenAI(
     max_tokens: 400,
     temperature: 0.7,
     ...(feature ? { feature } : {}),
+    ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
   });
 
   return (data as any).choices[0].message.content as string;
@@ -529,10 +535,10 @@ For each food item, generate 3 short search-friendly name variants that would ma
 - A brand or common preparation variant (e.g. "banana fresh")
 - A more specific variant (e.g. "banana medium")
 
-Return ONLY valid JSON, no other text:
-[
+Return ONLY a valid JSON object with a single "items" array, no other text:
+{"items":[
   {"item": "original item name", "variants": ["variant1", "variant2", "variant3"]}
-]
+]}
 
 Rules:
 - Keep variants short (1-4 words) — they are search queries, not descriptions
@@ -554,18 +560,18 @@ export async function generateSearchVariants(
     ],
     max_tokens: 600,
     temperature: 0.3,
+    // JSON mode → proxy counts this as food_parse, not ai_chat.
+    response_format: { type: 'json_object' },
   });
 
   const raw = (data as any).choices?.[0]?.message?.content ?? '';
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) {
-    // Fallback: just use original names
-    return items.map((it) => ({ item: it, variants: [it] }));
-  }
+  const fallback = () => items.map((it) => ({ item: it, variants: [it] }));
   try {
-    return JSON.parse(match[0]);
+    const obj = JSON.parse(raw);
+    const arr = Array.isArray(obj?.items) ? obj.items : Array.isArray(obj) ? obj : null;
+    return arr ?? fallback();
   } catch {
-    return items.map((it) => ({ item: it, variants: [it] }));
+    return fallback();
   }
 }
 
@@ -577,8 +583,8 @@ const SELECT_SYSTEM = `You are a nutrition matching assistant. The user describe
 
 For each item, you'll see the user's original description and numbered candidates from the database (with name, brand, and calories per 100g).
 
-Return ONLY valid JSON — an array of selected indices (0-based), one per item:
-[0, 2, 0, 1]
+Return ONLY a valid JSON object with a single "indices" array of selected 0-based indices, one per item:
+{"indices":[0, 2, 0, 1]}
 
 Rules:
 - Pick the candidate closest to what the user described
@@ -610,17 +616,20 @@ export async function selectBestFoodMatches(
     ],
     max_tokens: 100,
     temperature: 0.1,
+    // JSON mode → proxy counts this as food_parse, not ai_chat.
+    response_format: { type: 'json_object' },
   });
 
   const raw = (data as any).choices?.[0]?.message?.content ?? '';
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) return selections.map(() => 0);
   try {
-    const indices = JSON.parse(match[0]) as number[];
+    const obj = JSON.parse(raw);
+    const indices = (Array.isArray(obj?.indices) ? obj.indices : Array.isArray(obj) ? obj : []) as number[];
+    if (indices.length === 0) return selections.map(() => 0);
     // Clamp indices to valid range
-    return indices.map((idx, i) => {
-      const max = selections[i]?.candidates?.length ?? 1;
-      return idx >= 0 && idx < max ? idx : 0;
+    return selections.map((s, i) => {
+      const idx = indices[i];
+      const max = s?.candidates?.length ?? 1;
+      return typeof idx === 'number' && idx >= 0 && idx < max ? idx : 0;
     });
   } catch {
     return selections.map(() => 0);
@@ -678,7 +687,7 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
   serving_options: { label: string; grams: number }[];
 } | null> {
   try {
-    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM, 'food_parse');
+    const raw = await callOpenAI([{ role: 'user', content: foodName }], MACRO_ESTIMATE_SYSTEM, 'food_parse', true);
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const m = JSON.parse(match[0]);

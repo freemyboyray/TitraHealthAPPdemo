@@ -55,37 +55,38 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Determine feature key for usage tracking. Prefer client-supplied feature
-    // (allowlisted), fall back to "image present? → photo_analysis, else ai_chat".
-    // voice_log is owned by whisper-proxy and not selectable here.
-    const CLIENT_SELECTABLE: FeatureKey[] = ['ai_chat', 'photo_analysis', 'food_parse'];
-    const requestedFeature = typeof body.feature === 'string' ? body.feature : undefined;
+    // Determine feature key server-side only — never trust client-supplied feature.
+    // This prevents abuse where a client sends feature:'food_parse' (30/day) to
+    // bypass the ai_chat limit (5/day).
     const isVision = hasVisionContent(body);
-    const featureKey: FeatureKey =
-      requestedFeature && CLIENT_SELECTABLE.includes(requestedFeature as FeatureKey)
-        ? (requestedFeature as FeatureKey)
-        : isVision
-          ? 'photo_analysis'
-          : 'ai_chat';
-
-    // Strip our internal field before forwarding to OpenAI.
-    delete body.feature;
+    const isJsonMode = body.response_format?.type === 'json_object';
+    const featureKey: FeatureKey = isVision
+      ? 'photo_analysis'
+      : isJsonMode
+        ? 'food_parse'
+        : 'ai_chat';
 
     // Check usage limit for non-premium users
     const limitResponse = await checkUsageLimit(auth.userId, featureKey);
     if (limitResponse) return limitResponse;
 
-    // Enforce model whitelist
-    if (!ALLOWED_MODELS.includes(body.model)) {
-      body.model = 'gpt-4o-mini';
+    // Build a sanitized body with only allowed fields — prevents abuse via
+    // parameters like n (multiple completions), tools, functions, or stream.
+    const sanitized: Record<string, unknown> = {
+      model: ALLOWED_MODELS.includes(body.model) ? body.model : 'gpt-4o-mini',
+      messages: body.messages,
+      max_tokens: typeof body.max_tokens === 'number'
+        ? Math.min(body.max_tokens, MAX_TOKENS_CAP) : MAX_TOKENS_CAP,
+      temperature: typeof body.temperature === 'number'
+        ? Math.min(Math.max(body.temperature, 0), 2) : 0.7,
+      n: 1, // Always force single completion
+    };
+    // Only allow response_format if provided (used for JSON mode)
+    if (body.response_format && typeof body.response_format === 'object') {
+      sanitized.response_format = body.response_format;
     }
 
-    // Cap max_tokens
-    if (typeof body.max_tokens === 'number') {
-      body.max_tokens = Math.min(body.max_tokens, MAX_TOKENS_CAP);
-    }
-
-    const payload = JSON.stringify(body);
+    const payload = JSON.stringify(sanitized);
 
     // Reject oversized payloads — vision requests get a much larger allowance
     // since they carry a base64 image.

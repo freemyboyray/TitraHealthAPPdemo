@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText, type TextAnchor } from 'react-native-svg';
 
 import type { AppColors } from '@/constants/theme';
-import type { ShotPhase } from '@/constants/scoring';
+import { cycleDisplayDay, type ShotPhase } from '@/constants/scoring';
 
 const FF = 'System';
 
@@ -25,11 +25,13 @@ const ARC_CY = 140;
 const ARC_R = 110;
 const ARC_STROKE = 12;
 
-// Phase angles (in degrees, 0 = 3 o'clock, going counter-clockwise for the top arc)
-// We define the arc from 180° (left) to 0° (right) = 180° total
-// Phase spans: Shot 30°, Peak 60°, Balance 60°, Reset 30°
-const PHASE_SPANS = [30, 60, 60, 30]; // degrees per phase
-const PHASE_START_ANGLES = [180, 150, 90, 30]; // start angle for each phase
+// The arc spans 180° (left, 9 o'clock) → 0° (right, 3 o'clock) across the top.
+// Position along the arc is a cycle *fraction* (0 = shot day, 1 = next dose due),
+// so both the phase segments and the progress dot scale with the real cycle length.
+function fracToAngle(frac: number): number {
+  const f = Math.max(0, Math.min(1, frac));
+  return 180 - f * 180;
+}
 
 function polarToXY(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = (angleDeg * Math.PI) / 180;
@@ -43,22 +45,22 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${sweep} 1 ${end.x} ${end.y}`;
 }
 
-// Label positions — midpoint of each arc segment, offset outward
-function labelPos(phaseIdx: number) {
-  const midAngle = PHASE_START_ANGLES[phaseIdx] - PHASE_SPANS[phaseIdx] / 2;
-  return polarToXY(ARC_CX, ARC_CY, ARC_R + 22, midAngle);
+// Phase boundaries as cumulative cycle fractions, scaled to the cycle length.
+// Mirrors getShotPhase() in constants/scoring.ts so the colored segments line up
+// with where the phase label actually flips (shot ≈15%, peak ≈50%, balance ≈85%,
+// reset = remainder). Returns [shotStart, peakStart, balanceStart, resetStart, end].
+function phaseBoundaryFracs(freq: number): number[] {
+  if (freq <= 0) return [0, 0.15, 0.5, 0.85, 1];
+  const shotEnd = Math.max(1, Math.round(freq * 0.15));
+  const peakEnd = Math.max(2, Math.round(freq * 0.5));
+  const balanceEnd = Math.max(3, Math.round(freq * 0.85));
+  return [0, shotEnd / freq, peakEnd / freq, balanceEnd / freq, 1];
 }
 
 // Text anchor per phase so side labels extend away from the arc
 const LABEL_ANCHORS: Record<ShotPhase, TextAnchor> = {
   shot: 'end', peak: 'middle', balance: 'middle', reset: 'start',
 };
-
-// Dot position — at the boundary between current phase and the next
-function currentDotPos(phaseIdx: number) {
-  const endAngle = PHASE_START_ANGLES[phaseIdx] - PHASE_SPANS[phaseIdx];
-  return polarToXY(ARC_CX, ARC_CY, ARC_R, endAngle);
-}
 
 type Props = {
   todayDayNum: number;
@@ -97,14 +99,15 @@ export function InjectionCycleTimeline({
   stat3Lbl,
   hideArc = false,
 }: Props) {
-  // Injection day = Day 1 (clinical convention). `todayDayNum` is days *elapsed*
-  // since the shot (0 on shot day), so the cycle day is elapsed + 1. Cap at the
-  // cycle length so an overdue shot never reads "Day 8 of 7". This keeps the day
-  // count in step with "In N days" (Day 2 ⇄ 6 days left in a 7-day cycle).
-  const displayDay = Math.min(todayDayNum + 1, freq);
+  // Cycle-day label — shared helper so the gauge, vertical timeline, and
+  // cycle-phase hero never drift. See cycleDisplayDay in constants/scoring.ts.
+  const displayDay = cycleDisplayDay(todayDayNum, freq);
   const currentIdx = getPhaseIndex(shotPhase);
   const phaseColor = PHASE_COLORS[shotPhase];
   const s = useMemo(() => createStyles(colors), [colors]);
+
+  // Phase segment boundaries (cycle fractions), scaled to the real cycle length.
+  const boundaries = useMemo(() => phaseBoundaryFracs(freq), [freq]);
 
   const isOverdue = !todayInjLogged && rawDaysUntil != null && rawDaysUntil < 0;
   const isShotDay = !todayInjLogged && rawDaysUntil === 0;
@@ -139,8 +142,11 @@ export function InjectionCycleTimeline({
   const mutedText = colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
   const dividerColor = colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
-  // Current phase dot position
-  const dot = currentDotPos(currentIdx);
+  // Progress dot — continuous along the arc based on the real day in the cycle
+  // (0 = shot day at far left, 1 = next dose due at far right), not snapped to
+  // phase boundaries. todayDayNum is days elapsed since the shot.
+  const progress = freq > 0 ? Math.max(0, Math.min(1, todayDayNum / freq)) : 0;
+  const dot = polarToXY(ARC_CX, ARC_CY, ARC_R, fracToAngle(progress));
 
   return (
     <View style={s.container}>
@@ -157,10 +163,10 @@ export function InjectionCycleTimeline({
             strokeLinecap="round"
           />
 
-          {/* Phase segments */}
+          {/* Phase segments — widths scale with the cycle length */}
           {PHASE_ORDER.map((phase, i) => {
-            const startAngle = PHASE_START_ANGLES[i];
-            const endAngle = startAngle - PHASE_SPANS[i];
+            const startAngle = fracToAngle(boundaries[i]);
+            const endAngle = fracToAngle(boundaries[i + 1]);
             const isPast = i < currentIdx;
             const isCurrent = i === currentIdx;
             const opacity = isPast || isCurrent ? 0.85 : 0.15;
@@ -185,7 +191,8 @@ export function InjectionCycleTimeline({
           {/* Phase labels along the arc */}
           {PHASE_ORDER.map((phase, i) => {
             const isCurrent = i === currentIdx;
-            const pos = labelPos(i);
+            const midFrac = (boundaries[i] + boundaries[i + 1]) / 2;
+            const pos = polarToXY(ARC_CX, ARC_CY, ARC_R + 22, fracToAngle(midFrac));
             return (
               <SvgText
                 key={phase}

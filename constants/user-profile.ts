@@ -22,8 +22,11 @@ export type MedicationBrand =
   // ── Oral daily pills ──────────────────────────────────────────────────────
   | 'rybelsus'              // oral semaglutide 3/7/14 mg (T2D approved)
   | 'oral_wegovy'           // oral semaglutide 25 mg (obesity, FDA approved Dec 2025)
-  | 'orforglipron'          // Eli Lilly small-molecule GLP-1 (FDA decision ~Apr 2026)
-  // ── Catch-all ─────────────────────────────────────────────────────────────
+  | 'orforglipron'          // Foundayo® — Eli Lilly small-molecule oral GLP-1 (FDA-approved Apr 2026)
+  // ── Route-specific catch-alls (chosen in onboarding) ──────────────────────
+  | 'other_injection'       // unknown/unlisted injectable — route known, drug not
+  | 'other_oral'            // unknown/unlisted oral pill — route known, drug not
+  // ── Legacy catch-all (pre route-split; kept so stored profiles still resolve)
   | 'other';
 
 // Derived from the live DB enum so the union can never silently drift from
@@ -134,7 +137,9 @@ export const BRAND_TO_GLP1_TYPE: Record<MedicationBrand, Glp1Type> = {
   rybelsus:               'oral_semaglutide',
   oral_wegovy:            'oral_semaglutide',
   orforglipron:           'orforglipron',
-  // Catch-all
+  // Catch-all (route known, exact drug unknown — sensible PK defaults)
+  other_injection:        'semaglutide',
+  other_oral:             'oral_semaglutide',
   other:                  'semaglutide',
 };
 
@@ -151,7 +156,9 @@ export const BRAND_DISPLAY_NAMES: Record<MedicationBrand, string> = {
   compounded_liraglutide: 'Compounded Liraglutide',
   rybelsus:               'Rybelsus®',
   oral_wegovy:            'Oral Wegovy®',
-  orforglipron:           'Orforglipron',
+  orforglipron:           'Foundayo',
+  other_injection:        'Other injection',
+  other_oral:             'Other oral',
   other:                  'Other',
 };
 
@@ -169,6 +176,8 @@ export const BRAND_TO_ROUTE: Record<MedicationBrand, RouteOfAdministration> = {
   rybelsus:               'oral',
   oral_wegovy:            'oral',
   orforglipron:           'oral',
+  other_injection:        'injection',
+  other_oral:             'oral',
   other:                  'injection',
 };
 
@@ -187,6 +196,8 @@ export const BRAND_DEFAULT_FREQ_DAYS: Record<MedicationBrand, number> = {
   rybelsus:               1,
   oral_wegovy:            1,
   orforglipron:           1,
+  other_injection:        7,
+  other_oral:             1,
   other:                  7,
 };
 
