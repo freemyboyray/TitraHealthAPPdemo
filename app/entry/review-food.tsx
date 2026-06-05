@@ -36,6 +36,8 @@ import {
   type Macros,
 } from '@/lib/food-macros';
 import { NutritionLabelModal } from '@/components/food/nutrition-label-modal';
+import { FoodNotIdentifiedModal } from '@/components/food/food-not-identified-modal';
+import { DescribeFoodSheet } from '@/components/describe-food-sheet';
 import {
   AlertCircle,
   CalendarDays,
@@ -162,10 +164,14 @@ function FailedStateWithDescribe({
   const isImageError = !!cleaned && /image|format|unsupported|heic/i.test(cleaned);
   const failMessage = isImageError
     ? cleaned!
-    : "We couldn't match your photo with items in our food database. Describe what you're eating below.";
+    : "We couldn't identify the food in your photo. Describe what you're eating below.";
   const [description, setDescription] = useState('');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(true);
+  const [describeOpen, setDescribeOpen] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const { isDark } = useAppTheme();
   const { startTask, retryTask, removeTask } = useFoodTaskStore();
   const router = useRouter();
 
@@ -197,18 +203,18 @@ function FailedStateWithDescribe({
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <View style={s.failIllu}>
           <Utensils size={32} color={colors.textMuted} />
-          <Text style={s.failTitle}>{isImageError ? 'Image not supported' : 'Meal not recognized'}</Text>
+          <Text style={s.failTitle}>{isImageError ? 'Image not supported' : 'Food not identified'}</Text>
           <Text style={s.failSub}>{failMessage}</Text>
         </View>
 
         <TextInput
+          ref={inputRef}
           style={s.failInput}
           placeholder={`e.g. "2 fried eggs and toast"`}
           placeholderTextColor={colors.textMuted}
           value={description}
           onChangeText={setDescription}
           multiline
-          autoFocus
           editable={!parsing}
         />
 
@@ -227,6 +233,32 @@ function FailedStateWithDescribe({
           <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>Retry photo analysis</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <FoodNotIdentifiedModal
+        visible={modalVisible}
+        colors={colors}
+        isDark={isDark}
+        title={isImageError ? 'Image not supported' : 'Food not identified'}
+        message={
+          isImageError
+            ? failMessage
+            : "We couldn't identify the food in your photo. Try a clearer photo, or describe your meal instead."
+        }
+        primaryLabel="Describe it instead"
+        onPrimary={() => {
+          setModalVisible(false);
+          setTimeout(() => setDescribeOpen(true), 280);
+        }}
+        onDismiss={() => router.back()}
+      />
+
+      <DescribeFoodSheet
+        visible={describeOpen}
+        onClose={() => {
+          setDescribeOpen(false);
+          router.back();
+        }}
+      />
     </View>
   );
 }

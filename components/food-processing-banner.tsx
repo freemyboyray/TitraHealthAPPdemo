@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -13,7 +13,9 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFoodTaskStore, type FoodTask } from '../stores/food-task-store';
 import { useAppTheme } from '@/contexts/theme-context';
-import { AlertCircle, CircleCheck, X } from 'lucide-react-native';
+import { CircleCheck, X } from 'lucide-react-native';
+import { FoodNotIdentifiedModal } from '@/components/food/food-not-identified-modal';
+import { DescribeFoodSheet } from '@/components/describe-food-sheet';
 
 
 export function FoodProcessingBanner() {
@@ -23,6 +25,7 @@ export function FoodProcessingBanner() {
   const tasks = useFoodTaskStore((s) => s.tasks);
   const retryTask = useFoodTaskStore((s) => s.retryTask);
   const removeTask = useFoodTaskStore((s) => s.removeTask);
+  const [describeOpen, setDescribeOpen] = useState(false);
 
   // Find the most relevant task to display
   const activeTask: FoodTask | undefined =
@@ -57,9 +60,8 @@ export function FoodProcessingBanner() {
     }
   }, [activeTask?.id, activeTask?.status]);
 
-  if (!activeTask) return null;
-
   const handlePress = () => {
+    if (!activeTask) return;
     if (activeTask.status === 'ready') {
       router.push(`/entry/review-food?taskId=${activeTask.id}` as any);
     } else if (activeTask.status === 'failed') {
@@ -68,22 +70,44 @@ export function FoodProcessingBanner() {
   };
 
   const handleDismiss = () => {
-    if (activeTask.status !== 'processing') {
+    if (activeTask && activeTask.status !== 'processing') {
       removeTask(activeTask.id);
     }
   };
 
-  const isProcessing = activeTask.status === 'processing';
-  const isReady = activeTask.status === 'ready';
-  const isFailed = activeTask.status === 'failed';
+  const isProcessing = activeTask?.status === 'processing';
+  const isReady = activeTask?.status === 'ready';
+  const isFailed = activeTask?.status === 'failed';
+
+  // "Describe it instead" → discard the failed task and open the standard
+  // describe-food sheet (after the popup has slid away, so only one modal shows).
+  const openDescribe = () => {
+    const id = activeTask?.id;
+    if (id) removeTask(id);
+    setTimeout(() => setDescribeOpen(true), 280);
+  };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { top: insets.top, transform: [{ translateY: slideAnim }] },
-      ]}
-    >
+    <>
+      <FoodNotIdentifiedModal
+        visible={!!isFailed && !describeOpen}
+        colors={colors}
+        isDark={colors.isDark}
+        onPrimary={openDescribe}
+        onDismiss={() => {
+          if (activeTask) removeTask(activeTask.id);
+        }}
+      />
+
+      <DescribeFoodSheet visible={describeOpen} onClose={() => setDescribeOpen(false)} />
+
+      {!!activeTask && !isFailed && (
+        <Animated.View
+          style={[
+            styles.container,
+            { top: insets.top, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
       <Pressable onPress={handlePress} disabled={isProcessing}>
         <BlurView
           intensity={60}
@@ -111,17 +135,6 @@ export function FoodProcessingBanner() {
                   </View>
                 </>
               )}
-              {isFailed && (
-                <>
-                  <AlertCircle size={18} color="#E74C3C" />
-                  <Text style={[styles.text, { color: colors.textPrimary }]}>
-                    Analysis failed
-                  </Text>
-                  <View style={[styles.tapBadge, { backgroundColor: 'rgba(231,76,60,0.15)' }]}>
-                    <Text style={[styles.tapText, { color: '#E74C3C' }]}>Tap to retry</Text>
-                  </View>
-                </>
-              )}
             </View>
 
             {/* Dismiss button for ready/failed */}
@@ -135,7 +148,9 @@ export function FoodProcessingBanner() {
           </View>
         </BlurView>
       </Pressable>
-    </Animated.View>
+        </Animated.View>
+      )}
+    </>
   );
 }
 
