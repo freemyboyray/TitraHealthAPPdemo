@@ -1,6 +1,9 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const HEALTH_NAME = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
+const HEALTH_ROUTE = Platform.OS === 'ios' ? '/settings/apple-health' : '/settings/health-connect';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -229,7 +232,7 @@ export default function ConnectedDevicesScreen() {
         <View style={s.heroSection}>
           <Text style={s.heroTitle}>Unlock deeper insights</Text>
           <Text style={s.heroBody}>
-            Connect your devices to Apple Health. Titra reads the data automatically — no extra setup.
+            Connect your devices to {HEALTH_NAME}. Titra reads the data automatically — no extra setup.
           </Text>
         </View>
 
@@ -237,7 +240,7 @@ export default function ConnectedDevicesScreen() {
         <View style={s.howCard}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <FlowStep number="1" label="Pair device" sub="Use the maker's app" colors={colors} />
-            <FlowStep number="2" label="Sync to Health" sub="Enable Apple Health sharing" colors={colors} />
+            <FlowStep number="2" label="Sync to Health" sub={`Enable ${HEALTH_NAME} sharing`} colors={colors} />
             <FlowStep number="3" label="See it in Titra" sub="Data flows automatically" colors={colors} />
           </View>
         </View>
@@ -252,17 +255,17 @@ export default function ConnectedDevicesScreen() {
           />
         ))}
 
-        {/* Apple Health link */}
+        {/* Health settings link */}
         <TouchableOpacity
           style={s.healthLink}
-          onPress={() => router.push('/settings/apple-health' as any)}
+          onPress={() => router.push(HEALTH_ROUTE as any)}
           activeOpacity={0.7}
         >
           <View style={s.healthLinkIcon}>
-            <Heart size={16} color="#FF3B30" />
+            <Heart size={16} color={Platform.OS === 'ios' ? '#FF3B30' : '#4285F4'} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.healthLinkLabel}>Apple Health Settings</Text>
+            <Text style={s.healthLinkLabel}>{HEALTH_NAME} Settings</Text>
             <Text style={s.healthLinkSub}>See all data types and connection status</Text>
           </View>
           <ChevronRight size={18} color={colors.textMuted} />
@@ -270,7 +273,7 @@ export default function ConnectedDevicesScreen() {
 
         {/* Footer */}
         <Text style={s.footerNote}>
-          Any device that syncs to Apple Health works with Titra. Prices are approximate and may vary.
+          Any device that syncs to {HEALTH_NAME} works with Titra. Prices are approximate and may vary.
           All trademarks are property of their respective owners.
         </Text>
       </ScrollView>

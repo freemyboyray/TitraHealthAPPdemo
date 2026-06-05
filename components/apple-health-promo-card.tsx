@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,6 +14,8 @@ import type { AppColors } from '@/constants/theme';
 import { Heart, X } from 'lucide-react-native';
 
 const FF = 'System';
+const HEALTH_NAME = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
+const HEALTH_COLOR = Platform.OS === 'ios' ? '#FF2D55' : '#4285F4';
 
 // ─── Icon ─────────────────────────────────────────────────────────────────────
 
@@ -30,7 +33,7 @@ function SyncIcon({ isDark }: { isDark: boolean }) {
         <Circle cx={cx} cy={cy} r={26} stroke={dotColor} strokeWidth={2}
           strokeDasharray="3 5" strokeLinecap="round" fill="none" />
       </Svg>
-      <Heart size={28} color="#FF2D55" />
+      <Heart size={28} color={HEALTH_COLOR} />
     </View>
   );
 }
@@ -51,7 +54,7 @@ export function AppleHealthPromoCard({ onConnect, onDismiss }: Props) {
       style={s.wrap}
       onPress={onConnect}
       activeOpacity={0.82}
-      accessibilityLabel="Sync with Apple Health"
+      accessibilityLabel={`Sync with ${HEALTH_NAME}`}
       accessibilityRole="button"
     >
       {/* Dismiss button */}
@@ -60,7 +63,7 @@ export function AppleHealthPromoCard({ onConnect, onDismiss }: Props) {
         onPress={(e) => { e.stopPropagation(); onDismiss(); }}
         activeOpacity={0.6}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Dismiss Apple Health prompt"
+        accessibilityLabel={`Dismiss ${HEALTH_NAME} prompt`}
         accessibilityRole="button"
       >
         <X size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
@@ -70,7 +73,7 @@ export function AppleHealthPromoCard({ onConnect, onDismiss }: Props) {
         <View style={s.row}>
           <SyncIcon isDark={colors.isDark} />
           <View style={s.textWrap}>
-            <Text style={s.title}>Sync with Apple Health</Text>
+            <Text style={s.title}>Sync with {HEALTH_NAME}</Text>
             <Text style={s.subtitle}>
               Pull in weight, activity, sleep, and vitals automatically for smarter insights and personalized tracking.
             </Text>

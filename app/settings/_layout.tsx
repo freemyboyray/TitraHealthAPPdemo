@@ -13,6 +13,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="legal" />
       <Stack.Screen name="export-report" />
       <Stack.Screen name="apple-health" />
+      <Stack.Screen name="health-connect" />
       <Stack.Screen name="connected-devices" />
       <Stack.Screen name="feedback" />
       <Stack.Screen name="tutorial" />

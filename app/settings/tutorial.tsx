@@ -4,7 +4,9 @@ import type { AppColors } from '@/constants/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useCallback, useMemo, useState } from 'react';
-import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+const HEALTH_NAME = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
 import Animated, {
   Easing,
   interpolate,
@@ -59,9 +61,9 @@ const SECTIONS: Section[] = [
       { label: 'Capture Food', detail: 'Take a photo of your meal. AI vision analyzes the image to identify foods and estimate macros automatically.' },
       { label: 'Scan Food', detail: 'Scan a barcode on packaged food to pull nutrition data from the OpenFoodFacts database.' },
       { label: 'Search Food', detail: 'Search for specific foods by name to find nutrition information from our database.' },
-      { label: 'Log Weight', detail: 'Record your weight manually or sync from a connected smart scale via Apple Health.' },
-      { label: 'Log Water', detail: 'Track hydration by adding glasses, bottles, or custom amounts. Syncs bidirectionally with Apple Health.' },
-      { label: 'Log Activity', detail: 'Record workouts and exercise manually, or let Apple Health sync activities from your watch automatically.' },
+      { label: 'Log Weight', detail: `Record your weight manually or sync from a connected smart scale via ${HEALTH_NAME}.` },
+      { label: 'Log Water', detail: `Track hydration by adding glasses, bottles, or custom amounts. Syncs bidirectionally with ${HEALTH_NAME}.` },
+      { label: 'Log Activity', detail: `Record workouts and exercise manually, or let ${HEALTH_NAME} sync activities from your watch automatically.` },
       { label: 'Log Injection', detail: 'Record when you take your dose, including the injection site for rotation tracking.' },
       { label: 'Side Effects', detail: 'Track symptoms like nausea, fatigue, or appetite changes with severity sliders. Helps identify patterns across your cycle.' },
     ],
@@ -72,11 +74,11 @@ const SECTIONS: Section[] = [
     iconColor: '#3B9AE1',
     iconBg: 'rgba(59,154,225,0.15)',
     items: [
-      { label: 'Overview', detail: 'The Lifestyle tab shows your daily nutrition, activity, and vitals in one place. Data comes from both your in-app logs and Apple Health.' },
-      { label: 'Vitals', detail: 'Heart rate variability (HRV), resting heart rate, sleep duration, SpO2, and respiratory rate. All pulled from Apple Health.' },
-      { label: 'Body Composition', detail: 'Body fat percentage and lean mass from Apple Health-connected devices like smart scales.' },
-      { label: 'Activity', detail: 'Steps, exercise minutes, distance, flights climbed, and total daily energy expenditure (TDEE) from your Apple Watch or phone.' },
-      { label: 'Workouts', detail: 'Structured workout sessions synced from Apple Health, showing activity type, duration, calories burned, and source app.' },
+      { label: 'Overview', detail: `The Lifestyle tab shows your daily nutrition, activity, and vitals in one place. Data comes from both your in-app logs and ${HEALTH_NAME}.` },
+      { label: 'Vitals', detail: `Heart rate variability (HRV), resting heart rate, sleep duration, SpO2, and respiratory rate. All pulled from ${HEALTH_NAME}.` },
+      { label: 'Body Composition', detail: `Body fat percentage and lean mass from ${HEALTH_NAME}-connected devices like smart scales.` },
+      { label: 'Activity', detail: `Steps, exercise minutes, distance, flights climbed, and total daily energy expenditure (TDEE) from your watch or phone via ${HEALTH_NAME}.` },
+      { label: 'Workouts', detail: `Structured workout sessions synced from ${HEALTH_NAME}, showing activity type, duration, calories burned, and source app.` },
     ],
   },
   {
@@ -92,13 +94,13 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: 'Apple Health Sync',
+    title: `${HEALTH_NAME} Sync`,
     icon: 'heart.fill',
-    iconColor: '#FF2D55',
-    iconBg: 'rgba(255,45,85,0.15)',
+    iconColor: Platform.OS === 'ios' ? '#FF2D55' : '#4285F4',
+    iconBg: Platform.OS === 'ios' ? 'rgba(255,45,85,0.15)' : 'rgba(66,133,244,0.15)',
     items: [
-      { label: 'What We Read', detail: 'Steps, calories, heart rate, HRV, sleep, weight, body composition, workouts, mindfulness, and more from Apple Health.' },
-      { label: 'What We Write', detail: 'Weight, nutrition (protein, calories, carbs, fat, fiber), and water logged in Titra are pushed back to Apple Health so everything stays in sync.' },
+      { label: 'What We Read', detail: `Steps, calories, heart rate, HRV, sleep, weight, body composition, workouts, mindfulness, and more from ${HEALTH_NAME}.` },
+      { label: 'What We Write', detail: `Weight, nutrition (protein, calories, carbs, fat, fiber), and water logged in Titra are pushed back to ${HEALTH_NAME} so everything stays in sync.` },
       { label: 'How Often', detail: 'Data refreshes automatically every 60 seconds while the app is open, plus whenever you switch tabs or return from another app.' },
       { label: 'Privacy', detail: 'All health data stays on your device and in your private account. We never sell or share your health data with third parties.' },
     ],
