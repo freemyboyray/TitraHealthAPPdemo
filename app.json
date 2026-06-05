@@ -30,7 +30,7 @@
     },
     "android": {
       "package": "com.titrahealth.app",
-      "versionCode": 4,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#E8581A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -107,13 +107,16 @@
       "react-native-iap",
       "expo-web-browser",
       "expo-localization",
-      ["expo-build-properties", {
-        "android": {
-          "compileSdkVersion": 35,
-          "targetSdkVersion": 35,
-          "minSdkVersion": 28
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 28
+          }
         }
-      }]
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
