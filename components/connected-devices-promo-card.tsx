@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { Smartphone, X } from 'lucide-react-native';
@@ -77,7 +78,7 @@ export function ConnectedDevicesPromoCard({ onExplore, onDismiss }: Props) {
           <View style={s.textWrap}>
             <Text style={s.title}>Supercharge Your Tracking</Text>
             <Text style={s.subtitle}>
-              Connect a smart scale, CGM, or fitness tracker — data flows into Titra automatically via Apple Health.
+              Connect a smart scale, CGM, or fitness tracker — data flows into Titra automatically via {HEALTH_SERVICE_NAME}.
             </Text>
           </View>
         </View>

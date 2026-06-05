@@ -8,6 +8,7 @@ import {
   HealthMonitorCard,
 } from '@/app/(tabs)/log';
 import type { AppColors } from '@/constants/theme';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
 import { ChevronLeft } from 'lucide-react-native';
@@ -34,7 +35,7 @@ export default function VitalsDetailScreen() {
           <HealthDataConnectPrompt />
         ) : routedHealthGroups.vitals.length === 0 ? (
           <Text style={s.emptyText}>
-            No vitals data yet. Apple Health will populate this as it collects readings.
+            No vitals data yet. {HEALTH_SERVICE_NAME} will populate this as it collects readings.
           </Text>
         ) : (
           (() => {

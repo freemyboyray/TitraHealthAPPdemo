@@ -93,6 +93,8 @@ export type FullUserProfile = {
   cravingDays: string[];            // ['monday', 'wednesday', ...]
   sideEffects: SideEffect[];
   username?: string | null;
+  doctorCode?: string | null;       // provider code entered during onboarding (optional)
+  providerName?: string | null;     // resolved clinic/provider name for that code
   onboardingCompletedAt: string;
   tosAcceptedAt?: string;           // ISO 8601 timestamp
   tosVersion?: string;              // e.g. '1.0'

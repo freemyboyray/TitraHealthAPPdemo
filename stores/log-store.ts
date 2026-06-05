@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { localDateStr } from '../lib/date-utils';
+import { HEALTH_SERVICE_NAME } from '../lib/health-service';
 import { BRAND_DISPLAY_NAMES } from '../constants/user-profile';
 import { useSubscriptionStore } from './subscription-store';
 
@@ -455,7 +456,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         user_id: user.id,
         weight_lbs: sample.lbs,
         logged_at: sample.recordedAt.toISOString(),
-        notes: 'Synced from Apple Health',
+        notes: `Synced from ${HEALTH_SERVICE_NAME}`,
       });
       if (!error) {
         // Same guard as addWeightLog: reconcile current_weight_lbs against the

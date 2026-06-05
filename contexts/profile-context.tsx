@@ -57,6 +57,8 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
   const heightIn = heightInches % 12;
 
   return {
+    doctorCode:             row.doctor_code ?? null,
+    providerName:           row.provider_name ?? null,
     glp1Status:             row.glp1_status ?? 'active',
     treatmentStatus:        row.treatment_status ?? 'on',
     medicationBrand:        row.medication_brand ?? 'other',
@@ -333,6 +335,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const { error: profileErr } = await supabase.from('profiles').upsert({
         id: user.id,
         username:                 complete.username ?? null,
+        doctor_code:              complete.doctorCode ?? null,
+        provider_name:            complete.providerName ?? null,
         dob:                      complete.birthday,
         dose_mg:                  complete.doseMg,
         medication_type:          complete.glp1Type,

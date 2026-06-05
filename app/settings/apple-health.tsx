@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
@@ -169,7 +170,7 @@ export default function AppleHealthSettingsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>APPLE HEALTH</Text>
+        <Text style={s.headerTitle}>{HEALTH_SERVICE_NAME.toUpperCase()}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -182,7 +183,7 @@ export default function AppleHealthSettingsScreen() {
               <Heart size={18} color={HEALTH_RED} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.masterLabel}>Connect Apple Health</Text>
+              <Text style={s.masterLabel}>Connect {HEALTH_SERVICE_NAME}</Text>
               <Text style={s.masterSub}>{syncSubtitle}</Text>
             </View>
           </View>
@@ -274,9 +275,9 @@ export default function AppleHealthSettingsScreen() {
 
             {/* Footer note */}
             <Text style={s.footerNote}>
-              A category is &quot;live&quot; if Apple Health has returned at least one sample in the last 30 days.
+              A category is &quot;live&quot; if {HEALTH_SERVICE_NAME} has returned at least one sample in the last 30 days.
               Dormant categories either weren&apos;t granted or have no data — connect a device (scale, watch, CGM)
-              or log the metric in the Apple Health app to bring them online.
+              or log the metric in the {HEALTH_SERVICE_NAME} app to bring them online.
             </Text>
           </>
         )}

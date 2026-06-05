@@ -29,6 +29,7 @@ import { useFoodTaskStore } from '../../stores/food-task-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { VoiceFoodChat } from '../../components/voice-food-chat';
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useHealthData } from '@/contexts/health-data';
 import { useUiStore } from '@/stores/ui-store';
 import type { AppColors } from '@/constants/theme';
@@ -711,7 +712,7 @@ export default function LogFoodScreen() {
       caloriesKcal: healthActuals.caloriesKcal + totals.calories,
     }});
     const synced = await hkStore.writeNutrition(totals);
-    if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
+    if (synced) useUiStore.getState().showHealthSyncToast(`Nutrition saved to ${HEALTH_SERVICE_NAME}`);
     refreshActuals();
     setInsightsDefaultTab('lifestyle');
     router.replace('/(tabs)/log' as any);

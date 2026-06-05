@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePostHog } from '@/lib/posthog';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useLogStore, type BodyCompositionInput } from '../../stores/log-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useUiStore } from '../../stores/ui-store';
@@ -348,7 +349,7 @@ export default function LogWeightScreen() {
     await addWeightLog(weightLbs, bodyComp);
     posthog?.capture('weight_logged', { has_body_comp: hasBodyComp, source: hkBodyCompUsed ? 'healthkit' : 'manual' });
     const synced = await hkStore.writeWeight(weightLbs);
-    if (synced) useUiStore.getState().showHealthSyncToast('Weight saved to Apple Health');
+    if (synced) useUiStore.getState().showHealthSyncToast(`Weight saved to ${HEALTH_SERVICE_NAME}`);
     // addWeightLog already wrote profile.current_weight_lbs in the DB (using the
     // most-recent-by-logged_at log, not necessarily this entry). Pull the fresh
     // row so the in-memory profile reflects it.
@@ -529,7 +530,7 @@ export default function LogWeightScreen() {
               {hkBodyCompUsed && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <Heart size={12} color="#FF3B30" />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF3B30' }}>Auto-filled from Apple Health</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF3B30' }}>Auto-filled from {HEALTH_SERVICE_NAME}</Text>
                 </View>
               )}
 

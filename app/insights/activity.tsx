@@ -9,6 +9,7 @@ import {
   HealthMonitorCard,
 } from '@/app/(tabs)/log';
 import type { AppColors } from '@/constants/theme';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { categoryColor } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
@@ -71,7 +72,7 @@ export default function ActivityDetailScreen() {
           </View>
         ) : routedHealthGroups.activity.length === 0 ? (
           <Text style={s.emptyText}>
-            No Apple Health activity data yet. Workouts, exercise minutes, and distance will populate here as Apple Health collects them.
+            No {HEALTH_SERVICE_NAME} activity data yet. Workouts, exercise minutes, and distance will populate here as {HEALTH_SERVICE_NAME} collects them.
           </Text>
         ) : (
           (() => {

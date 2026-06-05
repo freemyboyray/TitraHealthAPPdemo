@@ -1,5 +1,6 @@
 import { ActivityLevel, FullUserProfile, Glp1Type } from './user-profile';
 import { applyAdjustments, type RecentSideEffectLog } from '@/lib/targets';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { localDateStr } from '@/lib/date-utils';
 
 // Medical source citations are centralized in constants/medical-sources.ts
@@ -705,7 +706,7 @@ export function generateInsights(
   } else {
     // No wearable data
     if (support < 50) {
-      insights.push({ text: 'Connect Apple Health to track recovery alongside your adherence score', phase: 'TODAY' });
+      insights.push({ text: `Connect ${HEALTH_SERVICE_NAME} to track recovery alongside your adherence score`, phase: 'TODAY' });
     }
   }
 
@@ -1416,7 +1417,7 @@ function buildFocusItem(
         label: 'Recovery day. Take it easy.',
         subtitle: wearable.hrvMs != null && wearable.restingHR != null
           ? `HRV ${wearable.hrvMs}ms · RHR ${wearable.restingHR}bpm · Score ${recovery ?? '-'}`
-          : 'Connect Apple Health to see recovery details',
+          : `Connect ${HEALTH_SERVICE_NAME} to see recovery details`,
         lucideIcon: 'Heart',
         status,
       };
@@ -1993,7 +1994,7 @@ export function computeEnergyBank(
     available: hasSleep,
     detail: hasSleep
       ? `${sleepHrs} logged: ${sleepScore >= 75 ? 'good recovery window' : sleepScore >= 50 ? 'adequate but could improve' : 'insufficient for recovery'}`
-      : 'Not tracked. Connect Apple Health to include sleep in your score.',
+      : `Not tracked. Connect ${HEALTH_SERVICE_NAME} to include sleep in your score.`,
   });
 
   // ── 2. Recovery — HRV (65%) + RHR (35%) (20%) ───────────────────────────
@@ -2144,7 +2145,7 @@ export function computeEnergyBank(
     const pct = Math.round((1 - availableWeight) * 100);
     disclaimer = `Your score is based on ${6 - missingCount} of 6 factors. `
       + `${names} (${pct}% of full score) ${missingCount === 1 ? 'is' : 'are'} not yet tracked. `
-      + `Log more data or connect Apple Health for a more complete score.`;
+      + `Log more data or connect ${HEALTH_SERVICE_NAME} for a more complete score.`;
   }
 
   return { score, label, components, missingCount, disclaimer };

@@ -1,5 +1,6 @@
 import { Maximize2, XCircle, Zap, TrendingUp, ChevronRight, ChevronDown, Check, Frown, MessageCircle, Heart, Syringe, Pill } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import Svg, { Path, Circle, Line, Rect, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -923,13 +924,13 @@ export function HealthDataConnectPrompt() {
   return (
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, padding: 16, gap: 10, marginTop: 8, marginBottom: 8 }}>
       <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 19, fontFamily: 'System' }}>
-        Connect Apple Health in Settings to see your vitals, body composition, activity, and more. All in one place.
+        Connect {HEALTH_SERVICE_NAME} in Settings to see your vitals, body composition, activity, and more. All in one place.
       </Text>
       <Pressable
         onPress={() => router.push('/settings')}
         style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,116,42,0.12)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 }}
         accessibilityRole="button"
-        accessibilityLabel="Go to Settings to connect Apple Health"
+        accessibilityLabel={`Go to Settings to connect ${HEALTH_SERVICE_NAME}`}
       >
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.orange, fontFamily: 'System' }}>
           Go to Settings

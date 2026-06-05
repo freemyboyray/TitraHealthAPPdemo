@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 
 import { GlassBorder } from '@/components/ui/glass-border';
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useUiStore } from '@/stores/ui-store';
@@ -120,7 +121,7 @@ export function CycleBiometricCard({ result, cycleiqContext }: CycleBiometricCar
         {!appleHealthEnabled ? (
           // Apple Health not enabled
           <View style={s.emptyState}>
-            <Text style={s.emptyText}>Enable Apple Health in Settings to see cycle-aware biometric insights.</Text>
+            <Text style={s.emptyText}>Enable {HEALTH_SERVICE_NAME} in Settings to see cycle-aware biometric insights.</Text>
             <Pressable onPress={() => router.push('/settings')} style={s.enableBtn}>
               <Text style={s.enableBtnText}>Go to Settings</Text>
             </Pressable>

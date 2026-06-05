@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScoreRing } from '@/components/score-ring';
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { generateCoachNote } from '@/lib/openai';
@@ -374,7 +375,7 @@ export default function ScoreDetailScreen() {
   if (isRecovery) {
     if (!hasRecoveryData) {
       // No wearable data - show suppressed state cards
-      const suppressedNote = 'Connect Apple Health in Settings to enable this metric.';
+      const suppressedNote = `Connect ${HEALTH_SERVICE_NAME} in Settings to enable this metric.`;
       const rowDefs = [
         { icon: <Moon size={ICON_SIZE} color={dimColor} />, label: 'Sleep', max: 40 },
         { icon: <TrendingUp size={ICON_SIZE} color={dimColor} />, label: 'HRV', max: 35 },
@@ -403,7 +404,7 @@ export default function ScoreDetailScreen() {
           value: rows[0].available ? `${h}h ${m}m` : '-',
           pct: rows[0].available ? rows[0].actual / rows[0].max : 0,
           color: rows[0].available ? accent : dimColor,
-          note: rows[0].available ? recoveryNotes[0] : 'Connect Apple Health to track sleep.',
+          note: rows[0].available ? recoveryNotes[0] : `Connect ${HEALTH_SERVICE_NAME} to track sleep.`,
         },
         {
           icon: <TrendingUp size={ICON_SIZE} color={rows[1].available ? accent : dimColor} />,
@@ -412,7 +413,7 @@ export default function ScoreDetailScreen() {
           value: rows[1].available ? `${wearable.hrvMs} ms` : '-',
           pct: rows[1].available ? rows[1].actual / rows[1].max : 0,
           color: rows[1].available ? accent : dimColor,
-          note: rows[1].available ? recoveryNotes[1] : 'Connect Apple Health to track HRV.',
+          note: rows[1].available ? recoveryNotes[1] : `Connect ${HEALTH_SERVICE_NAME} to track HRV.`,
         },
         {
           icon: <Heart size={ICON_SIZE} color={rows[2].available ? accent : dimColor} />,
@@ -421,7 +422,7 @@ export default function ScoreDetailScreen() {
           value: rows[2].available ? `${wearable.restingHR} bpm` : '-',
           pct: rows[2].available ? rows[2].actual / rows[2].max : 0,
           color: rows[2].available ? accent : dimColor,
-          note: rows[2].available ? recoveryNotes[2] : 'Connect Apple Health to track resting heart rate.',
+          note: rows[2].available ? recoveryNotes[2] : `Connect ${HEALTH_SERVICE_NAME} to track resting heart rate.`,
         },
         {
           icon: <Droplet size={ICON_SIZE} color={rows[3].available ? accent : dimColor} />,
@@ -430,7 +431,7 @@ export default function ScoreDetailScreen() {
           value: rows[3].available ? `${wearable.spo2Pct}%` : '-',
           pct: rows[3].available ? rows[3].actual / rows[3].max : 0,
           color: rows[3].available ? accent : dimColor,
-          note: rows[3].available ? recoveryNotes[3] : 'Connect Apple Health to track blood oxygen.',
+          note: rows[3].available ? recoveryNotes[3] : `Connect ${HEALTH_SERVICE_NAME} to track blood oxygen.`,
         },
       ];
     }
@@ -535,7 +536,7 @@ export default function ScoreDetailScreen() {
                 <View style={pb.inner}>
                   <Text style={pb.heading}>No Wearable Data</Text>
                   <Text style={pb.bodyText}>
-                    Connect Apple Health in Settings to enable recovery scoring. Sleep, HRV, resting heart rate, and SpO₂ are required for an accurate recovery score.
+                    Connect {HEALTH_SERVICE_NAME} in Settings to enable recovery scoring. Sleep, HRV, resting heart rate, and SpO₂ are required for an accurate recovery score.
                   </Text>
                 </View>
               </View>

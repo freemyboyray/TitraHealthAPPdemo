@@ -332,46 +332,35 @@ export type Database = {
         }
         Relationships: []
       }
-      energy_logs: {
+      doctor_codes: {
         Row: {
+          code: string
+          created_at: string
+          current_uses: number
+          expires_at: string | null
           id: string
-          user_id: string
-          logged_at: string
-          level: number
-          time_slot: string
-          note: string | null
-          phase_at_log: string | null
-          program_week: number | null
+          max_uses: number
+          provider_name: string | null
         }
         Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number
+          expires_at?: string | null
           id?: string
-          user_id: string
-          logged_at?: string
-          level: number
-          time_slot?: string
-          note?: string | null
-          phase_at_log?: string | null
-          program_week?: number | null
+          max_uses?: number
+          provider_name?: string | null
         }
         Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number
+          expires_at?: string | null
           id?: string
-          user_id?: string
-          logged_at?: string
-          level?: number
-          time_slot?: string
-          note?: string | null
-          phase_at_log?: string | null
-          program_week?: number | null
+          max_uses?: number
+          provider_name?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "energy_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       feedback: {
         Row: {
@@ -946,6 +935,39 @@ export type Database = {
           },
         ]
       }
+      openai_error_log: {
+        Row: {
+          created_at: string
+          id: string
+          image_prefix: string | null
+          is_vision: boolean | null
+          json_mode: boolean | null
+          openai_message: string | null
+          openai_status: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_prefix?: string | null
+          is_vision?: boolean | null
+          json_mode?: boolean | null
+          openai_message?: string | null
+          openai_status?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_prefix?: string | null
+          is_vision?: boolean | null
+          json_mode?: boolean | null
+          openai_message?: string | null
+          openai_status?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           activity_level: string | null
@@ -958,6 +980,7 @@ export type Database = {
           current_weight_lbs: number | null
           dismissed_flags: Json | null
           dob: string | null
+          doctor_code: string | null
           dose_mg: number | null
           dose_start_date: string | null
           dose_time: string | null
@@ -991,6 +1014,7 @@ export type Database = {
           privacy_accepted_at: string | null
           privacy_version: string | null
           program_start_date: string | null
+          provider_name: string | null
           route_of_administration: string | null
           rtm_clinician_id: string | null
           rtm_consent_text: string | null
@@ -1018,6 +1042,7 @@ export type Database = {
           current_weight_lbs?: number | null
           dismissed_flags?: Json | null
           dob?: string | null
+          doctor_code?: string | null
           dose_mg?: number | null
           dose_start_date?: string | null
           dose_time?: string | null
@@ -1053,6 +1078,7 @@ export type Database = {
           privacy_accepted_at?: string | null
           privacy_version?: string | null
           program_start_date?: string | null
+          provider_name?: string | null
           route_of_administration?: string | null
           rtm_clinician_id?: string | null
           rtm_consent_text?: string | null
@@ -1080,6 +1106,7 @@ export type Database = {
           current_weight_lbs?: number | null
           dismissed_flags?: Json | null
           dob?: string | null
+          doctor_code?: string | null
           dose_mg?: number | null
           dose_start_date?: string | null
           dose_time?: string | null
@@ -1115,6 +1142,7 @@ export type Database = {
           privacy_accepted_at?: string | null
           privacy_version?: string | null
           program_start_date?: string | null
+          provider_name?: string | null
           route_of_administration?: string | null
           rtm_clinician_id?: string | null
           rtm_consent_text?: string | null

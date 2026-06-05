@@ -21,6 +21,7 @@ import { ClipPath, Defs, Path, Rect, Svg } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { useHealthKitStore } from '@/stores/healthkit-store';
@@ -166,7 +167,7 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
       dispatch({ type: 'LOG_WATER', ml });
       if (ml > 0) {
         const synced = await useHealthKitStore.getState().writeWater(ml);
-        if (synced) useUiStore.getState().showHealthSyncToast('Water saved to Apple Health');
+        if (synced) useUiStore.getState().showHealthSyncToast(`Water saved to ${HEALTH_SERVICE_NAME}`);
       }
     }
     closeSheet();

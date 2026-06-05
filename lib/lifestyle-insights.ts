@@ -19,6 +19,7 @@ import type {
   InjectionLog,
 } from '@/stores/log-store';
 import type { DailyTargets } from '@/constants/scoring';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { computeNutritionPatterns } from '@/stores/insights-store';
 import { ORANGE } from '@/constants/theme';
 
@@ -334,7 +335,7 @@ const connectAppleHealth: Generator = (ctx) => {
     icon: 'Heart',
     iconColor: '#E74C3C',
     tagline: 'UNLOCK MORE INSIGHTS',
-    title: 'Connect Apple Health',
+    title: `Connect ${HEALTH_SERVICE_NAME}`,
     body: 'Sync steps, sleep, HRV, and resting heart rate. GLP-1s measurably affect all of these.',
     cta: { label: 'Connect', route: '/settings' },
   };

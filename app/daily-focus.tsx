@@ -6,6 +6,7 @@ import { ChevronLeft, Check, ChevronRight, Minus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { categoryColor, focusCategoryColor } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
@@ -52,7 +53,7 @@ function makeSleepPlaceholder(connected: boolean): RenderFocus {
     label: 'Prioritize sleep tonight',
     subtitle: connected
       ? 'No sleep data yet — wear your device to bed to track it.'
-      : 'Connect Apple Health to track sleep automatically.',
+      : `Connect ${HEALTH_SERVICE_NAME} to track sleep automatically.`,
     status: 'pending',
     lucideIcon: 'Moon',
     progressPct: 0,
@@ -85,7 +86,7 @@ function FocusRow({
       style={{ paddingVertical: 14 }}
       accessibilityLabel={
         placeholder
-          ? `${item.label}, no data yet, tap to connect Apple Health`
+          ? `${item.label}, no data yet, tap to connect ${HEALTH_SERVICE_NAME}`
           : `${item.label}, ${done ? 'completed' : 'incomplete'}`
       }
       accessibilityRole="button"

@@ -22,6 +22,7 @@ import { parseDescriptionToDishes } from '../../lib/food-parse';
 import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useHealthData } from '@/contexts/health-data';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useUiStore } from '@/stores/ui-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -396,7 +397,7 @@ export default function ReviewFoodScreen() {
         fat: r1(total.fat),
         fiber: r1(total.fiber),
       });
-      if (synced) useUiStore.getState().showHealthSyncToast('Nutrition saved to Apple Health');
+      if (synced) useUiStore.getState().showHealthSyncToast(`Nutrition saved to ${HEALTH_SERVICE_NAME}`);
 
       // Credit beverage fluid to today's hydration (drinks add water too). Only
       // for meals logged today — water is tracked per calendar day.

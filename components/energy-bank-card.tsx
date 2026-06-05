@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import Svg, { Rect } from 'react-native-svg';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { cardElevation } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
 import type { EnergyBankResult } from '@/constants/scoring';
@@ -104,7 +105,7 @@ function InfoModal({
 
           <Text style={{ fontSize: 13.5, color: w(0.6), fontFamily: FF, lineHeight: 20 }}>
             Factors you haven't tracked yet are left out and the rest are reweighted, so logging more — or connecting
-            Apple Health — makes it more accurate. Tap the card for the full breakdown.
+            {HEALTH_SERVICE_NAME} — makes it more accurate. Tap the card for the full breakdown.
           </Text>
         </Pressable>
       </Pressable>

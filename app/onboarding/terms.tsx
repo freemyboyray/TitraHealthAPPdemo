@@ -51,7 +51,7 @@ export default function TermsScreen() {
     // Grant data consent for AI and food database when user accepts terms
     setAiDataConsent(true);
     setFoodDbConsent(true);
-    router.push('/onboarding/username');
+    router.push('/onboarding/doctor-code');
   };
 
   return (
