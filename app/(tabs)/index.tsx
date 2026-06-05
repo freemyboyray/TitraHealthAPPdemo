@@ -1376,11 +1376,11 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
-          {/* ── Apple Health Promo (hidden once connected) ── */}
+          {/* ── Health Sync Promo (hidden once connected) ── */}
           {!healthPromoCardDismissed && !appleHealthEnabled && (
             <View style={{ marginBottom: 16 }}>
               <AppleHealthPromoCard
-                onConnect={() => router.push('/settings/apple-health' as any)}
+                onConnect={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)}
                 onDismiss={dismissHealthPromoCard}
               />
             </View>

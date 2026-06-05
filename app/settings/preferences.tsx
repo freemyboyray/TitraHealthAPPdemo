@@ -1,6 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo, useState } from 'react';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -113,13 +113,13 @@ export default function PreferencesScreen() {
 
             <View style={s.divider} />
 
-            {/* Apple Health */}
-            <Pressable style={s.cardRow} onPress={() => router.push('/settings/apple-health' as any)} accessibilityLabel="Apple Health" accessibilityRole="button">
+            {/* Health Data Sync */}
+            <Pressable style={s.cardRow} onPress={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)} accessibilityLabel={Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'} accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
-                  <IconSymbol name="heart.fill" size={18} color="#FF3B30" />
+                <View style={[s.iconBadge, { backgroundColor: Platform.OS === 'ios' ? 'rgba(255,59,48,0.15)' : 'rgba(66,133,244,0.15)' }]}>
+                  <IconSymbol name="heart.fill" size={18} color={Platform.OS === 'ios' ? '#FF3B30' : '#4285F4'} />
                 </View>
-                <Text style={s.rowLabel}>Apple Health</Text>
+                <Text style={s.rowLabel}>{Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'}</Text>
               </View>
               <View style={s.rowRight}>
                 <Text style={s.rowValue}>{appleHealthEnabled ? 'Connected' : 'Off'}</Text>

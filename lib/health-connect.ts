@@ -1,4 +1,10 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+
+// Same shape as lib/healthkit.ts PermissionResult so onboarding can use either.
+export type PermissionResult =
+  | { status: 'granted' }
+  | { status: 'unavailable'; reason: string }
+  | { status: 'denied'; openSettings: () => Promise<void> };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getHC(): any | null {
@@ -45,6 +51,54 @@ export async function requestPermissions(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+export async function openHealthConnectSettings(): Promise<void> {
+  try {
+    await Linking.sendIntent('android.health.connect.action.MANAGE_HEALTH_PERMISSIONS', [
+      { key: 'packageName', value: 'com.titrahealth.app' },
+    ]);
+  } catch {
+    // Fallback: open Health Connect main screen
+    try {
+      await Linking.sendIntent('android.health.connect.action.HEALTH_HOME_SETTINGS');
+    } catch {
+      // Last resort: open app settings
+      await Linking.openSettings();
+    }
+  }
+}
+
+export async function requestPermissionsDetailed(): Promise<PermissionResult> {
+  const HC = getHC();
+  if (!HC) {
+    return { status: 'unavailable', reason: 'Health Connect is not available in this build. Use a dev client build.' };
+  }
+  try {
+    const ok = await HC.initialize();
+    if (!ok) {
+      return { status: 'unavailable', reason: 'Health Connect could not be initialized. Make sure Health Connect is installed on your device.' };
+    }
+    const granted = await HC.requestPermission([
+      { accessType: 'read',  recordType: 'Steps' },
+      { accessType: 'read',  recordType: 'ActiveCaloriesBurned' },
+      { accessType: 'read',  recordType: 'HeartRateVariabilityRmssd' },
+      { accessType: 'read',  recordType: 'RestingHeartRate' },
+      { accessType: 'read',  recordType: 'SleepSession' },
+      { accessType: 'read',  recordType: 'BloodGlucose' },
+      { accessType: 'read',  recordType: 'Nutrition' },
+      { accessType: 'read',  recordType: 'Weight' },
+      { accessType: 'write', recordType: 'Weight' },
+      { accessType: 'write', recordType: 'Nutrition' },
+    ]);
+    // Health Connect returns the list of actually granted permissions.
+    if (granted && granted.length > 0) {
+      return { status: 'granted' };
+    }
+    return { status: 'denied', openSettings: openHealthConnectSettings };
+  } catch {
+    return { status: 'denied', openSettings: openHealthConnectSettings };
   }
 }
 

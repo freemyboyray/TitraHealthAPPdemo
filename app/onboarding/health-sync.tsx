@@ -17,8 +17,14 @@ import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
-import { requestPermissionsDetailed } from '@/lib/healthkit';
+import { requestPermissionsDetailed as hkRequestDetailed } from '@/lib/healthkit';
+import { requestPermissionsDetailed as hcRequestDetailed } from '@/lib/health-connect';
 import type { AppColors } from '@/constants/theme';
+
+const isIOS = Platform.OS === 'ios';
+const HEALTH_NAME = isIOS ? 'Apple Health' : 'Health Connect';
+const HEALTH_COLOR = isIOS ? '#FF2D55' : '#4285F4';
+const requestPermissionsDetailed = isIOS ? hkRequestDetailed : hcRequestDetailed;
 
 export default function HealthSyncScreen() {
   const router = useRouter();
@@ -45,12 +51,6 @@ export default function HealthSyncScreen() {
   const handleConnect = async () => {
     if (connecting) return;
 
-    if (Platform.OS !== 'ios') {
-      updateDraft({ appleHealthEnabled: false });
-      navigateNext();
-      return;
-    }
-
     setConnecting(true);
     try {
       const result = await requestPermissionsDetailed();
@@ -58,13 +58,14 @@ export default function HealthSyncScreen() {
       if (result.status === 'granted') {
         updateDraft({ appleHealthEnabled: true });
         setAppleHealthEnabled(true);
-        // Also update store so refreshLive fires
         storeRequestPermissions();
         navigateNext();
       } else if (result.status === 'denied') {
         Alert.alert(
-          'Apple Health Access Denied',
-          'You previously declined Apple Health access. To enable it, open Settings > TitraHealth > Health and turn on the categories you\'d like to share.',
+          `${HEALTH_NAME} Access Denied`,
+          isIOS
+            ? 'You previously declined Apple Health access. To enable it, open Settings > TitraHealth > Health and turn on the categories you\'d like to share.'
+            : 'You previously declined Health Connect access. To enable it, open Health Connect and grant permissions to Titra Health.',
           [
             { text: 'Open Settings', onPress: () => result.openSettings() },
             { text: 'Skip for Now', onPress: () => {
@@ -76,7 +77,7 @@ export default function HealthSyncScreen() {
       } else {
         // unavailable
         Alert.alert(
-          'Apple Health Unavailable',
+          `${HEALTH_NAME} Unavailable`,
           result.reason,
           [
             { text: 'Skip for Now', onPress: () => {
@@ -90,7 +91,7 @@ export default function HealthSyncScreen() {
       console.error('[HealthSync] handleConnect error:', e);
       Alert.alert(
         'Connection Failed',
-        'Something went wrong connecting to Apple Health. You can try again later in Settings.',
+        `Something went wrong connecting to ${HEALTH_NAME}. You can try again later in Settings.`,
         [
           { text: 'Skip for Now', onPress: () => {
             updateDraft({ appleHealthEnabled: false });
@@ -113,16 +114,16 @@ export default function HealthSyncScreen() {
       <View style={s.container}>
         <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
-        <Text style={s.title}>Sync with Apple Health</Text>
+        <Text style={s.title}>Sync with {HEALTH_NAME}</Text>
         <Text style={s.subtitle}>
           Easily pull in your height, weight, and activity to save time and get a more tailored plan.
         </Text>
 
         <View style={s.illustration}>
           <View style={s.healthIcon}>
-            <Heart size={56} color="#FF2D55" fill="#FF2D55" />
+            <Heart size={56} color={HEALTH_COLOR} fill={HEALTH_COLOR} />
           </View>
-          <Text style={s.healthLabel}>Apple Health</Text>
+          <Text style={s.healthLabel}>{HEALTH_NAME}</Text>
           <Text style={s.healthDesc}>
             Sync sleep, HRV, resting heart rate, steps, and more to power your recovery ring.
           </Text>
@@ -132,7 +133,7 @@ export default function HealthSyncScreen() {
           <ContinueButton
             onPress={handleConnect}
             disabled={connecting}
-            label={connecting ? 'Connecting…' : 'Connect Apple Health'}
+            label={connecting ? 'Connecting...' : `Connect ${HEALTH_NAME}`}
           />
           <TouchableOpacity onPress={handleSkip} disabled={connecting} style={s.skipBtn} accessibilityLabel="Skip for now" accessibilityRole="button">
             <Text style={s.skipText}>Skip for now</Text>
