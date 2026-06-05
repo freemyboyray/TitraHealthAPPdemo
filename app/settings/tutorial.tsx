@@ -1,7 +1,8 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -195,6 +196,10 @@ export default function TutorialScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
+  const params = useLocalSearchParams<{ firstRun?: string }>();
+  const firstRun = params.firstRun === '1';
+  const setTutorialHintPending = usePreferencesStore((st) => st.setTutorialHintPending);
+
   const toggle = useCallback((idx: number) => {
     setExpanded(prev => {
       const next = new Set(prev);
@@ -204,20 +209,39 @@ export default function TutorialScreen() {
     });
   }, []);
 
+  // First-run flow (after onboarding): leaving the tutorial drops the user into
+  // the app and flags the home screen to show the "find it in Settings" hint.
+  const finishFirstRun = useCallback(() => {
+    setTutorialHintPending(true);
+    router.replace('/(tabs)');
+  }, [setTutorialHintPending]);
+
   return (
     <View style={s.safe}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
-            <IconSymbol name="chevron.left" size={22} color={colors.orange} />
-          </Pressable>
-          <Text style={s.headerTitle}>App Tutorial</Text>
-          <View style={{ width: 22 }} />
+          {firstRun ? (
+            <View style={{ width: 22 }} />
+          ) : (
+            <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
+              <IconSymbol name="chevron.left" size={22} color={colors.orange} />
+            </Pressable>
+          )}
+          <Text style={s.headerTitle}>{firstRun ? 'Welcome to Titra' : 'App Tutorial'}</Text>
+          {firstRun ? (
+            <Pressable onPress={finishFirstRun} hitSlop={12} accessibilityLabel="Skip tutorial" accessibilityRole="button">
+              <Text style={s.skipText}>Skip</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 22 }} />
+          )}
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <Text style={s.intro}>
-            Learn how to get the most out of Titra. Tap any section below to expand.
+            {firstRun
+              ? "Here's a quick tour of everything Titra can do. Tap any section to learn more, then jump in."
+              : 'Learn how to get the most out of Titra. Tap any section below to expand.'}
           </Text>
 
           {SECTIONS.map((section, sIdx) => (
@@ -231,6 +255,19 @@ export default function TutorialScreen() {
             />
           ))}
         </ScrollView>
+
+        {firstRun && (
+          <View style={s.footer}>
+            <Pressable
+              style={s.ctaBtn}
+              onPress={finishFirstRun}
+              accessibilityLabel="Get started"
+              accessibilityRole="button"
+            >
+              <Text style={s.ctaText}>Get Started</Text>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -245,7 +282,17 @@ function createStyles(c: AppColors) {
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
     headerTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+    skipText: { fontSize: 16, fontWeight: '600', color: c.orange, fontFamily: FF },
     content: { padding: 16, paddingBottom: 60 },
+    footer: {
+      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSubtle,
+    },
+    ctaBtn: {
+      backgroundColor: c.orange, borderRadius: 16,
+      paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
+    },
+    ctaText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', fontFamily: FF },
     intro: {
       fontSize: 15, color: c.textSecondary, fontFamily: FF,
       lineHeight: 21, marginBottom: 16,

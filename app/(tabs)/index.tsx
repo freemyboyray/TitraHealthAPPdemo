@@ -639,7 +639,7 @@ function DailyLogSummaryCard({
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const { appleHealthEnabled, headerStyle, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklyCheckinCardDismissed, dismissWeeklyCheckinCard, weeklySummaryCardDismissed, dismissWeeklySummaryCard } = usePreferencesStore();
+  const { appleHealthEnabled, headerStyle, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklyCheckinCardDismissed, dismissWeeklyCheckinCard, weeklySummaryCardDismissed, dismissWeeklySummaryCard, tutorialHintPending, setTutorialHintPending } = usePreferencesStore();
   const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -747,6 +747,18 @@ export default function HomeScreen() {
       .catch(() => setHistoricalSnapshot(null))
       .finally(() => setIsLoadingDate(false));
   }, [selectedDate]);
+
+  // One-time hint after the first-run tutorial: let the user know where to find
+  // it again. Flag is set when they leave the tutorial post-onboarding.
+  useEffect(() => {
+    if (!tutorialHintPending) return;
+    setTutorialHintPending(false);
+    Alert.alert(
+      'Tutorial saved for later',
+      'You can revisit the tutorial anytime in Settings → Help & Support.',
+      [{ text: 'Got it' }],
+    );
+  }, [tutorialHintPending, setTutorialHintPending]);
 
   const today   = new Date();
   const isToday = sameDay(selectedDate, today);

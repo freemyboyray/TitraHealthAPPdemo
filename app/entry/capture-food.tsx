@@ -61,6 +61,7 @@ export default function CaptureFoodScreen() {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [description, setDescription] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   async function handleTakePhoto() {
@@ -71,23 +72,28 @@ export default function CaptureFoodScreen() {
     setPhase('camera');
   }
 
+  // Always re-encode the captured image to a resized JPEG before sending it on.
+  // iPhone photos are HEIC, which OpenAI's vision API rejects — resizeImageForVision
+  // converts to JPEG. If it can't, we surface an error rather than uploading an
+  // unsupported format that would silently fail downstream.
+  async function preparePhoto(uri: string): Promise<boolean> {
+    const base64 = await resizeImageForVision(uri);
+    if (!base64) {
+      setErrorMsg("We couldn't process this image. Please try a different photo (formats like HEIC aren't supported).");
+      setPhase('error');
+      return false;
+    }
+    setPhotoBase64(base64);
+    setPhotoUri(uri);
+    setPhase('preview');
+    return true;
+  }
+
   async function handleCaptureShutter() {
     if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
-        quality: 0.6,
-        imageType: 'jpg',
-      });
-      if (photo?.uri) {
-        let base64 = photo.base64 ?? '';
-        try { const resized = await resizeImageForVision(photo.uri); if (resized) base64 = resized; } catch {}
-        if (base64) {
-          setPhotoBase64(base64);
-          setPhotoUri(photo.uri);
-          setPhase('preview');
-        }
-      }
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
+      if (photo?.uri) await preparePhoto(photo.uri);
     } catch {
       // camera error - stay in camera phase
     }
@@ -97,18 +103,10 @@ export default function CaptureFoodScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      base64: true,
       quality: 0.6,
     });
     if (!result.canceled && result.assets[0]?.uri) {
-      const asset = result.assets[0];
-      let base64 = asset.base64 ?? '';
-      try { const resized = await resizeImageForVision(asset.uri); if (resized) base64 = resized; } catch {}
-      if (base64) {
-        setPhotoBase64(base64);
-        setPhotoUri(asset.uri);
-        setPhase('preview');
-      }
+      await preparePhoto(result.assets[0].uri);
     }
   }
 
@@ -201,10 +199,12 @@ export default function CaptureFoodScreen() {
           <ChevronLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <AlertCircle size={56} color={colors.orange} />
-        <Text style={s.errTitle}>Couldn't Identify</Text>
-        <Text style={s.errDesc}>AI couldn't identify food in this photo. Try describing it instead.</Text>
+        <Text style={s.errTitle}>{errorMsg ? 'Image Not Supported' : "Couldn't Identify"}</Text>
+        <Text style={s.errDesc}>
+          {errorMsg ?? "AI couldn't identify food in this photo. Try describing it instead."}
+        </Text>
         <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
-          <TouchableOpacity style={s.errSecBtn} onPress={() => setPhase('intro')} activeOpacity={0.8}>
+          <TouchableOpacity style={s.errSecBtn} onPress={() => { setErrorMsg(null); setPhase('intro'); }} activeOpacity={0.8}>
             <Text style={s.errSecBtnText}>Try Again</Text>
           </TouchableOpacity>
           <TouchableOpacity

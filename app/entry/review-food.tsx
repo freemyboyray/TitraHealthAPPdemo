@@ -144,6 +144,7 @@ function AnimatedNumber({
 // ─── Failed-state describe fallback ──────────────────────────────────────────
 function FailedStateWithDescribe({
   taskId,
+  error,
   insets,
   colors,
   s,
@@ -154,6 +155,14 @@ function FailedStateWithDescribe({
   colors: AppColors;
   s: any;
 }) {
+  // Surface the real reason when we have a user-meaningful one (e.g. an
+  // unsupported image format), stripping any technical "OpenAI API error NNN:"
+  // prefix. Fall back to the generic describe prompt otherwise.
+  const cleaned = error?.replace(/^OpenAI API error \d+:\s*/i, '').trim();
+  const isImageError = !!cleaned && /image|format|unsupported|heic/i.test(cleaned);
+  const failMessage = isImageError
+    ? cleaned!
+    : "We couldn't match your photo with items in our food database. Describe what you're eating below.";
   const [description, setDescription] = useState('');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -188,10 +197,8 @@ function FailedStateWithDescribe({
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <View style={s.failIllu}>
           <Utensils size={32} color={colors.textMuted} />
-          <Text style={s.failTitle}>Meal not recognized</Text>
-          <Text style={s.failSub}>
-            We couldn't match your photo with items in our food database. Describe what you're eating below.
-          </Text>
+          <Text style={s.failTitle}>{isImageError ? 'Image not supported' : 'Meal not recognized'}</Text>
+          <Text style={s.failSub}>{failMessage}</Text>
         </View>
 
         <TextInput

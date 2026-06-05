@@ -70,21 +70,41 @@ export default function UpgradeScreen() {
   const [demoCode, setDemoCode] = useState('');
   const [monthlyPrice, setMonthlyPrice] = useState('$4.99/mo');
   const [annualPrice, setAnnualPrice] = useState('$49.99/yr');
+  const [monthlyProduct, setMonthlyProduct] = useState<any>(null);
+  const [annualProduct, setAnnualProduct] = useState<any>(null);
 
   useEffect(() => {
     if (!storekit) return;
     storekit.getProducts().then((products: any[]) => {
-      const monthly = products.find((p: any) => p.productId?.includes('monthly'));
-      const annual = products.find((p: any) => p.productId?.includes('annual'));
-      if (monthly) setMonthlyPrice(storekit!.formatSubscriptionPrice(monthly as any));
-      if (annual) setAnnualPrice(storekit!.formatSubscriptionPrice(annual as any));
+      // react-native-iap v15 exposes the SKU as `id` (older versions used `productId`).
+      const sku = (p: any) => p.id ?? p.productId ?? '';
+      const monthly = products.find((p: any) => sku(p).includes('monthly'));
+      const annual = products.find((p: any) => sku(p).includes('annual'));
+      if (monthly) { const f = storekit!.formatSubscriptionPrice(monthly as any); if (f) setMonthlyPrice(f); setMonthlyProduct(monthly); }
+      if (annual) { const f = storekit!.formatSubscriptionPrice(annual as any); if (f) setAnnualPrice(f); setAnnualProduct(annual); }
     }).catch(() => {});
     refreshPremiumStatus();
   }, []);
 
+  // Trial / renewal terms for the *selected* plan, driven by the real StoreKit
+  // introductory offer (never hardcoded) so the button text and disclosure can
+  // never promise a trial the App Store won't actually grant.
+  const selectedProduct = selectedPlan === 'annual' ? annualProduct : monthlyProduct;
+  const selectedPrice = selectedPlan === 'annual' ? annualPrice : monthlyPrice;
+  const intro = selectedProduct && storekit ? storekit.getIntroOfferInfo(selectedProduct) : null;
+  const hasTrial = !!intro?.hasOffer;
+  const ctaLabel = hasTrial ? 'Start Free Trial' : 'Subscribe';
+  const termsText = hasTrial
+    ? `${intro!.trialLabel}, then ${selectedPrice}. Auto-renews until canceled. Cancel anytime in your App Store settings.`
+    : `Auto-renews at ${selectedPrice} until canceled. Cancel anytime in your App Store settings.`;
+
+  // After onboarding (whether the user starts the trial or skips it) we route
+  // through the first-run tutorial before the home screen, then land in the app.
+  const continueFromOnboarding = () => router.replace('/settings/tutorial?firstRun=1' as any);
+
   // Leave the screen: onboarding continues into the app, everywhere else returns.
   const leave = () => {
-    if (fromOnboarding) router.replace('/(tabs)');
+    if (fromOnboarding) continueFromOnboarding();
     else router.back();
   };
 
@@ -118,7 +138,7 @@ export default function UpgradeScreen() {
       posthog?.capture('purchase_completed', { plan: selectedPlan, source });
       // Onboarding continues into the app; elsewhere we stay so the screen
       // flips to the premium-status view.
-      if (fromOnboarding) router.replace('/(tabs)');
+      if (fromOnboarding) continueFromOnboarding();
     } catch (err: any) {
       if (err?.code !== 'E_USER_CANCELLED') {
         Alert.alert('Purchase Failed', err?.message ?? 'Something went wrong. Please try again.');
@@ -138,6 +158,33 @@ export default function UpgradeScreen() {
       Alert.alert('Error', 'Failed to restore. Please try again.');
     } finally {
       setRestoring(false);
+    }
+  };
+
+  // Dev-only: dump what StoreKit actually returns so we can see why a trial /
+  // price isn't showing (0 products vs. products with no intro offer fields).
+  const handleDebugIAP = async () => {
+    if (!storekit) { Alert.alert('IAP Debug', 'storekit module not loaded (Expo Go?)'); return; }
+    try {
+      const products = await storekit.getProducts();
+      const diag = storekit.getIAPDiagnostics?.() ?? {};
+      const lines = products.map((p: any) => {
+        const intro = storekit!.getIntroOfferInfo(p);
+        return [
+          `• ${p.productId}`,
+          `  price: ${p.displayPrice ?? p.localizedPrice ?? '?'}`,
+          `  intro.hasOffer: ${intro.hasOffer} (${intro.trialLabel ?? 'none'})`,
+          `  stdOffers: ${Array.isArray(p.subscriptionOffers) ? p.subscriptionOffers.length : 'n/a'}`,
+          `  iosIntro: ${p.subscriptionInfoIOS?.introductoryOffer ? JSON.stringify(p.subscriptionInfoIOS.introductoryOffer) : 'null'}`,
+          `  flatPeriod: ${p.introductoryPriceSubscriptionPeriodIOS ?? 'null'} x${p.introductoryPriceNumberOfPeriodsIOS ?? 'null'} mode=${p.introductoryPricePaymentModeIOS ?? 'null'}`,
+        ].join('\n');
+      });
+      Alert.alert(
+        `IAP Debug — ${products.length} product(s)`,
+        `diag: ${JSON.stringify(diag)}\n\n${lines.join('\n\n') || '(no products returned)'}`,
+      );
+    } catch (e: any) {
+      Alert.alert('IAP Debug — error', e?.message ?? String(e));
     }
   };
 
@@ -220,7 +267,7 @@ export default function UpgradeScreen() {
             </TouchableOpacity>
 
             {fromOnboarding && (
-              <TouchableOpacity style={s.purchaseBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.8}>
+              <TouchableOpacity style={s.purchaseBtn} onPress={continueFromOnboarding} activeOpacity={0.8}>
                 <Text style={s.purchaseBtnText}>Continue</Text>
               </TouchableOpacity>
             )}
@@ -317,16 +364,36 @@ export default function UpgradeScreen() {
               activeOpacity={0.8}
               onPress={handlePurchase}
               disabled={purchasing}
-              accessibilityLabel={purchasing ? 'Purchasing' : 'Start Free Trial'}
+              accessibilityLabel={purchasing ? 'Purchasing' : ctaLabel}
               accessibilityRole="button"
               accessibilityState={{ disabled: purchasing }}
             >
               {purchasing ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={s.purchaseBtnText}>Start Free Trial</Text>
+                <Text style={s.purchaseBtnText}>{ctaLabel}</Text>
               )}
             </TouchableOpacity>
+
+            {/* Required subscription disclosure (trial length, renewal price, auto-renew, how to cancel) */}
+            <Text style={s.termsText}>{termsText}</Text>
+
+            {/* Required legal links for auto-renewing subscriptions (App Store Guideline 3.1.2) */}
+            <View style={s.legalRow}>
+              <TouchableOpacity onPress={() => router.push('/settings/legal?tab=tos' as any)} accessibilityRole="link">
+                <Text style={s.legalLink}>Terms of Use</Text>
+              </TouchableOpacity>
+              <Text style={s.legalDot}>·</Text>
+              <TouchableOpacity onPress={() => router.push('/settings/legal?tab=privacy' as any)} accessibilityRole="link">
+                <Text style={s.legalLink}>Privacy Policy</Text>
+              </TouchableOpacity>
+            </View>
+
+            {__DEV__ && (
+              <TouchableOpacity onPress={handleDebugIAP} style={{ alignItems: 'center', paddingVertical: 8 }}>
+                <Text style={[s.legalLink, { color: colors.textMuted }]}>🔧 Debug IAP</Text>
+              </TouchableOpacity>
+            )}
 
             {fromOnboarding ? (
               <TouchableOpacity onPress={leave} activeOpacity={0.7} style={s.skipBtn} accessibilityLabel="Maybe later" accessibilityRole="button">
@@ -454,6 +521,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     marginTop: 8,
   },
   purchaseBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: FF, letterSpacing: 0.2 },
+  termsText: { fontSize: 12, lineHeight: 17, color: c.textMuted, fontFamily: FF, textAlign: 'center', marginTop: 10, paddingHorizontal: 8 },
+  legalRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8, gap: 8 },
+  legalLink: { fontSize: 12, color: c.textSecondary, fontFamily: FF, fontWeight: '600', textDecorationLine: 'underline' },
+  legalDot: { fontSize: 12, color: c.textMuted, fontFamily: FF },
   skipBtn: { alignItems: 'center', paddingVertical: 14 },
   skipText: { fontSize: 16, color: c.textMuted, fontFamily: FF, fontWeight: '500' },
 

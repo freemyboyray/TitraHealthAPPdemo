@@ -203,18 +203,41 @@ export async function restorePurchases(): Promise<boolean> {
 
 // ─── Format Price ────────────────────────────────────────────────────────────
 
+function periodSuffix(unit: string | null | undefined): string {
+  switch ((unit ?? '').toLowerCase()) {
+    case 'year': return '/yr';
+    case 'month': return '/mo';
+    case 'week': return '/wk';
+    case 'day': return '/day';
+    default: return '';
+  }
+}
+
 export function formatSubscriptionPrice(product: ProductSubscription): string {
-  // iOS products have localizedPrice on the product
-  if (Platform.OS === 'ios' && 'localizedPrice' in product) {
-    return (product as any).localizedPrice ?? '$9.99/month';
+  const p = product as any;
+
+  if (Platform.OS === 'ios') {
+    // v15: localized price string is `displayPrice` (was `localizedPrice` pre-v15).
+    const price: string | undefined = p.displayPrice ?? p.localizedPrice;
+    const unit = p.subscriptionInfoIOS?.subscriptionPeriod?.unit ?? p.subscriptionPeriodUnitIOS;
+    if (price) return `${price}${periodSuffix(unit)}`;
+  } else {
+    // Android: read the recurring (non-free) pricing phase for price + billing period.
+    const offers = p.subscriptionOfferDetailsAndroid ?? p.subscriptionOfferDetails ?? [];
+    for (const offer of offers) {
+      const phases = offer?.pricingPhases?.pricingPhaseList ?? [];
+      const paid = phases.find((ph: any) => ph.priceAmountMicros && ph.priceAmountMicros !== '0')
+        ?? phases[phases.length - 1];
+      if (paid?.formattedPrice) {
+        const m = (paid.billingPeriod ?? '').match(/P\d*([DWMY])/);
+        const unitMap: Record<string, string> = { D: 'day', W: 'week', M: 'month', Y: 'year' };
+        return `${paid.formattedPrice}${periodSuffix(m ? unitMap[m[1]] : null)}`;
+      }
+    }
+    if (p.displayPrice) return p.displayPrice;
   }
-  // Android subscription offer details
-  if ('subscriptionOfferDetails' in product) {
-    const offer = (product as any).subscriptionOfferDetails?.[0];
-    const phase = offer?.pricingPhases?.pricingPhaseList?.[0];
-    if (phase?.formattedPrice) return phase.formattedPrice;
-  }
-  return '$9.99/month';
+
+  return '';
 }
 
 // ─── Introductory Offer Info ────────────────────────────────────────────────
@@ -225,40 +248,62 @@ export type IntroOfferInfo = {
   trialLabel: string | null;
 };
 
+// Convert a StoreKit period (unit + per-period length + number of periods) to total days.
+// react-native-iap v15 uses lowercase units ('day' | 'week' | 'month' | 'year').
+const UNIT_DAYS: Record<string, number> = { day: 1, week: 7, month: 30, year: 365 };
+function periodToDays(unit: string | null | undefined, perValue = 1, periodCount = 1): number {
+  const base = UNIT_DAYS[(unit ?? '').toLowerCase()] ?? 0;
+  return base * (perValue || 1) * (periodCount || 1);
+}
+
 export function getIntroOfferInfo(product: ProductSubscription): IntroOfferInfo {
   const p = product as any;
+  const trial = (days: number): IntroOfferInfo =>
+    ({ hasOffer: true, trialDays: days, trialLabel: `${days}-day free trial` });
 
-  // iOS: introductoryPrice fields from StoreKit
-  if (Platform.OS === 'ios') {
-    const period = p.introductoryPriceSubscriptionPeriodIOS;
-    const numPeriods = p.introductoryPriceNumberOfPeriodsIOS;
-    const price = p.introductoryPrice;
-
-    if (period && numPeriods) {
-      const isFree = !price || price === '0' || price === '0.00';
-      const unit = period === 'DAY' ? 'day' : period === 'WEEK' ? 'week' : period === 'MONTH' ? 'month' : period;
-      const count = parseInt(numPeriods, 10) || 0;
-      if (isFree && count > 0) {
-        const days = unit === 'day' ? count : unit === 'week' ? count * 7 : unit === 'month' ? count * 30 : count;
-        return { hasOffer: true, trialDays: days, trialLabel: `${days}-day free trial` };
-      }
+  // 1. Standardized cross-platform offers (react-native-iap v15 / OpenIAP — preferred).
+  //    Each offer carries paymentMode ('free-trial') + period {unit, value} + periodCount.
+  const stdOffers: any[] = Array.isArray(p.subscriptionOffers) ? p.subscriptionOffers : [];
+  for (const o of stdOffers) {
+    const isFreeTrial = o?.paymentMode === 'free-trial' || (o?.type === 'introductory' && o?.price === 0);
+    if (isFreeTrial) {
+      const days = periodToDays(o?.period?.unit, o?.period?.value ?? 1, o?.periodCount ?? 1);
+      if (days > 0) return trial(days);
     }
   }
 
-  // Android: check pricingPhases for a free trial phase
-  if ('subscriptionOfferDetails' in p) {
-    const offers = p.subscriptionOfferDetails ?? [];
-    for (const offer of offers) {
-      const phases = offer?.pricingPhases?.pricingPhaseList ?? [];
-      for (const phase of phases) {
-        if (phase.priceAmountMicros === '0' || phase.formattedPrice === 'Free') {
-          const match = (phase.billingPeriod ?? '').match(/P(\d+)([DWMY])/);
-          if (match) {
-            const count = parseInt(match[1], 10);
-            const unit = match[2];
-            const days = unit === 'D' ? count : unit === 'W' ? count * 7 : unit === 'M' ? count * 30 : count * 365;
-            return { hasOffer: true, trialDays: days, trialLabel: `${days}-day free trial` };
-          }
+  // 2. iOS: nested introductory offer (subscriptionInfoIOS.introductoryOffer).
+  if (Platform.OS === 'ios') {
+    const io = p.subscriptionInfoIOS?.introductoryOffer;
+    if (io && (io.paymentMode === 'free-trial' || io.price === 0)) {
+      const days = periodToDays(io.period?.unit, io.period?.value ?? 1, io.periodCount ?? 1);
+      if (days > 0) return trial(days);
+    }
+
+    // 3. iOS: legacy flat fields (older shape / safety net).
+    const period = p.introductoryPriceSubscriptionPeriodIOS;
+    const numPeriods = parseInt(p.introductoryPriceNumberOfPeriodsIOS ?? '', 10) || 0;
+    const mode = p.introductoryPricePaymentModeIOS;
+    const priceStr = p.introductoryPriceIOS ?? p.introductoryPrice;
+    const isFree = mode === 'free-trial' || !priceStr || priceStr === '0' || priceStr === '0.00';
+    if (period && numPeriods > 0 && isFree) {
+      const days = periodToDays(period, 1, numPeriods);
+      if (days > 0) return trial(days);
+    }
+  }
+
+  // 4. Android: pricing phases with a zero-price (free trial) phase.
+  const androidOffers = p.subscriptionOfferDetailsAndroid ?? p.subscriptionOfferDetails ?? [];
+  for (const offer of androidOffers) {
+    const phases = offer?.pricingPhases?.pricingPhaseList ?? [];
+    for (const phase of phases) {
+      if (phase.priceAmountMicros === '0' || phase.formattedPrice === 'Free') {
+        const match = (phase.billingPeriod ?? '').match(/P(\d+)([DWMY])/);
+        if (match) {
+          const count = parseInt(match[1], 10);
+          const unitMap: Record<string, string> = { D: 'day', W: 'week', M: 'month', Y: 'year' };
+          const days = periodToDays(unitMap[match[2]], count, 1);
+          if (days > 0) return trial(days);
         }
       }
     }

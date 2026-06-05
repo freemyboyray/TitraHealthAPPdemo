@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -32,9 +32,12 @@ type Tab = 'tos' | 'privacy' | 'ai';
 
 export default function LegalScreen() {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const [activeTab, setActiveTab] = useState<Tab>('tos');
+  const [activeTab, setActiveTab] = useState<Tab>(
+    tab === 'privacy' || tab === 'ai' ? tab : 'tos',
+  );
 
   const sections =
     activeTab === 'tos' ? TOS_SECTIONS

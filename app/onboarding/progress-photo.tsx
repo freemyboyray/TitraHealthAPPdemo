@@ -38,6 +38,8 @@ export default function ProgressPhotoScreen() {
 
   const takePhoto = async () => {
     Haptics.selectionAsync();
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,

@@ -1,6 +1,21 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth, CORS } from '../_shared/auth.ts';
 import { checkUsageLimit } from '../_shared/usage-limit.ts';
 import type { FeatureKey } from '../_shared/usage-limit.ts';
+
+// TEMP debug: record OpenAI 502 failures to a table so production failures are
+// queryable (the log API only surfaces request lines, not console output).
+// Remove this + the openai_error_log table once the camera-scan issue is fixed.
+async function logOpenAiError(row: Record<string, unknown>): Promise<void> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+    await supabase.from('openai_error_log').insert(row);
+  } catch { /* best-effort — never let logging break the response */ }
+}
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ALLOWED_MODELS = ['gpt-4o-mini'];
@@ -110,10 +125,27 @@ Deno.serve(async (req: Request) => {
     const data = await res.text();
 
     if (!res.ok) {
-      console.error('[openai-proxy] OpenAI error:', res.status);
+      // Surface OpenAI's actual error reason instead of swallowing it. The body
+      // is OpenAI's error JSON (e.g. {error:{message,type,code}}) — safe to relay,
+      // it never contains the API key. `data` is already the response text.
+      let openaiMessage = data.slice(0, 800);
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed?.error?.message) openaiMessage = parsed.error.message;
+      } catch { /* non-JSON error body — keep the raw slice */ }
+      console.error(`[openai-proxy] OpenAI error ${res.status} (vision=${isVision}):`, openaiMessage);
+      await logOpenAiError({
+        user_id: auth.userId,
+        is_vision: isVision,
+        json_mode: isJsonMode,
+        openai_status: res.status,
+        openai_message: openaiMessage,
+        image_prefix: isVision ? visionImagePrefix(body) : null,
+      });
       return new Response(JSON.stringify({
         openai_error: true,
         openai_status: res.status,
+        openai_message: openaiMessage,
       }), {
         status: 502,
         headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -132,6 +164,21 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
+
+/** TEMP debug: first ~48 chars of the image data URL — reveals declared mime +
+ *  base64 magic bytes (so we can see the REAL format the device sent). */
+function visionImagePrefix(body: Record<string, unknown>): string | null {
+  const messages = body.messages as Array<{ content: unknown }> | undefined;
+  if (!messages) return null;
+  for (const msg of messages) {
+    if (!Array.isArray(msg.content)) continue;
+    for (const part of msg.content as Record<string, any>[]) {
+      const url = part?.image_url?.url;
+      if (typeof url === 'string') return url.slice(0, 48);
+    }
+  }
+  return null;
+}
 
 /** Detect if the request includes an image (vision API call = photo_analysis) */
 function hasVisionContent(body: Record<string, unknown>): boolean {

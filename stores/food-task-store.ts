@@ -70,6 +70,10 @@ export type FoodTask = {
   parsedDishes: ParsedDish[];
   error?: string;
   photoUris?: string[];    // review-only display; never persisted to Storage
+  // Retained so a failed camera/voice task can be retried WITH its original
+  // input (re-running vision), instead of restarting empty. In-memory only.
+  photoBase64?: string;
+  description?: string;
   loggedAt?: number;       // editable date/time (epoch ms); defaults to now at confirm
 };
 
@@ -345,6 +349,8 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
       dishes: [],
       parsedDishes: parsedDishes ?? [],
       photoUris,
+      photoBase64,
+      description,
     };
 
     set((s) => ({ tasks: [...s.tasks, task] }));
@@ -380,6 +386,13 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
           set((s) => ({
             tasks: s.tasks.map((t) => (t.id === id ? { ...t, parsedDishes: dishesToResolve } : t)),
           }));
+        }
+
+        // Nothing to resolve (e.g. a camera task retried after the photo was
+        // lost, or vision returned no dishes) → fail instead of silently
+        // producing an empty, all-zero "ready" meal.
+        if (dishesToResolve.length === 0) {
+          throw new Error('No food to analyze. Please retake or describe your meal.');
         }
 
         const resolved = await resolveDishes(dishesToResolve);
@@ -621,7 +634,15 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
     // Only AI-resolved tasks can fail/retry; ready DB picks never reach here.
     if (task.source !== 'describe' && task.source !== 'voice' && task.source !== 'camera') return;
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== taskId) }));
-    get().startTask({ source: task.source, parsedDishes: task.parsedDishes });
+    // Re-run with the ORIGINAL input. Camera tasks must carry photoBase64 back
+    // through so vision runs again — otherwise retry produces an empty meal.
+    get().startTask({
+      source: task.source,
+      parsedDishes: task.parsedDishes,
+      photoBase64: task.photoBase64,
+      description: task.description,
+      photoUris: task.photoUris,
+    });
   },
 
   clearStaleTasks: () => {

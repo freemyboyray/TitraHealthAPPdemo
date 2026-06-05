@@ -256,8 +256,8 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
   }
 
   if (data?.openai_error) {
-    __DEV__ && console.error('[OpenAI] upstream error:', data.openai_status);
-    throw new Error(`OpenAI API error ${data.openai_status}`);
+    __DEV__ && console.error('[OpenAI] upstream error:', data.openai_status, data.openai_message ?? '');
+    throw new Error(`OpenAI API error ${data.openai_status}: ${data.openai_message ?? 'unknown'}`);
   }
 
   __DEV__ && console.log('[OpenAI] success, response keys:', Object.keys(data ?? {}));
