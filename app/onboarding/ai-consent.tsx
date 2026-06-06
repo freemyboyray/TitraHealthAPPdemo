@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Sparkles } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronRight, Sparkles, X } from 'lucide-react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
+import { useProfile } from '@/contexts/profile-context';
+import { AI_VERSION, AI_EFFECTIVE_DATE, AI_SECTIONS } from '@/constants/legal';
 
 const FF = 'System';
 
@@ -23,8 +25,15 @@ export default function AiConsentScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { setAiDataConsent } = usePreferencesStore();
+  const { updateDraft } = useProfile();
+  const [aiOpen, setAiOpen] = useState(false);
 
-  const next = () => router.push('/onboarding/doctor-code');
+  const next = () => {
+    // Record that the user reached and reviewed the AI Disclosure (whichever
+    // choice they make), at the current version.
+    updateDraft({ aiAcceptedAt: new Date().toISOString(), aiVersion: AI_VERSION });
+    router.push('/onboarding/doctor-code');
+  };
 
   const handleAllow = () => {
     setAiDataConsent(true);
@@ -69,6 +78,16 @@ export default function AiConsentScreen() {
           </Text>
         </View>
 
+        <TouchableOpacity
+          style={s.disclosureLink}
+          onPress={() => setAiOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Read full AI Disclosure"
+        >
+          <Text style={s.disclosureLinkText}>Read full AI Disclosure</Text>
+          <ChevronRight size={16} color={colors.orange} />
+        </TouchableOpacity>
+
         <View style={s.bottom}>
           <ContinueButton onPress={handleAllow} label="Allow AI features" />
           <TouchableOpacity
@@ -81,6 +100,33 @@ export default function AiConsentScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        visible={aiOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAiOpen(false)}
+      >
+        <SafeAreaView style={s.safe}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>AI Disclosure</Text>
+            <TouchableOpacity onPress={() => setAiOpen(false)} style={s.modalClose} hitSlop={12} accessibilityLabel="Close AI Disclosure" accessibilityRole="button">
+              <X size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={s.modalScroll} contentContainerStyle={s.modalScrollContent} showsVerticalScrollIndicator>
+            <Text style={s.modalVersion}>
+              Version {AI_VERSION} · Effective {AI_EFFECTIVE_DATE}
+            </Text>
+            {AI_SECTIONS.map((section, i) => (
+              <View key={i} style={s.modalSection}>
+                <Text style={s.modalSectionTitle}>{section.title}</Text>
+                <Text style={s.modalSectionBody}>{section.body}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -139,4 +185,32 @@ const createStyles = (c: AppColors) =>
     bottom: { flex: 1, justifyContent: 'flex-end', paddingBottom: 8 },
     skipBtn: { paddingVertical: 16, alignItems: 'center' },
     skipText: { fontSize: 16, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+
+    disclosureLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 14,
+      marginTop: 4,
+    },
+    disclosureLinkText: { fontSize: 14, fontWeight: '600', color: c.orange, fontFamily: FF },
+
+    // AI Disclosure modal
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+    modalClose: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    modalScroll: { flex: 1 },
+    modalScrollContent: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
+    modalVersion: { fontSize: 13, color: c.textMuted, fontWeight: '600', marginBottom: 20 },
+    modalSection: { marginBottom: 24 },
+    modalSectionTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 8, fontFamily: FF },
+    modalSectionBody: { fontSize: 15, color: c.textSecondary, lineHeight: 22, fontFamily: FF },
   });

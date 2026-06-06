@@ -30,9 +30,22 @@ export function pickServingForEstimate(
   if (!opts || opts.length === 0) return null;
   const perUnitG = perUnitGrams > 0 ? perUnitGrams : 100;
   const totalG = Math.max(1, Math.round((quantity || 1) * perUnitG));
-  const best = opts.reduce((a, b) =>
-    Math.abs(b.grams - perUnitG) < Math.abs(a.grams - perUnitG) ? b : a,
-  );
+  const nearest = (list: ServingOption[]) =>
+    list.reduce((a, b) => (Math.abs(b.grams - perUnitG) < Math.abs(a.grams - perUnitG) ? b : a));
+
+  // A "plain grams" option (label is just "100 g") is accurate but reads
+  // clinically. Prefer a natural NAMED serving ("1 round", "2 eggs") when one
+  // sits within ±50% of the estimate — otherwise the model's estimate falls
+  // between named sizes and the gram option represents the portion more
+  // honestly than snapping to a far-off named one.
+  const isPlainGrams = (label: string) => /^\s*\d+(\.\d+)?\s*g\b/i.test(label.trim());
+  const named = opts.filter((o) => !isPlainGrams(o.label));
+  const namedBest = named.length ? nearest(named) : null;
+  const best =
+    namedBest && Math.abs(namedBest.grams - perUnitG) <= perUnitG * 0.5
+      ? namedBest
+      : nearest(opts);
+
   const count = Math.max(1, Math.round(totalG / best.grams));
   return { unitLabel: best.label, unitGrams: best.grams, qty: String(count) };
 }

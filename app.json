@@ -30,7 +30,7 @@
     },
     "android": {
       "package": "com.titrahealth.app",
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#E8581A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
