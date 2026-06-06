@@ -14,14 +14,19 @@ import type { ServingOption } from './fatsecret';
 
 // ─── Serving-unit selection ─────────────────────────────────────────────────
 // Choose which database serving option to display a gram-based component in.
-// The model's portion estimate is the source of truth for HOW MUCH: perUnitGrams
-// × quantity = the total grams the user ate. A serving option is only a display
-// UNIT for that total. So pick the option whose size is closest to the per-unit
-// estimate (the "1 of these" the user pictures) — never the smallest serving
-// (serving_options is sorted smallest-first) and never one that bakes in its own
-// count like "2 eggs". Then express the model's TOTAL grams in that unit, so the
-// count is DERIVED, not re-applied on top of a serving's count → no
-// double-counting. Returns null when there are no options to switch to.
+// The model gives us two facts: how MANY units (quantity) and the typical weight
+// of ONE unit (perUnitGrams). A serving option is only a display UNIT.
+//
+// Strategy:
+//  1. Prefer a natural SINGLE-unit named serving ("1 round", "1 large") within
+//     ±50% of the per-unit estimate. The user's own count maps straight onto it
+//     (count = quantity), and we bias to the SMALLER size when the estimate
+//     straddles two — so a portion is never inflated into a "large" serving.
+//  2. Else, if a serving that BAKES IN its own count ("2 eggs") is the closest
+//     match, use it but DERIVE the count from total grams so the baked-in count
+//     is not multiplied by quantity again (the old "2 × 2 eggs" double-count).
+//  3. Else leave the component gram-based (return null) — exact and honest.
+// serving_options is sorted smallest-grams-first, so never just take [0].
 export function pickServingForEstimate(
   opts: ServingOption[] | undefined,
   perUnitGrams: number,
@@ -29,25 +34,49 @@ export function pickServingForEstimate(
 ): { unitLabel: string; unitGrams: number; qty: string } | null {
   if (!opts || opts.length === 0) return null;
   const perUnitG = perUnitGrams > 0 ? perUnitGrams : 100;
-  const totalG = Math.max(1, Math.round((quantity || 1) * perUnitG));
-  const nearest = (list: ServingOption[]) =>
-    list.reduce((a, b) => (Math.abs(b.grams - perUnitG) < Math.abs(a.grams - perUnitG) ? b : a));
+  const qty = Math.max(1, Math.round(quantity || 1));
+  const totalG = Math.max(1, Math.round(qty * perUnitG));
 
-  // A "plain grams" option (label is just "100 g") is accurate but reads
-  // clinically. Prefer a natural NAMED serving ("1 round", "2 eggs") when one
-  // sits within ±50% of the estimate — otherwise the model's estimate falls
-  // between named sizes and the gram option represents the portion more
-  // honestly than snapping to a far-off named one.
   const isPlainGrams = (label: string) => /^\s*\d+(\.\d+)?\s*g\b/i.test(label.trim());
-  const named = opts.filter((o) => !isPlainGrams(o.label));
-  const namedBest = named.length ? nearest(named) : null;
-  const best =
-    namedBest && Math.abs(namedBest.grams - perUnitG) <= perUnitG * 0.5
-      ? namedBest
-      : nearest(opts);
+  // Count a serving's label bakes in: "2 eggs" → 2, "1 round"/"miniature" → 1.
+  const bakedCount = (label: string) => {
+    const m = label.trim().match(/^(\d+)/);
+    const n = m ? parseInt(m[1], 10) : 1;
+    return Number.isFinite(n) && n >= 1 ? n : 1;
+  };
 
-  const count = Math.max(1, Math.round(totalG / best.grams));
-  return { unitLabel: best.label, unitGrams: best.grams, qty: String(count) };
+  // ── 1. Natural single-unit serving near the per-unit estimate ──────────────
+  const singleUnit = opts.filter(
+    (o) =>
+      !isPlainGrams(o.label) &&
+      bakedCount(o.label) <= 1 &&
+      Math.abs(o.grams - perUnitG) <= perUnitG * 0.5,
+  );
+  if (singleUnit.length) {
+    // Lever A: when the estimate straddles two sizes, pick the largest that does
+    // NOT exceed it; if all exceed it, the smallest (closest from above).
+    const atOrBelow = singleUnit.filter((o) => o.grams <= perUnitG);
+    const best = atOrBelow.length
+      ? atOrBelow.reduce((a, b) => (b.grams > a.grams ? b : a))
+      : singleUnit.reduce((a, b) => (b.grams < a.grams ? b : a));
+    // One serving == one unit, so the user's count carries over directly.
+    return { unitLabel: best.label, unitGrams: best.grams, qty: String(qty) };
+  }
+
+  // ── 2. Count-baked serving as a fallback (derive the count) ────────────────
+  const named = opts.filter((o) => !isPlainGrams(o.label));
+  if (named.length) {
+    const best = named.reduce((a, b) =>
+      Math.abs(b.grams - perUnitG) < Math.abs(a.grams - perUnitG) ? b : a,
+    );
+    if (Math.abs(best.grams - perUnitG) <= perUnitG) {
+      const count = Math.max(1, Math.round(totalG / best.grams));
+      return { unitLabel: best.label, unitGrams: best.grams, qty: String(count) };
+    }
+  }
+
+  // ── 3. Nothing natural is close — stay gram-based (exact). ─────────────────
+  return null;
 }
 
 // ─── Macro icon colors (semantic, theme-independent) ────────────────────────

@@ -28,8 +28,8 @@ Keep clearly separate foods as separate dishes (e.g. a sandwich AND a coffee AND
 Give each dish a short natural name a person would say.
 For each component:
 - "item": a SINGULAR, specific FOOD NAME ONLY (e.g. "scrambled egg", not "eggs" or "2 eggs"). NEVER include conversational words, pronouns, or filler — the input may be spoken, so strip phrases like "I had", "actually", "I think", "let me see". "I had them poached actually" must become "poached egg".
-- "quantity": how many identical units there are (default 1). "3 apples" is ONE component with quantity 3 — never three separate components.
-- "estimated_g": grams of ONE unit if not specified.
+- "quantity": a small COUNT of discrete identical units (default 1). "3 apples" is ONE component with quantity 3 — never three separate components. NEVER put a weight or volume here: grams and milliliters belong in "estimated_g", not "quantity". A drink is quantity 1 with its full liquid weight in "estimated_g" (a 240 ml latte → quantity 1, estimated_g 240 — never quantity 240).
+- "estimated_g": the typical real-world weight in grams of ONE unit of this specific food — the value a nutrition database lists for a single standard serving of it. Reason about the actual item: one waffle, one egg, one slice of bread, one banana each have well-established typical weights. Do NOT fall back to a round 100 as a placeholder — only use ~100 when that food genuinely weighs about that per unit. If the user gives a size or fullness cue ("large", "small", "half a", "heaping"), scale the weight to match. This is ALWAYS the weight of a SINGLE unit even when quantity is more than 1 — the app multiplies estimated_g by quantity, so never pre-multiply (two cups of coffee → quantity 2, estimated_g 240, never 480).
 Return ONLY a valid JSON object with a single "dishes" array, no other text:
 {"dishes":[{"name":"Bacon Egg & Cheese Bagel","components":[{"item":"bacon","quantity":2,"estimated_g":15},{"item":"scrambled egg","quantity":1,"estimated_g":50},{"item":"american cheese","quantity":1,"estimated_g":20},{"item":"plain bagel","quantity":1,"estimated_g":85}]}]}`;
 
