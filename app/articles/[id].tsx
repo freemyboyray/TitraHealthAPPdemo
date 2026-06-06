@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -110,7 +109,7 @@ export default function ArticleDetailScreen() {
           <Image
             source={article.coverImage}
             style={s.coverImage}
-            contentFit="cover"
+            resizeMode="cover"
             accessibilityIgnoresInvertColors
           />
 

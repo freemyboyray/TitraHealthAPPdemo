@@ -198,6 +198,7 @@ export default function LogFoodScreen() {
   const photoCameraRef = useRef<CameraView>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [photoDescription, setPhotoDescription] = useState('');
   const [cameraPhotoKey, setCameraPhotoKey] = useState(0);
 
   // ── Describe state ────────────────────────────────────────────────────────
@@ -301,15 +302,21 @@ export default function LogFoodScreen() {
     }
   }
 
-  function handleAnalyzePhoto() {
+  function handleSubmitPhoto() {
     if (!photoBase64) return;
-    startFoodTask({ source: 'camera', photoBase64 });
+    startFoodTask({
+      source: 'camera',
+      photoBase64,
+      description: photoDescription.trim() || undefined,
+      photoUris: photoUri ? [photoUri] : undefined,
+    });
     router.dismissTo('/(tabs)');
   }
 
   function handleRetakePhoto() {
     setPhotoUri(null);
     setPhotoBase64(null);
+    setPhotoDescription('');
     setCameraPhotoKey((k) => k + 1);
   }
 
@@ -916,17 +923,54 @@ export default function LogFoodScreen() {
         /* CAMERA MODE - full body camera (photo) */
         <View style={{ flex: 1 }}>
           {photoUri ? (
-            /* ── Preview ── */
+            /* ── Preview: "What are you eating?" with the attached image ── */
             <View style={{ flex: 1 }}>
-              <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-              <View style={[s.cameraBottomBar, { paddingBottom: insets.bottom + 30 }]}>
-                <TouchableOpacity onPress={handleRetakePhoto} style={s.cameraLibraryBtn} activeOpacity={0.75} accessibilityLabel="Retake photo" accessibilityRole="button">
-                  <RefreshCw size={24} color="#FFFFFF" />
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={s.photoPreviewContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View>
+                  <Image source={{ uri: photoUri }} style={s.photoPreviewImage} resizeMode="cover" />
+                  <TouchableOpacity
+                    onPress={handleRetakePhoto}
+                    style={s.photoRetakeBtn}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Retake photo"
+                    accessibilityRole="button"
+                  >
+                    <RefreshCw size={15} color="#FFFFFF" />
+                    <Text style={s.photoRetakeText}>Retake</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={s.photoPreviewHeading}>What are you eating?</Text>
+
+                <TextInput
+                  style={s.photoDescriptionInput}
+                  placeholder="Add an optional description to improve AI accuracy."
+                  placeholderTextColor={colors.textMuted}
+                  value={photoDescription}
+                  onChangeText={setPhotoDescription}
+                  multiline
+                  textAlignVertical="top"
+                  returnKeyType="done"
+                  blurOnSubmit
+                  accessibilityLabel="Optional food description"
+                />
+              </ScrollView>
+
+              <View style={[s.photoPreviewBottom, { paddingBottom: insets.bottom + 20 }]}>
+                <TouchableOpacity
+                  style={s.photoContinueBtn}
+                  onPress={handleSubmitPhoto}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Continue with this photo"
+                  accessibilityRole="button"
+                >
+                  <Text style={s.photoContinueText}>Continue</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.cameraAnalyzeBtn} onPress={handleAnalyzePhoto} activeOpacity={0.85} accessibilityLabel="Analyze photo with AI" accessibilityRole="button">
-                  <Text style={s.cameraAnalyzeBtnText}>Analyze</Text>
-                </TouchableOpacity>
-                <View style={{ width: 48 }} />
               </View>
             </View>
           ) : camPermission?.granted ? (
@@ -1989,20 +2033,38 @@ const createStyles = (c: AppColors) => {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraAnalyzeBtn: {
+  // Camera (photo) preview — "What are you eating?" with attached image
+  photoPreviewContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
+  photoPreviewImage: { width: '100%', height: 260, borderRadius: 20, marginBottom: 14, backgroundColor: w(0.06) },
+  photoRetakeBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  photoRetakeText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  photoPreviewHeading: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginTop: 4, marginBottom: 12 },
+  photoDescriptionInput: { fontSize: 16, color: c.textPrimary, lineHeight: 22, minHeight: 60, maxHeight: 160, padding: 0 },
+  photoPreviewBottom: { paddingHorizontal: 20, paddingTop: 12 },
+  photoContinueBtn: {
     height: 56,
-    paddingHorizontal: 32,
     borderRadius: 28,
     backgroundColor: c.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: c.orange,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 18,
     elevation: 8,
   },
-  cameraAnalyzeBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  photoContinueText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Scan mode
   barcodeFrame: {

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,7 +21,6 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { ARTICLES, type Article } from '@/constants/articles';
-import { Image } from 'expo-image';
 
 const FF = 'System';
 
@@ -43,7 +43,7 @@ function ArticleCard({ article }: { article: Article }) {
       <Image
         source={article.coverImage}
         style={s.coverImage}
-        contentFit="cover"
+        resizeMode="cover"
         accessibilityIgnoresInvertColors
       />
 
