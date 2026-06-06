@@ -125,8 +125,9 @@ export default function ProgressPhotoScreen() {
           )}
         </View>
 
-        <ContinueButton onPress={handleContinue} label={photoUri ? 'Continue' : 'Continue without photo'} />
-        {!photoUri && (
+        {photoUri ? (
+          <ContinueButton onPress={handleContinue} label="Continue" />
+        ) : (
           <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} style={s.skipWrapper}>
             <Text style={[s.skipText, { color: w(0.35) }]}>Skip for now</Text>
           </TouchableOpacity>

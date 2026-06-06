@@ -85,6 +85,8 @@ type Props = {
   todayInjLogged: boolean;
   oral: boolean;
   colors: AppColors;
+  /** Days past due when the next dose is overdue (0 = not overdue). */
+  overdueByDays?: number;
 };
 
 export function VerticalCycleTimeline({
@@ -95,6 +97,7 @@ export function VerticalCycleTimeline({
   todayInjLogged,
   oral,
   colors,
+  overdueByDays = 0,
 }: Props) {
   const currentIdx = PHASE_ORDER.indexOf(currentPhase);
   const nodes = buildNodes();
@@ -214,7 +217,9 @@ export function VerticalCycleTimeline({
             : isPast
               ? 'Complete'
               : i === 4
-                ? (rawDaysUntil != null && rawDaysUntil > 0 ? `In ${rawDaysUntil} days` : oral ? 'Next dose' : 'Next injection')
+                ? (overdueByDays > 0
+                    ? `Overdue by ${overdueByDays} ${overdueByDays === 1 ? 'day' : 'days'}`
+                    : rawDaysUntil != null && rawDaysUntil > 0 ? `In ${rawDaysUntil} days` : oral ? 'Next dose' : 'Next injection')
                 : node.description;
 
           return (

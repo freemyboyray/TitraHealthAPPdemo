@@ -85,7 +85,14 @@ export type FullUserProfile = {
   currentWeightKg: number;
   appleHealthEnabled: boolean;
   startWeightLbs: number;
-  startDate: string;                // YYYY-MM-DD
+  startDate: string;                // YYYY-MM-DD — program/medication start (can be historical)
+  /**
+   * YYYY-MM-DD the user started using Titra (profile row created_at). Anchors
+   * weekly summaries, weekly check-ins, and weight milestones to in-app
+   * engagement rather than the historical medication start. Optional: consumers
+   * fall back to today when absent (a brand-new local profile).
+   */
+  engagementStartDate?: string;
   goalWeightLbs: number;
   goalWeightKg: number;
   targetWeeklyLossLbs: number;      // 0.2 | 0.5 | 1.0 | 1.5 | 2.0 | 2.5 | 3.0
@@ -322,4 +329,32 @@ export const BRAND_STARTING_DOSE: Partial<Record<MedicationBrand, number>> = {
 
 export function isOnTreatment(profile: Pick<FullUserProfile, 'treatmentStatus'> | null | undefined): boolean {
   return profile?.treatmentStatus === 'on';
+}
+
+export type TransitionPhase = 'none' | 'old_med' | 'washout' | 'new_med_ready';
+
+/** Local YYYY-MM-DD (no UTC shift). */
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Phase of a future-dated medication switch. Single source of truth shared by
+ * the home screen, cycle page, and My Medications so they never disagree:
+ *  - `old_med`:       still on the old med (today ≤ its last dose)
+ *  - `washout`:       between meds — old course done, new not started yet
+ *  - `new_med_ready`: the new med's first-dose date has arrived (ready to apply)
+ *  - `none`:          no pending transition
+ */
+export function getTransitionPhase(
+  profile: Pick<FullUserProfile, 'pendingFirstDoseDate' | 'pendingLastDoseOld'> | null | undefined,
+  now: Date = new Date(),
+): TransitionPhase {
+  const firstDose = profile?.pendingFirstDoseDate ?? '';
+  if (!firstDose) return 'none';
+  const lastOld = profile?.pendingLastDoseOld ?? '';
+  const today = ymdLocal(now);
+  if (today <= lastOld) return 'old_med';
+  if (today < firstDose) return 'washout';
+  return 'new_med_ready';
 }

@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -40,6 +40,17 @@ export function ScheduleSelector({
 }: Props) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  // "I'm not sure" → default to a midday (12:00 PM) reminder for people who take
+  // it at a rough time rather than a fixed minute.
+  const [unsureTime, setUnsureTime] = useState(false);
+
+  const pickMidday = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const noon = new Date(doseTime);
+    noon.setHours(12, 0, 0, 0);
+    onDoseTimeChange(noon);
+    setUnsureTime(true);
+  };
 
   return (
     <View>
@@ -107,14 +118,34 @@ export function ScheduleSelector({
           <Text style={s.sectionHint}>
             Used for reminders and tracking your medication cycle.
           </Text>
-          <DateTimePicker
-            value={doseTime}
-            mode="time"
-            display="spinner"
-            themeVariant={colors.isDark ? 'dark' : 'light'}
-            onChange={(_, date) => { if (date) onDoseTimeChange(date); }}
-            style={{ alignSelf: 'flex-start', marginTop: 8 }}
-          />
+
+          {unsureTime ? (
+            <TouchableOpacity
+              style={s.middayRow}
+              activeOpacity={0.7}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setUnsureTime(false); }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={s.middayTitle}>Midday reminder · 12:00 PM</Text>
+                <Text style={s.midToggleLink}>Set a specific time instead</Text>
+              </View>
+              <CircleCheck size={22} color={colors.orange} />
+            </TouchableOpacity>
+          ) : (
+            <>
+              <DateTimePicker
+                value={doseTime}
+                mode="time"
+                display="spinner"
+                themeVariant={colors.isDark ? 'dark' : 'light'}
+                onChange={(_, date) => { if (date) onDoseTimeChange(date); }}
+                style={{ alignSelf: 'flex-start', marginTop: 8 }}
+              />
+              <TouchableOpacity onPress={pickMidday} activeOpacity={0.7} style={s.unsureBtn}>
+                <Text style={s.midToggleLink}>I'm not sure — just remind me midday</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 
@@ -197,5 +228,34 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   datePicker: {
     alignSelf: 'flex-start',
+  },
+  unsureBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  midToggleLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.orange,
+    fontFamily: 'System',
+  },
+  middayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: c.orange,
+    backgroundColor: 'rgba(255,116,42,0.06)',
+  },
+  middayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: c.textPrimary,
+    fontFamily: 'System',
+    marginBottom: 2,
   },
 });

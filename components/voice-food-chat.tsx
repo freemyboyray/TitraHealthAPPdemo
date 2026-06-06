@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { converseFoodLog, type ConverseFoodResult } from '@/lib/openai';
+import { ensureAiConsent } from '@/lib/ai-consent';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { ArrowUpCircle, ChevronLeft, Grid3x3, Mic } from 'lucide-react-native';
 
@@ -98,6 +99,9 @@ export function VoiceFoodChat({ onComplete, onCancel }: Props) {
   // Send message to AI
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
+    // Conversational food logging sends descriptions to OpenAI — prompt for
+    // consent before the first message; bail (input preserved) if declined.
+    if (!(await ensureAiConsent())) return;
 
     const userMsg: ChatMessage = { role: 'user', content: text.trim() };
     const updated = [...messages, userMsg];

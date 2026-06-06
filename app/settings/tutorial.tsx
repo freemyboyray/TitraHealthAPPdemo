@@ -230,13 +230,9 @@ export default function TutorialScreen() {
             </Pressable>
           )}
           <Text style={s.headerTitle}>{firstRun ? 'Welcome to Titra' : 'App Tutorial'}</Text>
-          {firstRun ? (
-            <Pressable onPress={finishFirstRun} hitSlop={12} accessibilityLabel="Skip tutorial" accessibilityRole="button">
-              <Text style={s.skipText}>Skip</Text>
-            </Pressable>
-          ) : (
-            <View style={{ width: 22 }} />
-          )}
+          {/* First run uses the "Get Started" button below to enter the app, so no
+              redundant Skip here. */}
+          <View style={{ width: 22 }} />
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

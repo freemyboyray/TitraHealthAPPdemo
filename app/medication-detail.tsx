@@ -19,7 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { supabase } from '@/lib/supabase';
-import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, isOnTreatment } from '@/constants/user-profile';
+import { useMedicationsStore, type UserMedication } from '@/stores/medications-store';
+import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, isOnTreatment, getTransitionPhase } from '@/constants/user-profile';
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
 import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
@@ -34,21 +35,6 @@ const GLP1_DISPLAY: Record<string, string> = {
   liraglutide: 'Liraglutide',
   oral_semaglutide: 'Semaglutide (oral)',
   orforglipron: 'Orforglipron',
-};
-
-type UserMedication = {
-  id: string;
-  medication_brand: string;
-  medication_custom_name: string | null;
-  glp1_type: string;
-  route_of_administration: string;
-  dose_mg: number;
-  frequency_days: number;
-  dose_time: string | null;
-  notes: string | null;
-  photo_url: string | null;
-  is_active: boolean;
-  created_at: string;
 };
 
 function getBrandLabel(med: UserMedication): string {
@@ -230,20 +216,33 @@ export default function MedicationDetailScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const onTreatment = isOnTreatment(profile);
 
-  const [medications, setMedications] = useState<UserMedication[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ── Pending medication switch (future-dated) ──
+  const transitionPhase = getTransitionPhase(profile);
+  const hasPending = transitionPhase !== 'none' && profile?.pendingFirstDoseDate != null;
+  const pendingMedName = (() => {
+    const brand = profile?.pendingMedicationBrand;
+    if (!brand) return 'New medication';
+    const display = BRAND_DISPLAY_NAMES[brand as keyof typeof BRAND_DISPLAY_NAMES];
+    return !display || display === 'Other' ? 'New medication' : display;
+  })();
+  const pendingStartLabel = profile?.pendingFirstDoseDate
+    ? new Date(profile.pendingFirstDoseDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+  const pendingMeta = [
+    profile?.pendingDoseMg != null ? `${profile.pendingDoseMg} mg` : null,
+    profile?.pendingRoute ? (profile.pendingRoute.toLowerCase().includes('oral') ? 'Oral' : 'Injection') : null,
+  ].filter(Boolean).join(' · ');
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
 
-  const fetchMedications = useCallback(async () => {
-    const { data } = await supabase
-      .from('user_medications')
-      .select('*')
-      .order('is_active', { ascending: false })
-      .order('created_at', { ascending: false });
-    if (data) setMedications(data as UserMedication[]);
-    setLoading(false);
-  }, []);
+  // Backed by a store that's preloaded at app start, so navigating here shows
+  // the medication library instantly instead of flashing an empty state. We
+  // still refetch on focus to stay fresh after edits elsewhere.
+  const medications = useMedicationsStore((st) => st.medications);
+  const loaded = useMedicationsStore((st) => st.loaded);
+  const fetchMedications = useMedicationsStore((st) => st.fetchMedications);
+  const loading = !loaded;
 
   useFocusEffect(
     useCallback(() => {
@@ -255,7 +254,7 @@ export default function MedicationDetailScreen() {
   // Queries the DB directly to avoid stale-state race with fetchMedications.
   useFocusEffect(
     useCallback(() => {
-      if (!profile || loading) return;
+      if (!profile || !loaded) return;
       if (profile.treatmentStatus !== 'on' || !profile.medicationBrand) return;
       (async () => {
         const { data: userData } = await supabase.auth.getUser();
@@ -298,7 +297,7 @@ export default function MedicationDetailScreen() {
         });
         await fetchMedications();
       })();
-    }, [profile?.medicationBrand, profile?.doseMg, profile?.glp1Type, loading]),
+    }, [profile?.medicationBrand, profile?.doseMg, profile?.glp1Type, loaded]),
   );
 
   function handleToggle(id: string) {
@@ -475,11 +474,36 @@ export default function MedicationDetailScreen() {
           </View>
         ) : (
           <>
+            {/* Incoming medication (scheduled switch not yet started) */}
+            {hasPending && (
+              <View style={s.pendingCard}>
+                <View style={s.pendingIcon}>
+                  <Pill size={18} color={colors.orange} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={s.pendingTitleRow}>
+                    <Text style={s.pendingName}>{pendingMedName}</Text>
+                    <View style={s.pendingBadge}>
+                      <Text style={s.pendingBadgeText}>
+                        {pendingStartLabel ? `Starts ${pendingStartLabel}` : 'Scheduled'}
+                      </Text>
+                    </View>
+                  </View>
+                  {!!pendingMeta && <Text style={s.pendingMeta}>{pendingMeta}</Text>}
+                  <Text style={s.pendingNote}>
+                    {transitionPhase === 'washout'
+                      ? 'Between medications — your current course has ended.'
+                      : 'Replaces your current medication on the start date.'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {medications.map(med => (
               <MedicationCard
                 key={med.id}
                 med={med}
-                active={med.is_active && onTreatment}
+                active={med.is_active && onTreatment && !hasPending}
                 expanded={expandedId === med.id}
                 onToggle={() => handleToggle(med.id)}
                 onSetActive={() => handleSetActive(med)}
@@ -615,6 +639,28 @@ const createStyles = (c: AppColors) => {
     },
 
     // "Not taking a medication" row
+    pendingCard: {
+      flexDirection: 'row', gap: 12,
+      borderRadius: 20, padding: 14,
+      backgroundColor: 'rgba(255,116,42,0.08)',
+      borderWidth: 1, borderColor: 'rgba(255,116,42,0.3)',
+      marginBottom: 12,
+    },
+    pendingIcon: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: 'rgba(255,116,42,0.15)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    pendingTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    pendingName: { fontSize: 16, fontWeight: '800', color: c.textPrimary, flexShrink: 1 },
+    pendingBadge: {
+      backgroundColor: c.orange, borderRadius: 8,
+      paddingHorizontal: 8, paddingVertical: 3,
+    },
+    pendingBadgeText: { fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 0.3 },
+    pendingMeta: { fontSize: 13, fontWeight: '600', color: c.textSecondary, marginTop: 3 },
+    pendingNote: { fontSize: 12, fontWeight: '500', color: c.textMuted, marginTop: 6, lineHeight: 17 },
+
     noneRow: {
       flexDirection: 'row', alignItems: 'center',
       borderRadius: 20, padding: 14,

@@ -35,7 +35,8 @@ import { cardElevation } from '@/constants/theme';
 import { isOralDrug } from '@/constants/drug-pk';
 import type { Glp1Type } from '@/constants/user-profile';
 import { useHealthData } from '@/contexts/health-data';
-import { ChevronLeft, ChevronRight, Pill, RefreshCw, Syringe } from 'lucide-react-native';
+import { CalendarClock, ChevronLeft, ChevronRight, Pill, RefreshCw, Syringe } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,18 +60,29 @@ function getRecommendedSite(lastSite: string): string {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function todayString(): string {
-  const d = new Date();
+/** Local YYYY-MM-DD for a given date (avoids UTC day-shift). */
+function localYMD(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+/** Local HH:MM (24h) for storage as injection_time. */
+function localHM(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Human label for the selected dose date+time, e.g. "Today · 3:45 PM" / "Mon, May 19 · 8:00 AM". */
+function whenLabel(d: Date): string {
+  const isToday = localYMD(d) === localYMD(new Date());
+  const dateStr = isToday
+    ? 'Today'
+    : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} · ${timeStr}`;
+}
+
+/** Never allow a dose to be logged in the future. */
+function clampToNow(d: Date): Date {
+  return d.getTime() > Date.now() ? new Date() : d;
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -104,6 +116,10 @@ export default function LogDoseScreen() {
   const [batchNumber, setBatchNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [emptyStomach, setEmptyStomach] = useState<boolean | null>(null);
+  // When the dose was actually taken — defaults to now, backdatable for missed/late logging.
+  const [doseDate, setDoseDate] = useState<Date>(() => new Date());
+  const [whenOpen, setWhenOpen] = useState(false);                       // iOS: inline picker panel
+  const [androidPicker, setAndroidPicker] = useState<'date' | 'time' | null>(null);
 
   // ── Entrance animations ──────────────────────────────────────────────────
   const headerOpacity = useSharedValue(0);
@@ -178,7 +194,8 @@ export default function LogDoseScreen() {
       Alert.alert('Dose not set', 'Please set your medication and dose in Settings before logging.');
       return;
     }
-    const date = todayString();
+    const date = localYMD(doseDate);
+    const time = localHM(doseDate);
     const emptyStomachNote = isOral && emptyStomach !== null
       ? (emptyStomach ? '(taken on empty stomach)' : '(taken with food/water; absorption may be reduced)')
       : '';
@@ -186,7 +203,7 @@ export default function LogDoseScreen() {
     const success = await addInjectionLog(
       doseMg,
       date,
-      undefined,
+      time,
       isOral ? undefined : (site === 'Other' ? customSite.trim() : site),
       combinedNotes || undefined,
       medication,
@@ -229,7 +246,7 @@ export default function LogDoseScreen() {
 
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>{isOral ? 'Log Dose' : 'Log Injection'}</Text>
-          <Text style={s.dateLabel}>{todayLabel()}</Text>
+          <Text style={s.dateLabel}>{whenLabel(doseDate)}</Text>
         </View>
 
         <View style={s.headerSpacer} />
@@ -256,6 +273,66 @@ export default function LogDoseScreen() {
             </Text>
             <ChevronRight size={14} color={colors.textMuted} />
           </TouchableOpacity>
+        </Animated.View>
+
+        {/* ── When did you take it? (backdatable) ── */}
+        <Animated.View style={medRowAnim}>
+          <TouchableOpacity
+            style={s.whenRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS === 'android') setAndroidPicker('date');
+              else setWhenOpen((v) => !v);
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel={`${isOral ? 'Taken' : 'Injected'}: ${whenLabel(doseDate)}. Tap to change the date and time`}
+            accessibilityRole="button"
+          >
+            <CalendarClock size={15} color={colors.textMuted} />
+            <Text style={s.whenRowText} numberOfLines={1}>
+              {isOral ? 'Taken' : 'Injected'} · {whenLabel(doseDate)}
+            </Text>
+            <ChevronRight size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {whenOpen && Platform.OS === 'ios' && (
+            <View style={s.pickerCard}>
+              <DateTimePicker
+                value={doseDate}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                onChange={(_, d) => { if (d) setDoseDate(clampToNow(d)); }}
+                themeVariant={colors.isDark ? 'dark' : 'light'}
+                textColor={colors.textPrimary}
+                style={{ alignSelf: 'center' }}
+              />
+              <DateTimePicker
+                value={doseDate}
+                mode="time"
+                display="spinner"
+                onChange={(_, d) => { if (d) setDoseDate(clampToNow(d)); }}
+                themeVariant={colors.isDark ? 'dark' : 'light'}
+                textColor={colors.textPrimary}
+                style={{ alignSelf: 'center' }}
+              />
+            </View>
+          )}
+
+          {Platform.OS === 'android' && androidPicker && (
+            <DateTimePicker
+              value={doseDate}
+              mode={androidPicker}
+              display="default"
+              maximumDate={androidPicker === 'date' ? new Date() : undefined}
+              onChange={(event, d) => {
+                if (event.type !== 'set' || !d) { setAndroidPicker(null); return; }
+                setDoseDate(clampToNow(d));
+                // After the date dialog, chain into the time dialog.
+                setAndroidPicker((prev) => (prev === 'date' ? 'time' : null));
+              }}
+            />
+          )}
         </Animated.View>
 
         {/* ── Injection Site Card (injectable only) ── */}
@@ -489,6 +566,31 @@ const createStyles = (c: AppColors) => {
       fontSize: 14,
       fontWeight: '600',
       color: c.textSecondary,
+    },
+
+    // ── When (dose date/time) ──
+    whenRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: c.borderSubtle,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      marginBottom: 16,
+    },
+    whenRowText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
+    pickerCard: {
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      paddingVertical: 4,
+      marginTop: -6,
+      marginBottom: 16,
     },
 
     // ── Section label ──

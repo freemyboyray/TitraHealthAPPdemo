@@ -23,6 +23,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { buildSystemPrompt, buildEnergySnapshot, callOpenAI, callGPT4oMiniVision, UsageLimitError, DataConsentError } from '@/lib/openai';
+import { ensureAiConsent } from '@/lib/ai-consent';
 import { resizeImageForVision } from '@/lib/image';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
@@ -326,6 +327,9 @@ export function AiChatOverlay() {
   // ─── Send message ─────────────────────────────────────────────────────────
   async function sendMessage(userText: string) {
     if ((!userText.trim() && !pendingImage) || loading) return;
+    // Prompt for AI consent before the first send. If declined, leave the
+    // input untouched so the user can decide again later.
+    if (!(await ensureAiConsent())) return;
     const text = userText.trim() || 'What is this?';
     const activeLabel = pillVisible && aiChatParams.contextLabel ? aiChatParams.contextLabel : undefined;
     const activeValue = pillVisible && aiChatParams.contextValue ? aiChatParams.contextValue : undefined;

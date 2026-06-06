@@ -36,7 +36,7 @@ export default function TermsScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
   const [aiOpen, setAiOpen] = useState(false);
 
-  const { setAiDataConsent, setFoodDbConsent } = usePreferencesStore();
+  const { setFoodDbConsent } = usePreferencesStore();
 
   const handleContinue = () => {
     const now = new Date().toISOString();
@@ -48,16 +48,18 @@ export default function TermsScreen() {
       aiAcceptedAt: now,
       aiVersion: AI_VERSION,
     });
-    // Grant data consent for AI and food database when user accepts terms
-    setAiDataConsent(true);
+    // Food-database (FatSecret) access powers core food logging and shares only
+    // search queries — no health or personal data — so it's enabled on terms
+    // acceptance. AI (OpenAI) data sharing is NOT granted here; it requires a
+    // separate, explicit opt-in on the next screen (App Store Guideline 5.1.1(i)).
     setFoodDbConsent(true);
-    router.push('/onboarding/doctor-code');
+    router.push('/onboarding/ai-consent');
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={3} total={16} onBack={() => router.back()} />
+        <OnboardingHeader step={3} total={17} onBack={() => router.back()} />
 
         <Text style={s.title}>We respect{'\n'}your data</Text>
         <Text style={s.subtitle}>
@@ -105,7 +107,7 @@ export default function TermsScreen() {
         <View style={s.bottom}>
           <ContinueButton onPress={handleContinue} label="Accept and Continue" />
           <Text style={s.footerText}>
-            By continuing, you acknowledge that you have read and agree to our Terms of Service, Privacy Policy, and AI Disclosure — and you give your explicit permission for the data described in the AI Disclosure to be sent to OpenAI and FatSecret.
+            By continuing, you acknowledge that you have read and agree to our Terms of Service, Privacy Policy, and AI Disclosure. You'll choose whether to enable AI features on the next screen.
           </Text>
         </View>
       </View>

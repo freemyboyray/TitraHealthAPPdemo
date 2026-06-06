@@ -25,6 +25,7 @@ import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
+import { ensureAiConsent } from '@/lib/ai-consent';
 import { useUiStore } from '@/stores/ui-store';
 import { useProfile } from '@/contexts/profile-context';
 import { isOralDrug } from '@/constants/drug-pk';
@@ -120,6 +121,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
   const handleParseFood = async () => {
     if (!foodDescription.trim()) return;
+    // Describe Food sends the description to OpenAI — prompt for consent first.
+    if (!(await ensureAiConsent())) return;
     setAiParsingState('loading');
     try {
       const result = await parseFoodDescription(foodDescription, profile);

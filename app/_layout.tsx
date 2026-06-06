@@ -22,11 +22,13 @@ import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useLogStore } from '@/stores/log-store';
+import { useMedicationsStore } from '@/stores/medications-store';
 import { syncNotifications } from '@/stores/reminders-store';
 // react-native-iap requires a dev build; guard so Expo Go doesn't crash.
 let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
+import { AiConsentModal } from '@/components/ai-consent-modal';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
@@ -68,13 +70,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     usePreferencesStore.getState().incrementAppOpen();
   }, []);
 
-  // One-time migration: auto-grant data consent for existing users who already
-  // accepted the AI disclosure during onboarding but don't have the new consent
-  // flags set yet (introduced for App Store Guideline 5.1.1(i) compliance).
+  // Restore food-database (FatSecret) consent for returning users on a fresh
+  // install/device so core food search keeps working. AI (OpenAI) consent is
+  // deliberately NOT auto-granted here: under App Store Guideline 5.1.1(i) it
+  // must be explicitly granted by the user (onboarding opt-in or the
+  // point-of-use prompt), and `ai_accepted_at` only means the user READ the AI
+  // disclosure — not that they consented to send data. Auto-granting it would
+  // override a user who tapped "Not now".
   useEffect(() => {
     async function migrateConsent() {
       const prefs = usePreferencesStore.getState();
-      if (prefs.aiDataConsent && prefs.foodDbConsent) {
+      if (prefs.foodDbConsent) {
         useUserStore.setState({ consentMigrationDone: true });
         return;
       }
@@ -89,7 +95,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         .eq('id', user.id)
         .single();
       if (data?.ai_accepted_at) {
-        prefs.setAiDataConsent(true);
         prefs.setFoodDbConsent(true);
       }
       useUserStore.setState({ consentMigrationDone: true });
@@ -113,6 +118,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         loadProfile();
         reloadProfile();
         loadSubscription();
+        useMedicationsStore.getState().fetchMedications();
         // Identify user for analytics — no PHI, only account-level metadata
         if (posthog && session.user) {
           posthog.identify(session.user.id, {
@@ -125,6 +131,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         resetProfile();
         usePreferencesStore.getState().reset();
         useLogStore.getState().resetAll();
+        useMedicationsStore.getState().resetMedications();
         posthog?.reset();
         router.replace('/auth/welcome');
       }
@@ -158,6 +165,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             loadProfile();
             reloadProfile();
             loadSubscription();
+            useMedicationsStore.getState().fetchMedications();
             if (posthog && user) {
               posthog.identify(user.id, {
                 ...(user.email && { email: user.email }),
@@ -309,6 +317,7 @@ function RootLayoutInner() {
               </Stack>
               <StatusBar style={colors.statusBar} />
               <AiChatOverlay />
+              <AiConsentModal />
               <HealthSyncToast />
               <MilestoneLayer />
               <ReviewPromptLayer />

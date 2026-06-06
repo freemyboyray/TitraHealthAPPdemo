@@ -21,6 +21,7 @@ import {
   currentWeekWindow,
   getWeekWindow,
   getProgramWeekNumber,
+  resolveEngagementStart,
   isWithinWindow,
 } from '@/lib/program-week';
 import { ChevronLeft } from 'lucide-react-native';
@@ -310,16 +311,16 @@ export default function WeeklyCheckinScreen() {
   useEffect(() => {
     if (guarded.current) return;
     guarded.current = true;
-    const startDate = profile?.startDate;
-    if (!startDate) return;
-    const cur = currentWeekWindow(startDate);
+    // Anchor the one-per-week gate to in-app engagement, matching the home card.
+    const engagementStart = resolveEngagementStart(profile?.engagementStartDate);
+    const cur = currentWeekWindow(engagementStart);
     if (!cur) return;
     const rows = Object.values(useLogStore.getState().weeklyCheckins).flat();
     const alreadyDone = rows.some(r => isWithinWindow(r.logged_at as string, cur));
     if (alreadyDone) {
       router.replace('/entry/weekly-checkin-history');
     }
-  }, [profile?.startDate]);
+  }, [profile?.engagementStartDate]);
 
   // answers[domainIndex][questionIndex] = 0–4
   const [answers, setAnswers] = useState<number[][]>(
@@ -344,8 +345,10 @@ export default function WeeklyCheckinScreen() {
       const scoresMap: Record<string, number> = {};
       const labelsMap: Record<string, string> = {};
 
-      // Stamp the program week so each session is unambiguously keyed to a week.
-      const programWeek = getProgramWeekNumber(profile?.startDate) ?? undefined;
+      // Stamp the engagement week so each session is unambiguously keyed to a week
+      // (consistent with how the home card and history group check-ins).
+      const engagementStart = resolveEngagementStart(profile?.engagementStartDate);
+      const programWeek = getProgramWeekNumber(engagementStart) ?? undefined;
 
       await Promise.all(
         domains.map(async (domain, i) => {
@@ -359,10 +362,10 @@ export default function WeeklyCheckinScreen() {
         }),
       );
 
-      // Remind the user when the NEXT program week opens (not just +7 days), so
+      // Remind the user when the NEXT engagement week opens (not just +7 days), so
       // the reminder lines up with when the check-in actually unlocks again.
-      const cur = currentWeekWindow(profile?.startDate);
-      const nextWin = cur ? getWeekWindow(profile?.startDate, cur.index + 1) : null;
+      const cur = currentWeekWindow(engagementStart);
+      const nextWin = cur ? getWeekWindow(engagementStart, cur.index + 1) : null;
       if (nextWin) await scheduleWeeklyCheckinReminderAt(nextWin.start);
 
       router.replace({

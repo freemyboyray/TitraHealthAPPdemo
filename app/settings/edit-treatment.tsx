@@ -670,6 +670,9 @@ export default function EditTreatmentScreen() {
         <Text style={ms.stepHint}>
           This helps us accurately track your transition and schedule.
         </Text>
+        <Text style={ms.stepSource}>
+          Prefilled from your last logged dose — adjust if it's not right.
+        </Text>
         <View style={{ alignSelf: 'center', marginTop: 16 }}>
           <DateTimePicker
             value={confirmLastDoseDate}
@@ -1223,7 +1226,7 @@ export default function EditTreatmentScreen() {
       <Modal
         visible={confirmVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setConfirmVisible(false)}
       >
         <View style={ms.backdrop}>
@@ -1473,21 +1476,20 @@ const ms = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
   },
+  // Full-screen presentation so each confirmation step reads as a screen in the
+  // change flow, not a popup modal that appears after finishing.
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
   },
   card: {
-    width: '92%',
-    maxHeight: '80%',
-    borderRadius: 24,
+    flex: 1,
+    width: '100%',
     overflow: 'hidden',
   },
-  cardScroll: {},
+  cardScroll: { flex: 1 },
   cardContent: {
     padding: 28,
+    paddingTop: 72,
     paddingBottom: 8,
   },
   dotsRow: {
@@ -1634,6 +1636,14 @@ const ms = StyleSheet.create({
     color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
     lineHeight: 18,
+    fontFamily: FF,
+  },
+  stepSource: {
+    fontSize: 13,
+    color: '#FF8A4C',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 10,
     fontFamily: FF,
   },
   sitePill: {

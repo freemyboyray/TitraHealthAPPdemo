@@ -7,6 +7,7 @@ import {
   computeProfileDerivedMetrics,
 } from '@/constants/user-profile';
 import { computeBaseTargets } from '@/lib/targets';
+import { toDateStr } from '@/lib/program-week';
 import { syncDoseReminder } from '@/stores/reminders-store';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
@@ -95,6 +96,9 @@ function mapSupabaseToProfile(row: Record<string, any>): FullUserProfile {
     appleHealthEnabled: row.apple_health_enabled ?? false,
     startWeightLbs: row.start_weight_lbs ?? 0,
     startDate: row.program_start_date ?? '',
+    // When the user started using Titra (row creation), anchoring weekly + milestone
+    // features to in-app engagement rather than the historical medication start.
+    engagementStartDate: row.created_at ? toDateStr(new Date(row.created_at)) : undefined,
     goalWeightLbs: row.goal_weight_lbs ?? 0,
     goalWeightKg: Math.round((row.goal_weight_lbs ?? 0) * 0.453592 * 10) / 10,
     targetWeeklyLossLbs: row.target_weekly_loss_lbs ?? 1.0,
@@ -302,18 +306,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(DRAFT_KEY);
     setProfile(complete);
 
-    // Establish the milestone baseline. Any weight delta reported during
-    // onboarding is historical, not earned in-app — silence the popups for it
-    // so users don't get a "you've lost 10 lbs!" overlay seconds after typing
-    // their starting weight. Subsequent real losses will still celebrate.
-    const startWeight = complete.startWeightLbs ?? 0;
-    const currentWeight = complete.currentWeightLbs ?? complete.weightLbs ?? 0;
-    const initialWeightLost =
-      startWeight > 0 && currentWeight > 0 && startWeight > currentWeight
-        ? startWeight - currentWeight
-        : 0;
-    // Compute historical days on treatment so we suppress treatment milestones
-    // the user already passed before installing the app.
+    // Establish the milestone baseline. Weight milestones are measured from the
+    // user's weight when they START using Titra (engagement baseline), so the
+    // in-app loss is 0 at onboarding — pass 0 for weight so we DON'T pre-mark any
+    // weight milestone as shown (that would suppress a legitimate future
+    // "5 lbs with Titra" celebration). Treatment-day milestones, however, are
+    // tied to the real medication start, so we still suppress days already
+    // passed before install using the historical day count.
     let initialDaysOnTreatment = 0;
     if (complete.startDate) {
       const start = new Date(complete.startDate + 'T12:00:00');
@@ -322,8 +321,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       initialDaysOnTreatment = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86400000));
     }
     usePreferencesStore.getState().resetMilestoneTracking(
-      getUnlockedAchievementIds(0, initialWeightLost, initialDaysOnTreatment),
-      getReachedPhotoMilestones(initialWeightLost),
+      getUnlockedAchievementIds(0, 0, initialDaysOnTreatment),
+      getReachedPhotoMilestones(0),
     );
 
     const { data: { user } } = await supabase.auth.getUser();

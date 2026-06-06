@@ -88,6 +88,23 @@ export function isWithinWindow(iso: string | null | undefined, win: WeekWindow):
   return ms >= win.start.getTime() && ms < win.end.getTime() + DAY_MS;
 }
 
+/**
+ * Resolve the engagement anchor (when the user started using Titra), falling
+ * back to today for a brand-new profile that has no created_at yet. Use this
+ * for weekly summaries, weekly check-ins, and weight milestones so they reflect
+ * in-app progress rather than a historical medication start date.
+ */
+export function resolveEngagementStart(engagementStartDate?: string | null, now: Date = new Date()): string {
+  return engagementStartDate || toDateStr(now);
+}
+
+/** Whole days since the engagement start (local-midnight diff, never negative). */
+export function daysSinceEngagement(engagementStartDate?: string | null, now: Date = new Date()): number {
+  const start = parseStartDate(resolveEngagementStart(engagementStartDate, now));
+  if (!start) return 0;
+  return Math.max(0, Math.floor((startOfLocalDay(now) - startOfLocalDay(start)) / DAY_MS));
+}
+
 /** Whole days from `now` until `date` (local-midnight diff, never negative). */
 export function daysUntil(date: Date, now: Date = new Date()): number {
   return Math.max(0, Math.round((startOfLocalDay(date) - startOfLocalDay(now)) / DAY_MS));

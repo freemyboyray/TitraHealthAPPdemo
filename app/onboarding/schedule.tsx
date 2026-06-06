@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
@@ -37,6 +37,12 @@ export default function ScheduleScreen() {
   const [doseTime, setDoseTime] = useState(() => {
     const d = new Date(); d.setHours(8, 0, 0, 0); return d;
   });
+  // "I'm not sure" → midday (12:00 PM) reminder for a rough-time taker.
+  const [unsureTime, setUnsureTime] = useState(false);
+  const pickMidday = () => {
+    const noon = new Date(doseTime); noon.setHours(12, 0, 0, 0);
+    setDoseTime(noon); setUnsureTime(true);
+  };
 
   const freqDays =
     freq === 'custom' ? (customFreq !== '' ? parseInt(customFreq, 10) : null) : freq;
@@ -95,17 +101,35 @@ export default function ScheduleScreen() {
               <Text style={[s.subtitle, { marginBottom: 12, marginTop: -4 }]}>
                 We'll send you a daily reminder at this time.
               </Text>
-              <View style={s.datePickerWrap}>
-                <DateTimePicker
-                  value={doseTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_, date) => { if (date) setDoseTime(date); }}
-                  style={s.datePicker}
-                  textColor={colors.textPrimary}
-                  themeVariant={colors.isDark ? 'dark' : 'light'}
-                />
-              </View>
+              {unsureTime ? (
+                <TouchableOpacity
+                  style={s.middayRow}
+                  activeOpacity={0.7}
+                  onPress={() => setUnsureTime(false)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.middayTitle}>Midday reminder · 12:00 PM</Text>
+                    <Text style={s.midToggleLink}>Set a specific time instead</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <View style={s.datePickerWrap}>
+                    <DateTimePicker
+                      value={doseTime}
+                      mode="time"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(_, date) => { if (date) setDoseTime(date); }}
+                      style={s.datePicker}
+                      textColor={colors.textPrimary}
+                      themeVariant={colors.isDark ? 'dark' : 'light'}
+                    />
+                  </View>
+                  <TouchableOpacity onPress={pickMidday} activeOpacity={0.7} style={{ paddingVertical: 8 }}>
+                    <Text style={s.midToggleLink}>I'm not sure — just remind me midday</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </>
           )}
         </ScrollView>
@@ -131,6 +155,12 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   sectionLabel: { fontSize: 18, fontWeight: '600', fontFamily: 'System', color: c.textPrimary, marginTop: 24, marginBottom: 12 },
   datePickerWrap: { marginBottom: 8, alignItems: 'center' },
   datePicker:   { width: '100%', height: 180 },
+  midToggleLink: { fontSize: 14, fontWeight: '600', color: c.orange, fontFamily: 'System' },
+  middayRow: {
+    flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14,
+    borderWidth: 1, borderColor: c.orange, backgroundColor: 'rgba(255,116,42,0.06)',
+  },
+  middayTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: 'System', marginBottom: 2 },
   tipCard:      {
     backgroundColor: 'rgba(255,116,42,0.10)', borderWidth: 1, borderColor: 'rgba(255,116,42,0.30)',
     borderRadius: 16, padding: 16, marginBottom: 8,

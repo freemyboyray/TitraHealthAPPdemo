@@ -14,7 +14,7 @@ import { useLogStore } from '@/stores/log-store';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { computeWeeklySummary } from '@/lib/weekly-summary';
 import { generateWeeklyInsight } from '@/lib/openai';
-import { currentWeekWindow, getWeekWindow } from '@/lib/program-week';
+import { currentWeekWindow, getWeekWindow, resolveEngagementStart } from '@/lib/program-week';
 import { scheduleWeeklyCheckinReminderAt } from '@/lib/notifications';
 
 /**
@@ -32,24 +32,29 @@ export function useWeeklySummaryAutoGen() {
   // refetch is async, so the existence check below can briefly still be false).
   const ranForWeek = useRef<string | null>(null);
 
-  // Keep a local check-in reminder pointed at the start of the next program week,
-  // so a new week's check-in announces itself even without a server cron.
+  // Anchor weekly windows to when the user started using Titra, not their
+  // (possibly historical) medication start — so summaries/check-ins describe
+  // real in-app activity rather than weeks before the account existed.
+  const engagementStart = resolveEngagementStart(profile?.engagementStartDate);
+
+  // Keep a local check-in reminder pointed at the start of the next engagement
+  // week, so a new week's check-in announces itself even without a server cron.
   useEffect(() => {
-    if (!profile?.startDate) return;
-    const cur = currentWeekWindow(profile.startDate);
+    if (!profile) return;
+    const cur = currentWeekWindow(engagementStart);
     if (!cur) return;
-    const nextWin = getWeekWindow(profile.startDate, cur.index + 1);
+    const nextWin = getWeekWindow(engagementStart, cur.index + 1);
     if (nextWin) scheduleWeeklyCheckinReminderAt(nextWin.start).catch(() => {});
-  }, [profile?.startDate]);
+  }, [profile, engagementStart]);
 
   useEffect(() => {
-    if (!profile?.startDate || !hydrated || !targets) return;
+    if (!profile || !hydrated || !targets) return;
 
-    const cur = currentWeekWindow(profile.startDate);
-    // Need at least one fully-completed program week (index >= 1) to summarize.
+    const cur = currentWeekWindow(engagementStart);
+    // Need at least one fully-completed engagement week (index >= 1) to summarize.
     if (!cur || cur.index < 1) return;
 
-    const lastWin = getWeekWindow(profile.startDate, cur.index - 1);
+    const lastWin = getWeekWindow(engagementStart, cur.index - 1);
     if (!lastWin) return;
 
     if (ranForWeek.current === lastWin.endStr) return;
@@ -110,5 +115,5 @@ export function useWeeklySummaryAutoGen() {
         console.warn('useWeeklySummaryAutoGen: upsert failed', err);
       }
     })();
-  }, [profile?.startDate, hydrated, targets, weeklySummaries, aiDataConsent]);
+  }, [engagementStart, profile, hydrated, targets, weeklySummaries, aiDataConsent]);
 }

@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { transcribeAudio } from '../lib/whisper';
 import { UsageLimitError } from '../lib/openai';
+import { ensureAiConsent } from '../lib/ai-consent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Recording = any;
@@ -14,6 +15,9 @@ export function useVoiceInput() {
 
   async function startRecording() {
     setError(null);
+    // Voice transcription sends audio to OpenAI — get explicit consent before
+    // we even engage the microphone. Bails silently if the user declines.
+    if (!(await ensureAiConsent())) return;
     try {
       // Dynamic import to avoid crashing if expo-av not linked
       // eslint-disable-next-line @typescript-eslint/no-require-imports

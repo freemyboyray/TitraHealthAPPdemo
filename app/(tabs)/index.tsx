@@ -26,7 +26,7 @@ import {
   type ShotPhase,
   type IntradayPhase,
 } from '@/constants/scoring';
-import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
+import { BRAND_DISPLAY_NAMES, isOnTreatment, getTransitionPhase } from '@/constants/user-profile';
 import { isOralDrug, doseNoun, pkConcentrationPct } from '@/constants/drug-pk';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useUserStore } from '@/stores/user-store';
@@ -62,7 +62,7 @@ import { MissedShotModal } from '@/components/missed-shot-modal';
 import { TreatmentCheckModal } from '@/components/treatment-check-modal';
 import { useProgressPhotoStore } from '@/stores/progress-photo-store';
 import { useProfile } from '@/contexts/profile-context';
-import { currentWeekWindow, getWeekWindow, isWithinWindow } from '@/lib/program-week';
+import { currentWeekWindow, getWeekWindow, isWithinWindow, resolveEngagementStart, daysSinceEngagement } from '@/lib/program-week';
 import { useWeeklySummaryAutoGen } from '@/hooks/use-weekly-summary-gen';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { getEscalationPhase } from '@/lib/escalation-phase';
@@ -789,19 +789,8 @@ export default function HomeScreen() {
 
   const toggleCalendar = useCallback(() => setCalendarOpen(o => !o), []);
 
-  // ── Medication transition detection ──
-  const hasPendingTransition = profile.pendingFirstDoseDate != null;
-  const pendingFirstDoseStr = profile.pendingFirstDoseDate ?? '';
-  const pendingLastDoseOldStr = profile.pendingLastDoseOld ?? '';
-  const todayStr_transition = localDateStr(today);
-
-  type TransitionPhase = 'none' | 'old_med' | 'washout' | 'new_med_ready';
-  const transitionPhase: TransitionPhase = (() => {
-    if (!hasPendingTransition) return 'none';
-    if (todayStr_transition <= pendingLastDoseOldStr) return 'old_med';
-    if (todayStr_transition < pendingFirstDoseStr) return 'washout';
-    return 'new_med_ready';
-  })();
+  // ── Medication transition detection (shared helper — single source of truth) ──
+  const transitionPhase = getTransitionPhase(profile, today);
 
   // Auto-apply transition when the date arrives
   const transitionAppliedRef = useRef(false);
@@ -1298,6 +1287,22 @@ export default function HomeScreen() {
           )}
 
 
+          {/* ── Overdue banner (today only — dose past due, not in a transition) ── */}
+          {isToday && transitionPhase === 'none' && overdueDays > 0 && !todayInjLogged && (
+            <Pressable
+              onPress={() => router.push('/entry/log-dose')}
+              style={s.overdueHomeBanner}
+              accessibilityRole="button"
+              accessibilityLabel={`Overdue by ${overdueDays} ${overdueDays === 1 ? 'day' : 'days'}. Tap to log your ${oral ? 'dose' : 'shot'}.`}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={s.overdueHomeTitle}>Overdue by {overdueDays} {overdueDays === 1 ? 'day' : 'days'}</Text>
+                <Text style={s.overdueHomeSub}>Tap to log your {oral ? 'dose' : 'shot'}</Text>
+              </View>
+              <ChevronRight size={20} color="#E8732C" />
+            </Pressable>
+          )}
+
           {/* ── Today Pager Card (medication, energy, lifestyle highlight, article of day) ── */}
           <TodayPagerCard
             medication={{
@@ -1386,7 +1391,7 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Weekly Check-In (today only) ── */}
+          {/* ── Weekly Check-In (today only, last 3 days of the engagement week) ── */}
           {isToday && !weeklyCheckinCardDismissed && (() => {
             // Read directly from logStore so deletion updates the card synchronously,
             // without waiting for the async personalization plan recompute.
@@ -1399,13 +1404,21 @@ export default function HomeScreen() {
               ? allLoggedAts.reduce((a, b) => (a > b ? a : b))
               : null;
 
-            // Gate to one check-in per program week. A week is "done" if any
-            // check-in row falls inside the current program-week window.
-            const cur = currentWeekWindow(profile.startDate);
+            // Anchor the check-in to in-app engagement, not the historical
+            // medication start. Gate to one check-in per engagement week; a week
+            // is "done" if any check-in row falls inside the current window.
+            const engagementStart = resolveEngagementStart(profile.engagementStartDate);
+            const cur = currentWeekWindow(engagementStart);
             const currentWeekComplete = cur
               ? allRows.some(r => isWithinWindow(r.logged_at as string, cur))
               : false;
-            const nextWin = cur ? getWeekWindow(profile.startDate, cur.index + 1) : null;
+            const nextWin = cur ? getWeekWindow(engagementStart, cur.index + 1) : null;
+
+            // Only surface the "take it" prompt in the last 3 days of the week
+            // (days 4–6), so there's a week of activity to reflect on. Once it's
+            // complete, keep showing the done/locked state all week.
+            const dayInWeek = cur ? Math.floor((Date.now() - cur.start.getTime()) / 86400000) : 0;
+            if (!currentWeekComplete && dayInWeek < 4) return null;
 
             return (
               <View style={{ marginBottom: 16 }}>
@@ -1420,8 +1433,8 @@ export default function HomeScreen() {
             );
           })()}
 
-          {/* ── Weekly Summary (today only, after at least 7 days on treatment) ── */}
-          {isToday && !weeklySummaryCardDismissed && (daysOnTreatment ?? 0) >= 7 && (
+          {/* ── Weekly Summary (today only, after a full first week of using Titra) ── */}
+          {isToday && !weeklySummaryCardDismissed && daysSinceEngagement(profile.engagementStartDate) >= 7 && (
             <View style={{ marginBottom: 16 }}>
               <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} onDismiss={dismissWeeklySummaryCard} />
             </View>
@@ -1529,6 +1542,13 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
+  overdueHomeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
+  },
+  overdueHomeTitle: { fontSize: 15, fontWeight: '800', color: '#E8732C', fontFamily: FF },
+  overdueHomeSub: { fontSize: 13, fontWeight: '500', color: '#5C5C5C', fontFamily: FF, marginTop: 2 },
   greetingText: { fontSize: 28, fontWeight: '600', color: headerText, letterSpacing: -0.5, fontFamily: FF },
   greetingName: { fontSize: 28, fontWeight: '900', color: headerText, letterSpacing: -0.5, fontFamily: FF },
   dateTitle: { fontSize: 18, fontWeight: '700', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -0.3, fontFamily: FF },

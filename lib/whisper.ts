@@ -1,7 +1,11 @@
 import { supabase } from '@/lib/supabase';
-import { UsageLimitError } from '@/lib/openai';
+import { UsageLimitError, requireAiConsent } from '@/lib/openai';
 
 export async function transcribeAudio(audioUri: string): Promise<string> {
+  // Hard backstop: voice audio goes to OpenAI's Whisper API, so it requires the
+  // same AI data consent as every other OpenAI call (App Store Guideline 5.1.1(i)).
+  requireAiConsent();
+
   const formData = new FormData();
   formData.append('file', { uri: audioUri, name: 'audio.m4a', type: 'audio/m4a' } as unknown as Blob);
   formData.append('model', 'whisper-1');

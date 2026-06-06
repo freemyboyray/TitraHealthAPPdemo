@@ -104,10 +104,13 @@ export default function PrivacyScreen() {
                   <Text style={s.detailTitle}>AI Data (OpenAI)</Text>
                 </View>
                 <Text style={s.detailBody}>
-                  When enabled, the app sends meal descriptions, food photos, voice transcripts, and chat messages to OpenAI to power Ask AI, voice logging, and AI meal capture.
+                  When enabled, the app sends data to OpenAI to power Ask AI, voice logging, and AI meal capture. Depending on the feature, this includes your chat messages, meal descriptions, food photos, and voice recordings.
                 </Text>
                 <Text style={s.detailBody}>
-                  <Text style={s.detailBodyStrong}>Not shared:</Text> your name, email, weight, injection history, or other identifying health data.
+                  Ask AI and personalized insights also include a snapshot of your wellness context — your medication, dose, weight progress, scores, and side effects — so responses are relevant to you.
+                </Text>
+                <Text style={s.detailBody}>
+                  <Text style={s.detailBodyStrong}>Never shared:</Text> your name, email, or account ID.
                 </Text>
               </View>
 

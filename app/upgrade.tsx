@@ -161,33 +161,6 @@ export default function UpgradeScreen() {
     }
   };
 
-  // Dev-only: dump what StoreKit actually returns so we can see why a trial /
-  // price isn't showing (0 products vs. products with no intro offer fields).
-  const handleDebugIAP = async () => {
-    if (!storekit) { Alert.alert('IAP Debug', 'storekit module not loaded (Expo Go?)'); return; }
-    try {
-      const products = await storekit.getProducts();
-      const diag = storekit.getIAPDiagnostics?.() ?? {};
-      const lines = products.map((p: any) => {
-        const intro = storekit!.getIntroOfferInfo(p);
-        return [
-          `• ${p.productId}`,
-          `  price: ${p.displayPrice ?? p.localizedPrice ?? '?'}`,
-          `  intro.hasOffer: ${intro.hasOffer} (${intro.trialLabel ?? 'none'})`,
-          `  stdOffers: ${Array.isArray(p.subscriptionOffers) ? p.subscriptionOffers.length : 'n/a'}`,
-          `  iosIntro: ${p.subscriptionInfoIOS?.introductoryOffer ? JSON.stringify(p.subscriptionInfoIOS.introductoryOffer) : 'null'}`,
-          `  flatPeriod: ${p.introductoryPriceSubscriptionPeriodIOS ?? 'null'} x${p.introductoryPriceNumberOfPeriodsIOS ?? 'null'} mode=${p.introductoryPricePaymentModeIOS ?? 'null'}`,
-        ].join('\n');
-      });
-      Alert.alert(
-        `IAP Debug — ${products.length} product(s)`,
-        `diag: ${JSON.stringify(diag)}\n\n${lines.join('\n\n') || '(no products returned)'}`,
-      );
-    } catch (e: any) {
-      Alert.alert('IAP Debug — error', e?.message ?? String(e));
-    }
-  };
-
   const handleRedeemDemo = async () => {
     const code = demoCode.trim();
     if (!code) return;
@@ -388,12 +361,6 @@ export default function UpgradeScreen() {
                 <Text style={s.legalLink}>Privacy Policy</Text>
               </TouchableOpacity>
             </View>
-
-            {__DEV__ && (
-              <TouchableOpacity onPress={handleDebugIAP} style={{ alignItems: 'center', paddingVertical: 8 }}>
-                <Text style={[s.legalLink, { color: colors.textMuted }]}>🔧 Debug IAP</Text>
-              </TouchableOpacity>
-            )}
 
             {fromOnboarding ? (
               <TouchableOpacity onPress={leave} activeOpacity={0.7} style={s.skipBtn} accessibilityLabel="Maybe later" accessibilityRole="button">

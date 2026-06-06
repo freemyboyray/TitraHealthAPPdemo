@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Hospital } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Hospital, RefreshCw } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import { useHealthData } from '@/contexts/health-data';
-import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
+import { BRAND_DISPLAY_NAMES, isOnTreatment, getTransitionPhase } from '@/constants/user-profile';
 import { isOralDrug } from '@/constants/drug-pk';
 import {
   daysSinceInjection,
@@ -59,6 +59,13 @@ export default function CyclePhaseScreen() {
   const phaseColor = PHASE_COLORS[shotPhase];
   const phaseFocus = getPhaseFocusMessage(shotPhase, profile?.glp1Type, freq);
 
+  // ── Overdue: the next dose is past due and hasn't been logged today ──
+  const isOverdue = !oral && isFinite(rawTodayDayNum) && rawTodayDayNum > freq && !todayInjLogged;
+  const overdueByDays = isOverdue ? rawTodayDayNum - freq : 0;
+  const lastDoseLabel = effectiveLastInjectionDate
+    ? new Date(effectiveLastInjectionDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+
   // ── Medication name ──
   const medName = (() => {
     const brand = fullUserProfile?.medicationBrand;
@@ -70,6 +77,27 @@ export default function CyclePhaseScreen() {
     return display;
   })();
   const medDose = fullUserProfile?.doseMg != null ? `${fullUserProfile.doseMg}mg` : null;
+
+  // ── Medication transition (future-dated switch) ──
+  // During washout/new_med_ready the old cycle is meaningless — show a
+  // "Between medications" state that leads with the incoming medication.
+  const transitionPhase = getTransitionPhase(fullUserProfile);
+  const inTransition = transitionPhase === 'washout' || transitionPhase === 'new_med_ready';
+  const newMedName = (() => {
+    const brand = fullUserProfile?.pendingMedicationBrand;
+    if (!brand) return 'your new medication';
+    const display = BRAND_DISPLAY_NAMES[brand];
+    return !display || display === 'Other' ? 'your new medication' : display;
+  })();
+  const newMedDose = fullUserProfile?.pendingDoseMg != null ? `${fullUserProfile.pendingDoseMg}mg` : null;
+  const newMedStartLabel = fullUserProfile?.pendingFirstDoseDate
+    ? new Date(fullUserProfile.pendingFirstDoseDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    : null;
+  const daysUntilNewMed = fullUserProfile?.pendingFirstDoseDate
+    ? Math.max(0, Math.ceil(
+        (new Date(fullUserProfile.pendingFirstDoseDate + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000,
+      ))
+    : null;
 
   // ── Treatment duration ──
   const treatmentStartDate = fullUserProfile?.startDate || fullUserProfile?.doseStartDate;
@@ -117,16 +145,61 @@ export default function CyclePhaseScreen() {
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Medication + week label */}
+        {/* Medication + week label (incoming med during a transition) */}
         <View style={s.medRow}>
           <Text style={s.medLabel}>
-            {medName}{medDose ? ` \u00b7 ${medDose}` : ''}
+            {inTransition
+              ? `${newMedName}${newMedDose ? ` \u00b7 ${newMedDose}` : ''}`
+              : `${medName}${medDose ? ` \u00b7 ${medDose}` : ''}`}
           </Text>
-          {weeksOn && <Text style={s.weekLabel}>{weeksOn}</Text>}
+          {inTransition
+            ? newMedStartLabel && <Text style={s.weekLabel}>Starts {newMedStartLabel}</Text>
+            : weeksOn && <Text style={s.weekLabel}>{weeksOn}</Text>}
         </View>
 
+        {/* Between medications \u2014 washout / new med not started yet */}
+        {inTransition && (
+          <View style={s.transitionCard}>
+            <View style={s.transitionHeader}>
+              <RefreshCw size={18} color={colors.orange} />
+              <Text style={s.transitionTitle}>Between medications</Text>
+            </View>
+            <Text style={s.transitionBody}>
+              {medName ? `Your ${medName} course has ended. ` : ''}
+              {newMedName === 'your new medication' ? 'Your new medication' : newMedName} begins
+              {newMedStartLabel ? ` ${newMedStartLabel}` : ' soon'}
+              {daysUntilNewMed != null && daysUntilNewMed > 0
+                ? ` \u2014 in ${daysUntilNewMed} ${daysUntilNewMed === 1 ? 'day' : 'days'}.`
+                : '.'}
+            </Text>
+            <Text style={s.transitionBody}>
+              Until then, keep tracking your weight, food, and activity. Your medication cycle resumes once you start.
+            </Text>
+          </View>
+        )}
+
+        {/* Overdue banner — dose is past due and not yet logged */}
+        {!inTransition && isOverdue && (
+          <Pressable
+            style={s.overdueBanner}
+            onPress={() => router.push('/entry/log-dose' as any)}
+            accessibilityRole="button"
+            accessibilityLabel={`Overdue by ${overdueByDays} ${overdueByDays === 1 ? 'day' : 'days'}. Tap to log your shot.`}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={s.overdueTitle}>
+                Overdue by {overdueByDays} {overdueByDays === 1 ? 'day' : 'days'}
+              </Text>
+              <Text style={s.overdueSub}>
+                {lastDoseLabel ? `Last dose ${lastDoseLabel} · ` : ''}Tap to log your shot
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#E8732C" />
+          </Pressable>
+        )}
+
         {/* Hero phase name + timeline — injectable only */}
-        {!oral && (
+        {!inTransition && !oral && (
           <>
             <Text style={[s.heroPhase, { color: phaseColor }]}>
               {phaseFocus.title}
@@ -144,20 +217,23 @@ export default function CyclePhaseScreen() {
                 todayInjLogged={todayInjLogged}
                 oral={oral}
                 colors={colors}
+                overdueByDays={overdueByDays}
               />
             </View>
           </>
         )}
 
         {/* Phase insight card */}
-        <View style={s.insightCard}>
-          <Text style={[s.insightTitle, { color: phaseColor }]}>
-            What to expect
-          </Text>
-          <Text style={s.insightBody}>
-            {phaseFocus.message}
-          </Text>
-        </View>
+        {!inTransition && (
+          <View style={s.insightCard}>
+            <Text style={[s.insightTitle, { color: phaseColor }]}>
+              What to expect
+            </Text>
+            <Text style={s.insightBody}>
+              {phaseFocus.message}
+            </Text>
+          </View>
+        )}
 
         {/* My Medications link */}
         <Pressable
@@ -200,6 +276,19 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     fontSize: 13, fontWeight: '500', color: c.textMuted, fontFamily: FF,
   },
 
+  overdueBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(232,115,44,0.12)',
+    borderRadius: 14, padding: 14, marginTop: 12, marginBottom: 4,
+    borderWidth: 1, borderColor: 'rgba(232,115,44,0.35)',
+  },
+  overdueTitle: {
+    fontSize: 15, fontWeight: '800', color: '#E8732C', fontFamily: FF,
+  },
+  overdueSub: {
+    fontSize: 13, fontWeight: '500', color: c.textSecondary, fontFamily: FF, marginTop: 2,
+  },
+
   heroPhase: {
     fontSize: 32, fontWeight: '800', fontFamily: FF, letterSpacing: -0.5,
     marginBottom: 2,
@@ -222,6 +311,19 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderColor: c.border,
     marginBottom: 16,
   },
+
+  transitionCard: {
+    backgroundColor: 'rgba(255,116,42,0.08)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.25)',
+    marginTop: 16, marginBottom: 16,
+    gap: 10,
+  },
+  transitionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  transitionTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF },
+  transitionBody: { fontSize: 14, fontWeight: '400', color: c.textSecondary, fontFamily: FF, lineHeight: 20 },
   insightTitle: {
     fontSize: 15, fontWeight: '700', fontFamily: FF, marginBottom: 6,
   },

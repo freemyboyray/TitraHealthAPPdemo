@@ -9,6 +9,7 @@ import {
   WEIGHT_ACHIEVEMENT_THRESHOLDS,
   type Achievement,
 } from '@/constants/achievements';
+import { resolveEngagementStart } from '@/lib/program-week';
 
 export type MilestoneEvent =
   | { type: 'achievement'; achievement: Achievement }
@@ -43,13 +44,25 @@ export function useAchievementDetector() {
   const weightLost = useMemo(() => {
     const latestLog = weightLogs[0];
     // Only calculate weight loss from actual weight log entries — never fall
-    // back to profile.currentWeightLbs alone, which can drift from
-    // startWeightLbs (e.g. via HealthKit sync) and trigger false achievements.
+    // back to profile.currentWeightLbs alone, which can drift from the baseline
+    // (e.g. via HealthKit sync) and trigger false achievements.
     if (!latestLog) return 0;
-    const startWeight = profile?.startWeightLbs ?? 0;
     const currentWeight = latestLog.weight_lbs;
-    if (startWeight > 0 && currentWeight > 0 && startWeight > currentWeight) {
-      return startWeight - currentWeight;
+
+    // Baseline = the user's weight when they STARTED using Titra, so milestones
+    // celebrate in-app progress, not weight lost before they ever installed the
+    // app. Use the earliest weight log on/after the engagement start; if none
+    // exists yet, baseline = current weight (→ 0 lost, nothing to celebrate).
+    const engagementStart = resolveEngagementStart(profile?.engagementStartDate);
+    const engagementMs = new Date(engagementStart + 'T00:00:00').getTime();
+    const onAfter = weightLogs.filter((l) => new Date(l.logged_at).getTime() >= engagementMs);
+    const baselineLog = onAfter.length > 0
+      ? onAfter.reduce((a, b) => (new Date(a.logged_at).getTime() <= new Date(b.logged_at).getTime() ? a : b))
+      : null;
+    const baseline = baselineLog?.weight_lbs ?? currentWeight;
+
+    if (baseline > 0 && currentWeight > 0 && baseline > currentWeight) {
+      return baseline - currentWeight;
     }
     return 0;
   }, [profile, weightLogs]);

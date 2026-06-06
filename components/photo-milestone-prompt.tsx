@@ -104,7 +104,7 @@ export function PhotoMilestonePrompt({ lbs, achievement, onTakePhoto, onDismiss 
           {/* Title & subtitle */}
           <Animated.View style={[styles.textWrap, contentStyle]}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              You've lost {lbs} lbs!
+              {lbs} lbs lost with Titra!
             </Text>
             {achievement ? (
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
