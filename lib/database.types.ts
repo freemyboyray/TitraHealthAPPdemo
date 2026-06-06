@@ -472,6 +472,7 @@ export type Database = {
           fatsecret_food_id: number | null
           fiber_g: number
           food_name: string
+          hydration_ml: number | null
           id: string
           image_url: string | null
           iron_mg: number | null
@@ -506,6 +507,7 @@ export type Database = {
           fatsecret_food_id?: number | null
           fiber_g?: number
           food_name: string
+          hydration_ml?: number | null
           id?: string
           image_url?: string | null
           iron_mg?: number | null
@@ -540,6 +542,7 @@ export type Database = {
           fatsecret_food_id?: number | null
           fiber_g?: number
           food_name?: string
+          hydration_ml?: number | null
           id?: string
           image_url?: string | null
           iron_mg?: number | null
@@ -1803,6 +1806,7 @@ export type Database = {
       }
     }
     Functions: {
+      auth_methods_for_email: { Args: { p_email: string }; Returns: string[] }
       check_and_increment_usage: {
         Args: { p_feature_key: string; p_limit: number; p_user_id: string }
         Returns: Json

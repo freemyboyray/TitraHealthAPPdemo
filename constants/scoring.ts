@@ -33,7 +33,12 @@ export type DailyTargets = {
 
 export type DailyActuals = {
   proteinG: number;
+  // Total daily hydration shown to the user = waterManualMl + waterFoodMl.
+  // Consumers read waterMl; the split below is internal bookkeeping so only the
+  // manual portion is persisted (beverage hydration derives from food_logs).
   waterMl: number;
+  waterManualMl?: number; // manually logged water (AsyncStorage-backed)
+  waterFoodMl?: number;   // Σ food_logs.hydration_ml for the day (derived, not persisted)
   fiberG: number;
   steps: number;
   caloriesKcal: number;

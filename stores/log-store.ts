@@ -124,6 +124,9 @@ type LogStore = {
     // Optional override for when the meal was eaten (ISO string). Defaults to
     // the DB's now() when omitted. Lets users backfill past meals.
     logged_at?: string;
+    // Effective hydration (mL) for beverages — summed into the daily water
+    // total so it derives from food_logs like macros do (delete = reversible).
+    hydration_ml?: number;
     // Extended nutrition fields (scaled to logged serving). All optional.
     saturated_fat_g?: number;
     sugar_g?: number;
@@ -669,6 +672,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
         logged_at: entry.logged_at ?? undefined,
         raw_ai_response: entry.raw_ai_response ?? null,
         barcode: entry.barcode ?? null,
+        hydration_ml: entry.hydration_ml ?? null,
         saturated_fat_g: entry.saturated_fat_g ?? null,
         sugar_g: entry.sugar_g ?? null,
         sodium_mg: entry.sodium_mg ?? null,

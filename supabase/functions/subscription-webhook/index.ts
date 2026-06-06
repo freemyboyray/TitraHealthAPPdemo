@@ -307,6 +307,20 @@ async function handleAppleNotification(
     ? new Date(transactionInfo.expiresDate as number).toISOString()
     : null;
 
+  // Audit every verified Apple notification so the exact type/subtype Apple sends
+  // is queryable (the request logs don't surface console output). Best-effort —
+  // never let an audit failure block entitlement processing.
+  try {
+    await supabase.from('webhook_events').insert({
+      provider: 'app_store',
+      notification_type: notificationType,
+      subtype: subtype ?? null,
+      user_id: userId,
+      expires_date: expiresDate,
+      data: transactionInfo,
+    });
+  } catch (_e) { /* ignore audit errors */ }
+
   // Map Apple notification types to our subscription status
   let status: SubscriptionStatus;
   let isPremium: boolean;
@@ -350,11 +364,19 @@ async function handleAppleNotification(
       break;
 
     default:
-      console.log(`[apple-webhook] Unhandled type: ${notificationType}`);
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+      // Unknown/uncommon type: don't silently drop it. The transaction is signed
+      // and verified, so derive entitlement from its expiry — a future expiry means
+      // the user is currently entitled; a past one means they aren't. This keeps the
+      // webhook robust to whatever type the sandbox/production sends for a purchase.
+      console.log(`[apple-webhook] Unhandled type ${notificationType} — deriving from expiry`);
+      if (expiresDate && new Date(expiresDate).getTime() > Date.now()) {
+        status = 'active';
+        isPremium = true;
+      } else {
+        status = 'expired';
+        isPremium = false;
+      }
+      break;
   }
 
   // Upsert subscription record

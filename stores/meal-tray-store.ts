@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useLogStore, type MealType, type FoodSource } from './log-store';
+import { classifyBeverage, hydrationMl } from '../lib/beverage';
 import type { Database } from '../lib/database.types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,6 +20,11 @@ export type TrayItem = {
   serving_description?: string;
   barcode?: string;
   raw_ai_response?: object;
+  // Effective hydration this item contributes to the daily water total (mL).
+  // Beverages only (chai, coffee, juice…); 0/undefined for solid food. Stamped
+  // at add time from the food name + category so it flows to food_logs and the
+  // daily water total derives from it — see addToTray.
+  hydration_ml?: number;
   // Extended nutrition fields (scaled to logged serving). All optional.
   saturated_fat_g?: number;
   sugar_g?: number;
@@ -159,7 +165,19 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
   // ── Tray ──────────────────────────────────────────────────────────────────
 
   addToTray: (item) =>
-    set((s) => ({ trayItems: [...s.trayItems, { ...item, id: uid() }] })),
+    set((s) => {
+      // Credit beverage fluid to daily hydration. Classify from the item's own
+      // name + category (a "Chai" tray row, multi-component or not) and convert
+      // its logged grams (~1 g/mL) to effective mL. Caller-supplied hydration_ml
+      // wins so callers can override. Non-beverages stay undefined.
+      const bev = classifyBeverage(item.food_name, item.fatsecret_category_name);
+      const hydration_ml =
+        item.hydration_ml ??
+        (bev.isBeverage && bev.hydrationFactor > 0
+          ? hydrationMl(item.serving_g, bev.hydrationFactor)
+          : undefined);
+      return { trayItems: [...s.trayItems, { ...item, hydration_ml, id: uid() }] };
+    }),
 
   removeFromTray: (id) =>
     set((s) => ({ trayItems: s.trayItems.filter((it) => it.id !== id) })),
@@ -206,6 +224,7 @@ export const useMealTrayStore = create<MealTrayStore>((set, get) => ({
           source: item.source,
           barcode: item.barcode,
           raw_ai_response: item.raw_ai_response,
+          hydration_ml: item.hydration_ml,
           // Premier nutrition + metadata so Trends, Top Contributors, and
           // Nutrition Metrics actually have data once a user logs through the tray.
           saturated_fat_g: item.saturated_fat_g,

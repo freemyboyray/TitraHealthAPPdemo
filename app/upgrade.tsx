@@ -134,7 +134,12 @@ export default function UpgradeScreen() {
       }
       if (selectedPlan === 'annual') await storekit.purchaseAnnual();
       else await storekit.purchaseMonthly();
-      await refreshPremiumStatus();
+      // Optimistically unlock so the screen flips to the premium view immediately.
+      // The IAP purchase listener (storekit.ts) also fires setPremium(true) and then
+      // re-confirms from the DB once Apple's server notification has reached the
+      // webhook. Do NOT call refreshPremiumStatus() synchronously here — the webhook
+      // hasn't run yet, so the DB still says "free" and it would clobber this unlock.
+      setPremium(true);
       posthog?.capture('purchase_completed', { plan: selectedPlan, source });
       // Onboarding continues into the app; elsewhere we stay so the screen
       // flips to the premium-status view.

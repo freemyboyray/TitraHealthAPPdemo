@@ -39,8 +39,15 @@ const ZERO_ACTUALS: DailyActuals = {
   flightsClimbed: 0,
 };
 
+// Water is stored per local calendar day in AsyncStorage (not Supabase). Single
+// source of truth for the key so every writer/reader agrees — beverage hydration
+// credited at food-log time writes the same key manual logging does.
+export function waterStorageKey(dateStr: string = localDateStr()): string {
+  return `@titrahealth_water_${dateStr}`;
+}
+
 function todayWaterKey(): string {
-  return `@titrahealth_water_${localDateStr()}`;
+  return waterStorageKey();
 }
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
@@ -109,7 +116,14 @@ function recompute(state: HealthState): HealthState {
 function reducer(state: HealthState, action: Action): HealthState {
   switch (action.type) {
     case 'LOG_WATER': {
-      const actuals = { ...state.actuals, waterMl: state.actuals.waterMl + action.ml };
+      // Manual water logging. Only the manual portion is mutated/persisted;
+      // beverage hydration (waterFoodMl) is derived from food_logs on fetch.
+      // Floor at 0 so a "−" tap against beverage-derived water can't drive the
+      // manual portion negative (which would surface as negative water once the
+      // beverage log is deleted) — remove a drink by deleting its food log.
+      const waterManualMl = Math.max(0, (state.actuals.waterManualMl ?? 0) + action.ml);
+      const waterMl = waterManualMl + (state.actuals.waterFoodMl ?? 0);
+      const actuals = { ...state.actuals, waterManualMl, waterMl };
       return recompute({ ...state, actuals, lastLogAction: 'water' });
     }
     case 'LOG_PROTEIN': {
@@ -210,21 +224,22 @@ export function HealthProvider({
     const localMidnight = new Date();
     localMidnight.setHours(0, 0, 0, 0); // local midnight → correct UTC boundary for food_logs
 
-    // Load water from AsyncStorage (not in Supabase)
+    // Load MANUAL water from AsyncStorage (not in Supabase). Beverage hydration
+    // is summed from food_logs below; the displayed total is manual + food.
     const storedWater = await AsyncStorage.getItem(todayWaterKey());
-    const waterMl = storedWater ? parseFloat(storedWater) : 0;
+    const waterManualMl = storedWater ? parseFloat(storedWater) : 0;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      // Unauthenticated: still apply any logged water
-      if (waterMl > 0) {
-        dispatch({ type: 'MERGE_ACTUALS', updates: { waterMl } });
+      // Unauthenticated: no food_logs to read, so total is just manual water.
+      if (waterManualMl > 0) {
+        dispatch({ type: 'MERGE_ACTUALS', updates: { waterMl: waterManualMl, waterManualMl, waterFoodMl: 0 } });
       }
       return;
     }
 
     const [foodRes, actRes, injRes] = await Promise.all([
-      supabase.from('food_logs').select('protein_g,fiber_g,calories').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
+      supabase.from('food_logs').select('protein_g,fiber_g,calories,hydration_ml').eq('user_id', user.id).gte('logged_at', localMidnight.toISOString()),
       supabase.from('activity_logs').select('steps').eq('user_id', user.id).eq('date', todayStr),
       supabase.from('injection_logs').select('injection_date').eq('user_id', user.id).gte('injection_date', todayStr).limit(1),
     ]);
@@ -236,11 +251,12 @@ export function HealthProvider({
     const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0) + qa.proteinG;
     const fiberG = foods.reduce((s, f) => s + (f.fiber_g ?? 0), 0) + qa.fiberG;
     const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0) + qa.calories;
+    const waterFoodMl = foods.reduce((s, f) => s + (f.hydration_ml ?? 0), 0);
     const steps = (actRes.data ?? []).reduce((s, a) => s + (a.steps ?? 0), 0) + qa.steps;
     const injectionLogged = (injRes.data ?? []).length > 0;
     dispatch({
       type: 'MERGE_ACTUALS',
-      updates: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged },
+      updates: { proteinG, fiberG, steps, waterMl: waterManualMl + waterFoodMl, waterManualMl, waterFoodMl, caloriesKcal, injectionLogged },
     });
   }
 
@@ -260,10 +276,14 @@ export function HealthProvider({
     return () => subscription.unsubscribe();
   }, []);
 
-  // Persist water to AsyncStorage whenever it changes
+  // Persist the MANUAL water portion to AsyncStorage whenever it changes.
+  // Beverage hydration lives on food_logs and is re-derived on fetch, so it must
+  // never be written here — persisting the combined total would double-count it
+  // on the next load.
   useEffect(() => {
-    AsyncStorage.setItem(todayWaterKey(), String(state.actuals.waterMl));
-  }, [state.actuals.waterMl]);
+    if (state.actuals.waterManualMl == null) return; // pre-fetch: nothing to persist yet
+    AsyncStorage.setItem(todayWaterKey(), String(state.actuals.waterManualMl));
+  }, [state.actuals.waterManualMl]);
 
   // Auto-clear lastLogAction after 600ms
   useEffect(() => {
@@ -314,14 +334,14 @@ export type DailySnapshot = {
 };
 
 export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot> {
-  const waterKey = `@titrahealth_water_${dateStr}`;
+  const waterKey = waterStorageKey(dateStr);
   const storedWater = await AsyncStorage.getItem(waterKey);
-  const waterMl = storedWater ? parseFloat(storedWater) : 0;
+  const waterManualMl = storedWater ? parseFloat(storedWater) : 0;
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
-      actuals: { proteinG: 0, waterMl, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
+      actuals: { proteinG: 0, waterMl: waterManualMl, waterManualMl, waterFoodMl: 0, fiberG: 0, steps: 0, caloriesKcal: 0, injectionLogged: false, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
       foodLogs: [],
       activityLogs: [],
       weightLog: null,
@@ -336,7 +356,7 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
 
   const [foodRes, actRes, injRes, weightRes, seRes] = await Promise.all([
     supabase.from('food_logs')
-      .select('id,food_name,calories,protein_g,carbs_g,fat_g,fiber_g,meal_type,logged_at')
+      .select('id,food_name,calories,protein_g,carbs_g,fat_g,fiber_g,hydration_ml,meal_type,logged_at')
       .eq('user_id', user.id)
       .gte('logged_at', localStart.toISOString())
       .lt('logged_at', localEnd.toISOString()),
@@ -368,11 +388,12 @@ export async function fetchDailySnapshot(dateStr: string): Promise<DailySnapshot
   const proteinG = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const fiberG   = foods.reduce((s, f) => s + (f.fiber_g   ?? 0), 0);
   const caloriesKcal = foods.reduce((s, f) => s + (f.calories ?? 0), 0);
+  const waterFoodMl = foods.reduce((s, f) => s + (f.hydration_ml ?? 0), 0);
   const steps    = acts.reduce( (s, a) => s + (a.steps     ?? 0), 0);
   const injectionLogged = (injRes.data ?? []).length > 0;
 
   return {
-    actuals: { proteinG, fiberG, steps, waterMl, caloriesKcal, injectionLogged, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
+    actuals: { proteinG, fiberG, steps, waterMl: waterManualMl + waterFoodMl, waterManualMl, waterFoodMl, caloriesKcal, injectionLogged, exerciseMinutes: 0, workoutMinutes: 0, workoutCalories: 0, flightsClimbed: 0 },
     foodLogs: foods.map(f => ({
       id:        f.id,
       food_name: f.food_name,

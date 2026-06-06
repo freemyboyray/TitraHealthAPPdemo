@@ -87,3 +87,28 @@ export async function checkUsageLimit(
 
   return null;
 }
+
+/**
+ * Refunds one previously-charged use of a metered feature (floored at 0).
+ * Called when the downstream request fails (e.g. OpenAI returns a non-2xx),
+ * so users aren't charged a daily credit for an analysis that never succeeded.
+ * Best-effort: never throws — a failed refund must not break the error response.
+ */
+export async function refundUsage(
+  userId: string,
+  featureKey: FeatureKey,
+): Promise<void> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+    await supabase.rpc('refund_usage', {
+      p_user_id: userId,
+      p_feature_key: featureKey,
+    });
+  } catch (e) {
+    console.error(`[usage-limit] refund failed for ${featureKey}:`, (e as Error).message);
+  }
+}

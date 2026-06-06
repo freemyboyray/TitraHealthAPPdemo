@@ -80,10 +80,18 @@ export function initIAP(): Promise<void> {
           // Update local state optimistically for instant UI feedback
           useSubscriptionStore.getState().setPremium(true);
 
-          // Give the webhook a moment to process, then confirm from DB
-          setTimeout(() => {
-            useSubscriptionStore.getState().refreshPremiumStatus();
-          }, 3000);
+          // Deterministically validate the transaction server-side and persist the
+          // entitlement row immediately — this does NOT depend on Apple's/Google's
+          // async server notification reaching the webhook. The webhook still runs
+          // for ongoing renewals/cancellations. If the direct validation fails for
+          // any reason, fall back to polling for the webhook (non-downgrading).
+          try {
+            await verifyPurchaseWithServer(purchase);
+            await useSubscriptionStore.getState().refreshPremiumStatus();
+          } catch (err) {
+            console.warn('[IAP] Server verify failed, falling back to webhook poll:', (err as Error)?.message);
+            useSubscriptionStore.getState().confirmPremiumAfterPurchase();
+          }
         },
       );
 
@@ -183,22 +191,54 @@ export async function purchaseAnnual(): Promise<void> {
 export async function restorePurchases(): Promise<boolean> {
   try {
     const purchases = await getAvailablePurchases();
-    const hasActive = purchases.some(
-      (p) => SUBSCRIPTION_SKUS.includes(p.productId),
-    );
+    const active = purchases.filter((p) => SUBSCRIPTION_SKUS.includes(p.productId));
+    if (active.length === 0) return false;
 
-    if (hasActive) {
-      // Update local state immediately
-      useSubscriptionStore.getState().setPremium(true);
-      // Confirm with server
-      await useSubscriptionStore.getState().refreshPremiumStatus();
+    // Optimistic unlock, then validate each active purchase server-side. This is
+    // the critical bit: restore VALIDATES the receipt and writes the entitlement
+    // row directly, so it works even if the original purchase notification never
+    // reached the webhook (the row may not exist yet). refreshPremiumStatus then
+    // reads the freshly-written row authoritatively.
+    useSubscriptionStore.getState().setPremium(true);
+    for (const p of active) {
+      try {
+        await verifyPurchaseWithServer(p);
+      } catch (e) {
+        console.warn('[IAP] Restore verify failed:', (e as Error)?.message);
+      }
     }
-
-    return hasActive;
+    await useSubscriptionStore.getState().refreshPremiumStatus();
+    return useSubscriptionStore.getState().isPremium;
   } catch (err) {
     console.error('[IAP] Restore purchases failed:', err);
     return false;
   }
+}
+
+// ─── Server-side Receipt Validation ──────────────────────────────────────────
+
+/**
+ * Sends the StoreKit/Play transaction to the `verify-purchase` edge function,
+ * which validates it directly with Apple/Google and writes the entitlement row.
+ * This makes purchase + restore deterministic instead of waiting on the webhook.
+ */
+export async function verifyPurchaseWithServer(purchase: Purchase): Promise<void> {
+  const p = purchase as any;
+  // Unified token: iOS = StoreKit JWS, Android = Play purchaseToken.
+  const token: string | undefined = p.purchaseToken ?? p.jwsRepresentationIOS;
+  if (!token) throw new Error('No purchase token on transaction');
+  const productId: string | undefined = p.productId ?? p.id;
+
+  const { data, error } = await supabase.functions.invoke('verify-purchase', {
+    body: {
+      platform: Platform.OS,
+      jws: Platform.OS === 'ios' ? token : undefined,
+      purchaseToken: Platform.OS === 'android' ? token : undefined,
+      productId,
+    },
+  });
+  if (error) throw error;
+  if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
 }
 
 // ─── Format Price ────────────────────────────────────────────────────────────

@@ -51,6 +51,9 @@ import {
   ImagePlus,
   Leaf,
   Pencil,
+  ScanLine,
+  Search,
+  Sparkles,
   Trash2,
   Utensils,
   X,
@@ -67,11 +70,14 @@ const SOURCE_MAP: Record<string, 'manual' | 'barcode' | 'photo_ai' | 'search_db'
   manual: 'manual',
 };
 
-// Classify a dish as a beverage (only single-item dishes can be a drink).
+// Classify a dish as a beverage from its natural name (+ the top match's
+// FatSecret category). Keyed off the dish name, not a single-component gate, so
+// a multi-component drink ("Chai" = tea + milk + sugar) still credits hydration.
+// Mirrors meal-tray-store's addToTray so the preview chip and the credited
+// hydration agree.
 function dishBeverage(dish: { name: string; components: { results: any[]; selectedIdx: number }[] }): BeverageInfo {
-  if (dish.components.length !== 1) return { isBeverage: false, kind: 'other', hydrationFactor: 0 };
-  const food = dish.components[0].results[dish.components[0].selectedIdx];
-  return classifyBeverage(food?.name ?? dish.name, food?.category_name);
+  const food0 = dish.components[0]?.results[dish.components[0]?.selectedIdx];
+  return classifyBeverage(dish.name, food0?.category_name);
 }
 
 // A single dish's user-facing serving label for the card row.
@@ -264,6 +270,96 @@ function FailedStateWithDescribe({
   );
 }
 
+// ─── Daily photo-analysis limit reached ──────────────────────────────────────
+// Shown when the failure is a usage-limit rejection (not an unidentifiable
+// photo). AI describe/capture both consume the same metered budget, so they're
+// deliberately NOT offered here — the free fallbacks are barcode scan and
+// searching the food database, neither of which spends an AI credit.
+function PhotoLimitReached({
+  limit,
+  insets,
+  colors,
+  s,
+  onClose,
+}: {
+  limit: number;
+  insets: { top: number };
+  colors: AppColors;
+  s: any;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+
+  const goUpgrade = () => {
+    onClose();
+    router.push('/upgrade');
+  };
+  const goBarcode = () => {
+    onClose();
+    router.push('/entry/log-food?mode=scan' as any);
+  };
+  const goSearch = () => {
+    onClose();
+    router.push('/entry/log-food?mode=search' as any);
+  };
+
+  return (
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      <View style={s.header}>
+        <Pressable onPress={onClose} hitSlop={12}>
+          <ChevronLeft size={24} color={colors.textPrimary} />
+        </Pressable>
+        <Text style={s.headerTitle}>Daily limit reached</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+        <View style={s.failIllu}>
+          <Sparkles size={32} color={colors.orange} />
+          <Text style={s.failTitle}>You've used all {limit} photo analyses today</Text>
+          <Text style={s.failSub}>
+            Free plan includes {limit} AI photo analyses per day. Upgrade for unlimited, or log this
+            meal another way below — it's still free.
+          </Text>
+        </View>
+
+        <TouchableOpacity style={s.limitUpgradeBtn} onPress={goUpgrade} activeOpacity={0.85}>
+          <Sparkles size={18} color="#FFF" />
+          <Text style={s.limitUpgradeBtnText}>Upgrade for unlimited</Text>
+        </TouchableOpacity>
+
+        <View style={s.limitDivider}>
+          <View style={s.limitDividerLine} />
+          <Text style={s.limitDividerText}>Or log it free</Text>
+          <View style={s.limitDividerLine} />
+        </View>
+
+        <TouchableOpacity style={s.limitOptionRow} onPress={goBarcode} activeOpacity={0.8}>
+          <View style={s.limitOptionIcon}>
+            <ScanLine size={22} color={colors.orange} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.limitOptionTitle}>Scan a barcode</Text>
+            <Text style={s.limitOptionSub}>Packaged foods — instant macros</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={s.limitOptionRow} onPress={goSearch} activeOpacity={0.8}>
+          <View style={s.limitOptionIcon}>
+            <Search size={22} color={colors.orange} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.limitOptionTitle}>Search the food database</Text>
+            <Text style={s.limitOptionSub}>Find it by name from storage</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function ReviewFoodScreen() {
   const { taskId } = useLocalSearchParams<{ taskId: string }>();
   const router = useRouter();
@@ -277,7 +373,7 @@ export default function ReviewFoodScreen() {
 
   const { addToTray, logMeal } = useMealTrayStore();
   const hkStore = useHealthKitStore();
-  const { refreshActuals, dispatch } = useHealthData();
+  const { refreshActuals } = useHealthData();
   const setInsightsDefaultTab = useUiStore((st) => st.setInsightsDefaultTab);
 
   const dishes = task?.dishes ?? [];
@@ -417,6 +513,9 @@ export default function ReviewFoodScreen() {
           calcium_mg: m.calcium != null ? r0(m.calcium) : undefined,
           iron_mg: m.iron != null ? r1(m.iron) : undefined,
           image_url: food0?.image_url,
+          // Lets addToTray classify beverages (→ hydration_ml) with the category
+          // signal, not just the dish name.
+          fatsecret_category_name: food0?.category_name,
           raw_ai_response: { kind: 'composite', dish: dish.name, portion: dish.portion, components: composition },
         });
       }
@@ -431,11 +530,12 @@ export default function ReviewFoodScreen() {
       });
       if (synced) useUiStore.getState().showHealthSyncToast(`Nutrition saved to ${HEALTH_SERVICE_NAME}`);
 
-      // Credit beverage fluid to today's hydration (drinks add water too). Only
-      // for meals logged today — water is tracked per calendar day.
-      const isToday = loggedDate.toDateString() === new Date().toDateString();
-      if (hydrationCredit > 0 && isToday) {
-        dispatch({ type: 'LOG_WATER', ml: hydrationCredit });
+      // Beverage hydration is persisted on each food_logs row (stamped by
+      // addToTray) and the daily water total derives from it on refresh — so the
+      // credit is durable and reversible without touching AsyncStorage here.
+      // Only mirror it to HealthKit, and only for meals logged today (HK logs at
+      // "now").
+      if (hydrationCredit > 0 && loggedDate.toDateString() === new Date().toDateString()) {
         hkStore.writeWater(hydrationCredit);
       }
 
@@ -483,6 +583,17 @@ export default function ReviewFoodScreen() {
   }
 
   if (task.status === 'failed') {
+    if (task.errorKind === 'usage_limit') {
+      return (
+        <PhotoLimitReached
+          limit={task.usageLimit?.limit ?? 3}
+          insets={insets}
+          colors={colors}
+          s={s}
+          onClose={() => router.back()}
+        />
+      );
+    }
     return <FailedStateWithDescribe taskId={taskId!} error={task.error} insets={insets} colors={colors} s={s} />;
   }
 
@@ -808,5 +919,51 @@ function createStyles(c: AppColors) {
     failError: { fontSize: 13, color: '#E74C3C', marginTop: 8 },
     failBtn: { backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
     failBtnText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+    limitUpgradeBtn: {
+      backgroundColor: c.orange,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    limitUpgradeBtnText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+    limitDivider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginVertical: 22,
+    },
+    limitDividerLine: { flex: 1, height: 1, backgroundColor: c.border },
+    limitDividerText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.textMuted,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+    },
+    limitOptionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: c.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 16,
+      marginBottom: 12,
+    },
+    limitOptionIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    limitOptionTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary },
+    limitOptionSub: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
   });
 }

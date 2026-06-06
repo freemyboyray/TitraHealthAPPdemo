@@ -50,6 +50,7 @@ type SubscriptionStore = {
   checkFeatureAccess: (feature: string) => GateType;
   getFeatureLimit: (feature: FeatureKey) => number;
   refreshPremiumStatus: () => Promise<void>;
+  confirmPremiumAfterPurchase: () => Promise<void>;
   setPremium: (isPremium: boolean) => void;
 };
 
@@ -156,6 +157,62 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       status,
       currentPeriodEnd: sub?.current_period_end ?? null,
     });
+  },
+
+  confirmPremiumAfterPurchase: async () => {
+    // After a StoreKit/Play purchase the entitlement is granted by the server
+    // webhook writing the `subscriptions` row — but Apple/Google server
+    // notifications routinely lag the on-device purchase callback by seconds to
+    // minutes (especially in TestFlight/Play sandbox). So we poll for the row.
+    //
+    // Crucially this NEVER downgrades the optimistic premium grant set at purchase
+    // time: it only fills in the real status/dates once the webhook lands. If the
+    // notification never arrives within the window, the optimistic unlock stays put
+    // and loadSubscription() reconciles authoritatively on the next app launch (and
+    // "Restore Purchases" is always available as a manual fallback).
+    const MAX_ATTEMPTS = 12;
+    const INTERVAL_MS = 5000;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const [profileResult, subResult] = await Promise.all([
+        supabase.from('profiles').select('trial_ends_at').eq('id', user.id).single(),
+        supabase
+          .from('subscriptions')
+          .select('status, current_period_end')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ]);
+
+      const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
+      const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
+
+      const sub = subResult.data;
+      const status = (sub?.status ?? 'none') as SubscriptionStatus;
+      const periodActive = sub?.current_period_end
+        ? new Date(sub.current_period_end) > new Date()
+        : false;
+      const subscriptionActive =
+        status === 'active' ||
+        status === 'trialing' ||
+        (status === 'canceled' && periodActive);
+
+      if (subscriptionActive || trialActive) {
+        set({
+          isPremium: true,
+          trialEndsAt,
+          status,
+          currentPeriodEnd: sub?.current_period_end ?? null,
+          loaded: true,
+        });
+        return;
+      }
+
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS));
+      }
+    }
   },
 
   setPremium: (isPremium: boolean) => set({ isPremium }),

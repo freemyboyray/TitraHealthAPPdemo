@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { AppState } from 'react-native';
 import { searchUSDA, getFatSecretFood } from '../lib/usda';
-import { estimateMacrosWithAI, callGPT4oMiniVision, generateSearchVariants, selectBestFoodMatches } from '../lib/openai';
+import { estimateMacrosWithAI, callGPT4oMiniVision, generateSearchVariants, selectBestFoodMatches, UsageLimitError } from '../lib/openai';
 import { scheduleFoodReadyNotification } from '../lib/notifications';
 import { pickServingForEstimate } from '../lib/food-macros';
 import type { FoodResult } from '../lib/fatsecret';
@@ -70,6 +70,12 @@ export type FoodTask = {
   dishes: Dish[];
   parsedDishes: ParsedDish[];
   error?: string;
+  // Distinguishes a real "couldn't identify the food" failure from a daily
+  // usage-limit rejection, so the review screen can show the right fallback
+  // (describe/retry vs. upgrade + barcode/search) instead of always blaming
+  // the photo. Set alongside `error` when status flips to 'failed'.
+  errorKind?: 'usage_limit' | 'generic';
+  usageLimit?: { feature: string; limit: number; used: number };
   photoUris?: string[];    // review-only display; never persisted to Storage
   // Retained so a failed camera/voice task can be retried WITH its original
   // input (re-running vision), instead of restarting empty. In-memory only.
@@ -417,10 +423,19 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
         }
       } catch (err) {
         console.error('[FoodTask] Task failed:', err);
+        const isLimit = err instanceof UsageLimitError;
         set((s) => ({
           tasks: s.tasks.map((t) =>
             t.id === id
-              ? { ...t, status: 'failed' as const, error: err instanceof Error ? err.message : 'Unknown error' }
+              ? {
+                  ...t,
+                  status: 'failed' as const,
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                  errorKind: isLimit ? ('usage_limit' as const) : ('generic' as const),
+                  usageLimit: isLimit
+                    ? { feature: err.feature, limit: err.limit, used: err.used }
+                    : undefined,
+                }
               : t,
           ),
         }));

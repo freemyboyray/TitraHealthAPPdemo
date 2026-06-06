@@ -1,0 +1,20 @@
+# Supabase project configuration.
+#
+# Minimal config: this repo deploys Edge Functions individually (no full local
+# stack). The function blocks below exist to PIN per-function settings so a CLI
+# or dashboard redeploy can never silently reset them to defaults.
+
+project_id = "deywjhyaztodwbeahzqs"
+
+# Subscription webhook receives App Store Server Notifications V2 (Apple),
+# Stripe webhooks, and Google Play RTDN pushes. These are external, server-to-server
+# callers with NO Supabase JWT — the function verifies their authenticity itself
+# (Apple JWS x5c chain, Stripe HMAC, Google shared-secret token). Gateway-level JWT
+# MUST stay off or Apple/Google/Stripe get 401'd before the handler ever runs.
+[functions.subscription-webhook]
+verify_jwt = false
+
+# delete-account is called with an Authorization header but does its own checks
+# and was deployed with verify_jwt disabled — pin it so it stays that way.
+[functions.delete-account]
+verify_jwt = false

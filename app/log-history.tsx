@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useHealthData } from '@/contexts/health-data';
 import {
   useLogStore,
   type FoodLog, type ActivityLog, type InjectionLog, type WeightLog, type SideEffectLog,
@@ -288,6 +289,7 @@ export default function LogHistoryScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const store = useLogStore();
+  const { refreshActuals } = useHealthData();
   const { foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs } = store;
   const [visibleDays, setVisibleDays] = useState(5);
   const [editState, setEditState] = useState<EditState>(null);
@@ -370,10 +372,13 @@ export default function LogHistoryScreen() {
             case 'activity': await store.deleteActivityLog(id); break;
             case 'side_effect': await store.deleteSideEffectLog(id); break;
           }
+          // Re-derive daily actuals (protein/water/etc.) so a deleted beverage's
+          // hydration drops from the water total immediately.
+          if (logType === 'food') refreshActuals();
         },
       },
     ]);
-  }, [store]);
+  }, [store, refreshActuals]);
 
   const handleSaveEdit = useCallback(async (id: string, logType: FilterType, fields: Record<string, string>) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

@@ -47,6 +47,13 @@ WebBrowser.maybeCompleteAuthSession();
 const FONT = 'System';
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
+// Human-readable name for an auth provider returned by auth_methods_for_email.
+const providerLabel = (p: string) =>
+  p === 'google' ? 'Google'
+  : p === 'apple' ? 'Apple'
+  : p === 'email' ? 'email & password'
+  : p;
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
@@ -85,6 +92,26 @@ export default function SignInScreen() {
   }, [isLoginMode]);
   const modeAnim = useAnimatedStyle(() => ({ opacity: modeOpacity.value }));
 
+  // A Google/Apple-only account has no password, so signInWithPassword returns a
+  // generic "Invalid login credentials". If the account actually exists without
+  // an email identity, point the user at the method they really used. Returns
+  // true if it handled the message (so the caller skips the generic error).
+  const maybeShowSocialOnlyHint = async (addr: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase.rpc('auth_methods_for_email', { p_email: addr });
+      const methods = Array.isArray(data) ? data : [];
+      // Only override when the account exists WITHOUT a password identity — a
+      // wrong password on a real email account still gets the generic error.
+      if (methods.length > 0 && !methods.includes('email')) {
+        const social = methods.filter(m => m === 'google' || m === 'apple').map(providerLabel);
+        const label = social.length > 0 ? social.join(' or ') : 'a different method';
+        setError(`This email is registered with ${label}. Use “Continue with ${label}” below to sign in.`);
+        return true;
+      }
+    } catch { /* fall back to the generic error */ }
+    return false;
+  };
+
   const handleLogin = async () => {
     const trimmed = email.trim();
     if (!trimmed || !password) { setError('Please enter your email and password.'); return; }
@@ -92,12 +119,41 @@ export default function SignInScreen() {
     setSignUpLoading(true);
     try {
       const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email: trimmed, password });
-      if (signInErr) { setError(signInErr.message); return; }
+      if (signInErr) {
+        const handled = await maybeShowSocialOnlyHint(trimmed);
+        if (!handled) setError(signInErr.message);
+        return;
+      }
       if (data.session) await finishAuth(data.session);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed');
     } finally {
       setSignUpLoading(false);
+    }
+  };
+
+  // An email is already registered — tell the user which method they used last
+  // time, instead of Supabase's silent no-op. Looks up the providers via the
+  // auth_methods_for_email RPC; falls back to a generic message if unavailable.
+  const handleExistingAccount = async (addr: string) => {
+    let methods: string[] = [];
+    try {
+      const { data } = await supabase.rpc('auth_methods_for_email', { p_email: addr });
+      if (Array.isArray(data)) methods = data;
+    } catch { /* fall through to generic message */ }
+
+    const social = methods.filter(m => m === 'google' || m === 'apple');
+    if (methods.includes('email')) {
+      // They have a password — drop them onto the login form ready to sign in.
+      setIsLoginMode(true);
+      setError('You already have an account with this email. Enter your password to log in.');
+    } else if (social.length > 0) {
+      const label = social.map(providerLabel).join(' or ');
+      setError(`This email is already registered with ${label}. Use “Continue with ${label}” below to sign in.`);
+    } else {
+      // Account exists but provider lookup failed — generic but still actionable.
+      setIsLoginMode(true);
+      setError('An account with this email already exists. Try logging in instead.');
     }
   };
 
@@ -109,7 +165,23 @@ export default function SignInScreen() {
     setSignUpLoading(true);
     try {
       const { data, error: signUpErr } = await supabase.auth.signUp({ email: trimmed, password });
-      if (signUpErr) { setError(signUpErr.message); return; }
+      if (signUpErr) {
+        // Some configs return an explicit "already registered" error instead of
+        // the obfuscated empty-identities response handled below.
+        if (signUpErr.message.toLowerCase().includes('already registered')) {
+          await handleExistingAccount(trimmed);
+        } else {
+          setError(signUpErr.message);
+        }
+        return;
+      }
+      // Supabase's anti-enumeration behavior: an existing email returns a user
+      // with an empty identities array (and no session) that looks just like a
+      // fresh signup. Detect it so we don't silently send the user nowhere.
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        await handleExistingAccount(trimmed);
+        return;
+      }
       if (data.session) {
         // No email confirmation required → straight into the app.
         await finishAuth(data.session);

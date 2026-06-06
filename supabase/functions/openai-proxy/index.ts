@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth, CORS } from '../_shared/auth.ts';
-import { checkUsageLimit } from '../_shared/usage-limit.ts';
+import { checkUsageLimit, refundUsage } from '../_shared/usage-limit.ts';
 import type { FeatureKey } from '../_shared/usage-limit.ts';
 
 // TEMP debug: record OpenAI 502 failures to a table so production failures are
@@ -81,10 +81,6 @@ Deno.serve(async (req: Request) => {
         ? 'food_parse'
         : 'ai_chat';
 
-    // Check usage limit for non-premium users
-    const limitResponse = await checkUsageLimit(auth.userId, featureKey);
-    if (limitResponse) return limitResponse;
-
     // Build a sanitized body with only allowed fields — prevents abuse via
     // parameters like n (multiple completions), tools, functions, or stream.
     const sanitized: Record<string, unknown> = {
@@ -113,6 +109,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Check + charge usage only once the request is valid and about to hit
+    // OpenAI. Charging earlier would burn a daily credit on requests that fail
+    // local validation (e.g. oversized payload). The charge is refunded below
+    // if OpenAI itself errors, so users are only ever charged for a call that
+    // actually reached the model.
+    const limitResponse = await checkUsageLimit(auth.userId, featureKey);
+    if (limitResponse) return limitResponse;
+
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: {
@@ -134,6 +138,9 @@ Deno.serve(async (req: Request) => {
         if (parsed?.error?.message) openaiMessage = parsed.error.message;
       } catch { /* non-JSON error body — keep the raw slice */ }
       console.error(`[openai-proxy] OpenAI error ${res.status} (vision=${isVision}):`, openaiMessage);
+      // The model never produced a result — refund the credit charged above so a
+      // failed analysis (e.g. a 502) doesn't count against the daily limit.
+      await refundUsage(auth.userId, featureKey);
       await logOpenAiError({
         user_id: auth.userId,
         is_vision: isVision,

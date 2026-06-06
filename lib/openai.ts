@@ -223,26 +223,47 @@ async function callOpenAIProxy(body: Record<string, unknown>): Promise<Record<st
 
   if (error) {
     const errMsg = error.message ?? '';
-    let errJson = '';
-    try { errJson = JSON.stringify(error).slice(0, 500); } catch {}
-    __DEV__ && console.warn('[OpenAI] proxy error:', errMsg);
+    // supabase-js wraps any non-2xx edge-function response in a FunctionsHttpError
+    // whose JSON body lives on `error.context` (a Response). That body carries our
+    // structured codes (USAGE_LIMIT, openai_error, …). Without reading it, every
+    // server error — including a 429 usage limit — collapses into the generic
+    // "non-2xx" message, which the photo flow then mislabels as "food not identified".
+    let payload: Record<string, any> | null = null;
+    let status = 0;
+    const ctx: any = (error as any).context;
+    if (ctx) {
+      if (typeof ctx.status === 'number') status = ctx.status;
+      if (typeof ctx.json === 'function') {
+        try { payload = await ctx.json(); } catch { /* non-JSON / already-read body */ }
+      }
+    }
+    __DEV__ && console.warn('[OpenAI] proxy error:', status || '', errMsg,
+      payload ? JSON.stringify(payload).slice(0, 200) : '');
 
-    if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization') ||
-        errJson.includes('401') || errJson.includes('Invalid or expired token')) {
+    if (status === 401 || payload?.error === 'Invalid or expired token' ||
+        payload?.error === 'Missing authorization header' ||
+        errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('authorization')) {
       throw new Error('AUTH_EXPIRED');
     }
 
-    if (errJson.includes('429') || errJson.includes('USAGE_LIMIT') ||
-        errMsg.includes('429') || errMsg.includes('USAGE_LIMIT')) {
-      throw new UsageLimitError('ai_chat', 5, 5);
+    if (status === 429 || payload?.error === 'USAGE_LIMIT') {
+      throw new UsageLimitError(
+        payload?.feature ?? 'ai_chat',
+        payload?.limit ?? 0,
+        payload?.used ?? 0,
+        !!payload?.is_premium,
+      );
     }
 
-    if (errJson.includes('413') || errJson.includes('Payload too large') ||
-        errMsg.includes('413') || errMsg.includes('Payload too large')) {
+    if (status === 413 || payload?.error === 'Payload too large') {
       throw new Error('Image too large to analyze. Please try a different photo.');
     }
 
-    throw new Error(`OpenAI proxy error: ${errMsg}`);
+    if (payload?.openai_error) {
+      throw new Error(`OpenAI API error ${payload.openai_status}: ${payload.openai_message ?? 'unknown'}`);
+    }
+
+    throw new Error(`OpenAI proxy error: ${payload?.error ?? errMsg}`);
   }
 
   if (data?.error && (data.error === 'Invalid or expired token' || data.error === 'Missing authorization header')) {
