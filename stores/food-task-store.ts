@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { searchUSDA, getFatSecretFood } from '../lib/usda';
 import { estimateMacrosWithAI, callGPT4oMiniVision, generateSearchVariants, selectBestFoodMatches } from '../lib/openai';
 import { scheduleFoodReadyNotification } from '../lib/notifications';
+import { pickServingForEstimate } from '../lib/food-macros';
 import type { FoodResult } from '../lib/fatsecret';
 
 // Vision now groups what it sees into DISHES (composite entities) made of
@@ -284,13 +285,17 @@ async function fetchComponentServingOptions(
             ...dish,
             components: dish.components.map((it, j) => {
               if (j !== compIdx) return it;
-              const firstOpt = detail.serving_options?.[0];
-              const autoSwitch = firstOpt && it.unitLabel === 'g';
+              // Only re-unit a component that's still gram-based (untouched by
+              // the user). pickServingForEstimate preserves the model's total
+              // grams and derives the count — see lib/food-macros.ts for why
+              // grabbing serving_options[0] + the parsed count double-counted.
+              const switchPatch =
+                it.unitLabel === 'g'
+                  ? pickServingForEstimate(detail.serving_options, it.estimated_g, it.quantity) ?? {}
+                  : {};
               return {
                 ...it,
-                ...(autoSwitch
-                  ? { unitLabel: firstOpt.label, unitGrams: firstOpt.grams, qty: String(it.quantity ?? 1) }
-                  : {}),
+                ...switchPatch,
                 results: it.results.map((r, ri) =>
                   ri === (topIdx >= 0 ? topIdx : 0)
                     ? {

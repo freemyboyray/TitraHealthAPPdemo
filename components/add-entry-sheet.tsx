@@ -91,7 +91,14 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   // prompt instead of opening the page — so they never type a meal only to be
   // blocked at the end. Premium users always pass (checkFoodLogQuota returns
   // limited:false for them).
-  const gateFood = async (proceed: () => void) => {
+  const gateFood = async (proceed: () => void, requiresAi = false) => {
+    // AI food features (Describe / Capture) send data to OpenAI — confirm consent
+    // up front, before opening the input, so the user gets a clear prompt instead
+    // of typing a meal and hitting a raw "needs consent" error. Showing it here
+    // (over the add-entry sheet, not over a nested RN Modal) also sidesteps the
+    // iOS limitation where one Modal can't present another. Scan = barcode lookup
+    // via FatSecret, not AI, so it doesn't pass requiresAi.
+    if (requiresAi && !(await ensureAiConsent())) return;
     const q = await checkFoodLogQuota(1);
     if (!q.allowed && q.limited) {
       setUpgradeVisible(true);
@@ -178,7 +185,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'DESCRIBE FOOD',
       icon: <IconSymbol name="fork.knife" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => setDescribeVisible(true), 300); }),
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => setDescribeVisible(true), 300); }, true),
     },
     ...(onTreatment ? [{
       label: oral ? 'LOG DOSE' : 'LOG INJECTION',
@@ -188,7 +195,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'CAPTURE FOOD',
       icon: <IconSymbol name="camera.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); }),
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); }, true),
     },
     {
       label: 'SCAN FOOD',

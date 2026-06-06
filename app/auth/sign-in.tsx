@@ -1,5 +1,5 @@
 // expo-auth-session depends on expo-crypto (native); guard so Expo Go doesn't crash.
-let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealthappdemo://';
+let makeRedirectUri: typeof import('expo-auth-session').makeRedirectUri = () => 'titrahealth://';
 try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
 // Type-only import (erased at runtime) so the iOS-only native module is never
 // eagerly evaluated on Android. The real module is lazy-required inside
@@ -249,7 +249,7 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      const redirectUri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
+      const redirectUri = makeRedirectUri({ scheme: 'titrahealth' });
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -286,7 +286,7 @@ export default function SignInScreen() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.toLowerCase().includes('redirect') || msg.toLowerCase().includes('uri')) {
-        const uri = makeRedirectUri({ scheme: 'titrahealthappdemo' });
+        const uri = makeRedirectUri({ scheme: 'titrahealth' });
         setError(`Redirect URI mismatch.\n\nAdd this exact URL to Supabase → Auth → URL Configuration → Redirect URLs:\n${uri}`);
       } else {
         setError(`Google sign-in failed: ${msg}`);

@@ -10,6 +10,32 @@
 // double-count.
 
 import type { Component as FoodComponent, Dish } from '../stores/food-task-store';
+import type { ServingOption } from './fatsecret';
+
+// ─── Serving-unit selection ─────────────────────────────────────────────────
+// Choose which database serving option to display a gram-based component in.
+// The model's portion estimate is the source of truth for HOW MUCH: perUnitGrams
+// × quantity = the total grams the user ate. A serving option is only a display
+// UNIT for that total. So pick the option whose size is closest to the per-unit
+// estimate (the "1 of these" the user pictures) — never the smallest serving
+// (serving_options is sorted smallest-first) and never one that bakes in its own
+// count like "2 eggs". Then express the model's TOTAL grams in that unit, so the
+// count is DERIVED, not re-applied on top of a serving's count → no
+// double-counting. Returns null when there are no options to switch to.
+export function pickServingForEstimate(
+  opts: ServingOption[] | undefined,
+  perUnitGrams: number,
+  quantity: number,
+): { unitLabel: string; unitGrams: number; qty: string } | null {
+  if (!opts || opts.length === 0) return null;
+  const perUnitG = perUnitGrams > 0 ? perUnitGrams : 100;
+  const totalG = Math.max(1, Math.round((quantity || 1) * perUnitG));
+  const best = opts.reduce((a, b) =>
+    Math.abs(b.grams - perUnitG) < Math.abs(a.grams - perUnitG) ? b : a,
+  );
+  const count = Math.max(1, Math.round(totalG / best.grams));
+  return { unitLabel: best.label, unitGrams: best.grams, qty: String(count) };
+}
 
 // ─── Macro icon colors (semantic, theme-independent) ────────────────────────
 export const MACRO_COLORS = {
