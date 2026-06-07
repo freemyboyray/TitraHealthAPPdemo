@@ -1213,6 +1213,95 @@ export type Database = {
           },
         ]
       }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_credits: {
+        Row: {
+          expires_at: string | null
+          granted_at: string | null
+          id: string
+          referral_id: string
+          role: string
+          starts_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          granted_at?: string | null
+          id?: string
+          referral_id: string
+          role: string
+          starts_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          granted_at?: string | null
+          id?: string
+          referral_id?: string
+          role?: string
+          starts_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_credits_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          qualified_at: string | null
+          referee_id: string
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          qualified_at?: string | null
+          referee_id: string
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          qualified_at?: string | null
+          referee_id?: string
+          referrer_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       side_effect_logs: {
         Row: {
           dose_mg: number | null
@@ -1643,6 +1732,39 @@ export type Database = {
           },
         ]
       }
+      webhook_events: {
+        Row: {
+          created_at: string
+          data: Json | null
+          expires_date: string | null
+          id: string
+          notification_type: string | null
+          provider: string
+          subtype: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          expires_date?: string | null
+          id?: string
+          notification_type?: string | null
+          provider: string
+          subtype?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          expires_date?: string | null
+          id?: string
+          notification_type?: string | null
+          provider?: string
+          subtype?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       weekly_checkins: {
         Row: {
           answers: Json
@@ -1795,6 +1917,17 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_reward_monitor: {
+        Row: {
+          active_credits: number | null
+          banked_credits: number | null
+          credits_last_7d: number | null
+          last_granted_at: string | null
+          total_credits: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       user_weight_loss_metrics: {
         Row: {
           dose_tier: number | null
@@ -1806,6 +1939,10 @@ export type Database = {
       }
     }
     Functions: {
+      activate_banked_credit: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       auth_methods_for_email: { Args: { p_email: string }; Returns: string[] }
       check_and_increment_usage: {
         Args: { p_feature_key: string; p_limit: number; p_user_id: string }
@@ -1820,9 +1957,26 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_or_create_referral_code: { Args: never; Returns: string }
+      grant_referral_credit: {
+        Args: { p_referral_id: string; p_role: string; p_user_id: string }
+        Returns: undefined
+      }
+      referral_user_has_coverage: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      refund_usage: {
+        Args: { p_feature_key: string; p_user_id: string }
+        Returns: undefined
+      }
       rtm_engagement_days: {
         Args: { p_end: string; p_start: string; p_user_id: string }
         Returns: number
+      }
+      void_referral_credits_for_referee: {
+        Args: { p_referee_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -2033,3 +2187,4 @@ export const Constants = {
     },
   },
 } as const
+

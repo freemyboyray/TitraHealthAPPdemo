@@ -67,8 +67,9 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
     // Read profile + subscription together so isPremium can never disagree with status.
     // profiles.is_premium is a denormalized flag that can drift if a webhook half-fires;
-    // subscriptions.status is the source of truth.
-    const [profileResult, subResult] = await Promise.all([
+    // subscriptions.status is the source of truth. referral_credits is a third grant
+    // source (give-a-month/get-a-month) that's OR'd in, mirroring check_and_increment_usage.
+    const [profileResult, subResult, creditResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('trial_ends_at')
@@ -79,6 +80,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         .select('status, current_period_end, trial_end')
         .eq('user_id', user.id)
         .maybeSingle(),
+      supabase
+        .from('referral_credits')
+        .select('expires_at')
+        .eq('user_id', user.id)
+        .eq('status', 'active'),
     ]);
 
     const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
@@ -94,8 +100,12 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       status === 'trialing' ||
       (status === 'canceled' && periodActive);
 
+    const creditActive = (creditResult.data ?? []).some(
+      (c) => c.expires_at != null && new Date(c.expires_at) > new Date(),
+    );
+
     set({
-      isPremium: subscriptionActive || trialActive,
+      isPremium: subscriptionActive || trialActive || creditActive,
       trialEndsAt,
       status,
       currentPeriodEnd: sub?.current_period_end ?? null,
@@ -125,7 +135,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [profileResult, subResult] = await Promise.all([
+    const [profileResult, subResult, creditResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('trial_ends_at')
@@ -136,6 +146,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         .select('status, current_period_end')
         .eq('user_id', user.id)
         .maybeSingle(),
+      supabase
+        .from('referral_credits')
+        .select('expires_at')
+        .eq('user_id', user.id)
+        .eq('status', 'active'),
     ]);
 
     const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
@@ -151,8 +166,12 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       status === 'trialing' ||
       (status === 'canceled' && periodActive);
 
+    const creditActive = (creditResult.data ?? []).some(
+      (c) => c.expires_at != null && new Date(c.expires_at) > new Date(),
+    );
+
     set({
-      isPremium: subscriptionActive || trialActive,
+      isPremium: subscriptionActive || trialActive || creditActive,
       trialEndsAt,
       status,
       currentPeriodEnd: sub?.current_period_end ?? null,

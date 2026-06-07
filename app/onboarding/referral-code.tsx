@@ -9,77 +9,85 @@ import { supabase } from '@/lib/supabase';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-export default function DoctorCodeScreen() {
+export default function ReferralCodeScreen() {
   const router = useRouter();
-  const { draft, updateDraft } = useProfile();
-  const [code, setCode] = useState(draft.doctorCode ?? '');
-  const [verifying, setVerifying] = useState(false);
+  const { draft } = useProfile();
+  const [code, setCode] = useState('');
+  const [applying, setApplying] = useState(false);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const trimmed = code.trim();
 
-  const goNext = () => router.push('/onboarding/referral-code');
+  const goNext = () =>
+    router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
 
   const handleContinue = async () => {
-    // No code entered — it's optional, so just move on.
+    // Optional step — no code means just move on.
     if (!trimmed) {
-      updateDraft({ doctorCode: null, providerName: null });
       goNext();
       return;
     }
-    if (verifying) return;
+    if (applying) return;
 
-    setVerifying(true);
+    setApplying(true);
     try {
-      const { data, error } = await supabase.functions.invoke('verify-doctor-code', {
+      const { data, error } = await supabase.functions.invoke('redeem-referral', {
         body: { code: trimmed },
       });
       if (error || !data?.success) {
-        Alert.alert('Invalid Code', 'We couldn’t find that code. Check it with your provider, or skip this step.');
+        // Surface the server's reason when we have one (eligibility / unknown code).
+        const message =
+          (data as { error?: string } | null)?.error ??
+          "We couldn't apply that code. Check it with your friend, or skip this step.";
+        Alert.alert('Referral code', message);
         return;
       }
-      updateDraft({ doctorCode: trimmed, providerName: data.providerName ?? null });
-      goNext();
+      Alert.alert(
+        'Code applied',
+        "You're all set — you and your friend will each get a free month of Titra Pro once you subscribe.",
+        [{ text: 'Continue', onPress: goNext }],
+      );
     } catch {
-      Alert.alert('Connection Error', 'Could not verify your code right now. Please try again or skip.');
+      Alert.alert('Connection Error', 'Could not apply your code right now. Please try again or skip.');
     } finally {
-      setVerifying(false);
+      setApplying(false);
     }
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={5} total={17} onBack={() => router.back()} />
+        <OnboardingHeader step={6} total={17} onBack={() => router.back()} />
         <View style={s.content}>
-          <Text style={s.title}>Have a provider code?</Text>
+          <Text style={s.title}>Have a referral code?</Text>
           <Text style={s.subtitle}>
-            If your doctor or clinic gave you a code, enter it to connect your account. This is optional — you can skip it.
+            If a friend invited you, enter their code. You’ll both get a free month of Titra Pro when you
+            subscribe. This is optional — you can skip it.
           </Text>
 
           <TextInput
             style={s.input}
             value={code}
-            onChangeText={(t) => setCode(t.slice(0, 24))}
-            placeholder="Enter code"
+            onChangeText={(t) => setCode(t.slice(0, 20))}
+            placeholder="TITRA-XXXXXX"
             placeholderTextColor={colors.textMuted}
             autoFocus
             autoCapitalize="characters"
             autoCorrect={false}
-            editable={!verifying}
+            editable={!applying}
             returnKeyType="done"
             onSubmitEditing={handleContinue}
-            maxLength={24}
+            maxLength={20}
           />
         </View>
 
         <ContinueButton
           onPress={handleContinue}
-          disabled={verifying}
-          label={verifying ? 'Verifying…' : trimmed ? 'Continue' : 'Skip for now'}
+          disabled={applying}
+          label={applying ? 'Applying…' : trimmed ? 'Continue' : 'Skip for now'}
         />
-        {verifying && <ActivityIndicator style={s.spinner} color={colors.textMuted} />}
+        {applying && <ActivityIndicator style={s.spinner} color={colors.textMuted} />}
       </View>
     </SafeAreaView>
   );

@@ -242,6 +242,18 @@ export default function SettingsScreen() {
             </View>
             <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
           </Pressable>
+
+          <View style={s.divider} />
+
+          <Pressable style={s.cardRow} onPress={() => router.push('/settings/referrals' as any)} accessibilityLabel="Refer friends" accessibilityRole="button">
+            <View style={s.rowLeft}>
+              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                <IconSymbol name="gift.fill" size={18} color="#34C759" />
+              </View>
+              <Text style={s.rowLabel}>Refer Friends</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+          </Pressable>
         </View>
 
         <View style={s.card}>

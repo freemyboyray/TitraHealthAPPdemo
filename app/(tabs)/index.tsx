@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { GradientBackground } from '@/components/ui/gradient-background';
 import { ScrollTitle } from '@/components/ui/scroll-title';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
@@ -66,7 +66,7 @@ import { currentWeekWindow, getWeekWindow, isWithinWindow, resolveEngagementStar
 import { useWeeklySummaryAutoGen } from '@/hooks/use-weekly-summary-gen';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { getEscalationPhase } from '@/lib/escalation-phase';
-import { DailyTaskCards } from '@/components/daily-task-cards';
+import { FocusEnergyRow } from '@/components/home/focus-tiles';
 import { PremiumUpsellCard } from '@/components/premium-upsell-card';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
@@ -643,6 +643,7 @@ export default function HomeScreen() {
   const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const { width: winW } = useWindowDimensions();
   const { onScroll: tabBarOnScroll, onScrollEnd } = useTabBarVisibility();
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const healthData = useHealthData();
@@ -1333,34 +1334,99 @@ export default function HomeScreen() {
             energy={null}
           />
 
-          {/* ── Daily Log Summary ── */}
-          <DailyLogSummaryCard
-            foodLogs={displaySnapshot.foodLogs}
-            activityLogs={displaySnapshot.activityLogs}
-            weightLog={displaySnapshot.weightLog}
-            injectionLog={displaySnapshot.injectionLog}
-            sideEffectLogs={displaySnapshot.sideEffectLogs}
-            waterOz={Math.round((isToday ? actuals.waterMl : (historicalSnapshot?.actuals.waterMl ?? 0)) / 29.5735)}
-            isLoading={isPast && isLoadingDate}
-            isFuture={isFuture}
-            oral={oral}
-          />
+          {/* ── Today's Focus + Energy tiles (two-tile row) ── */}
+          {isToday && <FocusEnergyRow energy={energySlide} focuses={displayFocuses ?? []} />}
 
-          {/* ── Eat / Move / Rest ── */}
-          <DailyTaskCards
-            focuses={displayFocuses ?? []}
-          />
+          {/* ── Weekly Check-In + Summary (side-by-side recap cards) ── */}
+          {isToday && (() => {
+            // ── Check-in element (or null) ──
+            let checkinEl: React.ReactNode = null;
+            if (!weeklyCheckinCardDismissed) {
+              // Read directly from logStore so deletion updates the card synchronously,
+              // without waiting for the async personalization plan recompute.
+              const allRows = Object.values(logStore.weeklyCheckins).flat();
+              const allLoggedAts = allRows.map(r => r.logged_at as string).filter(Boolean);
+              const lastLoggedAt = allLoggedAts.length > 0
+                ? allLoggedAts.reduce((a, b) => (a > b ? a : b))
+                : null;
 
-          {/* ── Energy Bank Card ── */}
-          {isToday && energySlide && (
+              // Anchor the check-in to in-app engagement, not the historical
+              // medication start. Gate to one check-in per engagement week.
+              const engagementStart = resolveEngagementStart(profile.engagementStartDate);
+              const cur = currentWeekWindow(engagementStart);
+              const currentWeekComplete = cur
+                ? allRows.some(r => isWithinWindow(r.logged_at as string, cur))
+                : false;
+              const nextWin = cur ? getWeekWindow(engagementStart, cur.index + 1) : null;
+
+              // Only surface the "take it" prompt in the last 3 days of the week
+              // (days 4–6); once complete, keep showing the done state all week.
+              const dayInWeek = cur ? Math.floor((Date.now() - cur.start.getTime()) / 86400000) : 0;
+              if (currentWeekComplete || dayInWeek >= 4) {
+                checkinEl = (
+                  <WeeklyCheckinCard
+                    lastLoggedAt={lastLoggedAt}
+                    currentWeekComplete={currentWeekComplete}
+                    nextAvailableAt={nextWin?.startStr ?? null}
+                    isDaily={scheduleMode === 'intraday'}
+                    onDismiss={dismissWeeklyCheckinCard}
+                  />
+                );
+              }
+            }
+
+            // ── Summary element (or null) ──
+            const summaryEl: React.ReactNode = (!weeklySummaryCardDismissed && daysSinceEngagement(profile.engagementStartDate) >= 7)
+              ? <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} onDismiss={dismissWeeklySummaryCard} />
+              : null;
+
+            const items = [checkinEl, summaryEl].filter(Boolean);
+            if (items.length === 0) return null;
+
+            // Single card → full width. Multiple → swipeable horizontal carousel.
+            if (items.length === 1) {
+              return <View style={{ marginBottom: 16 }}>{items[0]}</View>;
+            }
+
+            const cardW = winW - 64; // leave a peek of the next card
+            return (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                snapToInterval={cardW + 12}
+                snapToAlignment="start"
+                contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+                style={{ marginHorizontal: -20, paddingHorizontal: 20, marginBottom: 16 }}
+              >
+                {items.map((el, i) => (
+                  <View key={i} style={{ width: cardW }}>{el}</View>
+                ))}
+              </ScrollView>
+            );
+          })()}
+
+          {/* ── Health Sync Promo (below the recap cards; hidden once connected) ── */}
+          {!healthPromoCardDismissed && !appleHealthEnabled && (
             <View style={{ marginBottom: 16 }}>
-              <PremiumGate feature="energy_bank" variant="soft" title="Energy Bank">
-                <EnergyBankCard result={energySlide.result} phase={energySlide.phase} />
-              </PremiumGate>
+              <AppleHealthPromoCard
+                onConnect={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)}
+                onDismiss={dismissHealthPromoCard}
+              />
             </View>
           )}
 
-          {/* ── Progress Photos Card ── */}
+          {/* ── Shot / Dose Day Banner (future projected days) ── */}
+          {isFuture && isProjectedInjectionDay && (
+            <View style={[s.phaseBanner, { marginBottom: 12 }]}>
+              <View>
+                <Text style={s.phaseDisplayName}>{oral ? 'Dose Day' : 'Shot Day'}</Text>
+                <Text style={s.phaseFocus}>{oral ? 'Projected dose day based on your schedule' : 'Projected injection day based on your schedule'}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Progress Photos Card (very bottom, above Day Log) ── */}
           {isToday && (
             <Pressable
               style={[s.cardWrap, { marginBottom: 16 }]}
@@ -1381,74 +1447,18 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
-          {/* ── Health Sync Promo (hidden once connected) ── */}
-          {!healthPromoCardDismissed && !appleHealthEnabled && (
-            <View style={{ marginBottom: 16 }}>
-              <AppleHealthPromoCard
-                onConnect={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)}
-                onDismiss={dismissHealthPromoCard}
-              />
-            </View>
-          )}
-
-          {/* ── Weekly Check-In (today only, last 3 days of the engagement week) ── */}
-          {isToday && !weeklyCheckinCardDismissed && (() => {
-            // Read directly from logStore so deletion updates the card synchronously,
-            // without waiting for the async personalization plan recompute.
-            const allRows = Object.values(logStore.weeklyCheckins).flat();
-            const allLoggedAts = allRows
-              .map(r => r.logged_at as string)
-              .filter(Boolean);
-
-            const lastLoggedAt = allLoggedAts.length > 0
-              ? allLoggedAts.reduce((a, b) => (a > b ? a : b))
-              : null;
-
-            // Anchor the check-in to in-app engagement, not the historical
-            // medication start. Gate to one check-in per engagement week; a week
-            // is "done" if any check-in row falls inside the current window.
-            const engagementStart = resolveEngagementStart(profile.engagementStartDate);
-            const cur = currentWeekWindow(engagementStart);
-            const currentWeekComplete = cur
-              ? allRows.some(r => isWithinWindow(r.logged_at as string, cur))
-              : false;
-            const nextWin = cur ? getWeekWindow(engagementStart, cur.index + 1) : null;
-
-            // Only surface the "take it" prompt in the last 3 days of the week
-            // (days 4–6), so there's a week of activity to reflect on. Once it's
-            // complete, keep showing the done/locked state all week.
-            const dayInWeek = cur ? Math.floor((Date.now() - cur.start.getTime()) / 86400000) : 0;
-            if (!currentWeekComplete && dayInWeek < 4) return null;
-
-            return (
-              <View style={{ marginBottom: 16 }}>
-                <WeeklyCheckinCard
-                  lastLoggedAt={lastLoggedAt}
-                  currentWeekComplete={currentWeekComplete}
-                  nextAvailableAt={nextWin?.startStr ?? null}
-                  isDaily={scheduleMode === 'intraday'}
-                  onDismiss={dismissWeeklyCheckinCard}
-                />
-              </View>
-            );
-          })()}
-
-          {/* ── Weekly Summary (today only, after a full first week of using Titra) ── */}
-          {isToday && !weeklySummaryCardDismissed && daysSinceEngagement(profile.engagementStartDate) >= 7 && (
-            <View style={{ marginBottom: 16 }}>
-              <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} onDismiss={dismissWeeklySummaryCard} />
-            </View>
-          )}
-
-          {/* ── Shot / Dose Day Banner (future projected days) ── */}
-          {isFuture && isProjectedInjectionDay && (
-            <View style={[s.phaseBanner, { marginBottom: 12 }]}>
-              <View>
-                <Text style={s.phaseDisplayName}>{oral ? 'Dose Day' : 'Shot Day'}</Text>
-                <Text style={s.phaseFocus}>{oral ? 'Projected dose day based on your schedule' : 'Projected injection day based on your schedule'}</Text>
-              </View>
-            </View>
-          )}
+          {/* ── Daily Log Summary (moved to bottom) ── */}
+          <DailyLogSummaryCard
+            foodLogs={displaySnapshot.foodLogs}
+            activityLogs={displaySnapshot.activityLogs}
+            weightLog={displaySnapshot.weightLog}
+            injectionLog={displaySnapshot.injectionLog}
+            sideEffectLogs={displaySnapshot.sideEffectLogs}
+            waterOz={Math.round((isToday ? actuals.waterMl : (historicalSnapshot?.actuals.waterMl ?? 0)) / 29.5735)}
+            isLoading={isPast && isLoadingDate}
+            isFuture={isFuture}
+            oral={oral}
+          />
 
           {/* ── Premium Upsell (free users only, today view) ── */}
           {isToday && !isPremium && <PremiumUpsellCard />}

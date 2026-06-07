@@ -12,6 +12,9 @@ export type Article = {
   category: string;
   readingTime: number;
   coverImage: ImageSourcePropType;
+  /** Pastel card/background color. MUST match the baked-in background of coverImage so
+   *  the illustration blends seamlessly into the card and detail header. */
+  bgColor: string;
   sections: ArticleSection[];
   sources: string[];
 };
@@ -24,6 +27,7 @@ export const ARTICLES: Article[] = [
     category: 'medication',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    bgColor: '#E6E3FB',
     sections: [
       {
         heading: 'A Hormone Your Body Already Makes',
@@ -60,6 +64,7 @@ export const ARTICLES: Article[] = [
     category: 'side-effects',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/managing-side-effects.png'),
+    bgColor: '#FBE3EC',
     sections: [
       {
         heading: 'Why Your Body Is Adjusting',
@@ -96,6 +101,7 @@ export const ARTICLES: Article[] = [
     category: 'nutrition',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/protein-priority.png'),
+    bgColor: '#FBEED0',
     sections: [
       {
         heading: 'Why Protein Matters More Right Now',
@@ -132,6 +138,7 @@ export const ARTICLES: Article[] = [
     category: 'hydration',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/staying-hydrated.png'),
+    bgColor: '#D9EDFB',
     sections: [
       {
         heading: 'Why Hydration Deserves Extra Attention',
@@ -168,6 +175,7 @@ export const ARTICLES: Article[] = [
     category: 'lifestyle',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    bgColor: '#D9F2E3',
     sections: [
       {
         heading: 'Why Exercise Matters More During Weight Loss',
@@ -204,6 +212,7 @@ export const ARTICLES: Article[] = [
     category: 'nutrition',
     readingTime: 6,
     coverImage: require('@/assets/images/articles/what-to-eat.png'),
+    bgColor: '#FBE2D2',
     sections: [
       {
         heading: 'The Order on Your Plate Matters',
@@ -234,3 +243,25 @@ export const ARTICLES: Article[] = [
     ],
   },
 ];
+
+// ─── Section grouping (horizontal scroll rows on the Education tab) ────────────
+
+export type ArticleRow = {
+  title: string;
+  articleIds: string[];
+};
+
+export const ARTICLE_SECTIONS: ArticleRow[] = [
+  {
+    title: 'The Essentials',
+    articleIds: ['how-glp1s-work', 'managing-side-effects', 'exercise-on-glp1s'],
+  },
+  {
+    title: 'Food & Hydration',
+    articleIds: ['protein-priority', 'what-to-eat', 'staying-hydrated'],
+  },
+];
+
+export function getArticleById(id: string): Article | undefined {
+  return ARTICLES.find((a) => a.id === id);
+}

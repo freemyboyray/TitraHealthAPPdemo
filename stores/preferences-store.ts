@@ -99,8 +99,13 @@ type PreferencesStore = {
    */
   tutorialHintPending: boolean;
   setTutorialHintPending: (v: boolean) => void;
+  /** Which Today's Focus metric tiles the user has chosen to show on the home screen. */
+  homeFocusTiles: string[];
+  setHomeFocusTiles: (ids: string[]) => void;
   reset: () => void;
 };
+
+export const DEFAULT_HOME_FOCUS_TILES = ['protein', 'water', 'fiber', 'activity', 'sleep'];
 
 export const usePreferencesStore = create<PreferencesStore>()(
   persist(
@@ -174,6 +179,8 @@ export const usePreferencesStore = create<PreferencesStore>()(
       markConsentPromptShown: () => set({ consentPromptShown: true }),
       tutorialHintPending: false,
       setTutorialHintPending: (v) => set({ tutorialHintPending: v }),
+      homeFocusTiles: DEFAULT_HOME_FOCUS_TILES,
+      setHomeFocusTiles: (ids) => set({ homeFocusTiles: ids }),
       hasReviewedApp: false,
       reviewPromptLastShown: null,
       reviewPromptDismissCount: 0,
@@ -188,7 +195,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         appOpenCount: s.appOpenCount + 1,
         firstOpenDate: s.firstOpenDate ?? todayKey(),
       })),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, consentPromptShown: false, tutorialHintPending: false, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, consentPromptShown: false, tutorialHintPending: false, homeFocusTiles: DEFAULT_HOME_FOCUS_TILES, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

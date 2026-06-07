@@ -1,0 +1,36 @@
+-- BACKUP of prod supabase_migrations.schema_migrations (project deywjhyaztodwbeahzqs)
+-- Captured read-only 2026-06-06 before any reconciliation.
+-- 26 applied migrations, in version order. This is the bookkeeping/history table
+-- content (the SQL each recorded migration ran). Restore reference only.
+-- NOTE: the EARLY foundation (profiles, food_logs, original tables, views,
+-- storage buckets, triggers) predates 20260428 and is NOT recorded here.
+
+-- 20260428004441 progress_photos
+-- 20260428154910 add_medication_notes_and_photo_url
+-- 20260428160329 create_user_medications_table
+-- 20260430035158 feedback                         (also creates view feedback_dashboard)
+-- 20260430154941 subscriptions_source_of_truth
+-- 20260501174554 weight_logs_body_composition
+-- 20260502010448 food_logs_premier_nutrition_columns
+-- 20260502010545 add_food_parse_to_usage_tracking_check
+-- 20260505003938 user_goals_premier_targets
+-- 20260505025451 food_logs_fatsecret_category
+-- 20260506044854 add_ai_disclosure_acceptance
+-- 20260524031847 create_demo_codes_table
+-- 20260529214536 weekly_summaries
+-- 20260601014642 add_extended_nutrients_to_food_logs
+-- 20260601184938 add_medication_start_date
+-- 20260602224430 add_med_context_to_side_effect_logs
+-- 20260604032158 security_rls_auth_uid_optimization
+-- 20260605023458 openai_error_log_debug
+-- 20260605042534 add_doctor_codes
+-- 20260606034549 auth_methods_for_email_lookup
+-- 20260606044153 refund_usage
+-- 20260606044218 create_webhook_events_audit
+-- 20260606044315 food_log_hydration
+-- 20260606160154 security_lockdown_views_and_rpcs (refs views feedback_dashboard,
+--                 peer_weight_loss_summary, user_weight_loss_metrics)
+-- 20260606160858 security_harden_function_search_path
+--
+-- Full statement bodies are preserved in the session transcript (read-only dump
+-- of schema_migrations.statements). The live table is UNCHANGED as of this file.

@@ -419,6 +419,20 @@ async function handleAppleNotification(
     });
   }
 
+  // ── Referral side-effects (best-effort; never block entitlement) ───────────
+  // Coverage genuinely dropped → light up a banked referral month, if any. This
+  // is how a paying referrer's deferred free month finally lands. (Not on
+  // DID_FAIL_TO_RENEW: that's a grace period and the user is still entitled.)
+  if (notificationType === 'EXPIRED' || notificationType === 'REVOKE' || notificationType === 'REFUND') {
+    const { error } = await supabase.rpc('activate_banked_credit', { p_user_id: userId });
+    if (error) console.error('[apple-webhook] activate_banked_credit failed:', error.message);
+  }
+  // Refund/revoke reverses the conversion that earned the rewards → claw them back.
+  if (notificationType === 'REVOKE' || notificationType === 'REFUND') {
+    const { error } = await supabase.rpc('void_referral_credits_for_referee', { p_referee_id: userId });
+    if (error) console.error('[apple-webhook] void_referral_credits_for_referee failed:', error.message);
+  }
+
   console.log(`[apple-webhook] Updated user=${userId.slice(0, 8)}… status=${status} premium=${isPremium}`);
 
   return new Response(JSON.stringify({ ok: true }), {

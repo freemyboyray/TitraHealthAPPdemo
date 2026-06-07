@@ -105,13 +105,15 @@ export default function ArticleDetailScreen() {
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          {/* Cover image */}
-          <Image
-            source={article.coverImage}
-            style={s.coverImage}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-          />
+          {/* Cover illustration on its matching pastel background */}
+          <View style={[s.coverWrap, { backgroundColor: article.bgColor }]}>
+            <Image
+              source={article.coverImage}
+              style={s.coverImage}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
 
           {/* Meta */}
           <View style={s.metaRow}>
@@ -185,11 +187,16 @@ const createStyles = (c: AppColors) => {
 
     content: { paddingBottom: 40 },
 
-    coverImage: {
+    coverWrap: {
       width: '100%',
-      height: 220,
-      backgroundColor: c.isDark ? w(0.06) : w(0.04),
+      height: 260,
       marginBottom: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coverImage: {
+      width: 260,
+      height: 260,
     },
 
     metaRow: {

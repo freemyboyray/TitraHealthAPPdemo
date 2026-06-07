@@ -72,6 +72,12 @@ export default function UpgradeScreen() {
   const [annualPrice, setAnnualPrice] = useState('$49.99/yr');
   const [monthlyProduct, setMonthlyProduct] = useState<any>(null);
   const [annualProduct, setAnnualProduct] = useState<any>(null);
+  // Referral reward state: an active credit (free month running now) and/or banked
+  // credits (earned, waiting to start once a paid subscription lapses).
+  const [refCredit, setRefCredit] = useState<{ activeUntil: string | null; banked: number }>({
+    activeUntil: null,
+    banked: 0,
+  });
 
   useEffect(() => {
     if (!storekit) return;
@@ -84,6 +90,28 @@ export default function UpgradeScreen() {
       if (annual) { const f = storekit!.formatSubscriptionPrice(annual as any); if (f) setAnnualPrice(f); setAnnualProduct(annual); }
     }).catch(() => {});
     refreshPremiumStatus();
+  }, []);
+
+  // Load referral reward state so the premium view can surface "free month active"
+  // and the banked-credit disclosure for paying users.
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('referral_credits')
+        .select('status, expires_at')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'banked']);
+      const rows = data ?? [];
+      const active = rows
+        .filter((r) => r.status === 'active' && r.expires_at && new Date(r.expires_at) > new Date())
+        .sort((a, b) => new Date(b.expires_at!).getTime() - new Date(a.expires_at!).getTime())[0];
+      setRefCredit({
+        activeUntil: active?.expires_at ?? null,
+        banked: rows.filter((r) => r.status === 'banked').length,
+      });
+    })();
   }, []);
 
   // Trial / renewal terms for the *selected* plan, driven by the real StoreKit
@@ -194,6 +222,9 @@ export default function UpgradeScreen() {
   const trialEndDate = trialEndsAt
     ? new Date(trialEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
+  const refCreditEndDate = refCredit.activeUntil
+    ? new Date(refCredit.activeUntil).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
   const statusLabel = (() => {
     switch (status) {
       case 'active': return 'Active';
@@ -233,6 +264,28 @@ export default function UpgradeScreen() {
             )}
             {status === 'canceled' && periodEndDate && (
               <Text style={s.statusDetail}>Access until {periodEndDate}</Text>
+            )}
+
+            {/* Referral reward: active free month */}
+            {refCreditEndDate && (
+              <View style={s.refBadge}>
+                <Text style={s.refBadgeText}>🎁 Free referral month active — ends {refCreditEndDate}</Text>
+              </View>
+            )}
+
+            {/* Referral reward: banked free month(s) for a paying user. Clear
+                disclosure that we never touch the App Store subscription. */}
+            {refCredit.banked > 0 && (
+              <View style={s.refBadge}>
+                <Text style={s.refBadgeText}>
+                  🎁 {refCredit.banked} free {refCredit.banked === 1 ? 'month' : 'months'} earned from referrals
+                </Text>
+                <Text style={s.refBadgeSub}>
+                  Your subscription keeps renewing as normal through the App Store — we don’t change or pause it.
+                  Your free month starts automatically once your current subscription ends, so you won’t be charged
+                  for that month.
+                </Text>
+              </View>
             )}
 
             <TouchableOpacity style={s.manageRow} onPress={handleManage} activeOpacity={0.7}>
@@ -516,6 +569,18 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   statusLabel: { fontSize: 15, fontWeight: '500', color: c.textSecondary, fontFamily: FF },
   statusDetail: { fontSize: 13, color: c.textMuted, fontFamily: FF, marginTop: 4 },
+  refBadge: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(52,199,89,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,199,89,0.35)',
+    alignSelf: 'stretch',
+  },
+  refBadgeText: { fontSize: 14, fontWeight: '700', color: '#34C759', fontFamily: FF, textAlign: 'center' },
+  refBadgeSub: { fontSize: 12, color: c.textMuted, fontFamily: FF, marginTop: 6, lineHeight: 17, textAlign: 'center' },
   manageRow: {
     flexDirection: 'row',
     alignItems: 'center',
