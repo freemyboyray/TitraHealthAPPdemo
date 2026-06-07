@@ -54,6 +54,7 @@ export default function CravingsScreen() {
                 label={d.label}
                 selected={selected.includes(d.value)}
                 onPress={() => toggle(d.value)}
+                solidSelect
               />
             ))}
           </View>

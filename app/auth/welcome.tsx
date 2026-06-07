@@ -39,6 +39,7 @@ const PHOTOS: { src: any; w: number; h: number; x: number; y: number; rot: numbe
   { src: require('@/assets/images/welcome/stretch-field.jpg'),    w: 130, h: 165, x: 0.05, y: 260,  rot: -3 },
   { src: require('@/assets/images/welcome/yoga-grass.jpg'),       w: 120, h: 155, x: 0.42, y: 420,  rot: 3 },
   { src: require('@/assets/images/welcome/walking-dogs.jpg'),     w: 125, h: 160, x: 0.08, y: 460,  rot: -2 },
+  { src: require('@/assets/images/welcome/farmers-market.png'),   w: 125, h: 160, x: 0.70, y: 440,  rot: 3 },
 ];
 
 // Height of one set of photos — must match where the last photo ends so the
@@ -179,11 +180,24 @@ export default function WelcomeScreen() {
         {/* Get Started button */}
         <Pressable
           style={({ pressed }) => [s.ctaBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-          onPress={() => router.navigate('/auth/sign-in' as any)}
+          onPress={() => router.navigate('/auth/get-started' as any)}
           accessibilityLabel="Get Started"
           accessibilityRole="button"
         >
           <Text style={s.ctaBtnText}>Get Started</Text>
+        </Pressable>
+
+        {/* Already have an account? → Log in */}
+        <Pressable
+          style={({ pressed }) => [s.loginRow, pressed && { opacity: 0.6 }]}
+          onPress={() => router.navigate('/auth/sign-in?mode=login' as any)}
+          accessibilityLabel="Log in"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Text style={[s.loginPrompt, { color: t.text }]}>
+            Already have an account? <Text style={s.loginLink}>Log in</Text>
+          </Text>
         </Pressable>
       </SafeAreaView>
     </View>
@@ -255,5 +269,22 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: FF,
     letterSpacing: -0.3,
+  },
+  loginRow: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  loginPrompt: {
+    fontSize: 15,
+    fontWeight: '500',
+    fontFamily: FF,
+    letterSpacing: -0.2,
+    opacity: 0.7,
+  },
+  loginLink: {
+    color: '#FF742A',
+    fontWeight: '700',
+    opacity: 1,
   },
 });

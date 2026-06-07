@@ -33,7 +33,7 @@ export default function DoseStartScreen() {
 
   const handleContinue = () => {
     updateDraft({ doseStartDate: toDateString(doseStartDate) });
-    router.push('/onboarding/sex');
+    router.push('/onboarding/weight-results');
   };
 
   return (

@@ -80,6 +80,7 @@ export default function ScheduleScreen() {
                 label={f.label}
                 selected={freq === f.days}
                 onPress={() => setFreq(f.days)}
+                solidSelect
               />
             ))}
             {freq === 'custom' && (

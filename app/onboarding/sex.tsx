@@ -50,6 +50,7 @@ export default function SexScreen() {
                 label={o.label}
                 selected={selected === o.value}
                 onPress={() => setSelected(o.value)}
+                solidSelect
               />
             ))}
           </View>

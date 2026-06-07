@@ -51,9 +51,10 @@ export default function ActivityScreen() {
               <OptionPill
                 key={o.value}
                 label={o.label}
-                icon={<LucideIconByName name={o.iconName as any} size={20} color={iconColor} />}
+                icon={<LucideIconByName name={o.iconName as any} size={20} color={selected === o.value ? '#FFFFFF' : iconColor} />}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
+                solidSelect
                 onPress={() => {
                   if (selected !== o.value) Haptics.selectionAsync();
                   setSelected(o.value);

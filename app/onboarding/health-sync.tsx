@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Dimensions,
+  Image,
   Platform,
   SafeAreaView,
   StyleSheet,
@@ -9,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Heart } from 'lucide-react-native';
+import { Footprints, Heart, Moon, Scale } from 'lucide-react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -25,6 +27,34 @@ const isIOS = Platform.OS === 'ios';
 const HEALTH_NAME = isIOS ? 'Apple Health' : 'Health Connect';
 const HEALTH_COLOR = isIOS ? '#FF2D55' : '#4285F4';
 const requestPermissionsDetailed = isIOS ? hkRequestDetailed : hcRequestDetailed;
+
+// Center logo asset — swap the placeholder PNGs in assets/images/health/ with the
+// official Apple Health / Health Connect icons (same paths, ~512px square).
+const HEALTH_LOGO = isIOS
+  ? require('@/assets/images/health/apple-health.png')
+  : require('@/assets/images/health/health-connect.png');
+
+// Constellation geometry — a fixed square stage, capped so it never clips on small devices.
+const STAGE = Math.min(Dimensions.get('window').width - 48, 320);
+const CENTER = STAGE / 2;
+const ORBIT_R = STAGE * 0.42;
+const BUBBLE = 52;
+
+// Data types that orbit the central logo. Angles are offset for an organic, non-grid look.
+const ORBIT_ICONS = [
+  { Icon: Moon, color: '#5E5CE6', angle: -60, fill: false }, // sleep
+  { Icon: Heart, color: '#FF2D55', angle: 35, fill: true }, // heart & HRV
+  { Icon: Scale, color: '#0A84FF', angle: 150, fill: false }, // weight
+  { Icon: Footprints, color: '#34C759', angle: 230, fill: false }, // steps & activity
+] as const;
+
+function bubblePosition(angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    left: CENTER + ORBIT_R * Math.cos(rad) - BUBBLE / 2,
+    top: CENTER + ORBIT_R * Math.sin(rad) - BUBBLE / 2,
+  };
+}
 
 export default function HealthSyncScreen() {
   const router = useRouter();
@@ -114,20 +144,31 @@ export default function HealthSyncScreen() {
       <View style={s.container}>
         <OnboardingHeader step={step} total={total} onBack={() => router.back()} />
 
-        <Text style={s.title}>Sync with {HEALTH_NAME}</Text>
-        <Text style={s.subtitle}>
-          Easily pull in your height, weight, and activity to save time and get a more tailored plan.
-        </Text>
-
         <View style={s.illustration}>
-          <View style={s.healthIcon}>
-            <Heart size={56} color={HEALTH_COLOR} fill={HEALTH_COLOR} />
+          <View style={s.stage}>
+            <View style={[s.ring, s.ringOuter]} />
+            <View style={[s.ring, s.ringInner]} />
+
+            <Image
+              source={HEALTH_LOGO}
+              style={s.centerLogo}
+              resizeMode="contain"
+              accessibilityLabel={`${HEALTH_NAME} logo`}
+            />
+
+            {ORBIT_ICONS.map(({ Icon, color, angle, fill }, i) => (
+              <View key={i} style={[s.iconBubble, bubblePosition(angle)]}>
+                <Icon size={26} color={color} fill={fill ? color : 'transparent'} />
+              </View>
+            ))}
           </View>
-          <Text style={s.healthLabel}>{HEALTH_NAME}</Text>
-          <Text style={s.healthDesc}>
-            Sync sleep, HRV, resting heart rate, steps, and more to power your recovery ring.
-          </Text>
         </View>
+
+        <Text style={s.title}>Have all your health data in one place</Text>
+        <Text style={s.subtitle}>
+          Connect {HEALTH_NAME} to sync your steps, heart rate, sleep, and weight — so Titra
+          can save you setup time and tailor your plan.
+        </Text>
 
         <View style={s.actions}>
           <ContinueButton
@@ -147,35 +188,75 @@ export default function HealthSyncScreen() {
 const createStyles = (c: AppColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bg },
   container: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
-  subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'System' },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: c.textPrimary,
+    marginBottom: 12,
+    lineHeight: 34,
+    fontFamily: 'System',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 17,
+    color: c.textSecondary,
+    marginBottom: 24,
+    lineHeight: 23,
+    fontFamily: 'System',
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
   illustration: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
   },
-  healthIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+  stage: {
+    width: STAGE,
+    height: STAGE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  healthLabel: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'System',
-    color: c.textPrimary,
+  ring: {
+    position: 'absolute',
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: c.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
   },
-  healthDesc: {
-    fontSize: 17,
-    fontFamily: 'System',
-    color: c.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 20,
+  ringOuter: {
+    width: STAGE,
+    height: STAGE,
+  },
+  ringInner: {
+    width: STAGE * 0.62,
+    height: STAGE * 0.62,
+  },
+  centerLogo: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  iconBubble: {
+    position: 'absolute',
+    width: BUBBLE,
+    height: BUBBLE,
+    borderRadius: BUBBLE / 2,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   actions: {},
   skipBtn: {

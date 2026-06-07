@@ -45,12 +45,14 @@ export default function DoseScreen() {
                 label={`${d} mg`}
                 selected={selected === d}
                 onPress={() => setSelected(d)}
+                solidSelect
               />
             ))}
             <OptionPill
               label="Custom / Other"
               selected={selected === 'custom'}
               onPress={() => setSelected('custom')}
+              solidSelect
             />
             {selected === 'custom' && (
               <TextInput

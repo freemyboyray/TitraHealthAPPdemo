@@ -85,6 +85,7 @@ export default function MedicationScreen() {
                   subtitle={b.note}
                   selected={selected === b.value}
                   onPress={() => setSelected(b.value)}
+                  solidSelect
                 />
               ))}
             </View>

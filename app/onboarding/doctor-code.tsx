@@ -19,7 +19,10 @@ export default function DoctorCodeScreen() {
 
   const trimmed = code.trim();
 
-  const goNext = () => router.push('/onboarding/username');
+  // Name is collected earlier (auth/get-started → draft.username), so the old
+  // /onboarding/username step is gone — branch straight into the main flow.
+  const goNext = () =>
+    router.push(draft.treatmentStatus === 'on' ? '/onboarding/medication' : '/onboarding/sex');
 
   const handleContinue = async () => {
     // No code entered — it's optional, so just move on.

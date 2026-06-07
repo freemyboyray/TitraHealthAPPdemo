@@ -53,3 +53,9 @@ google-play-sa.json
 .claude/
 .claire/
 .mcp.json
+
+# Superpowers brainstorm mockups
+.superpowers/
+
+# Editor swap files
+*.swp

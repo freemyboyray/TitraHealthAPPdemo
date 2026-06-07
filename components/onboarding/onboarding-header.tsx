@@ -22,7 +22,7 @@ export function OnboardingHeader({ step, total, onBack }: Props) {
   return (
     <View style={s.container}>
       <View style={s.row}>
-        {step > 1 && onBack ? (
+        {onBack ? (
           <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
             <ChevronLeft size={24} color={colors.isDark ? '#FFFFFF' : 'rgba(0,0,0,0.7)'} />
           </TouchableOpacity>

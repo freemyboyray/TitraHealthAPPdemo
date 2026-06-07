@@ -5,7 +5,7 @@ try { makeRedirectUri = require('expo-auth-session').makeRedirectUri; } catch {}
 // eagerly evaluated on Android. The real module is lazy-required inside
 // handleAppleSignIn, which only runs behind a Platform.OS === 'ios' gate.
 import type * as AppleAuthenticationModule from 'expo-apple-authentication';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -57,6 +57,8 @@ const providerLabel = (p: string) =>
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const router = useRouter();
+  const { mode, name } = useLocalSearchParams<{ mode?: string; name?: string }>();
+  const displayName = typeof name === 'string' && name.trim() ? name.trim() : undefined;
   const finishAuth = useFinishAuth();
   const { colors: c } = useAppTheme();
   const s = useMemo(() => createStyles(c), [c]);
@@ -68,7 +70,7 @@ export default function SignInScreen() {
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
   const [showPassword, setShowPassword]   = useState(false);
-  const [isLoginMode, setIsLoginMode]     = useState(false);
+  const [isLoginMode, setIsLoginMode]     = useState(mode === 'login');
   const anyLoading = googleLoading || appleLoading || signUpLoading;
 
   // Inline email-confirmation (6-digit code) state — keeps verification on this
@@ -124,7 +126,7 @@ export default function SignInScreen() {
         if (!handled) setError(signInErr.message);
         return;
       }
-      if (data.session) await finishAuth(data.session);
+      if (data.session) await finishAuth(data.session, displayName);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed');
     } finally {
@@ -184,7 +186,7 @@ export default function SignInScreen() {
       }
       if (data.session) {
         // No email confirmation required → straight into the app.
-        await finishAuth(data.session);
+        await finishAuth(data.session, displayName);
       } else {
         // Email confirmation required → show the inline 6-digit code step.
         setCode('');
@@ -208,7 +210,7 @@ export default function SignInScreen() {
       const { data, error: verifyErr } = await supabase.auth.verifyOtp({ email: trimmed, token, type: 'signup' });
       if (verifyErr) { setError(verifyErr.message); return; }
       if (data.session) {
-        await finishAuth(data.session);
+        await finishAuth(data.session, displayName);
       } else {
         setError('Verification succeeded but no session was returned. Please try signing in.');
       }
@@ -311,7 +313,7 @@ export default function SignInScreen() {
       setError('Sign-in completed but no session was returned. Please try again.');
       return;
     }
-    await finishAuth(session);
+    await finishAuth(session, displayName);
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────

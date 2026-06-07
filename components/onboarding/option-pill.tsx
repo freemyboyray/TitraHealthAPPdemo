@@ -11,9 +11,12 @@ type Props = {
   onPress: () => void;
   icon?: React.ReactNode;
   subtitle?: string;
+  // Opt-in: when selected, fill solid orange with white text (instead of the
+  // default light orange tint). Used on the medication screen.
+  solidSelect?: boolean;
 };
 
-export function OptionPill({ label, selected, onPress, icon, subtitle }: Props) {
+export function OptionPill({ label, selected, onPress, icon, subtitle, solidSelect }: Props) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -24,13 +27,13 @@ export function OptionPill({ label, selected, onPress, icon, subtitle }: Props) 
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={[s.pill, selected && s.pillSelected]}>
+      style={[s.pill, selected && (solidSelect ? s.pillSolid : s.pillSelected)]}>
       <View style={s.inner}>
         {icon && <View style={s.iconWrap}>{icon}</View>}
         <View style={s.textWrap}>
-          <Text style={[s.label, selected && s.labelSelected]}>{label}</Text>
+          <Text style={[s.label, selected && (solidSelect ? s.labelSolid : s.labelSelected)]}>{label}</Text>
           {subtitle && (
-            <Text style={[s.subtitle, selected && s.subtitleSelected]}>{subtitle}</Text>
+            <Text style={[s.subtitle, selected && (solidSelect ? s.subtitleSolid : s.subtitleSelected)]}>{subtitle}</Text>
           )}
         </View>
       </View>
@@ -83,6 +86,16 @@ const createStyles = (c: AppColors) => {
     },
     subtitleSelected: {
       color: 'rgba(255,116,42,0.65)',
+    },
+    pillSolid: {
+      backgroundColor: '#FF742A',
+      borderColor: '#FF742A',
+    },
+    labelSolid: {
+      color: '#FFFFFF',
+    },
+    subtitleSolid: {
+      color: 'rgba(255,255,255,0.85)',
     },
   });
 };

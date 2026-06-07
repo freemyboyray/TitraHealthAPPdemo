@@ -56,8 +56,9 @@ export default function SideEffectsScreen() {
                 <OptionPill
                   key={o.value}
                   label={o.label}
-                  icon={<LucideIconByName name={o.lucideIcon} size={20} color={iconColor} />}
+                  icon={<LucideIconByName name={o.lucideIcon} size={20} color={selected.includes(o.value) ? '#FFFFFF' : iconColor} />}
                   selected={selected.includes(o.value)}
+                  solidSelect
                   onPress={() => toggle(o.value)}
                 />
             ))}
