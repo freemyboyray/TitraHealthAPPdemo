@@ -30,13 +30,24 @@ const DISCLAIMER_TEXT =
 
 const CARD_W = 172;
 
-function ArticleCard({ article }: { article: Article }) {
+// Turn an article's pastel hex into a translucent TINT laid over the page
+// background: a dark muted tint in dark mode, a soft tint in light mode
+// (Apple Fitness+ education-card style) instead of a solid pastel fill.
+function tintBg(hex: string, dark: boolean): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${dark ? 0.18 : 0.55})`;
+}
+
+function ArticleCard({ article, dark }: { article: Article; dark: boolean }) {
   const cardColor = getArticleColor(article);
   return (
     <Pressable
       style={({ pressed }) => [
         cardStyles.card,
-        { backgroundColor: cardColor },
+        { backgroundColor: tintBg(cardColor, dark) },
         pressed && { opacity: 0.92, transform: [{ scale: 0.97 }] },
       ]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
@@ -57,9 +68,9 @@ function ArticleCard({ article }: { article: Article }) {
         </View>
       </View>
 
-      {/* Title sits inside the colored card */}
+      {/* Title sits inside the tinted card */}
       <View style={cardStyles.textArea}>
-        <Text style={cardStyles.title} numberOfLines={3}>{article.title}</Text>
+        <Text style={[cardStyles.title, { color: dark ? '#FFFFFF' : '#1A1A1A' }]} numberOfLines={3}>{article.title}</Text>
       </View>
     </Pressable>
   );
@@ -109,11 +120,10 @@ const cardStyles = StyleSheet.create({
     paddingBottom: 6,
   },
   title: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#1A1A1A',
-    letterSpacing: -0.3,
-    lineHeight: 20,
+    letterSpacing: -0.4,
+    lineHeight: 25,
     fontFamily: FF,
   },
 });
@@ -180,7 +190,7 @@ export default function EducationScreen() {
                     contentContainerStyle={s.row}
                   >
                     {items.map((article) => (
-                      <ArticleCard key={article.id} article={article} />
+                      <ArticleCard key={article.id} article={article} dark={colors.isDark} />
                     ))}
                   </ScrollView>
                 </View>

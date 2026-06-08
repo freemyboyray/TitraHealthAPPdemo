@@ -145,7 +145,7 @@ export const ARTICLES: Article[] = [
     subtitle: 'The overlooked essential, and why thirst alone isn\'t enough.',
     category: 'hydration',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/staying-hydrated.png'),
+    coverImage: require('@/assets/images/articles/staying-hydrated-drop.png'),
     bgColor: '#D9EDFB',
     sections: [
       {
@@ -315,8 +315,8 @@ export const ARTICLES: Article[] = [
     subtitle: 'Why digestion slows down and the habits that get things moving.',
     category: 'side-effects',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/managing-side-effects.png'),
-    bgColor: '#FBE3EC',
+    coverImage: require('@/assets/images/articles/managing-constipation.png'),
+    bgColor: '#FBEADF',
     sections: [
       {
         heading: 'Why It Happens',
@@ -372,7 +372,7 @@ export const ARTICLES: Article[] = [
     subtitle: "When plain water isn't enough and what your body needs.",
     category: 'hydration',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/staying-hydrated.png'),
+    coverImage: require('@/assets/images/articles/electrolytes.png'),
     bgColor: '#D9EDFB',
     sections: [
       {
