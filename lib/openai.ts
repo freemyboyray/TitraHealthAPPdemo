@@ -751,40 +751,188 @@ export async function estimateMacrosWithAI(foodName: string): Promise<{
 
 // ─── Weekly Summary Insight ────────────────────────────────────────────────────
 
+/** Per-section weekly insight set. Stored JSON-stringified in weekly_summaries.ai_insight. */
+export type WeeklyInsightSet = {
+  overall: string;
+  weight: string;
+  nutrition: string;
+  activity: string;
+  checkins: string;
+  sideEffects: string;
+};
+
+const EMPTY_INSIGHT_SET: WeeklyInsightSet = {
+  overall: '', weight: '', nutrition: '', activity: '', checkins: '', sideEffects: '',
+};
+
+/**
+ * Parse a stored `ai_insight` value into a WeeklyInsightSet. Handles the new
+ * JSON format, the legacy plain-string format (→ `overall`), and null.
+ */
+export function parseWeeklyInsight(raw: string | null | undefined): WeeklyInsightSet {
+  if (!raw) return EMPTY_INSIGHT_SET;
+  try {
+    const p = JSON.parse(raw);
+    if (p && typeof p === 'object' && ('overall' in p || 'nutrition' in p)) {
+      return {
+        overall: typeof p.overall === 'string' ? p.overall : '',
+        weight: typeof p.weight === 'string' ? p.weight : '',
+        nutrition: typeof p.nutrition === 'string' ? p.nutrition : '',
+        activity: typeof p.activity === 'string' ? p.activity : '',
+        checkins: typeof p.checkins === 'string' ? p.checkins : '',
+        sideEffects: typeof p.sideEffects === 'string' ? p.sideEffects : '',
+      };
+    }
+  } catch { /* legacy plain string */ }
+  return { ...EMPTY_INSIGHT_SET, overall: raw };
+}
+
 export async function generateWeeklyInsight(
   summary: WeeklySummaryData,
   profile: FullUserProfile,
 ): Promise<string> {
   const daysOnMed = Math.max(1, Math.floor((Date.now() - new Date(profile.startDate).getTime()) / 86400000));
   const weightChange = summary.weight.delta != null
-    ? `${summary.weight.delta > 0 ? '+' : ''}${summary.weight.delta.toFixed(1)} lbs`
+    ? `${summary.weight.delta > 0 ? '+' : ''}${summary.weight.delta.toFixed(1)} lbs (start ${summary.weight.start?.toFixed(1) ?? '—'}, end ${summary.weight.end?.toFixed(1) ?? '—'})`
     : 'not logged';
+  const checkinLines = Object.entries(summary.checkins)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => `${k} ${v}/100`)
+    .join(', ') || 'none completed';
 
-  const systemPrompt = `You are Titra, a GLP-1 medication companion AI coach. Write a concise, personalized weekly recap.
+  const systemPrompt = `You are Titra, a GLP-1 medication companion AI coach. Write a personalized weekly recap broken into short per-section insights.
 
-USER:
+USER DATA (week of ${summary.windowStart} to ${summary.windowEnd}):
 - Medication: ${profile.medicationBrand} ${profile.doseMg}mg, day ${daysOnMed} on program
-- Weight change this week: ${weightChange}
-- Avg calories: ${summary.nutrition.avgCalories ?? 'not logged'} (target: ${summary.nutrition.caloriesTarget})
-- Avg protein: ${summary.nutrition.avgProteinG ?? 'not logged'}g (target: ${summary.nutrition.proteinTarget}g)
-- Avg fiber: ${summary.nutrition.avgFiberG ?? 'not logged'}g
-- Days food logged: ${summary.nutrition.daysLogged}/7
-- Avg steps: ${summary.activity.avgSteps ?? 'not logged'} (target: ${summary.activity.stepsTarget})
-- Active days: ${summary.activity.activeDays}/7
-- Side effects logged: ${summary.sideEffects.totalCount}${summary.sideEffects.topTypes.length > 0 ? ` (${summary.sideEffects.topTypes.join(', ')})` : ''}
+- Weight: ${weightChange}
+- Nutrition: ${summary.nutrition.avgCalories ?? 'not logged'} avg cal (target ${summary.nutrition.caloriesTarget}), ${summary.nutrition.avgProteinG ?? 'not logged'}g protein (target ${summary.nutrition.proteinTarget}g), ${summary.nutrition.avgFiberG ?? 'not logged'}g fiber; ${summary.nutrition.daysLogged}/7 days logged
+- Activity: ${summary.activity.avgSteps ?? 'not logged'} avg steps (target ${summary.activity.stepsTarget}), ${summary.activity.activeDays}/7 active days
+- Check-in scores (0-100, higher is better): ${checkinLines}
+- Side effects: ${summary.sideEffects.totalCount} logged${summary.sideEffects.topTypes.length > 0 ? ` (${summary.sideEffects.topTypes.join(', ')})` : ''}
 
-Write 3-4 sentences of personalized insight covering the most significant trend from this week and one specific, actionable recommendation for the next injection cycle. Plain text only — no bullets or markdown.`;
+Return a JSON object with EXACTLY these keys, each a warm, second-person, 1-2 sentence plain-text insight grounded in the numbers above (no markdown, no bullets):
+{
+  "overall": "the single most important takeaway for the week plus one specific focus for the next injection cycle",
+  "weight": "the weight trend",
+  "nutrition": "calories/protein/fiber/water",
+  "activity": "steps and activity",
+  "checkins": "the check-in domain scores (energy, GI, appetite, sleep, mental health, etc.)",
+  "sideEffects": "side-effect burden this week"
+}
+If a section has no data this week, set its value to an empty string "". Never recommend specific medication doses.`;
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: 'Write my weekly summary insight.' },
+      { role: 'user', content: 'Write my weekly per-section insights as JSON.' },
     ],
-    max_tokens: 250,
+    max_tokens: 600,
     temperature: 0.7,
+    response_format: { type: 'json_object' },
   });
 
-  return (data as any).choices[0].message.content as string;
+  const raw = (data as any).choices[0].message.content as string;
+  // Normalize to our shape before storing so the reader can trust the keys.
+  return JSON.stringify(parseWeeklyInsight(raw));
+}
+
+// ─── Side-effect insights (overall + per-symptom, cached per day) ─────────────
+
+export type SideEffectDigestSymptom = {
+  type: string;          // stored effect_type (the perSymptom key)
+  label: string;         // display label
+  count: number;
+  avgTier: string;       // 'Mild' | 'Moderate' | 'Severe'
+  mild: number;
+  moderate: number;
+  severe: number;
+  trend: string;         // 'improving' | 'worsening' | 'steady' | 'new'
+};
+
+export type SideEffectDigest = {
+  freqLabel: string;             // 'weekly injection' | 'daily dose' | …
+  cyclePeakLabel: string | null; // 'Day 1–2' | 'Mon' | '12–18h' | null
+  symptoms: SideEffectDigestSymptom[];
+  clusters: { a: string; b: string; daysTogether: number }[];
+};
+
+export type SideEffectInsightSet = { overall: string; perSymptom: Record<string, string> };
+
+const EMPTY_SE_INSIGHTS: SideEffectInsightSet = { overall: '', perSymptom: {} };
+
+function parseSideEffectInsights(raw: string | null | undefined, types: string[]): SideEffectInsightSet {
+  if (!raw) return EMPTY_SE_INSIGHTS;
+  try {
+    const p = JSON.parse(raw);
+    const overall = typeof p?.overall === 'string' ? p.overall : '';
+    const perSymptom: Record<string, string> = {};
+    const src = (p && typeof p.perSymptom === 'object' && p.perSymptom) || {};
+    for (const t of types) {
+      if (typeof src[t] === 'string') perSymptom[t] = src[t];
+    }
+    return { overall, perSymptom };
+  } catch {
+    return EMPTY_SE_INSIGHTS;
+  }
+}
+
+/**
+ * One batched call producing the overall summary plus a personalized line per
+ * tracked symptom. Cached per day (mirrors generateWeeklyInsight). Returns the
+ * parsed set directly so the hook can use it without re-parsing.
+ */
+export async function generateSideEffectInsights(
+  digest: SideEffectDigest,
+  profile: FullUserProfile,
+): Promise<SideEffectInsightSet> {
+  const types = digest.symptoms.map(s => s.type);
+  const key = cacheKey('side_effect_insights');
+  if (_cache.has(key)) return _cache.get(key) as SideEffectInsightSet;
+
+  if (digest.symptoms.length === 0) {
+    const empty = EMPTY_SE_INSIGHTS;
+    _cache.set(key, empty);
+    return empty;
+  }
+
+  const daysOnMed = Math.max(1, Math.floor((Date.now() - new Date(profile.startDate).getTime()) / 86400000));
+  const symptomLines = digest.symptoms
+    .map(s => `- ${s.label} (key "${s.type}"): ${s.count} logs, mostly ${s.avgTier} (${s.mild} mild, ${s.moderate} moderate, ${s.severe} severe), trend ${s.trend}`)
+    .join('\n');
+  const clusterLine = digest.clusters.length > 0
+    ? digest.clusters.map(c => `${c.a}+${c.b} (${c.daysTogether} shared days)`).join(', ')
+    : 'none notable';
+
+  const systemPrompt = `You are Titra, a GLP-1 medication companion AI coach. The user is on day ${daysOnMed} of their program with a ${digest.freqLabel}. Write personalized, grounded side-effect insights.
+
+LAST 30 DAYS OF SIDE-EFFECT DATA:
+- Cycle timing of symptoms: ${digest.cyclePeakLabel ? `most symptoms land around ${digest.cyclePeakLabel} of the cycle` : 'no clear cycle timing yet'}
+- Symptoms:
+${symptomLines}
+- Symptoms that cluster on the same day: ${clusterLine}
+
+Return a JSON object with EXACTLY these keys:
+{
+  "overall": "2-3 warm, second-person sentences: the single most important takeaway about their side-effect picture and cycle timing, plus what to keep an eye on next cycle",
+  "perSymptom": { ${types.map(t => `"${t}": "1-2 sentences personalized to THIS symptom's trend, severity mix, and what specifically to watch for"`).join(', ')} }
+}
+Ground every sentence in the numbers above. Be encouraging when things are improving and matter-of-fact when steady. Suggest hydration, protein, fiber, meal timing, or contacting their care team where relevant. NEVER recommend, adjust, or mention specific medication doses. Plain text only, no markdown.`;
+
+  const data = await callOpenAIProxy({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: 'Write my side-effect insights as JSON.' },
+    ],
+    max_tokens: 700,
+    temperature: 0.7,
+    response_format: { type: 'json_object' },
+  });
+
+  const raw = (data as any).choices?.[0]?.message?.content as string;
+  const parsed = parseSideEffectInsights(raw, types);
+  _cache.set(key, parsed);
+  return parsed;
 }
 

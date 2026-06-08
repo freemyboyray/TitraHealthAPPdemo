@@ -129,6 +129,52 @@ export const DOMAIN_ORDER: readonly CheckinDomainKey[] =
 export const DOMAIN_BY_KEY: Record<CheckinDomainKey, CheckinDomainMeta> =
   Object.fromEntries(CHECKIN_DOMAINS.map((d) => [d.key, d])) as Record<CheckinDomainKey, CheckinDomainMeta>;
 
+// Slider stops shown to the user as 1–5 map to these words (stored 0–4 internally).
+export const CHECKIN_SCALE_LABELS = ['Not at all', 'A little', 'Sometimes', 'Often', 'Always'] as const;
+
+/**
+ * The three questions per domain (the standard, non-daily-drug wording). The form
+ * layers daily-drug variants on top for live entry; the result/detail screens read
+ * straight from here to show a past check-in's questions next to its answers.
+ */
+export const CHECKIN_QUESTIONS: Record<CheckinDomainKey, readonly string[]> = {
+  gi_burden: [
+    'I felt nauseous, vomited, or had acid reflux.',
+    'I had stomach pain, cramping, or bloating.',
+    'GI issues disrupted my eating or daily routine.',
+  ],
+  energy_mood: [
+    'My energy levels were low or inconsistent.',
+    'I felt mentally foggy or drained.',
+    'I felt irritable, down, or emotionally flat.',
+  ],
+  appetite: [
+    'I struggled to eat enough or skipped meals.',
+    'Food felt unappealing for most of the day.',
+    'My appetite felt unpredictable or out of control.',
+  ],
+  food_noise: [
+    'I had frequent, intrusive thoughts about food.',
+    'Food cravings made it hard to focus on other things.',
+    "I thought about eating even when I wasn't hungry.",
+  ],
+  sleep_quality: [
+    'I had trouble falling or staying asleep.',
+    'I woke up feeling unrefreshed or tired.',
+    'Poor sleep affected how I felt during the day.',
+  ],
+  activity_quality: [
+    'I completed exercise or movement sessions.',
+    'I felt physically capable and strong.',
+    'I hit my step or activity goals most days.',
+  ],
+  mental_health: [
+    'I felt anxious, worried, or on edge.',
+    'I felt sad, hopeless, or unmotivated.',
+    'Emotional challenges affected my eating or routine.',
+  ],
+};
+
 /**
  * Per-domain hero illustration — the same hand-illustrated asset shown big at the
  * top of each section in the paged check-in form, reused (small) on the result &
@@ -150,4 +196,12 @@ export function scoreColor(score: number): string {
   if (score >= 50) return STATUS_MID;
   if (score >= 30) return STATUS_WARN;
   return STATUS_BAD;
+}
+
+/** A qualitative one-word-ish label for an overall (0–100) weekly check-in score. */
+export function overallScoreLabel(score: number): string {
+  if (score >= 70) return 'Strong week';
+  if (score >= 50) return 'Steady week';
+  if (score >= 30) return 'Mixed week';
+  return 'Tough week';
 }

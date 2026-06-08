@@ -12,9 +12,14 @@ export type Article = {
   category: string;
   readingTime: number;
   coverImage: ImageSourcePropType;
-  /** Pastel card/background color. MUST match the baked-in background of coverImage so
-   *  the illustration blends seamlessly into the card and detail header. */
+  /** Pastel card/background color. For legacy (baked-background) art this MUST match the
+   *  baked-in background of coverImage. For transparentArt this is an unused fallback —
+   *  the card color comes from the parent section's bgColor instead. */
   bgColor: string;
+  /** When true, coverImage is a transparent PNG illustration rendered (contained, with
+   *  padding) over the section's identity color. When false/undefined, coverImage fills
+   *  the card edge-to-edge on its own bgColor (legacy behavior). */
+  transparentArt?: boolean;
   sections: ArticleSection[];
   sources: string[];
 };
@@ -26,8 +31,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'What happens in your body and why appetite changes feel different.',
     category: 'medication',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    coverImage: require('@/assets/images/articles/how-glp1s-work.png'),
     bgColor: '#E6E3FB',
+    transparentArt: true,
     sections: [
       {
         heading: 'A Hormone Your Body Already Makes',
@@ -63,8 +69,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'Why side effects happen and practical ways to manage them.',
     category: 'side-effects',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/managing-side-effects.png'),
+    coverImage: require('@/assets/images/articles/your-first-weeks.png'),
     bgColor: '#FBE3EC',
+    transparentArt: true,
     sections: [
       {
         heading: 'Why Your Body Is Adjusting',
@@ -102,6 +109,7 @@ export const ARTICLES: Article[] = [
     readingTime: 5,
     coverImage: require('@/assets/images/articles/protein-priority.png'),
     bgColor: '#FBEED0',
+    transparentArt: true,
     sections: [
       {
         heading: 'Why Protein Matters More Right Now',
@@ -213,6 +221,7 @@ export const ARTICLES: Article[] = [
     readingTime: 6,
     coverImage: require('@/assets/images/articles/what-to-eat.png'),
     bgColor: '#FBE2D2',
+    transparentArt: true,
     sections: [
       {
         heading: 'The Order on Your Plate Matters',
@@ -248,8 +257,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'What "food noise" really is and why it often quiets down.',
     category: 'medication',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    coverImage: require('@/assets/images/articles/quieting-food-noise.png'),
     bgColor: '#E6E3FB',
+    transparentArt: true,
     sections: [
       {
         heading: 'What "Food Noise" Actually Means',
@@ -276,8 +286,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'Why weight loss plateaus happen and what they actually mean.',
     category: 'medication',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    coverImage: require('@/assets/images/articles/when-the-scale-stalls.png'),
     bgColor: '#E6E3FB',
+    transparentArt: true,
     sections: [
       {
         heading: 'Plateaus Are Expected, Not a Failure',
@@ -332,8 +343,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'How to hit your protein goal when you can barely finish a meal.',
     category: 'nutrition',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/protein-priority.png'),
+    coverImage: require('@/assets/images/articles/protein-on-low-appetite-days.png'),
     bgColor: '#FBEED0',
+    transparentArt: true,
     sections: [
       {
         heading: 'The Low-Appetite Challenge',
@@ -444,8 +456,9 @@ export const ARTICLES: Article[] = [
     subtitle: 'Restaurants, social meals, and travel on a reduced appetite.',
     category: 'nutrition',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/what-to-eat.png'),
+    coverImage: require('@/assets/images/articles/eating-out.png'),
     bgColor: '#FBE2D2',
+    transparentArt: true,
     sections: [
       {
         heading: 'The Restaurant Reality',
@@ -476,6 +489,9 @@ export type ArticleRow = {
   title: string;
   /** One-line description shown under the section title. */
   description: string;
+  /** Section identity color. Cards whose article has transparentArt render their
+   *  illustration over this color. Optional during the transition to transparent art. */
+  bgColor?: string;
   articleIds: string[];
 };
 
@@ -484,6 +500,7 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
     id: 'essentials',
     title: 'The Essentials',
     description: 'Start here — how GLP-1 medications work and what your first weeks may feel like.',
+    bgColor: '#F4F2FE',
     articleIds: [
       'how-glp1s-work',
       'managing-side-effects',
@@ -495,6 +512,7 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
     id: 'food-nutrition',
     title: 'Food & Nutrition',
     description: 'Eat in a way that works with your medication, not against it.',
+    bgColor: '#FDECEC',
     articleIds: [
       'protein-priority',
       'what-to-eat',
@@ -526,6 +544,16 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
 
 export function getArticleById(id: string): Article | undefined {
   return ARTICLES.find((a) => a.id === id);
+}
+
+/** Resolves the card/cover color for an article. Transparent-art articles take their
+ *  parent section's identity color; legacy articles fall back to their own bgColor. */
+export function getArticleColor(article: Article): string {
+  if (article.transparentArt) {
+    const section = ARTICLE_SECTIONS.find((s) => s.articleIds.includes(article.id));
+    if (section?.bgColor) return section.bgColor;
+  }
+  return article.bgColor;
 }
 
 export function getSectionById(id: string): ArticleRow | undefined {

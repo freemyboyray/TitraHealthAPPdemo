@@ -1,4 +1,4 @@
-import { Maximize2, XCircle, Zap, TrendingUp, ChevronRight, ChevronLeft, ChevronDown, Check, Frown, MessageCircle, Heart, Syringe, Pill } from 'lucide-react-native';
+import { Maximize2, XCircle, Zap, TrendingUp, TrendingDown, ChevronRight, ChevronLeft, ChevronDown, Check, Frown, MessageCircle, Heart, Syringe, Pill, Scale } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import Svg, { Path, Circle, Line, Rect, Text as SvgText, Defs, LinearGradient, Stop, ClipPath } from 'react-native-svg';
@@ -15,7 +15,7 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { categoryColor, healthCategoryColor, ORANGE } from '@/constants/theme';
+import { ORANGE } from '@/constants/theme';
 import { useInsightsAiStore } from '@/stores/insights-ai-store';
 import { generatePkCurveHighRes, generateIntradayPkCurve, pkCycleLabels, pkConcentrationPct, DRUG_DEFAULT_FREQ_DAYS, DRUG_IS_ORAL, INTRADAY_TIME_LABELS, isOralDrug, doseNoun } from '@/constants/drug-pk';
 import { BRAND_DISPLAY_NAMES, isOnTreatment } from '@/constants/user-profile';
@@ -33,16 +33,15 @@ import {
   buildCycleBiometricContext,
 } from '@/lib/cycle-intelligence';
 import { CycleBiometricCard } from '@/components/cycle-biometric-card';
-import { BodyCompositionCard } from '@/components/body-composition-card';
 import { ClinicalBenchmarkCard } from '@/components/clinical-benchmark-card';
-import { LeanMassPreservationCard } from '@/components/lean-mass-preservation-card';
+import { useExpandToFullscreen, ExpandOverlay } from '@/components/ui/expand-in-place';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { LifestyleInsightsCard } from '@/components/lifestyle-insights-card';
 import { CategoryRow } from '@/components/insights/category-row';
 import { LifestyleEntryCard } from '@/components/insights/lifestyle-entry-card';
 import { SUMMARY_METRICS, buildSeries, buildFoodByDate, buildActivityByDate } from '@/lib/metric-history';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
-import { computeFatToLeanRatio, bodyCompTrendData, computeLeanPreservation } from '@/lib/body-composition';
+import { useSideEffectInsightsPrewarm } from '@/lib/side-effect-insights-ai';
 import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -79,12 +78,6 @@ function hmCalLabel(n: number): string { return n >= 400 ? 'Active' : n >= 200 ?
 // Weight — no good/bad, just informational
 function hmWeightStatus(): HMStatus { return 'normal'; }
 function hmWeightLabel(): string { return 'Latest'; }
-// Body fat
-function hmBodyFatStatus(pct: number): HMStatus { return pct <= 20 ? 'good' : pct <= 30 ? 'normal' : 'elevated'; }
-function hmBodyFatLabel(pct: number): string { return pct <= 20 ? 'Lean' : pct <= 30 ? 'Normal' : 'High'; }
-// Lean mass — informational
-function hmLeanMassStatus(): HMStatus { return 'normal'; }
-function hmLeanMassLabel(): string { return 'Latest'; }
 // SpO2
 function hmSpo2Status(v: number): HMStatus { return v >= 96 ? 'good' : v >= 92 ? 'normal' : 'low'; }
 function hmSpo2Label(v: number): string { return v >= 96 ? 'Normal' : v >= 92 ? 'Borderline' : 'Low'; }
@@ -131,8 +124,6 @@ function hmGaugePos(id: string, rawVal: number | null): number | null {
     case 'steps':     return c(rawVal / 15000);                 // 0-15k, higher = top
     case 'activeCal': return c(rawVal / 800);                   // 0-800 kcal
     case 'weight':    return 0.5;                               // informational
-    case 'bodyFat':   return c(1 - (rawVal - 5) / 40);         // 5-45%, lower = top
-    case 'leanMass':  return 0.5;                               // informational
     case 'exMin':     return c(rawVal / 60);                    // 0-60 min
     case 'water':     return c(rawVal / 100);                   // 0-100 fl oz
     case 'respRate':  return c(1 - Math.abs(rawVal - 16) / 12); // 16 bpm ideal, penalize deviation
@@ -544,76 +535,6 @@ function activityIcon(exerciseType: string | null | undefined): React.ReactEleme
   return <LucideIconByName name={lucideName} size={20} color={ORANGE_LOG} />;
 }
 
-function foodToEntry(f: FoodLog): LogEntry {
-  const details = `${Math.round(f.calories)} cal · ${Math.round(f.protein_g)}g protein · ${Math.round(f.fiber_g)}g fiber · ${Math.round(f.carbs_g)}g carbs`;
-  const impact = `+${Math.round(f.protein_g)}g protein, +${Math.round(f.carbs_g)}g carbs, +${Math.round(f.fiber_g)}g fiber`;
-  return {
-    id: f.id, timestamp: fmtDateTime(f.logged_at), rawDate: localDateStr(new Date(f.logged_at)),
-    title: f.food_name, details, impact, impactStatus: 'positive',
-    icon: <IconSymbol name="fork.knife" size={20} color={ORANGE_LOG} />,
-    kind: 'food',
-  };
-}
-
-function activityToEntry(a: ActivityLog): LogEntry {
-  const durationStr = a.duration_min ? `${a.duration_min} min` : '';
-  const stepsStr = a.steps ? `${a.steps.toLocaleString()} steps` : '';
-  const calStr = a.active_calories ? `${a.active_calories} cal burned` : '';
-  const details = [durationStr, stepsStr, calStr].filter(Boolean).join(' · ') || 'Activity logged';
-  const impact = `Steps ${a.steps ? `+${a.steps.toLocaleString()}` : '-'} · Calories ${a.active_calories ? `+${a.active_calories}` : '-'}`;
-  return {
-    id: a.id, timestamp: fmtDateOnly(a.date), rawDate: a.date,
-    title: a.exercise_type ?? 'Activity', details, impact, impactStatus: 'positive',
-    icon: activityIcon(a.exercise_type),
-    kind: 'activity',
-  };
-}
-
-function injectionToEntry(inj: InjectionLog, oral = false): LogEntry {
-  const medName = inj.medication_name ?? (oral ? 'Dose' : 'Injection');
-  const batchStr = inj.batch_number ? ` · Batch #${inj.batch_number}` : '';
-  const siteStr = !oral && inj.site ? `Site: ${inj.site} · ` : '';
-  const details = `${siteStr}Dose: ${inj.dose_mg}mg${batchStr}`;
-  const next = nextSite(inj.site ?? null);
-  const impact = oral
-    ? `Next ${doseNoun(true)} in 1 day`
-    : `Next injection in 7 days - rotate to ${next}`;
-  return {
-    id: inj.id, timestamp: fmtDateOnly(inj.injection_date), rawDate: inj.injection_date,
-    title: `${medName} ${inj.dose_mg}mg`,
-    details, impact, impactStatus: 'neutral',
-    icon: oral ? <Pill size={18} color={ORANGE_LOG} /> : <Syringe size={18} color={ORANGE_LOG} />,
-    kind: 'medication',
-  };
-}
-
-function weightToEntry(log: WeightLog, prevLog?: WeightLog): LogEntry {
-  const delta = prevLog ? Math.round((log.weight_lbs - prevLog.weight_lbs) * 10) / 10 : 0;
-  const deltaStr = delta < 0 ? `Down ${Math.abs(delta)} lbs` : delta > 0 ? `Up ${delta} lbs` : 'Steady';
-  return {
-    id: log.id, timestamp: fmtDateTime(log.logged_at), rawDate: localDateStr(new Date(log.logged_at)),
-    title: `Weight Log - ${log.weight_lbs} lbs`,
-    details: `${log.weight_lbs} lbs · ${deltaStr} from last entry`,
-    impact: delta <= 0 ? deltaStr : `Up ${Math.abs(delta)} lbs`,
-    impactStatus: delta < 0 ? 'positive' : delta > 0 ? 'negative' : 'neutral',
-    icon: <IconSymbol name="scalemass.fill" size={20} color={ORANGE_LOG} />,
-    kind: 'weight',
-  };
-}
-
-function sideEffectToEntry(se: SideEffectLog): LogEntry {
-  const label = se.effect_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  const sevLabel = se.severity <= 3 ? 'Mild' : se.severity <= 6 ? 'Moderate' : 'Severe';
-  const details = `Severity: ${se.severity}/10${se.notes ? ` · ${se.notes}` : ''}`;
-  return {
-    id: se.id, timestamp: fmtDateTime(se.logged_at), rawDate: localDateStr(new Date(se.logged_at)),
-    title: label, details, impact: sevLabel,
-    impactStatus: se.severity <= 3 ? 'neutral' : 'negative',
-    icon: <Frown size={20} color={ORANGE_LOG} />,
-    kind: 'side_effect',
-  };
-}
-
 // ─── Segmented control ────────────────────────────────────────────────────────
 
 type Tab = 'medication' | 'lifestyle' | 'progress';
@@ -623,14 +544,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'lifestyle', label: 'Lifestyle' },
   { key: 'progress', label: 'Progress' },
 ];
-
-// Which log categories each Insights tab surfaces in its Today's Logs card. Mirrored
-// in log-history.tsx (TAB_KINDS) so the scoped "See Full History" link matches.
-const TAB_LOG_KINDS: Record<Tab, LogKind[]> = {
-  medication: ['medication', 'side_effect'],
-  lifestyle: ['food', 'activity'],
-  progress: ['weight'],
-};
 
 // SegmentedControl replaced by SlidingTabs component
 
@@ -822,22 +735,6 @@ export function ActivityDailyCard({ value, label, ringColor, current = 0, target
 
 type Status = 'positive' | 'negative' | 'neutral';
 
-// Category each entry belongs to — vocabulary matches log-history's FilterType so
-// the per-tab scoping in both screens stays in sync.
-type LogKind = 'food' | 'activity' | 'weight' | 'medication' | 'side_effect';
-
-type LogEntry = {
-  id: string;
-  timestamp: string;
-  rawDate: string; // YYYY-MM-DD for grouping
-  title: string;
-  details: string;
-  impact: string;
-  impactStatus: Status;
-  icon: React.ReactElement;
-  kind: LogKind;
-};
-
 const statusStyle: Record<Status, { bg: string; text: string }> = {
   positive: { bg: 'rgba(43,148,80,0.15)', text: '#2B9450' },
   negative: { bg: 'rgba(220,50,50,0.15)', text: '#DC3232' },
@@ -1013,16 +910,6 @@ export function buildHealthMetrics(hkStore: ReturnType<typeof useHealthKitStore.
     respRate != null ? { id: 'respRate', label: 'Resp. Rate', value: `${respRate}`, unit: 'bpm', status: hmRespRateStatus(respRate), lucideIcon: 'Leaf', rangeLabel: hmRespRateLabel(respRate), gaugePosition: hmGaugePos('respRate', respRate) } : hmEmpty('respRate', 'Resp. Rate', 'Leaf'),
   ];
   groups.push({ category: 'Vitals', metrics: vitals });
-
-  // ── Body Composition ──
-  // Note: Weight is omitted here — Titra tracks it directly (logStore syncs from
-  // HK on home tab focus). Showing it again would duplicate the Progress tab card.
-  const body: HealthMetric[] = [];
-  const bf = hkStore.bodyFat;
-  if (bf != null) body.push({ id: 'bodyFat', label: 'Body Fat', value: `${bf}`, unit: '%', status: hmBodyFatStatus(bf), lucideIcon: 'PersonStanding', rangeLabel: hmBodyFatLabel(bf), gaugePosition: hmGaugePos('bodyFat', bf) });
-  const lm = hkStore.leanMass;
-  if (lm != null) body.push({ id: 'leanMass', label: 'Lean Mass', value: `${lm}`, unit: 'lbs', status: hmLeanMassStatus(), lucideIcon: 'Dumbbell', rangeLabel: hmLeanMassLabel(), gaugePosition: hmGaugePos('leanMass', lm) });
-  if (body.length > 0) groups.push({ category: 'Body Composition', metrics: body });
 
   // ── Activity ── (always show the full set we track; greyed when no data)
   // Note: Steps + Active Calories live in the Daily Metrics row above (with HK
@@ -1235,6 +1122,7 @@ function pkPointLabel(idx: number, injFreqDays: number, nPoints: number, injTime
   return `Day ${day}${h > 0 ? `, +${h}h` : ''}`;
 }
 
+
 function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicationBrand, isDailyDrug, oral, currentCyclePct, currentConcentrationPct, injFreqDays, injTimestamp, lastDoseMg }: {
   chartData: number[] | null;
   daysSince: number;
@@ -1252,40 +1140,12 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [chartWidth, setChartWidth] = useState(0);
-  const [expandedModal, setExpandedModal] = useState(false);
-  const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
   const [expChartWidth, setExpChartWidth] = useState(0);
-  const { height: screenHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const onLayout = (e: LayoutChangeEvent) => setChartWidth(e.nativeEvent.layout.width);
   const { openAiChat } = useUiStore();
-
-  const sheetTranslateY = useRef(new Animated.Value(0)).current;
-  const dismissSheet = () => {
-    Animated.timing(sheetTranslateY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
-      setExpandedModal(false);
-      setSelectedPointIdx(null);
-    });
-  };
-  useEffect(() => {
-    if (expandedModal) {
-      Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
-    }
-  }, [expandedModal, sheetTranslateY]);
-  const sheetPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
-    onPanResponderMove: (_, gs) => {
-      if (gs.dy > 0) sheetTranslateY.setValue(gs.dy);
-    },
-    onPanResponderRelease: (_, gs) => {
-      if (gs.dy > 80 || gs.vy > 0.5) {
-        dismissSheet();
-      } else {
-        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-      }
-    },
-  })).current;
+  // Tap to expand the card in place to a centered card over a blurred backdrop
+  // (this card has less content than the weight one, so it doesn't go fullscreen).
+  const exp = useExpandToFullscreen({ mode: 'card', cardHeight: EXP_CHART_HEIGHT + 372 });
 
   const n = chartData ? chartData.length : 0;
   const colW = chartWidth > 0 && n > 0 ? chartWidth / n : 0;
@@ -1367,11 +1227,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   }, [chartData, injFreqDays, injTimestamp]);
 
   const openModal = useCallback(() => {
-    if (chartData && !expandedModal) {
-      sheetTranslateY.setValue(screenHeight);
-      setExpandedModal(true);
-    }
-  }, [chartData, expandedModal, screenHeight, sheetTranslateY]);
+    if (chartData) exp.open();
+  }, [chartData, exp]);
 
   const compactScrub = useChartScrub({
     points,
@@ -1389,17 +1246,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
     marginLeft: ML,
     marginRight: MR,
     mode: 'longpress-only',
-    enabled: !!chartData && expChartWidth > 0 && expandedModal,
+    enabled: !!chartData && expChartWidth > 0 && exp.expanded,
   });
-
-  // Sync expanded scrub activeIndex → selectedPointIdx for the panel
-  useAnimatedReaction(
-    () => expScrub.activeIndex.value,
-    (idx) => {
-      reanimatedRunOnJS(setSelectedPointIdx)(idx >= 0 ? idx : null);
-    },
-    [expScrub.activeIndex],
-  );
 
   if (!chartData) {
     return (
@@ -1468,10 +1316,8 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
             strokeLinecap="round" strokeLinejoin="round" />
         )}
 
-        {/* Data dots */}
-        {pts.map((pt, i) => (
-          <Circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={colors.orange} opacity={0.8} />
-        ))}
+        {/* Data dots intentionally hidden — only the NOW marker is shown.
+            Scrubbing still works via the ChartScrubOverlay. */}
 
         {/* NOW marker — rendered last for highest z-order */}
         {nowX != null && nowY != null && (
@@ -1500,6 +1346,7 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
       <View style={{ marginBottom: 16 }}>
       {/* Card flows directly under nav — no title on gradient */}
       <Pressable
+        ref={exp.cardRef}
         style={s.cardWrap}
         onPress={openModal}
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Medication Level', contextValue: isDailyDrug ? `${levelLabel} · ${oral ? 'oral ' : ''}daily dosing` : `${levelLabel} · Last injection ${daysSinceLabel}`, chips: JSON.stringify(isDailyDrug ? ['Why does my level stay steady all day?', 'When is my peak each day?', `Does timing my ${eventNoun} matter?`, 'How does this affect my appetite?'] : ['What does optimal mean?', 'How will this change over my cycle?', 'When is my peak concentration?', 'How does this affect my appetite?']) }); }}
@@ -1507,14 +1354,15 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
 
-            {/* Top row: medication info + tap-for-full-view */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <Text style={[s.chartMuted, { fontSize: 13, flexShrink: 1 }]} numberOfLines={1}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {cadenceLabel}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 8 }}>
-                <Maximize2 size={11} color={colors.isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
-                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+            {/* Header — title + tap-to-expand, matching the Weight "Your Journey" card */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3, fontFamily: 'System' }}>Your Drug Levels</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Maximize2 size={12} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
+                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap to expand</Text>
               </View>
             </View>
+            <Text style={[s.chartMuted, { fontSize: 13, marginBottom: 14 }]} numberOfLines={1}>{brandName}{lastDoseMg ? ` ${lastDoseMg}mg` : ''} · {cadenceLabel}</Text>
 
             {/* Level display */}
             <View style={{ marginBottom: 14 }}>
@@ -1551,60 +1399,31 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
         </View>
       </Pressable>
 
-      {/* ── Expanded Modal ── */}
-      <Modal
-        visible={expandedModal}
-        transparent
-        animationType="none"
-        onRequestClose={dismissSheet}
-      >
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          {/* Backdrop */}
-          <Pressable
-            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-            onPress={dismissSheet}
-          />
-          <Animated.View
-            style={{
-              height: screenHeight * 0.82,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              overflow: 'hidden',
-              transform: [{ translateY: sheetTranslateY }],
-            }}
-          >
-            <BlurView
-              intensity={colors.isDark ? 60 : 90}
-              tint={colors.blurTint}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? colors.glassOverlay : 'rgba(255,255,255,0.82)' }]} />
-
-            {/* Drag handle — pan gesture target */}
-            <View
-              {...sheetPan.panHandlers}
-              style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}
-            >
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+      {/* ── Expanded (in-place card over a blurred backdrop) ── */}
+      <ExpandOverlay exp={exp}>
+        <View style={{ flex: 1, backgroundColor: colors.surface }}>
+          {/* Card header — title + close */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.4, fontFamily: 'System' }}>Your Drug Levels</Text>
+              <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {cadenceLabel}</Text>
             </View>
+            <Pressable onPress={exp.close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+              <XCircle size={26} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'} />
+            </Pressable>
+          </View>
 
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 }}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Drug Concentration</Text>
-                  <Text style={[s.chartMuted, { marginTop: 2 }]}>{brandName} · {cadenceLabel}</Text>
-                </View>
-                <Pressable onPress={dismissSheet} hitSlop={12}>
-                  <XCircle size={28} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
-                </Pressable>
-              </View>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 22 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Explanation — what this curve tracks */}
+            <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.58)', lineHeight: 20, marginBottom: 18, fontFamily: 'System' }}>
+              {`This curve estimates how much ${brandName} is active in your body ${isDailyDrug ? 'through the day' : `across your ${injFreqDays}-day cycle`}. Each ${eventNoun} raises the level to a peak, then it slowly falls as the medication clears.`}
+            </Text>
 
-              {/* Expanded chart with scrub */}
+            {/* Expanded chart with scrub */}
               <GestureDetector gesture={expScrub.gesture}>
                 <View
                   style={{ height: EXP_CHART_HEIGHT, marginBottom: 0, position: 'relative' }}
@@ -1635,204 +1454,16 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
                 ))}
               </View>
 
-              {/* Selected point panel */}
-              {selectedPointIdx !== null && (() => {
-                const selPct = chartData[selectedPointIdx] ?? 0;
-                const selTier = pkTierInfo(selPct);
-                const ptLabel = pkPointLabel(selectedPointIdx, injFreqDays, n, injTimestamp);
-                return (
-                  <View style={{
-                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                    borderRadius: 16,
-                    padding: 14,
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 20,
-                  }}>
-                    <View>
-                      <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{ptLabel}</Text>
-                      <Text style={[s.chartMuted, { marginTop: 2 }]}>{selPct}% of peak</Text>
-                    </View>
-                    <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: `${selTier.color}22` }}>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: selTier.color, fontFamily: 'System' }}>{selTier.label}</Text>
-                    </View>
-                  </View>
-                );
-              })()}
-
-              {/* ── Status block — daily drugs are flat, weekly drugs cycle through tiers ── */}
-              {isDailyDrug ? (
-                <View style={{ marginBottom: 20 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#27AE60' }} />
-                    <Text style={{ fontSize: 17, fontWeight: '700', color: '#27AE60', fontFamily: 'System' }}>Steady all day</Text>
-                  </View>
-                  <Text style={{ fontSize: 14, lineHeight: 20, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', fontFamily: 'System' }}>
-                    {`${oral ? 'Daily oral' : 'Daily'} dosing keeps your level nearly flat. There's no weekly peak-and-trough cycle. ${halfLifeInfo.troughNote ? `Day-to-day ${halfLifeInfo.troughNote}.` : ''}`.trim()}
-                  </Text>
-                </View>
-              ) : (
-              <View style={{ marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierInfo.color }} />
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: tierInfo.color, fontFamily: 'System' }}>{tierInfo.label}</Text>
-                  <Text style={{ fontSize: 15, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'System' }}>· {currentLevel}% active</Text>
-                </View>
-                {/* Gradient phase bar */}
-                <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                  {PK_TIER_GUIDE.slice().reverse().map((tier) => {
-                    const isActive = tier.label === tierInfo.label;
-                    return (
-                      <View key={tier.label} style={{ flex: 1, backgroundColor: isActive ? tier.color : `${tier.color}30` }} />
-                    );
-                  })}
-                </View>
-                {/* Phase position indicator */}
-                <View style={{ position: 'relative', height: 0 }}>
-                  <View style={{
-                    position: 'absolute',
-                    left: `${Math.min(98, Math.max(2, currentLevel))}%`,
-                    top: -14,
-                    width: 3,
-                    height: 6,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 1.5,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 2,
-                  }} />
-                </View>
-                {/* Compact tier legend */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                  {PK_TIER_GUIDE.slice().reverse().map((tier) => {
-                    const isActive = tier.label === tierInfo.label;
-                    return (
-                      <Text key={tier.label} style={{ fontSize: 11, color: isActive ? colors.textPrimary : colors.textSecondary, fontWeight: isActive ? '800' : '500', fontFamily: 'System' }}>{tier.label}</Text>
-                    );
-                  })}
-                </View>
-              </View>
-              )}
-
-              <View style={s.eduDivider} />
-
-              {/* ── Key moments cards ── */}
-              <View style={{ marginBottom: 20 }}>
-                <Text style={[s.eduTitle, { marginBottom: 12 }]}>{isDailyDrug ? 'Your Daily Profile' : 'Your Cycle'}</Text>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  {/* Peak card */}
-                  <View style={{
-                    flex: 1,
-                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                    borderRadius: 14,
-                    padding: 12,
-                    alignItems: 'center',
-                  }}>
-                    <IconSymbol name="checkmark.circle.fill" size={20} color="#27AE60" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Peak</Text>
-                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{peakInfo.tmaxLabel}</Text>
-                  </View>
-                  {/* Half-life card */}
-                  <View style={{
-                    flex: 1,
-                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                    borderRadius: 14,
-                    padding: 12,
-                    alignItems: 'center',
-                  }}>
-                    <IconSymbol name="magnifyingglass" size={20} color="#5B8BF5" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Half-life</Text>
-                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.halfLifeDays}</Text>
-                  </View>
-                  {/* Trough card */}
-                  <View style={{
-                    flex: 1,
-                    backgroundColor: colors.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                    borderRadius: 14,
-                    padding: 12,
-                    alignItems: 'center',
-                  }}>
-                    <IconSymbol name="chart.line.downtrend.xyaxis" size={20} color="#F6CB45" style={{ marginBottom: 6 }} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', textAlign: 'center' }}>Trough</Text>
-                    <Text style={{ fontSize: 12, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', fontFamily: 'System', textAlign: 'center', marginTop: 2 }}>{halfLifeInfo.troughNote || 'End of cycle'}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={s.eduDivider} />
-
-              {/* ── What to expect — compact timeline ── */}
-              <View style={{ marginBottom: 8 }}>
-                <Text style={[s.eduTitle, { marginBottom: 12 }]}>What to Expect</Text>
-                {(isDailyDrug ? [
-                  { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel}` },
-                  { icon: 'Utensils', color: '#5B8BF5', label: 'Steady through the day', when: halfLifeInfo.troughNote ? `Stays near peak. ${halfLifeInfo.troughNote}` : 'Level stays nearly flat' },
-                  { icon: 'TrendingUp', color: '#F6CB45', label: oral ? 'Consistency matters' : 'Daily timing matters', when: dailyConsistencyNote },
-                ] : [
-                  { icon: 'Zap', color: '#27AE60', label: 'Peak appetite suppression', when: `Around ${peakInfo.tmaxLabel} post-dose` },
-                  { icon: 'Utensils', color: '#5B8BF5', label: 'Best window for new habits', when: 'Days 3–5 of cycle' },
-                  { icon: 'TrendingUp', color: '#F6CB45', label: 'Hunger may return', when: 'Last 1–2 days before next dose' },
-                ]).map((item) => (
-                  <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: `${item.color}18`, alignItems: 'center', justifyContent: 'center' }}>
-                      <LucideIconByName name={item.icon} size={16} color={item.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>{item.label}</Text>
-                      <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', fontFamily: 'System', marginTop: 1 }}>{item.when}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
+              {/* What this means for you */}
+              <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3, marginTop: 22, marginBottom: 8, fontFamily: 'System' }}>What this means for you</Text>
+              <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.58)', lineHeight: 20, fontFamily: 'System' }}>
+                {isDailyDrug
+                  ? `Daily dosing keeps your level nearly flat, so appetite control stays consistent from day to day. Taking your ${eventNoun} at the same time keeps it steady.`
+                  : `Your appetite is most suppressed near the peak, around ${peakInfo.tmaxLabel} after each ${eventNoun}. As the level falls toward the end of your cycle, hunger can return. That is expected, and your next ${eventNoun} brings it back up.`}
+              </Text>
             </ScrollView>
-
-            {/* ── Ask AI button ── */}
-            <View style={{
-              paddingHorizontal: 20,
-              paddingTop: 12,
-              paddingBottom: insets.bottom + 16,
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-              backgroundColor: 'transparent',
-            }}>
-              <Pressable
-                onPress={() => {
-                  dismissSheet();
-                  setTimeout(() => {
-                    openAiChat({
-                      type: 'metric',
-                      contextLabel: 'Medication Level',
-                      contextValue: isDailyDrug
-                        ? `${levelLabel} - ${oral ? 'oral ' : ''}daily dosing`
-                        : `${currentLevel}% - ${tierInfo.label} - Last injection ${daysSinceLabel}`,
-                      chips: JSON.stringify(isDailyDrug
-                        ? ['Why does my level stay steady all day?', 'When is my peak each day?', `Does timing my ${eventNoun} matter?`, 'How does this affect my side effects?']
-                        : ['What does my current level mean?', 'When will I hit peak concentration?', 'Why is my appetite returning?', 'How does this affect my side effects?']),
-                    });
-                  }, 350);
-                }}
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? 'rgba(255,116,42,0.85)' : colors.orange,
-                  borderRadius: 28,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: colors.orange,
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.35,
-                  shadowRadius: 16,
-                  elevation: 8,
-                })}
-              >
-                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: -0.2, fontFamily: 'System' }}>Ask AI about my medication</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
         </View>
-      </Modal>
+      </ExpandOverlay>
       </View>
     </>
   );
@@ -1919,6 +1550,205 @@ function PastDosesCard({ injections, oral }: {
       ) : (
         <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System', marginTop: 8 }}>
           No {noun.toLowerCase()}s logged yet.
+        </Text>
+      )}
+
+      {/* View-full-history affordance (the whole card is tappable) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: w(0.08) }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.orange, fontFamily: 'System', letterSpacing: 0.2 }}>
+          View Full History
+        </Text>
+        <IconSymbol name="chevron.right" size={14} color={colors.orange} />
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Weigh-In History card (latest weight summary, taps through to full history) ─
+
+const WEIGH_IN_ART = require('@/assets/images/cards/weigh-in-history.png');
+
+function weighInSinceLabel(iso: string): string {
+  const ms = new Date(iso).setHours(0, 0, 0, 0);
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const d = Math.floor((todayMs - ms) / 86400000);
+  if (d <= 0) return 'Today';
+  if (d === 1) return 'Yesterday';
+  return `${d} days ago`;
+}
+
+function WeighInHistoryCard({ weightLogs }: { weightLogs: WeightLog[] }) {
+  const { colors } = useAppTheme();
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
+  const latest = weightLogs[0] ?? null;
+  const prev = weightLogs[1] ?? null;
+  const delta = latest && prev ? Math.round((latest.weight_lbs - prev.weight_lbs) * 10) / 10 : null;
+  const deltaColor = delta == null || delta === 0 ? w(0.55) : delta < 0 ? '#2B9450' : '#E0533A';
+  const deltaLabel = delta == null ? null
+    : delta === 0 ? 'No change'
+    : delta < 0 ? `Down ${Math.abs(delta)} lbs` : `Up ${delta} lbs`;
+  const sinceLabel = latest ? weighInSinceLabel(latest.logged_at) : null;
+
+  return (
+    <Pressable
+      onPress={() => router.push('/weigh-in-history' as any)}
+      style={({ pressed }) => [{
+        borderRadius: 24,
+        marginTop: 16,
+        marginBottom: 8,
+        minHeight: 168,
+        justifyContent: 'center',
+        backgroundColor: colors.surface,
+        borderWidth: 0.5,
+        borderColor: colors.border,
+        padding: 22,
+        overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1,
+        ...(colors.isDark
+          ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 4 }
+          : { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 }),
+      }]}
+      accessibilityRole="button"
+      accessibilityLabel={latest ? `Weigh-in history, latest weight ${latest.weight_lbs} pounds, tap to view history` : 'Weigh-in history, tap to view history'}
+    >
+      {/* Illustration bleeds off the top-right corner */}
+      <Image source={WEIGH_IN_ART} style={{ position: 'absolute', top: -8, right: -10, width: 176, height: 176 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: latest ? 10 : 0, paddingRight: 132 }}>
+        <Text style={{ fontSize: 19, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.3 }}>
+          Weigh-In History
+        </Text>
+      </View>
+
+      {latest ? (
+        <>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginBottom: 4 }}>
+            {Math.round(latest.weight_lbs * 10) / 10} lbs
+          </Text>
+          {sinceLabel && (
+            <Text style={{ fontSize: 14, color: w(0.55), fontFamily: 'System' }}>{sinceLabel}</Text>
+          )}
+          {deltaLabel && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+              {delta != null && delta > 0
+                ? <TrendingUp size={13} color={deltaColor} />
+                : <TrendingDown size={13} color={deltaColor} />}
+              <Text style={{ fontSize: 13, color: w(0.55), fontFamily: 'System' }}>
+                <Text style={{ color: deltaColor, fontWeight: '700' }}>{deltaLabel}</Text> from last entry
+              </Text>
+            </View>
+          )}
+        </>
+      ) : (
+        <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System', marginTop: 8 }}>
+          No weigh-ins logged yet.
+        </Text>
+      )}
+
+      {/* View-full-history affordance (the whole card is tappable) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: w(0.08) }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.orange, fontFamily: 'System', letterSpacing: 0.2 }}>
+          View Full History
+        </Text>
+        <IconSymbol name="chevron.right" size={14} color={colors.orange} />
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Lifestyle Log card (latest meal/activity summary, taps through to history) ─
+
+const LIFESTYLE_LOG_ART = require('@/assets/images/cards/lifestyle-log.png');
+
+function LifestyleLogCard({ foodLogs, activityLogs }: {
+  foodLogs: FoodLog[];
+  activityLogs: ActivityLog[];
+}) {
+  const { colors } = useAppTheme();
+  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
+  // Scoped to today only — logs roll over to the full history at midnight.
+  const todayStr = localDateStr();
+  const latestFood = foodLogs.find(f => localDateStr(new Date(f.logged_at)) === todayStr) ?? null;
+  const latestActivity = activityLogs.find(a => a.date === todayStr) ?? null;
+
+  // Most recent of today's logs. The meal carries a time of day, so prefer it on a tie.
+  const useFood = !!latestFood;
+
+  let icon: React.ReactElement | null = null;
+  let category: string | null = null;
+  let details: string | null = null;
+  let timeLabel: string | null = null;
+
+  if (useFood && latestFood) {
+    icon = <IconSymbol name="fork.knife" size={18} color={colors.orange} />;
+    category = 'Meal';
+    details = `${Math.round(latestFood.calories)} cal · ${Math.round(latestFood.protein_g)}g protein`;
+    timeLabel = new Date(latestFood.logged_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } else if (latestActivity) {
+    icon = activityIcon(latestActivity.exercise_type);
+    category = 'Activity';
+    const durationStr = latestActivity.duration_min ? `${latestActivity.duration_min} min` : '';
+    const stepsStr = latestActivity.steps ? `${latestActivity.steps.toLocaleString()} steps` : '';
+    const calStr = latestActivity.active_calories ? `${latestActivity.active_calories} cal burned` : '';
+    details = [durationStr, stepsStr, calStr].filter(Boolean).join(' · ') || 'Activity logged';
+  }
+
+  const hasEntry = category != null;
+
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/log-history', params: { tab: 'lifestyle' } })}
+      style={({ pressed }) => [{
+        borderRadius: 24,
+        marginTop: 24,
+        marginBottom: 8,
+        minHeight: 168,
+        justifyContent: 'center',
+        backgroundColor: colors.surface,
+        borderWidth: 0.5,
+        borderColor: colors.border,
+        padding: 22,
+        overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1,
+        ...(colors.isDark
+          ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 4 }
+          : { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 }),
+      }]}
+      accessibilityRole="button"
+      accessibilityLabel={hasEntry ? `Lifestyle log, latest entry ${category}, tap to view history` : 'Lifestyle log, tap to view history'}
+    >
+      {/* Illustration bleeds off the top-right corner */}
+      <Image source={LIFESTYLE_LOG_ART} style={{ position: 'absolute', top: -8, right: -10, width: 176, height: 176 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: hasEntry ? 10 : 0, paddingRight: 132 }}>
+        <Text style={{ fontSize: 19, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.3 }}>
+          Lifestyle Log
+        </Text>
+      </View>
+
+      {hasEntry ? (
+        <>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: w(0.45), fontFamily: 'System', marginBottom: 6 }}>
+            Most recent
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, paddingRight: 100 }}>
+            {icon}
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', flexShrink: 1 }} numberOfLines={1}>
+              {category}
+            </Text>
+          </View>
+          {details && (
+            <Text style={{ fontSize: 14, color: w(0.55), fontFamily: 'System' }} numberOfLines={1}>{details}</Text>
+          )}
+          {timeLabel && (
+            <Text style={{ fontSize: 13, color: w(0.5), fontFamily: 'System', marginTop: 8 }}>{timeLabel}</Text>
+          )}
+        </>
+      ) : (
+        <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System', marginTop: 8 }}>
+          Nothing logged today.
         </Text>
       )}
 
@@ -2355,50 +2185,10 @@ function WeightProjectionCard({
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const [activePeriod, setActivePeriod] = useState<WeightPeriod>('30D');
   const { openAiChat } = useUiStore();
-
-  // ── Expand-in-place ────────────────────────────────────────────────────────
-  // Tapping the card morphs it from its on-screen rect up to full screen (no
-  // navigation/slide). We measure the card, then animate a Reanimated overlay.
-  const { width: screenW, height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const cardRef = useRef<View>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [rect, setRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const progress = useSharedValue(0);
-
-  const openDetail = () => {
-    const node = cardRef.current;
-    if (!node) { setExpanded(true); return; }
-    node.measureInWindow((x, y, width, height) => {
-      setRect({ x, y, width, height });
-      setExpanded(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    });
-  };
-  useEffect(() => {
-    if (expanded) progress.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
-  }, [expanded, progress]);
-  const closeDetail = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    progress.value = withTiming(0, { duration: 240, easing: Easing.in(Easing.cubic) }, (finished) => {
-      if (finished) reanimatedRunOnJS(setExpanded)(false);
-    });
-  };
-
-  const morphStyle = useAnimatedStyle(() => {
-    const r = rect ?? { x: 0, y: 0, width: screenW, height: screenH };
-    const p = progress.value;
-    return {
-      position: 'absolute',
-      left: interpolate(p, [0, 1], [r.x, 0]),
-      top: interpolate(p, [0, 1], [r.y, 0]),
-      width: interpolate(p, [0, 1], [r.width, screenW]),
-      height: interpolate(p, [0, 1], [r.height, screenH]),
-      borderRadius: interpolate(p, [0, 1], [24, 0]),
-    };
-  });
-  const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0.15, 0.6], [0, 1], Extrapolation.CLAMP) }));
+  // Tap to expand the card in place to full screen.
+  const exp = useExpandToFullscreen();
+  const openDetail = exp.open;
 
   const goalDateLabel = projection
     ? new Date(projection.projectedGoalDate + 'T00:00:00')
@@ -2431,7 +2221,7 @@ function WeightProjectionCard({
   return (
     <>
       <Pressable
-        ref={cardRef}
+        ref={exp.cardRef}
         style={[s.cardWrap, { marginBottom: 16 }]}
         onPress={openDetail}
         onLongPress={() => {
@@ -2498,28 +2288,18 @@ function WeightProjectionCard({
       </Pressable>
 
       {/* Expand-in-place overlay: morphs from the card's rect to full screen */}
-      {expanded && (
-        <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={closeDetail}>
-          <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)' }, scrimStyle]} />
-          <Reanimated.View style={[morphStyle, { overflow: 'hidden', backgroundColor: colors.surface }]}>
-            {/* Fixed full-screen content — the morphing container just clips a
-                growing window of it, so the chart lays out once (no per-frame
-                relayout) and the growth reads as a clean reveal. */}
-            <Reanimated.View style={[{ width: screenW, height: screenH }, contentStyle]}>
-              <WeightDetailView
-                datasets={datasets}
-                projection={projection}
-                currentWeight={currentWeight}
-                startWeight={startWeight}
-                goalWeight={goalWeight}
-                toGoalPct={toGoalPct}
-                topInset={insets.top}
-                onClose={closeDetail}
-              />
-            </Reanimated.View>
-          </Reanimated.View>
-        </Modal>
-      )}
+      <ExpandOverlay exp={exp}>
+        <WeightDetailView
+          datasets={datasets}
+          projection={projection}
+          currentWeight={currentWeight}
+          startWeight={startWeight}
+          goalWeight={goalWeight}
+          toGoalPct={toGoalPct}
+          topInset={insets.top}
+          onClose={exp.close}
+        />
+      </ExpandOverlay>
     </>
   );
 }
@@ -2564,71 +2344,6 @@ function ProgressStatCard({
         </View>
       </View>
     </Pressable>
-  );
-}
-
-// ─── Today's Logs card ────────────────────────────────────────────────────────
-
-// Itemized list of the day's entries scoped to the active tab's categories, with a
-// link to the full cross-day history (also scoped to the tab).
-function TodayLogsCard({ entries, tab }: { entries: LogEntry[]; tab: Tab }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-
-  const kinds = TAB_LOG_KINDS[tab];
-  const shown = useMemo(() => entries.filter(e => kinds.includes(e.kind)), [entries, kinds]);
-
-  const renderEntry = (entry: LogEntry, isLast: boolean) => (
-    <View key={entry.id}>
-      <View style={s.logEntryRow}>
-        <View style={s.logEntryIconWrap}>{entry.icon}</View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Text style={s.logEntryTitle} numberOfLines={1}>{entry.title}</Text>
-            <Text style={s.logEntryTime}>{entry.timestamp}</Text>
-          </View>
-          <Text style={s.logEntryDetails}>{entry.details}</Text>
-          <View style={[s.logImpactTag, { backgroundColor: statusStyle[entry.impactStatus].bg, marginTop: 6, alignSelf: 'flex-start' }]}>
-            <Text style={[s.logImpactText, { color: statusStyle[entry.impactStatus].text }]}>
-              {entry.impact}
-            </Text>
-          </View>
-        </View>
-      </View>
-      {!isLast && <View style={s.logDivider} />}
-    </View>
-  );
-
-  return (
-    <View style={[s.cardWrap, { marginTop: 24, marginBottom: 8 }]}>
-      <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-
-        <View style={s.logHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={s.logHeaderText}>Today&apos;s Logs</Text>
-            {shown.length > 0 && (
-              <View style={s.logCountBadge}>
-                <Text style={s.logCountText}>{shown.length}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={s.logEntryList}>
-          <View style={s.logDivider} />
-          {shown.length === 0 ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontSize: 15, fontFamily: 'System' }}>Nothing logged today</Text>
-            </View>
-          ) : (
-            shown.map((entry, i) => renderEntry(entry, i === shown.length - 1))
-          )}
-          <TouchableOpacity onPress={() => router.push({ pathname: '/log-history', params: { tab } })} style={{ paddingVertical: 14, alignItems: 'center' }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="See full log history">
-            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.orange, fontFamily: 'System' }}>See Full History →</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
   );
 }
 
@@ -3303,7 +3018,7 @@ export default function InsightsScreen() {
   // Shared lifestyle data. The same hook powers the three /insights detail
   // screens so the row preview and detail cards never diverge.
   const {
-    todayCalories, todaySteps, routedHealthGroups,
+    todayCalories, todaySteps,
     todayProteinG, todayCarbsG, todayFatG, todayFiberG, todayActiveCalories,
     waterOz, waterTargetOz,
     targets: ltTargets,
@@ -3311,6 +3026,9 @@ export default function InsightsScreen() {
   } = useLifestyleMetrics();
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
+  // Pre-generate the premium Side Effect Insights so that screen opens with its
+  // AI insight already in place (gated to premium + consent inside the hook).
+  useSideEffectInsightsPrewarm();
   const onTreatment = isOnTreatment(fullProfile);
   const [activeTab, setActiveTab] = useState<Tab>(onTreatment ? 'medication' : 'lifestyle');
   const { openAiChat, insightsDefaultTab, setInsightsDefaultTab } = useUiStore();
@@ -3511,37 +3229,11 @@ export default function InsightsScreen() {
     ? Math.round((weightLost / startWeight) * 1000) / 10
     : null;
 
-  // Body composition analytics
-  const fatToLeanResult = useMemo(() => computeFatToLeanRatio(weightLogs), [weightLogs]);
-  const bodyCompTrend = useMemo(() => bodyCompTrendData(weightLogs), [weightLogs]);
-
-  // Advanced trends (clinical benchmark, lean preservation)
+  // Clinical benchmark (trial comparison)
   const benchmarkResult = useMemo(
     () => computeClinicalBenchmark(weightLogs, profile?.program_start_date ?? null, health.profile.glp1Type),
     [weightLogs, profile?.program_start_date, health.profile.glp1Type],
   );
-  const leanPreservationResult = useMemo(
-    () => computeLeanPreservation(weightLogs),
-    [weightLogs],
-  );
-
-  // Latest body comp values for stat cards
-  const latestBodyFatLog = useMemo(() => {
-    const withBf = weightLogs.filter(l => l.body_fat_pct != null);
-    return withBf.length > 0 ? withBf[0] : null; // weightLogs are sorted newest-first
-  }, [weightLogs]);
-  const firstBodyFatLog = useMemo(() => {
-    const withBf = weightLogs.filter(l => l.body_fat_pct != null);
-    return withBf.length > 1 ? withBf[withBf.length - 1] : null;
-  }, [weightLogs]);
-  const bodyFatDelta = latestBodyFatLog && firstBodyFatLog
-    ? Math.round(((firstBodyFatLog.body_fat_pct ?? 0) - (latestBodyFatLog.body_fat_pct ?? 0)) * 10) / 10
-    : null;
-
-  const latestLeanLog = useMemo(() => {
-    const withLm = weightLogs.filter(l => l.lean_mass_lbs != null);
-    return withLm.length > 0 ? withLm[0] : null;
-  }, [weightLogs]);
 
   const weightDatasets: Record<string, WeightPoint[]> = {
     '7D':  weightDataForPeriod(weightLogs, '7D'),
@@ -3581,19 +3273,6 @@ export default function InsightsScreen() {
     () => ({ ...weightDatasets, GOAL: buildGoalDataset(weightLogs, projection ?? null, programWeek) }),
     [weightLogs, projection, programWeek],
   );
-
-
-  // ── Today's logs (all types, for the shared Today's Logs card) ──────────────
-  const todayLogs: LogEntry[] = [
-    ...foodLogs.filter(f => localDateStr(new Date(f.logged_at)) === todayStr).map(foodToEntry),
-    ...activityLogs.filter(a => a.date === todayStr).map(activityToEntry),
-    ...weightLogs
-      .map((log, i) => [log, weightLogs[i + 1]] as const)
-      .filter(([log]) => localDateStr(new Date(log.logged_at)) === todayStr)
-      .map(([log, prev]) => weightToEntry(log, prev)),
-    ...injectionLogs.filter(inj => inj.injection_date === todayStr).map(inj => injectionToEntry(inj, oral)),
-    ...sideEffectLogs.filter(se => localDateStr(new Date(se.logged_at)) === todayStr).map(sideEffectToEntry),
-  ].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   const startDate = profile?.program_start_date
     ? new Date(profile.program_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -3679,7 +3358,7 @@ export default function InsightsScreen() {
                 onLongPress={() => openAiChat({ chips: JSON.stringify(['Am I active enough today?', 'What do my biometrics show?', 'How was my sleep last night?']) })}
               />
 
-              <TodayLogsCard entries={todayLogs} tab="lifestyle" />
+              <LifestyleLogCard foodLogs={foodLogs} activityLogs={activityLogs} />
             </Reanimated.View>
           )}
 
@@ -3802,106 +3481,16 @@ export default function InsightsScreen() {
                 </ProgressStatCard>
               </View>
 
-              {/* Body composition stat cards */}
-              {(latestBodyFatLog || latestLeanLog) && (
-                <View style={[s.dailyGrid, { marginBottom: 14 }]}>
-                  {latestBodyFatLog && (
-                    <ProgressStatCard
-                      icon={<IconSymbol name="percent" size={20} color={colors.orange} />}
-                      label="Body Fat"
-                      value={`${latestBodyFatLog.body_fat_pct}%`}
-                    >
-                      {bodyFatDelta != null && bodyFatDelta > 0 && (
-                        <View style={[s.changeBadge, { backgroundColor: statusStyle.positive.bg }]}>
-                          <Text style={[s.changeText, { color: statusStyle.positive.text }]}>↓ Down {bodyFatDelta}%</Text>
-                        </View>
-                      )}
-                    </ProgressStatCard>
-                  )}
-                  {latestLeanLog && (
-                    <ProgressStatCard
-                      icon={<IconSymbol name="figure.strengthtraining.traditional" size={20} color={colors.orange} />}
-                      label="Lean Mass"
-                      value={`${latestLeanLog.lean_mass_lbs} lbs`}
-                    />
-                  )}
-                </View>
-              )}
-
-              {/* Apple Health Body Composition group (moved here from Lifestyle tab) */}
-              {appleHealthEnabled && routedHealthGroups.bodyComp.map((group) => (
-                <View key={group.category} style={{ marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: healthCategoryColor(colors.isDark, group.category) }} />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', fontFamily: 'System', letterSpacing: 2, textTransform: 'uppercase' }}>
-                      {group.category}
-                    </Text>
-                  </View>
-                  <View style={s.hmGrid}>
-                    {(() => {
-                      const isOdd = group.metrics.length % 2 !== 0;
-                      return group.metrics.map((m, i) => (
-                        <HealthMonitorCard key={m.id} metric={m} fullWidth={isOdd && i === group.metrics.length - 1} />
-                      ));
-                    })()}
-                  </View>
-                </View>
-              ))}
-
-              {/* Body composition card or prompt */}
-              {fatToLeanResult ? (
-                <BodyCompositionCard result={fatToLeanResult} trend={bodyCompTrend} />
-              ) : !latestBodyFatLog && (
-                <TouchableOpacity
-                  onPress={() => router.push('/entry/log-weight')}
-                  activeOpacity={0.7}
-                  style={{
-                    borderRadius: 24, backgroundColor: colors.surface,
-                    borderWidth: 0.5, borderColor: colors.border,
-                    padding: 20, marginBottom: 16, alignItems: 'center', gap: 10,
-                  }}
-                >
-                  <IconSymbol name="figure.strengthtraining.traditional" size={28} color={colors.orange} />
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>
-                    Start Tracking Body Composition
-                  </Text>
-                  <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', textAlign: 'center', lineHeight: 20 }}>
-                    Log body fat %, lean mass, and more alongside your weight to see how your body composition changes over time.
-                  </Text>
-                  <View style={{
-                    marginTop: 4, backgroundColor: colors.orange, borderRadius: 14,
-                    paddingHorizontal: 16, paddingVertical: 8,
-                  }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#000' }}>Log Weight</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
               {onTreatment && (
-                <>
-                  <PremiumGate
-                    feature="clinical_benchmark"
-                    variant="soft"
-                    title="Clinical Benchmark"
-                  >
-                    <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
-                  </PremiumGate>
-
-                  {leanPreservationResult && (
-                    <View style={{ marginTop: 8 }}>
-                      <PremiumGate
-                        feature="lean_preservation"
-                        variant="hard"
-                        title="Lean Mass Preservation"
-                        teaser="Track how well you're preserving muscle during weight loss."
-                      >
-                        <LeanMassPreservationCard result={leanPreservationResult} medicationBrand={health.profile.medicationBrand} />
-                      </PremiumGate>
-                    </View>
-                  )}
-                </>
+                <PremiumGate
+                  feature="clinical_benchmark"
+                  variant="soft"
+                  title="Clinical Benchmark"
+                >
+                  <ClinicalBenchmarkCard result={benchmarkResult} medicationBrand={health.profile.medicationBrand} />
+                </PremiumGate>
               )}
-              <TodayLogsCard entries={todayLogs} tab="progress" />
+              <WeighInHistoryCard weightLogs={weightLogs} />
             </Reanimated.View>
           )}
 
@@ -4006,21 +3595,6 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   progStatSub: { marginTop: 6 },
   progBar: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,116,42,0.15)', marginTop: 6, overflow: 'hidden' },
   progBarFill: { height: 6, backgroundColor: c.orange, borderRadius: 3 },
-
-  // Recent Logs card
-  logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  logHeaderText: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
-  logCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,116,42,0.12)' },
-  logCountText: { fontSize: 13, fontWeight: '700', color: c.orange, fontFamily: 'System' },
-  logEntryList: { paddingHorizontal: 18, paddingBottom: 14 },
-  logDivider: { height: 1, backgroundColor: w(0.06) },
-  logEntryRow: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
-  logEntryIconWrap: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logEntryTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary, flex: 1, fontFamily: 'System' },
-  logEntryTime: { fontSize: 13, color: w(0.35), fontWeight: '500', flexShrink: 0, marginLeft: 8, fontFamily: 'System' },
-  logEntryDetails: { fontSize: 14, color: w(0.45), lineHeight: 18, marginTop: 3, fontFamily: 'System' },
-  logImpactTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  logImpactText: { fontSize: 12, fontWeight: '700', fontFamily: 'System' },
 
   // Health Monitor
   hmGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 8 },

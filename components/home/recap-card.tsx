@@ -25,6 +25,7 @@ export function RecapCard({
   cta = 'View',
   onPress,
   onDismiss,
+  fill,
 }: {
   /** Status pill text. Omit to hide the pill entirely (e.g. an already-viewed card). */
   badge?: string;
@@ -39,6 +40,9 @@ export function RecapCard({
   cta?: string;
   onPress: () => void;
   onDismiss?: () => void;
+  /** Stretch to fill the parent's height (CTA anchored to the bottom). Used to
+   *  equalize heights when shown side-by-side in the home recap carousel. */
+  fill?: boolean;
 }) {
   const { colors } = useAppTheme();
   const s = React.useMemo(() => createStyles(colors), [colors]);
@@ -52,7 +56,7 @@ export function RecapCard({
 
   return (
     <Pressable
-      style={s.card}
+      style={[s.card, fill && { flex: 1 }]}
       onPress={onPress}
       accessibilityLabel={`${eyebrow ? eyebrow + '. ' : ''}${headline}`}
       accessibilityRole="button"
@@ -87,7 +91,7 @@ export function RecapCard({
 
       {accent ? <View style={s.accent}>{accent}</View> : null}
 
-      <View style={s.ctaRow}>
+      <View style={[s.ctaRow, fill && { marginTop: 'auto' }]}>
         <Text style={s.ctaText}>{cta}</Text>
         <ChevronRight size={16} color={colors.orange} />
       </View>

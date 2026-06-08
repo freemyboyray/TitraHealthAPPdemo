@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
-import { ARTICLES, type ArticleSection } from '@/constants/articles';
+import { ARTICLES, getArticleColor, type ArticleSection } from '@/constants/articles';
 import { ChevronLeft } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const FF = 'System';
 
@@ -105,11 +106,26 @@ export default function ArticleDetailScreen() {
         </View>
 
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          {/* Cover illustration on its matching pastel background */}
-          <View style={[s.coverWrap, { backgroundColor: article.bgColor }]}>
+          {/* Cover illustration. Transparent art sits on a vertical gradient that fades
+              the section color into the page background at top and bottom (soft vignette,
+              no hard edges); legacy baked-background art keeps its solid matching color. */}
+          <View
+            style={[
+              s.coverWrap,
+              !article.transparentArt && { backgroundColor: getArticleColor(article) },
+            ]}
+          >
+            {article.transparentArt && (
+              <LinearGradient
+                pointerEvents="none"
+                colors={[colors.bg, getArticleColor(article), getArticleColor(article), colors.bg]}
+                locations={[0, 0.32, 0.68, 1]}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <Image
               source={article.coverImage}
-              style={s.coverImage}
+              style={article.transparentArt ? s.coverImageLarge : s.coverImage}
               resizeMode="contain"
               accessibilityIgnoresInvertColors
             />
@@ -189,7 +205,7 @@ const createStyles = (c: AppColors) => {
 
     coverWrap: {
       width: '100%',
-      height: 260,
+      height: 300,
       marginBottom: 20,
       alignItems: 'center',
       justifyContent: 'center',
@@ -197,6 +213,10 @@ const createStyles = (c: AppColors) => {
     coverImage: {
       width: 260,
       height: 260,
+    },
+    coverImageLarge: {
+      width: 300,
+      height: 300,
     },
 
     metaRow: {

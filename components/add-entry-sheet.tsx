@@ -21,6 +21,7 @@ import { TourTarget } from '@/components/tour/tour-target';
 import { TOUR_IDS } from '@/lib/tour';
 import { WaterLogSheet } from '@/components/water-log-sheet';
 import { DescribeFoodSheet } from '@/components/describe-food-sheet';
+import { SearchFoodSheet } from '@/components/search-food-sheet';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -55,6 +56,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
   const [describeVisible, setDescribeVisible] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [waterInput, setWaterInput] = useState('');
   const [foodName, setFoodName] = useState('');
@@ -205,15 +207,12 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'SCAN FOOD',
       icon: <IconSymbol name="barcode.viewfinder" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); }),
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/scan-barcode' as any), 300); }),
     },
     {
-      label: 'LOG WATER',
-      icon: <IconSymbol name="drop.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => {
-        closeSheet();
-        setTimeout(() => setWaterLogVisible(true), 300);
-      },
+      label: 'SEARCH FOOD',
+      icon: <IconSymbol name="magnifyingglass" size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: () => { closeSheet(); setTimeout(() => setSearchVisible(true), 300); },
     },
   ];
 
@@ -224,11 +223,6 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       icon: <IconSymbol name={oral ? 'pills.fill' : 'syringe.fill'} size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: handleLogDose,
     }] : []),
-    ...(onTreatment ? [{
-      label: 'SIDE EFFECTS',
-      icon: <IconSymbol name="exclamationmark.triangle.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => { closeSheet(); router.push('/entry/side-effects'); },
-    }] : []),
     {
       label: 'LOG WEIGHT',
       icon: <IconSymbol name="scalemass.fill" size={ICON_SIZE} color={colors.textPrimary} />,
@@ -238,6 +232,14 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       label: 'LOG ACTIVITY',
       icon: <IconSymbol name="figure.run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
+    },
+    {
+      label: 'LOG WATER',
+      icon: <IconSymbol name="drop.fill" size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: () => {
+        closeSheet();
+        setTimeout(() => setWaterLogVisible(true), 300);
+      },
     },
   ];
 
@@ -383,6 +385,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       <>
         <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
         <DescribeFoodSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
+        <SearchFoodSheet visible={searchVisible} onClose={() => setSearchVisible(false)} />
         {upgradePrompt}
       </>
     );
@@ -455,16 +458,31 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                       </View>
                     ))}
 
+                    {/* Side Effects — full-width row */}
+                    {onTreatment && (
+                      <TouchableOpacity style={s.aiRow} activeOpacity={0.8} onPress={() => { closeSheet(); router.push('/entry/side-effects'); }} accessibilityLabel="Log side effects" accessibilityRole="button">
+                        <GlassBorder r={22} />
+                        <View style={s.aiRowIcon}>
+                          <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.textPrimary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.aiRowTitle}>Side Effects</Text>
+                          <Text style={s.aiRowSubtitle}>Track how your medication feels</Text>
+                        </View>
+                        <IconSymbol name="chevron.right" size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
+                      </TouchableOpacity>
+                    )}
+
                     {/* Ask AI — full-width row that opens the chat */}
                     <TourTarget id={TOUR_IDS.entryAskAi}>
                       <TouchableOpacity style={s.aiRow} activeOpacity={0.8} onPress={handleAskAI} accessibilityLabel="Ask AI" accessibilityRole="button">
                         <GlassBorder r={22} />
                         <View style={s.aiRowIcon}>
-                          <IconSymbol name="bubble.left.fill" size={20} color="#FFF" />
+                          <IconSymbol name="bubble.left.fill" size={20} color={colors.textPrimary} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={s.aiRowTitle}>Ask AI</Text>
-                          <Text style={s.aiRowSubtitle}>Your GLP-1 coach — ask anything</Text>
+                          <Text style={s.aiRowSubtitle}>Your GLP-1 coach, ask anything</Text>
                         </View>
                         <IconSymbol name="chevron.right" size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
                       </TouchableOpacity>
@@ -483,6 +501,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
     <WaterLogSheet visible={waterLogVisible} onClose={() => setWaterLogVisible(false)} />
     <DescribeFoodSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
+    <SearchFoodSheet visible={searchVisible} onClose={() => setSearchVisible(false)} />
     {upgradePrompt}
     </>
   );
@@ -695,8 +714,8 @@ const createSheetStyles = (c: AppColors) => {
   gridLabel: { fontSize: 11, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.3, lineHeight: 14, textAlign: 'center', fontFamily: 'System' },
 
   // Ask AI row
-  aiRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 22, backgroundColor: w(0.05), overflow: 'hidden', paddingVertical: 14, paddingHorizontal: 16, gap: 14, marginTop: 2 },
-  aiRowIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
+  aiRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 22, backgroundColor: w(0.05), overflow: 'hidden', paddingVertical: 14, paddingHorizontal: 16, gap: 14, marginTop: 10 },
+  aiRowIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center' },
   aiRowTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
   aiRowSubtitle: { fontSize: 13, color: w(0.4), fontFamily: 'System', marginTop: 1 },
 

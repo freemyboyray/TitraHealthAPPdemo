@@ -16,6 +16,8 @@ export type WeeklySummaryCardProps = {
   viewed?: boolean;
   /** Called when the card is opened, so the parent can mark it viewed. */
   onView?: () => void;
+  /** Stretch to fill height (for the side-by-side recap carousel). */
+  fill?: boolean;
 };
 
 function formatDay(d: string) {
@@ -38,7 +40,7 @@ function DeltaChip({ delta }: { delta: number }) {
   );
 }
 
-export function WeeklySummaryCard({ latestSummary, viewed, onView }: WeeklySummaryCardProps) {
+export function WeeklySummaryCard({ latestSummary, viewed, onView, fill }: WeeklySummaryCardProps) {
   const router = useRouter();
   const handleView = () => {
     onView?.();
@@ -55,6 +57,7 @@ export function WeeklySummaryCard({ latestSummary, viewed, onView }: WeeklySumma
         caption="We’ll pull together your weight, nutrition, and activity automatically."
         cta="Preview"
         onPress={handleView}
+        fill={fill}
       />
     );
   }
@@ -76,6 +79,7 @@ export function WeeklySummaryCard({ latestSummary, viewed, onView }: WeeklySumma
       accent={delta != null ? <DeltaChip delta={delta} /> : undefined}
       cta="View summary"
       onPress={handleView}
+      fill={fill}
     />
   );
 }

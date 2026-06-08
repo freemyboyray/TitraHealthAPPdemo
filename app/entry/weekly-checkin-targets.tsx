@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import {
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,18 +8,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, CircleCheck } from 'lucide-react-native';
 
 import { CircleIconButton } from '@/components/ui/circle-icon-button';
 import { SolidCard } from '@/components/ui/solid-card';
-import { BarGroup, type Bar } from '@/components/insights/bar-group';
+import { CheckinTargetsCard } from '@/components/insights/checkin-targets-card';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthData } from '@/contexts/health-data';
 import type { AppColors } from '@/constants/theme';
-import { buildAdjustmentRows, ADJUSTMENT_IMAGE } from '@/lib/checkin-target-rows';
-import { ArrowDown, ArrowUp, CircleCheck } from 'lucide-react-native';
+import { buildAdjustmentRows } from '@/lib/checkin-target-rows';
 
-const BLUE = '#5AC8FA';
 const GREEN = '#27AE60';
 const FF = 'System';
 
@@ -57,36 +54,7 @@ export default function WeeklyCheckinTargetsScreen() {
         </Text>
 
         {rows.length > 0 ? (
-          rows.map((row) => {
-            const accent = row.increased ? colors.orange : BLUE;
-            const max = Math.max(row.before, row.after, 1);
-            const bars: Bar[] = [
-              { label: 'Before', pct: (row.before / max) * 100, display: row.beforeStr, color: w(0.22) },
-              { label: 'After', pct: (row.after / max) * 100, display: row.afterStr, color: accent, bold: true },
-            ];
-            return (
-              <SolidCard key={row.key} radius={24} style={{ marginBottom: 12 }}>
-                <View style={{ padding: 18 }}>
-                  <View style={s.rowTop}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                      <View style={[s.assetWrap, { backgroundColor: w(0.05) }]}>
-                        <Image source={ADJUSTMENT_IMAGE[row.imageKey]} style={s.assetImg} resizeMode="contain" accessibilityIgnoresInvertColors />
-                      </View>
-                      <Text style={s.label}>{row.label}</Text>
-                    </View>
-                    <View style={[s.deltaPill, { backgroundColor: row.increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)' }]}>
-                      {row.increased ? <ArrowUp size={11} color={accent} /> : <ArrowDown size={11} color={accent} />}
-                      <Text style={[s.deltaText, { color: accent }]}>{row.delta}</Text>
-                    </View>
-                  </View>
-
-                  <BarGroup bars={bars} colors={colors} />
-
-                  <Text style={s.reason}>{row.reason}</Text>
-                </View>
-              </SolidCard>
-            );
-          })
+          <CheckinTargetsCard rows={rows} colors={colors} />
         ) : (
           <SolidCard radius={24}>
             <View style={{ padding: 24, alignItems: 'center' }}>
@@ -115,14 +83,6 @@ const createStyles = (c: AppColors) => {
     headerTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.4 },
 
     intro: { fontSize: 15.5, color: w(0.5), fontFamily: FF, lineHeight: 21, marginBottom: 18, marginTop: 4 },
-
-    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-    assetWrap: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    assetImg: { width: 38, height: 38 },
-    label: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.3, flexShrink: 1 },
-    deltaPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
-    deltaText: { fontSize: 14, fontWeight: '800', fontFamily: FF },
-    reason: { fontSize: 14.5, color: w(0.5), fontFamily: FF, lineHeight: 19, marginTop: 12 },
 
     noAdjTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF },
     noAdjBody: { fontSize: 15, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 19 },

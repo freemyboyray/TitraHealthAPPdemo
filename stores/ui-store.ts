@@ -22,6 +22,10 @@ type UiStore = {
   healthSyncToast: string | null;
   showHealthSyncToast: (msg: string) => void;
   hideHealthSyncToast: () => void;
+  // Session-only dismissal: the Apple Health promo re-appears on the next app
+  // launch (this store isn't persisted), but stays hidden after an X this session.
+  healthPromoDismissed: boolean;
+  dismissHealthPromo: () => void;
 };
 
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,4 +49,6 @@ export const useUiStore = create<UiStore>((set) => ({
     if (_toastTimer) clearTimeout(_toastTimer);
     set({ healthSyncToast: null });
   },
+  healthPromoDismissed: false,
+  dismissHealthPromo: () => set({ healthPromoDismissed: true }),
 }));

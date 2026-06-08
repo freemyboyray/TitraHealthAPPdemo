@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/contexts/theme-context';
-import { ARTICLES } from '@/constants/articles';
+import { ARTICLES, getArticleColor } from '@/constants/articles';
 import { localDateStr } from '@/lib/date-utils';
 
 const FF = 'System';
@@ -38,11 +38,30 @@ export function ArticleOfDayTile() {
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 }}>
         {/* Cover thumb */}
-        <Image
-          source={article.coverImage}
-          style={{ width: 88, height: 88, borderRadius: 14 }}
-          resizeMode="cover"
-        />
+        {article.transparentArt ? (
+          <View
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: 14,
+              backgroundColor: getArticleColor(article),
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Image
+              source={article.coverImage}
+              style={{ width: 86, height: 86 }}
+              resizeMode="contain"
+            />
+          </View>
+        ) : (
+          <Image
+            source={article.coverImage}
+            style={{ width: 88, height: 88, borderRadius: 14 }}
+            resizeMode="cover"
+          />
+        )}
 
         {/* Right column */}
         <View style={{ flex: 1, gap: 4 }}>

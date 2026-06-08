@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionSheetIOS, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
   SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -6,6 +6,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
+} from 'react-native-reanimated';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthData } from '@/contexts/health-data';
 import {
@@ -18,7 +22,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { localDateStr } from '@/lib/date-utils';
 import { ORANGE } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
-import { ChevronLeft, Frown, MoreHorizontal, Syringe, X } from 'lucide-react-native';
+import { ChevronLeft, Frown, Syringe, X } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
@@ -84,12 +88,6 @@ type LogEntry = {
   impactStatus: Status;
   icon: React.ReactElement;
   logType: FilterType;
-};
-
-const statusStyle: Record<Status, { bg: string; text: string }> = {
-  positive: { bg: 'rgba(43,148,80,0.15)', text: '#2B9450' },
-  negative: { bg: 'rgba(220,50,50,0.15)', text: '#DC3232' },
-  neutral: { bg: 'rgba(150,150,150,0.10)', text: '#9A9490' },
 };
 
 // ─── Converters ──────────────────────────────────────────────────────────────
@@ -290,6 +288,176 @@ function EditModal({ editState, onSave, onClose, colors }: {
   );
 }
 
+// ─── Detail overlay (tap a log → blurred-backdrop card, reversible animation) ──
+
+type Detail =
+  | { kind: 'food'; food: FoodLog }
+  | { kind: 'activity'; activity: ActivityLog };
+
+// Gram-unit macros that share an axis, so they read as one bar graph. `core` ones
+// always show (even at 0); the rest only when actually recorded.
+const FOOD_BARS: { key: keyof FoodLog; label: string; color: string; core?: boolean }[] = [
+  { key: 'protein_g', label: 'Protein', color: '#FF742A', core: true },
+  { key: 'carbs_g',   label: 'Carbs',   color: '#5B9BD5', core: true },
+  { key: 'fat_g',     label: 'Fat',     color: '#F5C542', core: true },
+  { key: 'fiber_g',   label: 'Fiber',   color: '#2B9450' },
+  { key: 'sugar_g',   label: 'Sugar',   color: '#C77DD6' },
+];
+
+// Everything else food_logs collects — shown as a list, only when present.
+const FOOD_DETAILS: { key: keyof FoodLog; label: string; unit: string }[] = [
+  { key: 'added_sugars_g',         label: 'Added Sugars',        unit: 'g' },
+  { key: 'saturated_fat_g',        label: 'Saturated Fat',       unit: 'g' },
+  { key: 'trans_fat_g',            label: 'Trans Fat',           unit: 'g' },
+  { key: 'monounsaturated_fat_g',  label: 'Monounsaturated Fat', unit: 'g' },
+  { key: 'polyunsaturated_fat_g',  label: 'Polyunsaturated Fat', unit: 'g' },
+  { key: 'cholesterol_mg',         label: 'Cholesterol',         unit: 'mg' },
+  { key: 'sodium_mg',              label: 'Sodium',              unit: 'mg' },
+  { key: 'potassium_mg',           label: 'Potassium',           unit: 'mg' },
+  { key: 'calcium_mg',             label: 'Calcium',             unit: 'mg' },
+  { key: 'iron_mg',                label: 'Iron',                unit: 'mg' },
+  { key: 'hydration_ml',           label: 'Hydration',           unit: 'ml' },
+];
+
+const BAR_MAX_H = 130;
+
+function num(v: unknown): number | null {
+  return typeof v === 'number' && !Number.isNaN(v) ? v : null;
+}
+
+function DetailRow({ label, value, colors }: { label: string; value: string; colors: AppColors }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+      <Text style={{ fontSize: 14, color: colors.textMuted, fontFamily: FF }}>{label}</Text>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{value}</Text>
+    </View>
+  );
+}
+
+function FoodBody({ food, colors }: { food: FoodLog; colors: AppColors }) {
+  const bars = FOOD_BARS
+    .map(b => ({ ...b, value: num(food[b.key]) }))
+    .filter(b => b.core || (b.value != null && b.value > 0))
+    .map(b => ({ ...b, value: Math.round(b.value ?? 0) }));
+  const maxVal = Math.max(1, ...bars.map(b => b.value));
+
+  const details = FOOD_DETAILS
+    .map(d => ({ ...d, value: num(food[d.key]) }))
+    .filter(d => d.value != null && d.value > 0);
+
+  return (
+    <>
+      {/* Macro bar graph */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: BAR_MAX_H + 44 }}>
+        {bars.map(b => {
+          const h = Math.max(4, (b.value / maxVal) * BAR_MAX_H);
+          return (
+            <View key={b.key} style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginBottom: 6 }}>{b.value}g</Text>
+              <View style={{ width: 34, height: h, borderRadius: 10, backgroundColor: b.color }} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted, fontFamily: FF, marginTop: 8 }}>{b.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {details.length > 0 && (
+        <View style={{ marginTop: 18 }}>
+          {details.map(d => (
+            <DetailRow key={d.key} label={d.label} value={`${Math.round(d.value!)}${d.unit}`} colors={colors} />
+          ))}
+        </View>
+      )}
+    </>
+  );
+}
+
+function ActivityBody({ activity, colors }: { activity: ActivityLog; colors: AppColors }) {
+  const rows: { label: string; value: string }[] = [];
+  if (activity.duration_min)    rows.push({ label: 'Duration',         value: `${activity.duration_min} min` });
+  if (activity.steps)           rows.push({ label: 'Steps',            value: activity.steps.toLocaleString() });
+  if (activity.active_calories) rows.push({ label: 'Calories Burned',  value: `${activity.active_calories} cal` });
+  if (activity.exercise_minutes) rows.push({ label: 'Exercise Minutes', value: `${activity.exercise_minutes} min` });
+  if (activity.intensity)       rows.push({ label: 'Intensity',        value: activity.intensity });
+
+  if (rows.length === 0) {
+    return <Text style={{ fontSize: 14, color: colors.textMuted, fontFamily: FF, paddingVertical: 8 }}>No details recorded.</Text>;
+  }
+  return (
+    <View>
+      {rows.map(r => <DetailRow key={r.label} label={r.label} value={r.value} colors={colors} />)}
+    </View>
+  );
+}
+
+function DetailModal({ detail, onClose, colors }: {
+  detail: Detail | null; onClose: () => void; colors: AppColors;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (detail) progress.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
+  }, [detail, progress]);
+
+  const close = useCallback(() => {
+    progress.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.cubic) }, (finished) => {
+      if (finished) runOnJS(onClose)();
+    });
+  }, [onClose, progress]);
+
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 1], [0, 1], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.9, 1], Extrapolation.CLAMP) }],
+  }));
+
+  if (!detail) return null;
+
+  const isFood = detail.kind === 'food';
+  const title = isFood ? detail.food.food_name : (detail.activity.exercise_type ?? 'Activity');
+  const subtitle = isFood
+    ? `${fmtDateTime(detail.food.logged_at)} · ${Math.round(detail.food.calories)} cal`
+    : fmtDateOnly(detail.activity.date);
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
+      <Animated.View style={[StyleSheet.absoluteFill, scrimStyle]}>
+        <BlurView intensity={colors.isDark ? 40 : 28} tint={colors.blurTint} style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.12)' }]} />
+      </Animated.View>
+      <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel="Close" />
+
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }} pointerEvents="box-none">
+        <Animated.View
+          style={[cardStyle, {
+            backgroundColor: colors.surface, borderRadius: 24, maxHeight: '82%',
+            borderWidth: 0.5, borderColor: colors.border,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 28, elevation: 8,
+          }]}
+        >
+          <View style={{ padding: 24, paddingBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
+              <Text style={{ flex: 1, fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.3 }}>
+                {title}
+              </Text>
+              <TouchableOpacity onPress={close} hitSlop={12} style={{ marginLeft: 12 }}>
+                <X size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: FF }}>{subtitle}</Text>
+          </View>
+
+          <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+            {isFood
+              ? <FoodBody food={detail.food} colors={colors} />
+              : <ActivityBody activity={detail.activity} colors={colors} />}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function LogHistoryScreen() {
@@ -306,6 +474,7 @@ export default function LogHistoryScreen() {
   const { foodLogs, activityLogs, weightLogs, injectionLogs, sideEffectLogs } = store;
   const [visibleDays, setVisibleDays] = useState(5);
   const [editState, setEditState] = useState<EditState>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
 
   const allEntries = useMemo(() => {
     const entries: LogEntry[] = [
@@ -434,6 +603,17 @@ export default function LogHistoryScreen() {
     setEditState(null);
   }, [store]);
 
+  // Tapping a meal or activity opens its breakdown over a blurred backdrop.
+  const handlePress = useCallback((item: LogEntry) => {
+    if (item.logType === 'food') {
+      const f = foodLogs.find(l => l.id === item.id);
+      if (f) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDetail({ kind: 'food', food: f }); }
+    } else if (item.logType === 'activity') {
+      const a = activityLogs.find(l => l.id === item.id);
+      if (a) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDetail({ kind: 'activity', activity: a }); }
+    }
+  }, [foodLogs, activityLogs]);
+
   const handleLongPress = useCallback((item: LogEntry) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -477,8 +657,9 @@ export default function LogHistoryScreen() {
           renderSectionHeader={({ section }) => (
             <Text style={s.sectionHeader}>{section.title}</Text>
           )}
-          renderItem={({ item, index, section }) => (
+          renderItem={({ item }) => (
             <Pressable
+              onPress={() => handlePress(item)}
               onLongPress={() => handleLongPress(item)}
               delayLongPress={400}
               style={({ pressed }) => [s.entryCard, pressed && { opacity: 0.7 }]}
@@ -486,22 +667,14 @@ export default function LogHistoryScreen() {
               <View style={s.entryRow}>
                 <View style={s.entryIconWrap}>{item.icon}</View>
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Text style={s.entryTitle} numberOfLines={1}>{item.title}</Text>
+                  {/* Title + date/time together at the top */}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <Text style={s.entryTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={s.entryTime}>{item.timestamp}</Text>
                   </View>
-                  <Text style={s.entryDetails}>{item.details}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                    <View style={[s.impactTag, { backgroundColor: statusStyle[item.impactStatus].bg }]}>
-                      <Text style={[s.impactText, { color: statusStyle[item.impactStatus].text }]}>
-                        {item.impact}
-                      </Text>
-                    </View>
-                    <MoreHorizontal size={16} color={colors.textMuted} />
-                  </View>
+                  <Text style={s.entryDetails} numberOfLines={2}>{item.details}</Text>
                 </View>
               </View>
-              {index < section.data.length - 1 && <View style={s.divider} />}
             </Pressable>
           )}
           ListEmptyComponent={
@@ -533,6 +706,8 @@ export default function LogHistoryScreen() {
           colors={colors}
         />
       )}
+
+      <DetailModal detail={detail} onClose={() => setDetail(null)} colors={colors} />
     </View>
   );
 }
@@ -573,14 +748,8 @@ const createStyles = (c: AppColors) => {
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
       alignItems: 'center', justifyContent: 'center',
     },
-    entryTitle: { fontSize: 15, fontWeight: '600', color: c.textPrimary, flex: 1, fontFamily: FF },
-    entryTime: { fontSize: 12, color: muted, fontFamily: FF },
-    entryDetails: { fontSize: 13, color: muted, marginTop: 2, fontFamily: FF },
-    impactTag: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12,
-    },
-    impactText: { fontSize: 12, fontWeight: '600', fontFamily: FF },
-    divider: { height: 0.5, backgroundColor: c.border, marginVertical: 8 },
+    entryTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+    entryTime: { fontSize: 12, color: muted, fontFamily: FF, marginTop: 1 },
+    entryDetails: { fontSize: 13, color: muted, marginTop: 4, fontFamily: FF },
   });
 };

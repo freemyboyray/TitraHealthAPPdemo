@@ -332,6 +332,190 @@ export function computeCoOccurrence(logs: SideEffectLog[]): CoOccurrencePair[] {
   return pairs.sort((p, q) => q.pctOverlap - p.pctOverlap || q.daysTogether - p.daysTogether).slice(0, 3);
 }
 
+// ─── Cycle volume (stacked-by-severity bars) ─────────────────────────────────
+
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * The user's habitual injection weekday (0=Sun…6=Sat), but only when it
+ * dominates recent injections (≥60% share). Returns null for irregular
+ * schedules, so the cycle axis falls back to "Day N" labels rather than
+ * implying a weekday pattern that isn't there.
+ */
+export function detectInjectionWeekday(injections: InjectionLog[]): number | null {
+  const cutoff = Date.now() - 90 * DAY_MS;
+  const counts = new Array(7).fill(0);
+  let total = 0;
+  for (const inj of injections) {
+    const ms = injectionTimestamp(inj);
+    if (ms < cutoff) continue;
+    counts[new Date(ms).getDay()]++;
+    total++;
+  }
+  if (total < 3) return null;
+  let best = 0;
+  for (let i = 1; i < 7; i++) if (counts[i] > counts[best]) best = i;
+  return counts[best] / total >= 0.6 ? best : null;
+}
+
+export type CycleBucketDef = { label: string; startDay: number; endDay: number };
+
+/**
+ * Buckets that tile the dose cycle [0, freqDays]. The final bucket reads "Next"
+ * (the upcoming dose). Resolution adapts to the regimen so the bar chart holds
+ * integrity for every cycle length:
+ *   • daily oral (≤1d)  → 4 intraday 6-hour buckets
+ *   • weekly (7d)       → one bucket per day; weekday-labeled when the user
+ *                         injects on a fixed weekday, else D1…D6 / Next
+ *   • anything else     → ~7 even buckets across the cycle
+ */
+export function buildCycleBuckets(freqDays: number, weekday: number | null): CycleBucketDef[] {
+  if (freqDays <= 1) {
+    return [
+      { label: '0–6h',   startDay: 0,    endDay: 0.25 },
+      { label: '6–12h',  startDay: 0.25, endDay: 0.5 },
+      { label: '12–18h', startDay: 0.5,  endDay: 0.75 },
+      { label: '18–24h', startDay: 0.75, endDay: 1 },
+    ];
+  }
+  if (Math.round(freqDays) === 7) {
+    return Array.from({ length: 7 }, (_, i) => ({
+      startDay: i,
+      endDay: i + 1,
+      label: weekday != null
+        ? WEEKDAY_NAMES[(weekday + i) % 7]
+        : i === 6 ? 'Next' : `D${i + 1}`,
+    }));
+  }
+  const n = Math.min(7, Math.max(3, Math.round(freqDays)));
+  const width = freqDays / n;
+  return Array.from({ length: n }, (_, i) => {
+    const startDay = i * width;
+    const endDay = (i + 1) * width;
+    const mid = Math.max(1, Math.round((startDay + endDay) / 2));
+    return { startDay, endDay, label: i === n - 1 ? 'Next' : `D${mid}` };
+  });
+}
+
+export type VolumeBucket = {
+  label: string;
+  mild: number;
+  moderate: number;
+  severe: number;
+  total: number;
+};
+
+export type CycleVolume = {
+  buckets: VolumeBucket[];
+  peakIndex: number;     // bucket with the most logs (-1 if none)
+  maxTotal: number;      // tallest bucket's count (for y-scaling)
+  totalPoints: number;   // logs mapped onto the cycle
+};
+
+/**
+ * Volume of symptom logs per cycle bucket, split by severity tier — the data
+ * behind the stacked bar hero. Built on `computeCyclePositions` so it inherits
+ * the same staleness/regimen-change guards.
+ */
+export function computeCycleVolume(
+  logs: SideEffectLog[],
+  injections: InjectionLog[],
+  freqDays: number,
+  weekday: number | null,
+): CycleVolume {
+  const points = computeCyclePositions(logs, injections, freqDays);
+  const defs = buildCycleBuckets(freqDays, weekday);
+  const buckets: VolumeBucket[] = defs.map(d => ({ label: d.label, mild: 0, moderate: 0, severe: 0, total: 0 }));
+
+  for (const p of points) {
+    let idx = defs.findIndex(d => p.dayInCycle >= d.startDay && p.dayInCycle < d.endDay);
+    if (idx === -1) idx = defs.length - 1; // dayInCycle === freqDays → last bucket
+    buckets[idx][severityTier(p.severity)]++;
+    buckets[idx].total++;
+  }
+
+  let peakIndex = -1;
+  let maxTotal = 0;
+  buckets.forEach((b, i) => {
+    if (b.total > maxTotal) { maxTotal = b.total; peakIndex = i; }
+  });
+  return { buckets, peakIndex, maxTotal, totalPoints: points.length };
+}
+
+// ─── Daily severity series (expanded detail + cluster overlap) ────────────────
+
+export type DailyPoint = { date: string; worst: number | null };
+
+function toLocalDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Worst (max) severity per local day for one symptom over the last `days` days,
+ * oldest → newest. Days with no log are null so the line shows real gaps rather
+ * than implying a zero. Drives the expanded trend graph and cluster overlay.
+ */
+export function computeSymptomDailySeries(
+  logs: SideEffectLog[],
+  type: string,
+  days = 30,
+): DailyPoint[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startMs = today.getTime() - (days - 1) * DAY_MS;
+
+  const worstByDay = new Map<string, number>();
+  for (const l of logs) {
+    if (l.effect_type !== type) continue;
+    const t = new Date(l.logged_at).getTime();
+    if (t < startMs) continue;
+    const key = toLocalDayKey(new Date(t));
+    worstByDay.set(key, Math.max(worstByDay.get(key) ?? 0, l.severity));
+  }
+
+  const out: DailyPoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const key = toLocalDayKey(new Date(startMs + i * DAY_MS));
+    out.push({ date: key, worst: worstByDay.get(key) ?? null });
+  }
+  return out;
+}
+
+/**
+ * Worst severity per local day across ALL symptoms — drives the 30-day strip on
+ * the Symptom Changes summary card. Same null-for-empty-day convention.
+ */
+export function computeOverallDailySeries(logs: SideEffectLog[], days = 30): DailyPoint[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startMs = today.getTime() - (days - 1) * DAY_MS;
+
+  const worstByDay = new Map<string, number>();
+  for (const l of logs) {
+    const t = new Date(l.logged_at).getTime();
+    if (t < startMs) continue;
+    const key = toLocalDayKey(new Date(t));
+    worstByDay.set(key, Math.max(worstByDay.get(key) ?? 0, l.severity));
+  }
+
+  const out: DailyPoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const key = toLocalDayKey(new Date(startMs + i * DAY_MS));
+    out.push({ date: key, worst: worstByDay.get(key) ?? null });
+  }
+  return out;
+}
+
+export type PairSeries = { a: DailyPoint[]; b: DailyPoint[] };
+
+/** Two aligned daily severity series for the symptom-cluster overlap graph. */
+export function computePairSeries(logs: SideEffectLog[], a: string, b: string, days = 30): PairSeries {
+  return {
+    a: computeSymptomDailySeries(logs, a, days),
+    b: computeSymptomDailySeries(logs, b, days),
+  };
+}
+
 // ─── Spike detection ──────────────────────────────────────────────────────────
 
 /**

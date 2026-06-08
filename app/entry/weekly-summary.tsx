@@ -27,15 +27,16 @@ import { useProfile } from '@/contexts/profile-context';
 import { useHealthData, waterStorageKey } from '@/contexts/health-data';
 import { cardElevation, type AppColors } from '@/constants/theme';
 import { computeWeeklySummary, type WeeklySummaryData } from '@/lib/weekly-summary';
+import { parseWeeklyInsight } from '@/lib/openai';
 import { useLogStore } from '@/stores/log-store';
-import { useUiStore } from '@/stores/ui-store';
 import {
-  ArrowRight, BarChart3, Clock, MessageCircle,
-  Share2, Sparkles, TrendingDown, TrendingUp, X,
+  ArrowRight, BarChart3, Clock,
+  Share2, TrendingDown, TrendingUp, X,
 } from 'lucide-react-native';
 
 // Hand-illustrated metric art (same assets used across the insights + check-in screens).
 const ART_NUTRITION = require('@/assets/images/cards/nutrition-bowl.png');
+const ART_ACTIVITY = require('@/assets/images/checkin/activity.png'); // dumbbell (check-in flow)
 const ART_STEPS = require('@/assets/images/cards/steps.png');
 const ART_CHECKIN = require('@/assets/images/cards/wellness-meditation.png');
 const ART_SIDE_EFFECTS = require('@/assets/images/cards/symptom-log.png');
@@ -113,7 +114,7 @@ const CHECKIN_LABELS: Record<string, string> = {
   mentalHealth:    'Mental Health',
 };
 
-// ─── PDF Builder (unchanged) ────────────────────────────────────────────────────
+// ─── PDF Builder ──────────────────────────────────────────────────────────────
 
 function buildPdfHtml(
   summary: WeeklySummaryData,
@@ -122,6 +123,15 @@ function buildPdfHtml(
   doseMg: number,
 ): string {
   const dateRange = `${formatDate(summary.windowStart)} – ${formatDate(summary.windowEnd)}`;
+  const ins = parseWeeklyInsight(aiInsight);
+  const insightHtml = [
+    ins.overall && `<p>${ins.overall}</p>`,
+    ins.weight && `<p><strong>Weight:</strong> ${ins.weight}</p>`,
+    ins.nutrition && `<p><strong>Nutrition:</strong> ${ins.nutrition}</p>`,
+    ins.activity && `<p><strong>Activity:</strong> ${ins.activity}</p>`,
+    ins.checkins && `<p><strong>Check-ins:</strong> ${ins.checkins}</p>`,
+    ins.sideEffects && `<p><strong>Side effects:</strong> ${ins.sideEffects}</p>`,
+  ].filter(Boolean).join('') || 'No AI insight available.';
   const weightRow = summary.weight.delta != null
     ? `${summary.weight.start?.toFixed(1) ?? '—'} lbs → ${summary.weight.end?.toFixed(1) ?? '—'} lbs (${summary.weight.delta > 0 ? '+' : ''}${summary.weight.delta.toFixed(1)} lbs)`
     : 'No weight logs this week';
@@ -156,7 +166,7 @@ function buildPdfHtml(
 <div class="sub">Weekly Summary · ${dateRange} · ${capitalize(brandName)} ${doseMg}mg</div>
 
 <h2>AI Insight</h2>
-<div class="ai">${aiInsight || 'No AI insight available.'}</div>
+<div class="ai">${insightHtml}</div>
 
 <h2>Weight</h2>
 <p>${weightRow}</p>
@@ -206,6 +216,19 @@ function CardHead({ image, title, subtitle, colors }: {
       </View>
       <Image source={image} style={{ width: 62, height: 62 }} resizeMode="contain" accessibilityIgnoresInvertColors />
     </View>
+  );
+}
+
+// One short AI insight sentence, rendered inside the relevant card. Hidden when
+// there's no insight text for that section.
+function InsightLine({ text, colors, style }: {
+  text: string; colors: AppColors; style?: object;
+}) {
+  if (!text) return null;
+  return (
+    <Text style={[{ fontSize: 14, lineHeight: 19, color: colors.textSecondary, fontFamily: FF }, style]}>
+      {text}
+    </Text>
   );
 }
 
@@ -263,7 +286,6 @@ export default function WeeklySummaryScreen() {
     weeklyCheckins, foodNoiseLogs,
   } = useLogStore();
   const { targets } = useHealthData();
-  const { openAiChat } = useUiStore();
 
   const { snapshot_id } = useLocalSearchParams<{ snapshot_id?: string }>();
   const snapshot = useMemo(
@@ -277,6 +299,7 @@ export default function WeeklySummaryScreen() {
     ? (snapshot.summary_data as unknown as WeeklySummaryData)
     : null;
   const aiInsight = snapshot?.ai_insight ?? '';
+  const insights = useMemo(() => parseWeeklyInsight(snapshot?.ai_insight), [snapshot?.ai_insight]);
 
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -380,18 +403,6 @@ export default function WeeklySummaryScreen() {
     }
   };
 
-  const handleAskAi = () => {
-    openAiChat({
-      type: 'weekly_summary',
-      chips: JSON.stringify([
-        'Why did my weight change this week?',
-        'How can I hit my protein goal?',
-        'Is my activity level on track?',
-        'What should I tell my provider?',
-      ]),
-    });
-  };
-
   const dateRange = summary
     ? `${formatDate(summary.windowStart)} – ${formatDate(summary.windowEnd)}`
     : '';
@@ -440,6 +451,15 @@ export default function WeeklySummaryScreen() {
 
         {summary && (
           <>
+            {/* ── Overall insight (lead line) ── */}
+            {!!insights.overall && (
+              <InsightLine
+                text={insights.overall}
+                colors={colors}
+                style={{ fontSize: 15, lineHeight: 21, marginBottom: 14, paddingHorizontal: 4 }}
+              />
+            )}
+
             {/* ── Weight hero (radial glow number) ── */}
             <View style={s.card}>
               <View style={s.hero}>
@@ -469,23 +489,7 @@ export default function WeeklySummaryScreen() {
                     <Text style={s.heroRangeText}>{summary.weight.end.toFixed(1)} lbs</Text>
                   </View>
                 )}
-              </View>
-            </View>
-
-            {/* ── AI Insight ── */}
-            <View style={s.card}>
-              <View style={s.cardPad}>
-                <View style={s.aiHead}>
-                  <Sparkles size={15} color={colors.orange} />
-                  <Text style={s.aiLabel}>AI INSIGHT</Text>
-                </View>
-                <Text style={s.aiText}>
-                  {aiInsight || 'Tap “Chat with AI” for a personalized recap of your week.'}
-                </Text>
-                <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi} activeOpacity={0.7}>
-                  <MessageCircle size={14} color={colors.orange} />
-                  <Text style={s.askAiBtnText}>Ask AI about this week</Text>
-                </TouchableOpacity>
+                <InsightLine text={insights.weight} colors={colors} style={{ marginTop: 14, textAlign: 'center' }} />
               </View>
             </View>
 
@@ -497,6 +501,7 @@ export default function WeeklySummaryScreen() {
                   subtitle={`${summary.nutrition.daysLogged} of 7 days logged`}
                   colors={colors}
                 />
+                <InsightLine text={insights.nutrition} colors={colors} style={{ marginTop: 2 }} />
 
                 <MetricBlock
                   title="Calories" avg={summary.nutrition.avgCalories} unit=" cal"
@@ -550,16 +555,17 @@ export default function WeeklySummaryScreen() {
             <View style={s.card}>
               <View style={s.cardPad}>
                 <CardHead
-                  image={ART_STEPS} title="Activity"
+                  image={ART_ACTIVITY} title="Activity"
                   subtitle={`${summary.activity.activeDays} of 7 days active`}
                   colors={colors}
                 />
+                <InsightLine text={insights.activity} colors={colors} style={{ marginTop: 2 }} />
                 <MetricBlock
                   title="Steps" avg={summary.activity.avgSteps} unit=""
                   goal={summary.activity.stepsTarget}
                   descriptor={goalDescriptor(summary.activity.avgSteps, summary.activity.stepsTarget)}
                   values={(summary.activity.stepsByDay ?? FILL_ZERO).map(v => (v > 0 ? v : null))}
-                  labels={dayLabels} color={C_STEPS} colors={colors}
+                  labels={dayLabels} color={C_STEPS} colors={colors} image={ART_STEPS}
                   topGap={6}
                 />
               </View>
@@ -569,6 +575,7 @@ export default function WeeklySummaryScreen() {
             <View style={s.card}>
               <View style={s.cardPad}>
                 <CardHead image={ART_CHECKIN} title="Check-In Scores" colors={colors} />
+                <InsightLine text={insights.checkins} colors={colors} style={{ marginTop: 2, marginBottom: 4 }} />
                 {checkinRows.length === 0 ? (
                   <Text style={[s.mutedBody, { marginTop: 6 }]}>No check-ins completed this week</Text>
                 ) : (
@@ -591,6 +598,7 @@ export default function WeeklySummaryScreen() {
                   }
                   colors={colors}
                 />
+                <InsightLine text={insights.sideEffects} colors={colors} style={{ marginTop: 2 }} />
                 {summary.sideEffects.totalCount === 0 && seTypeRows.length === 0 ? (
                   <Text style={[s.mutedBody, { marginTop: 6 }]}>None logged this week</Text>
                 ) : (
@@ -631,14 +639,10 @@ export default function WeeklySummaryScreen() {
       {/* Sticky Footer */}
       {summary && (
         <BlurView intensity={30} tint={colors.blurTint} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
-          <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi} activeOpacity={0.85}>
-            <MessageCircle size={16} color="#fff" />
-            <Text style={s.primaryBtnText}>Chat with AI</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading} activeOpacity={0.7}>
+          <TouchableOpacity style={s.primaryBtn} onPress={handleExportPdf} disabled={pdfLoading} activeOpacity={0.85}>
             {pdfLoading
-              ? <ActivityIndicator size="small" color={colors.orange} />
-              : (<><Share2 size={16} color={colors.orange} /><Text style={s.secondaryBtnText}>Export PDF</Text></>)}
+              ? <ActivityIndicator size="small" color="#fff" />
+              : (<><Share2 size={16} color="#fff" /><Text style={s.primaryBtnText}>Export PDF</Text></>)}
           </TouchableOpacity>
         </BlurView>
       )}
@@ -706,13 +710,6 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   },
   heroRangeText: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
 
-  // AI
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  aiLabel: { fontSize: 12, fontWeight: '800', color: c.orange, letterSpacing: 1.2, fontFamily: FF },
-  aiText: { fontSize: 16, color: c.textPrimary, lineHeight: 22, fontFamily: FF },
-  askAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 12, alignSelf: 'flex-start' },
-  askAiBtnText: { fontSize: 15, color: c.orange, fontWeight: '700', fontFamily: FF },
-
   // Footer
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -725,9 +722,4 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     backgroundColor: c.orange, height: 50, borderRadius: 999,
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16, fontFamily: FF },
-  secondaryBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: c.orange, height: 50, borderRadius: 999,
-  },
-  secondaryBtnText: { color: c.orange, fontWeight: '700', fontSize: 16, fontFamily: FF },
 });

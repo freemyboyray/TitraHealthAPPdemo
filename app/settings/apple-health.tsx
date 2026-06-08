@@ -50,13 +50,6 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'BODY COMPOSITION',
-    rows: [
-      { key: 'bodyFat',   label: 'Body Fat %',     sub: 'Lean mass preservation is the killer GLP-1 metric', icon: 'PersonStanding' },
-      { key: 'leanMass',  label: 'Lean Body Mass', sub: '',                    icon: 'Dumbbell' },
-    ],
-  },
-  {
     title: 'CARDIOVASCULAR',
     rows: [
       { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'Droplet' },

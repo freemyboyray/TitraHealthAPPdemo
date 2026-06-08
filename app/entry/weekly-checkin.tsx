@@ -38,6 +38,8 @@ import { LucideIconByName } from '@/lib/lucide-icon-map';
 import {
   CHECKIN_DOMAINS,
   CHECKIN_ASSETS,
+  CHECKIN_QUESTIONS as QUESTIONS,
+  CHECKIN_SCALE_LABELS as SCALE_LABELS,
   makeStatus,
   STATUS_GOOD, STATUS_OKAY, STATUS_MID, STATUS_BAD,
   type CheckinDomainKey,
@@ -46,51 +48,8 @@ import {
 
 const FF = 'System';
 
-// ─── Questions (the form layers these onto the shared domain meta) ──────────────
-
+// The form layers daily-drug question variants onto the shared base questions.
 type DomainConfig = CheckinDomainMeta & { questions: readonly string[] };
-
-const QUESTIONS: Record<CheckinDomainKey, readonly string[]> = {
-  gi_burden: [
-    'I felt nauseous, vomited, or had acid reflux.',
-    'I had stomach pain, cramping, or bloating.',
-    'GI issues disrupted my eating or daily routine.',
-  ],
-  energy_mood: [
-    'My energy levels were low or inconsistent.',
-    'I felt mentally foggy or drained.',
-    'I felt irritable, down, or emotionally flat.',
-  ],
-  appetite: [
-    'I struggled to eat enough or skipped meals.',
-    'Food felt unappealing for most of the day.',
-    'My appetite felt unpredictable or out of control.',
-  ],
-  food_noise: [
-    'I had frequent, intrusive thoughts about food.',
-    'Food cravings made it hard to focus on other things.',
-    "I thought about eating even when I wasn't hungry.",
-  ],
-  sleep_quality: [
-    'I had trouble falling or staying asleep.',
-    'I woke up feeling unrefreshed or tired.',
-    'Poor sleep affected how I felt during the day.',
-  ],
-  activity_quality: [
-    'I completed exercise or movement sessions.',
-    'I felt physically capable and strong.',
-    'I hit my step or activity goals most days.',
-  ],
-  mental_health: [
-    'I felt anxious, worried, or on edge.',
-    'I felt sad, hopeless, or unmotivated.',
-    'Emotional challenges affected my eating or routine.',
-  ],
-};
-
-// Slider stops are shown to the user as 1–5; internally we store 0–4 so all the
-// downstream scoring (sum/12, makeStatus buckets, checkin-adjustments) is unchanged.
-const SCALE_LABELS = ['Not at all', 'A little', 'Sometimes', 'Often', 'Always'];
 
 function toScore100(sum: number, higherIsBetter: boolean): number {
   return Math.round(higherIsBetter ? (sum / 12) * 100 : (1 - sum / 12) * 100);

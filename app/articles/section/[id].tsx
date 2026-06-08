@@ -8,6 +8,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import {
   getArticleById,
+  getArticleColor,
   getSectionById,
   type Article,
 } from '@/constants/articles';
@@ -30,10 +31,10 @@ function ArticleRowItem({
       accessibilityRole="button"
       accessibilityLabel={`${article.title}. ${article.subtitle}. ${article.readingTime} minute read.`}
     >
-      <View style={[styles.thumbWrap, { backgroundColor: article.bgColor }]}>
+      <View style={[styles.thumbWrap, { backgroundColor: getArticleColor(article) }]}>
         <Image
           source={article.coverImage}
-          style={styles.thumb}
+          style={article.transparentArt ? styles.thumbContain : styles.thumb}
           resizeMode="contain"
           accessibilityIgnoresInvertColors
         />
@@ -155,6 +156,10 @@ const createStyles = (c: AppColors) => {
     thumb: {
       width: 64,
       height: 64,
+    },
+    thumbContain: {
+      width: 62,
+      height: 62,
     },
     rowText: {
       flex: 1,

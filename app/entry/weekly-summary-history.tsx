@@ -11,11 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Sparkles, TrendingDown, TrendingUp } from 'lucide-react-native';
 
 import { CircleIconButton } from '@/components/ui/circle-icon-button';
-import { GlassCard } from '@/components/ui/glass-card';
 import { useLogStore, type WeeklySummaryRow } from '@/stores/log-store';
 import { useAppTheme } from '@/contexts/theme-context';
-import type { AppColors } from '@/constants/theme';
+import { cardElevation, type AppColors } from '@/constants/theme';
 import type { WeeklySummaryData } from '@/lib/weekly-summary';
+import { parseWeeklyInsight } from '@/lib/openai';
 
 const GREEN = '#27AE60';
 const RED = '#E53E3E';
@@ -69,7 +69,7 @@ function SummaryRowCard({ row, colors, s }: {
   const data = row.summary_data as unknown as WeeklySummaryData;
   const range = `${formatDateShort(row.window_start)} – ${formatDateShort(row.window_end)}`;
   const delta = data?.weight?.delta ?? null;
-  const insight = (row.ai_insight ?? '').trim();
+  const insight = (parseWeeklyInsight(row.ai_insight).overall ?? '').trim();
   const truncated = insight.length > 110 ? insight.slice(0, 110).replace(/\s+\S*$/, '') + '…' : insight;
   const down = (delta ?? 0) <= 0;
   const dColor = down ? GREEN : RED;
@@ -80,32 +80,30 @@ function SummaryRowCard({ row, colors, s }: {
       onPress={() => router.push({ pathname: '/entry/weekly-summary' as any, params: { snapshot_id: row.id } })}
       accessibilityRole="button"
       accessibilityLabel={`Summary for ${range}`}
-      style={{ marginBottom: 14 }}
+      style={[s.card, { marginBottom: 14 }]}
     >
-      <GlassCard radius={24}>
-        <View style={{ padding: 18 }}>
-          <View style={s.cardHead}>
-            <Text style={s.range}>{range}</Text>
-            {delta != null && (
-              <View style={[s.deltaPill, { backgroundColor: dColor + '1F' }]}>
-                {down ? <TrendingDown size={12} color={dColor} /> : <TrendingUp size={12} color={dColor} />}
-                <Text style={[s.deltaText, { color: dColor }]}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lbs</Text>
-              </View>
-            )}
-          </View>
-
-          {truncated.length > 0 ? (
-            <Text style={s.insight}>{truncated}</Text>
-          ) : (
-            <Text style={s.insightEmpty}>No AI insight saved for this week.</Text>
+      <View style={{ padding: 18 }}>
+        <View style={s.cardHead}>
+          <Text style={s.range}>{range}</Text>
+          {delta != null && (
+            <View style={[s.deltaPill, { backgroundColor: dColor + '1F' }]}>
+              {down ? <TrendingDown size={12} color={dColor} /> : <TrendingUp size={12} color={dColor} />}
+              <Text style={[s.deltaText, { color: dColor }]}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lbs</Text>
+            </View>
           )}
-
-          <View style={s.ctaRow}>
-            <Text style={s.ctaText}>View summary</Text>
-            <ChevronRight size={14} color={colors.orange} />
-          </View>
         </View>
-      </GlassCard>
+
+        {truncated.length > 0 ? (
+          <Text style={s.insight}>{truncated}</Text>
+        ) : (
+          <Text style={s.insightEmpty}>No AI insight saved for this week.</Text>
+        )}
+
+        <View style={s.ctaRow}>
+          <Text style={s.ctaText}>View summary</Text>
+          <ChevronRight size={14} color={colors.orange} />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -120,6 +118,14 @@ const createStyles = (c: AppColors) => {
     emptyTitle: { fontSize: 18, fontWeight: '700', color: c.textSecondary, fontFamily: FF },
     emptyBody: { fontSize: 15, color: c.textMuted, fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 20 },
 
+    card: {
+      borderRadius: 24,
+      backgroundColor: c.surfaceElevated,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      ...cardElevation(c.isDark),
+    },
     cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
     range: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.3 },
     deltaPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },

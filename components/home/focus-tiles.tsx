@@ -20,25 +20,43 @@ type Metrics = ReturnType<typeof useLifestyleMetrics>;
 type MetricDef = {
   id: string;
   image: ImageSourcePropType;
-  build: (m: Metrics) => { pct: number };
+  color: string;
+  build: (m: Metrics) => { pct: number; label: string };
 };
+
+function fmtSteps(n: number): string {
+  const v = Math.round(n);
+  return v >= 1000 ? `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${v}`;
+}
 
 const METRICS: MetricDef[] = [
   {
-    id: 'protein', image: require('@/assets/images/focus/protein.png'),
-    build: (m) => ({ pct: (m.targets.proteinG || 0) > 0 ? m.todayProteinG / m.targets.proteinG : 0 }),
+    id: 'protein', image: require('@/assets/images/focus/protein.png'), color: '#FF742A',
+    build: (m) => ({
+      pct: (m.targets.proteinG || 0) > 0 ? m.todayProteinG / m.targets.proteinG : 0,
+      label: `${Math.round(m.todayProteinG)}g`,
+    }),
   },
   {
-    id: 'water', image: require('@/assets/images/focus/water.png'),
-    build: (m) => ({ pct: m.waterTargetOz > 0 ? m.waterOz / m.waterTargetOz : 0 }),
+    id: 'water', image: require('@/assets/images/focus/water.png'), color: '#3B9EFF',
+    build: (m) => ({
+      pct: m.waterTargetOz > 0 ? m.waterOz / m.waterTargetOz : 0,
+      label: `${Math.round(m.waterOz)} oz`,
+    }),
   },
   {
-    id: 'fiber', image: require('@/assets/images/focus/fiber.png'),
-    build: (m) => ({ pct: (m.targets.fiberG || 0) > 0 ? m.todayFiberG / m.targets.fiberG : 0 }),
+    id: 'fiber', image: require('@/assets/images/focus/fiber.png'), color: '#27AE60',
+    build: (m) => ({
+      pct: (m.targets.fiberG || 0) > 0 ? m.todayFiberG / m.targets.fiberG : 0,
+      label: `${Math.round(m.todayFiberG)}g`,
+    }),
   },
   {
-    id: 'activity', image: require('@/assets/images/focus/steps.png'),
-    build: (m) => ({ pct: (m.targets.steps || 0) > 0 ? m.todaySteps / m.targets.steps : 0 }),
+    id: 'activity', image: require('@/assets/images/focus/steps.png'), color: '#9B7EDE',
+    build: (m) => ({
+      pct: (m.targets.steps || 0) > 0 ? m.todaySteps / m.targets.steps : 0,
+      label: fmtSteps(m.todaySteps),
+    }),
   },
 ];
 
@@ -69,7 +87,8 @@ function TodayFocusTile({ width }: { width: number }) {
 
       <View style={s.barList}>
         {METRICS.map((mt) => {
-          const { pct } = mt.build(m);
+          const { pct, label } = mt.build(m);
+          const clamped = Math.max(0, Math.min(1, pct));
           return (
             <View key={mt.id} style={s.barRow}>
               <Image
@@ -79,8 +98,11 @@ function TodayFocusTile({ width }: { width: number }) {
                 accessibilityIgnoresInvertColors
               />
               <View style={[s.track, { backgroundColor: w(0.07) }]}>
-                <View style={{ height: '100%', width: pctStr(pct), backgroundColor: colors.textPrimary, opacity: 0.92, borderRadius: 5 }} />
+                <View style={{ height: '100%', width: pctStr(pct), backgroundColor: mt.color, borderRadius: 5 }} />
               </View>
+              <Text style={[s.barPct, { color: clamped >= 1 ? mt.color : colors.textSecondary }]}>
+                {label}
+              </Text>
             </View>
           );
         })}
@@ -171,7 +193,7 @@ function EnergyTile({
       accessibilityRole="button"
     >
       <View style={s.tileHead}>
-        <Text style={s.tileTitle}>Energy</Text>
+        <Text style={s.tileTitle}>Energy{'\n'}Bank</Text>
         <ChevronRight size={20} color={colors.textMuted} />
       </View>
 
@@ -241,6 +263,7 @@ const createStyles = (c: AppColors) => {
     barRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
     metricIcon: { width: 22, height: 22 },
     track: { flex: 1, height: 10, borderRadius: 5, overflow: 'hidden' },
+    barPct: { minWidth: 42, textAlign: 'right', fontSize: 12, fontWeight: '700', fontFamily: FF, letterSpacing: -0.2 },
 
     // Energy mini graph (top) + score (bottom)
     graphWrap: { flex: 1, justifyContent: 'flex-start', paddingTop: 14 },
@@ -253,6 +276,6 @@ const createStyles = (c: AppColors) => {
       overflow: 'hidden', flexDirection: 'row', alignItems: 'stretch',
     },
     batteryCap: { width: 5, height: 15, borderRadius: 2, marginLeft: 2 },
-    batteryScore: { fontSize: 24, fontWeight: '800', fontFamily: FF, letterSpacing: -0.5 },
+    batteryScore: { fontSize: 30, fontWeight: '800', fontFamily: FF, letterSpacing: -0.5 },
   });
 };

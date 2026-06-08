@@ -11,9 +11,11 @@ export type WeeklyCheckinCardProps = {
   nextAvailableAt?: string | null;
   /** When true, the card shows "Weekly Review" instead of "Weekly Check-In" */
   isDaily?: boolean;
+  /** Stretch to fill height (for the side-by-side recap carousel). */
+  fill?: boolean;
 };
 
-export function WeeklyCheckinCard({ currentWeekComplete, isDaily }: WeeklyCheckinCardProps) {
+export function WeeklyCheckinCard({ currentWeekComplete, isDaily, fill }: WeeklyCheckinCardProps) {
   const cardTitle = isDaily ? 'Weekly Review' : 'Weekly Check-In';
   const router = useRouter();
 
@@ -27,6 +29,7 @@ export function WeeklyCheckinCard({ currentWeekComplete, isDaily }: WeeklyChecki
         caption="7 quick areas · about 3 minutes. Your answers fine-tune this week’s targets."
         cta="Start check-in"
         onPress={() => router.push('/entry/weekly-checkin' as any)}
+        fill={fill}
       />
     );
   }
@@ -40,6 +43,7 @@ export function WeeklyCheckinCard({ currentWeekComplete, isDaily }: WeeklyChecki
       caption="Nicely done — your targets are tuned for the week."
       cta="Review answers"
       onPress={() => router.push('/entry/weekly-checkin-history' as any)}
+      fill={fill}
     />
   );
 }

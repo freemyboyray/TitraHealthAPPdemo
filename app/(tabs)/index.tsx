@@ -666,6 +666,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { openAiChat } = useUiStore();
 
+
   // Interactive walkthrough: launch when flagged (post-onboarding, or from
   // Settings → App Tutorial). Checked on focus — reading the flag via getState
   // (not a reactive selector) so clearing it doesn't tear down the scheduled
@@ -1453,6 +1454,7 @@ export default function HomeScreen() {
                     currentWeekComplete={currentWeekComplete}
                     nextAvailableAt={nextWin?.startStr ?? null}
                     isDaily={scheduleMode === 'intraday'}
+                    fill
                   />
                 );
               }
@@ -1466,6 +1468,7 @@ export default function HomeScreen() {
                   latestSummary={latestSummary}
                   viewed={!!latestSummary && weeklySummaryViewedId === latestSummary.id}
                   onView={() => latestSummary && setWeeklySummaryViewed(latestSummary.id)}
+                  fill
                 />
               )
               : null;
@@ -1486,7 +1489,7 @@ export default function HomeScreen() {
                 decelerationRate="fast"
                 snapToInterval={cardW + 12}
                 snapToAlignment="start"
-                contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+                contentContainerStyle={{ gap: 12, paddingRight: 20, alignItems: 'stretch' }}
                 style={{ marginHorizontal: -20, paddingHorizontal: 20, marginBottom: 16 }}
               >
                 {items.map((el, i) => (

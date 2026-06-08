@@ -9,6 +9,7 @@ export default function EntryLayout() {
       <Stack.Screen name="log-activity" />
       <Stack.Screen name="search-food" />
       <Stack.Screen name="scan-food" />
+      <Stack.Screen name="scan-barcode" />
       <Stack.Screen name="capture-food" />
       <Stack.Screen name="ask-ai" />
       <Stack.Screen name="customize-side-effects" />
@@ -24,6 +25,7 @@ export default function EntryLayout() {
       <Stack.Screen name="weekly-checkin-result" />
       <Stack.Screen name="weekly-checkin-targets" />
       <Stack.Screen name="weekly-checkin-history" />
+      <Stack.Screen name="weekly-checkin-detail" />
       <Stack.Screen name="weekly-summary" />
       <Stack.Screen name="weekly-summary-history" />
       <Stack.Screen name="report-preview" />

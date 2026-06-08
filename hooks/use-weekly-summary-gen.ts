@@ -64,7 +64,10 @@ export function useWeeklySummaryAutoGen() {
     const existing = weeklySummaries.find((s) => s.window_end === lastWin.endStr);
     const existingNutrition = (existing?.summary_data as { nutrition?: { caloriesByDay?: unknown } } | undefined)?.nutrition;
     const isStaleFormat = !!existing && !Array.isArray(existingNutrition?.caloriesByDay);
-    if (existing && !isStaleFormat) {
+    // Legacy snapshots stored a plain-text insight; the new format is JSON (per-section).
+    const insight = existing?.ai_insight as string | null | undefined;
+    const isLegacyInsight = !!insight && !insight.trim().startsWith('{');
+    if (existing && !isStaleFormat && !isLegacyInsight) {
       ranForWeek.current = lastWin.endStr;
       return;
     }

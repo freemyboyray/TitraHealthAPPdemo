@@ -3,9 +3,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,39 +15,27 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Search as SearchIcon, X } from 'lucide-react-native';
+import { Plus, Search as SearchIcon, Utensils, X } from 'lucide-react-native';
 import { searchUSDA } from '../../lib/usda';
 import type { FoodResult } from '../../lib/fatsecret';
+import { customToResult, recentToResult } from '@/lib/food-search';
 import { useFoodTaskStore } from '../../stores/food-task-store';
-import { useMealTrayStore, type CustomFood } from '../../stores/meal-tray-store';
+import { useMealTrayStore } from '../../stores/meal-tray-store';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
-// Convert a user's custom food (per-100g) into a FoodResult so it flows through
-// the same addReadyDish / addComponentToDish path as DB search results.
-function customToResult(cf: CustomFood): FoodResult {
-  const serving = cf.serving_size_g ?? 100;
-  return {
-    fdcId: -1, // custom: no FatSecret id → addReadyDish skips hydration
-    name: cf.name,
-    brand: cf.brand || 'My Foods',
-    calories: cf.calories_per_100g,
-    protein_g: cf.protein_per_100g,
-    carbs_g: cf.carbs_per_100g,
-    fat_g: cf.fat_per_100g,
-    fiber_g: cf.fiber_per_100g,
-    serving_size_g: serving,
-    serving_options:
-      cf.serving_size_g != null
-        ? [
-            { label: '1 serving', grams: serving, isDefault: true },
-            { label: '100 g', grams: 100 },
-          ]
-        : [{ label: '100 g', grams: 100, isDefault: true }],
-  };
-}
-
+// Single-pick food search used by the task sub-flows: the review screen's "+"
+// (add another food), and "Add / Replace ingredient" from Customize. Always
+// presents as a modal over review-food. The top-level "log food via search"
+// entry uses the multi-select SearchFoodSheet instead.
 type Tab = 'search' | 'myfoods';
+type MyFoodsFilter = 'favorites' | 'custom' | 'historical';
+
+const MYFOODS_FILTERS: { key: MyFoodsFilter; label: string }[] = [
+  { key: 'favorites', label: 'Favorites' },
+  { key: 'custom', label: 'Custom' },
+  { key: 'historical', label: 'Historical' },
+];
 
 export default function AddFoodSearchScreen() {
   const { taskId, dishIdx: dishIdxParam, compIdx: compIdxParam } = useLocalSearchParams<{ taskId?: string; dishIdx?: string; compIdx?: string }>();
@@ -63,8 +53,11 @@ export default function AddFoodSearchScreen() {
   const replaceComponentWithResult = useFoodTaskStore((st) => st.replaceComponentWithResult);
   const customFoods = useMealTrayStore((st) => st.customFoods);
   const fetchCustomFoods = useMealTrayStore((st) => st.fetchCustomFoods);
+  const recentFoods = useMealTrayStore((st) => st.recentFoods);
+  const fetchRecentFoods = useMealTrayStore((st) => st.fetchRecentFoods);
 
   const [tab, setTab] = useState<Tab>('search');
+  const [filter, setFilter] = useState<MyFoodsFilter>('favorites');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -73,12 +66,13 @@ export default function AddFoodSearchScreen() {
 
   useEffect(() => {
     fetchCustomFoods();
+    fetchRecentFoods();
   }, []);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     const q = query.trim();
-    if (q.length < 2) {
+    if (tab !== 'search' || q.length < 2) {
       setResults([]);
       setSearching(false);
       return;
@@ -86,8 +80,7 @@ export default function AddFoodSearchScreen() {
     setSearching(true);
     debounce.current = setTimeout(async () => {
       try {
-        const r = await searchUSDA(q);
-        setResults(r);
+        setResults(await searchUSDA(q));
       } catch {
         setResults([]);
       } finally {
@@ -97,7 +90,7 @@ export default function AddFoodSearchScreen() {
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [query]);
+  }, [query, tab]);
 
   async function onPick(result: FoodResult) {
     if (adding) return;
@@ -121,7 +114,48 @@ export default function AddFoodSearchScreen() {
     }
   }
 
-  const data: FoodResult[] = tab === 'search' ? results : customFoods.map(customToResult);
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (name: string) => q.length < 2 || name.toLowerCase().includes(q);
+
+  type Row = { key: string; result: FoodResult; sub: string };
+  const rows: Row[] = useMemo(() => {
+    if (tab === 'search') {
+      if (q.length >= 2) {
+        return results.map((r, i) => ({
+          key: `s-${r.fdcId}-${i}`,
+          result: r,
+          sub: `${Math.round(r.calories)} kcal${r.brand ? ` · ${r.brand}` : ''}`,
+        }));
+      }
+      return recentFoods.map((rf, i) => ({
+        key: `r-${rf.food_name}-${i}`,
+        result: recentToResult(rf),
+        sub: `${Math.round(rf.calories)} kcal · 1 serving`,
+      }));
+    }
+    if (filter === 'custom') {
+      return customFoods.filter((cf) => matchesQuery(cf.name)).map((cf, i) => ({
+        key: `c-${cf.id ?? i}`,
+        result: customToResult(cf),
+        sub: `${Math.round(cf.calories_per_100g)} kcal${cf.brand ? ` · ${cf.brand}` : ''}`,
+      }));
+    }
+    const src = filter === 'favorites' ? recentFoods.filter((f) => f.is_favorite) : recentFoods;
+    return src.filter((rf) => matchesQuery(rf.food_name)).map((rf, i) => ({
+      key: `m-${rf.food_name}-${i}`,
+      result: recentToResult(rf),
+      sub: `${Math.round(rf.calories)} kcal · 1 serving`,
+    }));
+  }, [tab, filter, q, results, recentFoods, customFoods]);
+
+  const emptyText =
+    tab === 'search'
+      ? q.length >= 2 ? 'No results.' : 'Recent foods will show here.'
+      : filter === 'custom' ? 'No custom foods yet.'
+        : filter === 'favorites' ? 'No favorites yet.'
+          : 'Nothing logged yet.';
+
+  const headerTitle = compIdx != null ? 'Replace ingredient' : dishIdx != null ? 'Add ingredient' : 'Add food';
 
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -129,9 +163,7 @@ export default function AddFoodSearchScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={s.cancel}>Cancel</Text>
         </Pressable>
-        <Text style={s.headerTitle}>
-          {compIdx != null ? 'Replace ingredient' : dishIdx != null ? 'Add ingredient' : 'Add food'}
-        </Text>
+        <Text style={s.headerTitle}>{headerTitle}</Text>
         <View style={{ width: 56 }} />
       </View>
 
@@ -145,53 +177,66 @@ export default function AddFoodSearchScreen() {
         ))}
       </View>
 
-      {tab === 'search' && (
-        <View style={s.searchBar}>
-          <SearchIcon size={18} color={colors.textMuted} />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search foods"
-            placeholderTextColor={colors.textMuted}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            returnKeyType="search"
-          />
-          {query.length > 0 && (
-            <Pressable onPress={() => setQuery('')} hitSlop={8}>
-              <X size={16} color={colors.textMuted} />
-            </Pressable>
-          )}
-        </View>
+      <View style={s.searchBar}>
+        <SearchIcon size={18} color={colors.textMuted} />
+        <TextInput
+          style={s.searchInput}
+          placeholder="Search for foods & drinks"
+          placeholderTextColor={colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          autoFocus
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <Pressable onPress={() => setQuery('')} hitSlop={8}>
+            <X size={16} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
+
+      {/* My Foods sub-filters */}
+      {tab === 'myfoods' && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow} style={s.filterScroll}>
+          {MYFOODS_FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f.key}
+              style={[s.filterPill, filter === f.key && s.filterPillActive]}
+              onPress={() => setFilter(f.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.filterText, filter === f.key && s.filterTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       )}
 
       <FlatList
-        data={data}
-        keyExtractor={(item, i) => `${item.fdcId}-${i}`}
+        data={rows}
+        keyExtractor={(row) => row.key}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 40 }}
         ListEmptyComponent={
           searching ? (
-            <View style={s.emptyWrap}>
-              <ActivityIndicator color={colors.orange} />
-            </View>
-          ) : tab === 'search' ? (
-            <Text style={s.emptyText}>{query.trim().length < 2 ? 'Type to search foods.' : 'No results.'}</Text>
+            <View style={s.emptyWrap}><ActivityIndicator color={colors.orange} /></View>
           ) : (
-            <Text style={s.emptyText}>No custom foods yet.</Text>
+            <Text style={s.emptyText}>{emptyText}</Text>
           )
         }
         renderItem={({ item }) => (
           <View style={s.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={s.rowSub} numberOfLines={1}>
-                {Math.round(item.calories)} calories{item.brand ? ` · ${item.brand}` : ''}
-              </Text>
+            <View style={s.thumb}>
+              {item.result.image_url ? (
+                <Image source={{ uri: item.result.image_url }} style={s.thumbImg} />
+              ) : (
+                <Utensils size={18} color={colors.textMuted} />
+              )}
             </View>
-            <TouchableOpacity style={s.addBtn} onPress={() => onPick(item)} disabled={adding} hitSlop={8}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowName} numberOfLines={1}>{item.result.name}</Text>
+              <Text style={s.rowSub} numberOfLines={1}>{item.sub}</Text>
+            </View>
+            <TouchableOpacity style={s.addBtn} onPress={() => onPick(item.result)} disabled={adding} hitSlop={8}>
               <Plus size={20} color={colors.orange} />
             </TouchableOpacity>
           </View>
@@ -214,28 +259,25 @@ function createStyles(c: AppColors) {
     tabTextActive: { color: c.textPrimary },
     tabUnderline: { height: 2, backgroundColor: c.textPrimary, borderRadius: 1, marginTop: 6 },
     searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginHorizontal: 20,
-      marginTop: 12,
-      marginBottom: 8,
-      paddingHorizontal: 14,
-      height: 44,
-      borderRadius: 14,
-      backgroundColor: w(0.05),
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      marginHorizontal: 20, marginTop: 12, marginBottom: 8,
+      paddingHorizontal: 14, height: 44, borderRadius: 14, backgroundColor: w(0.05),
     },
     searchInput: { flex: 1, fontSize: 16, color: c.textPrimary },
+    filterScroll: { maxHeight: 50, marginBottom: 4 },
+    filterRow: { paddingHorizontal: 20, gap: 8, alignItems: 'center', paddingVertical: 4 },
+    filterPill: { paddingHorizontal: 16, height: 36, borderRadius: 18, backgroundColor: w(0.06), alignItems: 'center', justifyContent: 'center' },
+    filterPillActive: { backgroundColor: c.textPrimary },
+    filterText: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
+    filterTextActive: { color: c.bg },
     emptyWrap: { paddingTop: 40, alignItems: 'center' },
     emptyText: { textAlign: 'center', color: c.textMuted, fontSize: 14, paddingTop: 40 },
     row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.border,
+      flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
     },
+    thumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: w(0.06), alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    thumbImg: { width: '100%', height: '100%' },
     rowName: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
     rowSub: { fontSize: 13, color: c.textMuted, marginTop: 2 },
     addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.orangeDim, alignItems: 'center', justifyContent: 'center' },

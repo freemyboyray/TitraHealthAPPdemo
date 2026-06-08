@@ -2,22 +2,26 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
+  Image,
   Modal,
   PanResponder,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import {
+  Easing,
   createAnimatedComponent,
   useAnimatedProps,
   useSharedValue,
+  withRepeat,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
-import { ClipPath, Defs, Path, Rect, Svg } from 'react-native-svg';
+import { ClipPath, Defs, Path, Svg } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -27,62 +31,76 @@ import { useHealthData } from '@/contexts/health-data';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { useUiStore } from '@/stores/ui-store';
 import { X } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const AnimatedRect = createAnimatedComponent(Rect);
+const AnimatedPath = createAnimatedComponent(Path);
 
-const FF     = 'System';
+const FF = 'System';
+const ML_PER_OZ = 29.5735;
 
-const CUP_PATH = 'M 10 10 L 190 10 L 170 230 Q 170 240 160 240 L 40 240 Q 30 240 30 230 Z';
+// ─── Glass geometry (SVG viewBox 0 0 200 270, rendered smaller) ───────────────
+const GLASS_TOP = 24;      // y of the rim (fully full)
+const GLASS_BOTTOM = 250;  // y of the base (empty)
+const GLASS_PATH =
+  'M 44 24 L 156 24 Q 166 24 165 34 L 145 240 Q 144 250 134 250 L 66 250 Q 56 250 55 240 L 35 34 Q 34 24 44 24 Z';
+const GLASS_VB_H = 270;
+const GLASS_RENDER_W = 168;
+const GLASS_RENDER_H = 226;
+const GLASS_SCALE = GLASS_RENDER_H / GLASS_VB_H;
 
-const STEP_SIZES = [4, 8, 12, 16] as const;
+/** Visual capacity of the glass in oz — a pour at/above this shows a full glass. */
+const GLASS_CAP_OZ = 24;
+
+// ─── Amount carousel ─────────────────────────────────────────────────────────
+const MAX_OZ = 32;
+const OZ_VALUES = Array.from({ length: MAX_OZ }, (_, i) => i + 1); // 1..32 oz
+const DEFAULT_OZ_INDEX = 7; // 8 oz
+const ITEM_WIDTH = 128;
+
+const WIN = Dimensions.get('window');
+const SHEET_PAD = 20;
+const CONTENT_W = WIN.width - SHEET_PAD * 2;
+const CAROUSEL_SIDE_PAD = (CONTENT_W - ITEM_WIDTH) / 2;
+
+// ─── Beverage carousel ───────────────────────────────────────────────────────
+const BEV_ITEM_W = 92;
+const BEV_SIDE_PAD = (CONTENT_W - BEV_ITEM_W) / 2;
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const scrollNode = (ref: React.MutableRefObject<any>, x: number, animated: boolean) => {
+  const node = ref.current;
+  if (!node) return;
+  if (typeof node.scrollTo === 'function') node.scrollTo({ x, y: 0, animated });
+  else if (typeof node.getNode === 'function') node.getNode().scrollTo({ x, y: 0, animated });
+};
 
 // ─── Beverage Types ──────────────────────────────────────────────────────────
 // Hydration factors based on Beverage Hydration Index (Maughan et al. 2015, AJCN)
 
-type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | 'juice' | 'soup';
+type BeverageKey = 'water' | 'coffee' | 'tea' | 'sparkling' | 'electrolytes' | 'juice';
 
 type Beverage = {
   key: BeverageKey;
   label: string;
-  icon: string;
+  image: any;
+  /** Counter-rotation (deg) applied to straighten the tilted source art. */
+  iconRotation?: string;
   color: string;
-  defaultOz: number;
   /** Effective hydration per oz consumed (1.0 = same as water). */
   hydrationFactor: number;
 };
 
 const BEVERAGES: Beverage[] = [
-  { key: 'water',        label: 'Water',        icon: 'Droplet',       color: '#5B8BF5', defaultOz: 8,  hydrationFactor: 1.0  },
-  { key: 'coffee',       label: 'Coffee',       icon: 'Coffee',        color: '#A0795D', defaultOz: 12, hydrationFactor: 0.85 },
-  { key: 'tea',          label: 'Tea',          icon: 'Leaf',        color: '#7DB87D', defaultOz: 8,  hydrationFactor: 0.90 },
-  { key: 'sparkling',    label: 'Sparkling',    icon: 'Sparkles',    color: '#68C8D7', defaultOz: 12, hydrationFactor: 1.0  },
-  { key: 'electrolytes', label: 'Electrolytes', icon: 'Zap',       color: '#E8C547', defaultOz: 20, hydrationFactor: 1.20 },
-  { key: 'juice',        label: 'Juice',        icon: 'Apple',   color: '#E88B47', defaultOz: 8,  hydrationFactor: 0.90 },
-  { key: 'soup',         label: 'Soup',         icon: 'Soup',        color: '#D4694A', defaultOz: 12, hydrationFactor: 1.0  },
+  { key: 'water',        label: 'Water',        image: require('@/assets/images/beverages/water.png'),        iconRotation: '-12deg', color: '#5B8BF5', hydrationFactor: 1.0  },
+  { key: 'coffee',       label: 'Coffee',       image: require('@/assets/images/beverages/coffee.png'),       iconRotation: '0deg',   color: '#A0795D', hydrationFactor: 0.85 },
+  { key: 'tea',          label: 'Tea',          image: require('@/assets/images/beverages/tea.png'),          iconRotation: '0deg',   color: '#7DB87D', hydrationFactor: 0.90 },
+  { key: 'sparkling',    label: 'Sparkling',    image: require('@/assets/images/beverages/sparkling.png'),    iconRotation: '0deg',   color: '#68C8D7', hydrationFactor: 1.0  },
+  { key: 'electrolytes', label: 'Electrolytes', image: require('@/assets/images/beverages/electrolytes.png'), iconRotation: '12deg',  color: '#E8C547', hydrationFactor: 1.20 },
+  { key: 'juice',        label: 'Juice',        image: require('@/assets/images/beverages/juice.png'),        iconRotation: '-14deg', color: '#E88B47', hydrationFactor: 0.90 },
 ];
 
 const HYDRATION_FACTOR_MAP: Record<BeverageKey, number> = Object.fromEntries(
   BEVERAGES.map(b => [b.key, b.hydrationFactor])
 ) as Record<BeverageKey, number>;
-
-// ─── Quick-Add Presets (beverage-specific) ───────────────────────────────────
-
-type QuickPreset = {
-  oz: number;
-  icon: string;
-  beverageKey: BeverageKey;
-};
-
-const QUICK_PRESETS: QuickPreset[] = [
-  { oz: 8,  icon: 'Droplet',     beverageKey: 'water'        },
-  { oz: 12, icon: 'Coffee',      beverageKey: 'coffee'       },
-  { oz: 8,  icon: 'Leaf',      beverageKey: 'tea'          },
-  { oz: 12, icon: 'Sparkles',  beverageKey: 'sparkling'    },
-  { oz: 20, icon: 'Zap',     beverageKey: 'electrolytes' },
-  { oz: 16, icon: 'Apple', beverageKey: 'juice'        },
-  { oz: 12, icon: 'Soup',      beverageKey: 'soup'         },
-];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -93,30 +111,170 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   const insets = useSafeAreaInsets();
   const { dispatch, targets, actuals } = useHealthData();
 
-  const alreadyLoggedOz = Math.round(actuals.waterMl / 29.5735);
+  const alreadyLoggedOz = Math.round(actuals.waterMl / ML_PER_OZ);
   const initialHydrationOz = useRef(0);
 
-  // effectiveHydrationOz is the running total of hydration-adjusted oz
+  // Running session total of hydration-adjusted oz (preloaded with today's logged water)
   const [effectiveHydrationOz, setEffectiveHydrationOz] = useState(0);
-  const [stepSizeIdx, setStepSizeIdx] = useState(1); // default 8oz
-  const stepSize = STEP_SIZES[stepSizeIdx];
 
-  const [selectedBeverage, setSelectedBeverage] = useState<BeverageKey>('water');
-  const activeBeverage = BEVERAGES.find(b => b.key === selectedBeverage)!;
+  // The amount currently "in the glass" (carousel + glass-drag, decimal precision)
+  const [pourOz, setPourOz] = useState<number>(OZ_VALUES[DEFAULT_OZ_INDEX]);
+  const pourOzRef = useRef(pourOz);
+  const setPour = (v: number) => { pourOzRef.current = v; setPourOz(v); };
 
-  // Last addition info for the feedback badge
-  const [lastAdd, setLastAdd] = useState<{ rawOz: number; effectiveOz: number; bevKey: BeverageKey } | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const selectedIdxRef = useRef(0);
+  const activeBeverage = BEVERAGES[selectedIdx];
 
-  // Drag-to-dismiss
+  // Last addition info for the transient feedback line
+  const [lastAdd, setLastAdd] = useState<{ rawOz: number; bevKey: BeverageKey } | null>(null);
+
+  const dailyTargetOz = targets.waterMl / ML_PER_OZ;
+  const displayTotalOz = Math.round(effectiveHydrationOz);
+  const goalPct = dailyTargetOz > 0 ? Math.round((effectiveHydrationOz / dailyTargetOz) * 100) : 0;
+
+  const amountRef = useRef<any>(null);
+  const bevRef = useRef<any>(null);
+
+  // ─── Liquid animation (sine-wave surface + spring level) ───────────────────
+  const phase = useSharedValue(0);
+  const surfaceY = useSharedValue(GLASS_BOTTOM);
+
+  useEffect(() => {
+    phase.value = withRepeat(withTiming(Math.PI * 2, { duration: 2000, easing: Easing.linear }), -1, false);
+  }, []);
+
+  useEffect(() => {
+    const frac = Math.min(pourOz / GLASS_CAP_OZ, 1);
+    surfaceY.value = withSpring(GLASS_BOTTOM - frac * (GLASS_BOTTOM - GLASS_TOP), { damping: 14, stiffness: 90 });
+  }, [pourOz]);
+
+  const frontWaveProps = useAnimatedProps(() => {
+    'worklet';
+    const y = surfaceY.value;
+    const amp = 7;
+    const k = (2 * Math.PI) / 140;
+    let d = `M 0 ${y + Math.sin(phase.value) * amp}`;
+    for (let x = 0; x <= 200; x += 8) {
+      d += ` L ${x} ${y + Math.sin(k * x + phase.value) * amp}`;
+    }
+    d += ` L 200 ${GLASS_BOTTOM + 40} L 0 ${GLASS_BOTTOM + 40} Z`;
+    return { d };
+  });
+
+  const backWaveProps = useAnimatedProps(() => {
+    'worklet';
+    const y = surfaceY.value + 3;
+    const amp = 5;
+    const k = (2 * Math.PI) / 110;
+    const off = Math.PI;
+    let d = `M 0 ${y + Math.sin(phase.value + off) * amp}`;
+    for (let x = 0; x <= 200; x += 8) {
+      d += ` L ${x} ${y + Math.sin(k * x + phase.value + off) * amp}`;
+    }
+    d += ` L 200 ${GLASS_BOTTOM + 40} L 0 ${GLASS_BOTTOM + 40} Z`;
+    return { d };
+  });
+
+  // ─── Amount carousel ───────────────────────────────────────────────────────
+  const draggingGlass = useRef(false);
+  const scrollX = useRef(new Animated.Value(DEFAULT_OZ_INDEX * ITEM_WIDTH)).current;
+  const onAmountScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: true,
+      listener: (e: any) => {
+        if (draggingGlass.current) return; // glass drag is driving the scroll
+        const idx = clamp(Math.round(e.nativeEvent.contentOffset.x / ITEM_WIDTH), 0, OZ_VALUES.length - 1);
+        const v = OZ_VALUES[idx];
+        if (v !== Math.round(pourOzRef.current)) {
+          setPour(v);
+          Haptics.selectionAsync();
+        }
+      },
+    }
+  );
+
+  // ─── Beverage carousel ─────────────────────────────────────────────────────
+  const bevScrollX = useRef(new Animated.Value(0)).current;
+  const onBevScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: bevScrollX } } }],
+    {
+      useNativeDriver: true,
+      listener: (e: any) => {
+        const idx = clamp(Math.round(e.nativeEvent.contentOffset.x / BEV_ITEM_W), 0, BEVERAGES.length - 1);
+        if (idx !== selectedIdxRef.current) {
+          selectedIdxRef.current = idx;
+          setSelectedIdx(idx);
+          Haptics.selectionAsync();
+        }
+      },
+    }
+  );
+
+  // ─── Glass drag → exact decimal amount ─────────────────────────────────────
+  const [dragY, setDragY] = useState<number | null>(null);
+  const dragStartOz = useRef(0);
+  const dragRangePx = (GLASS_BOTTOM - GLASS_TOP) * GLASS_SCALE;
+
+  const movedRef = useRef(false);
+  const glassPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        draggingGlass.current = true;
+        movedRef.current = false;
+        dragStartOz.current = pourOzRef.current;
+      },
+      onPanResponderMove: (e, gs) => {
+        if (!movedRef.current && Math.abs(gs.dy) < 2) return; // ignore micro-jitter on tap
+        if (!movedRef.current) { movedRef.current = true; Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }
+        const dOz = (-gs.dy / dragRangePx) * GLASS_CAP_OZ;
+        let v = clamp(dragStartOz.current + dOz, 0.5, MAX_OZ);
+        v = Math.round(v * 10) / 10; // one decimal
+        setPour(v);
+        setDragY(e.nativeEvent.locationY);
+        scrollNode(amountRef, (v - 1) * ITEM_WIDTH, false);
+      },
+      onPanResponderRelease: () => {
+        draggingGlass.current = false;
+        setDragY(null);
+      },
+      onPanResponderTerminate: () => {
+        draggingGlass.current = false;
+        setDragY(null);
+      },
+    })
+  ).current;
+
+  // Drag-to-dismiss (handle only)
   const sheetY = useRef(new Animated.Value(0)).current;
-  const closeSheet = () => { sheetY.setValue(0); onClose(); };
-  const panResponder = useRef(
+
+  const commitAndClose = () => {
+    const deltaOz = effectiveHydrationOz - initialHydrationOz.current;
+    if (deltaOz !== 0) {
+      const ml = Math.round(deltaOz * ML_PER_OZ);
+      dispatch({ type: 'LOG_WATER', ml });
+      if (ml > 0) {
+        useHealthKitStore.getState().writeWater(ml).then(synced => {
+          if (synced) useUiStore.getState().showHealthSyncToast(`Water saved to ${HEALTH_SERVICE_NAME}`);
+        });
+      }
+    }
+    sheetY.setValue(0);
+    onClose();
+  };
+
+  const handlePan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
       onPanResponderMove: (_, gs) => { if (gs.dy > 0) sheetY.setValue(gs.dy); },
       onPanResponderRelease: (_, gs) => {
         if (gs.dy > 80 || gs.vy > 0.5) {
-          closeSheet();
+          commitAndClose();
         } else {
           Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
         }
@@ -124,246 +282,174 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
     })
   ).current;
 
-  const dailyTargetOz = targets.waterMl / 29.5735;
-
   // Pre-load with today's already-logged amount each time sheet opens
   useEffect(() => {
     if (visible) {
       initialHydrationOz.current = alreadyLoggedOz;
       setEffectiveHydrationOz(alreadyLoggedOz);
-      setSelectedBeverage('water');
+      setSelectedIdx(0);
+      selectedIdxRef.current = 0;
       setLastAdd(null);
+      setPour(OZ_VALUES[DEFAULT_OZ_INDEX]);
+      setDragY(null);
+      requestAnimationFrame(() => {
+        scrollNode(amountRef, DEFAULT_OZ_INDEX * ITEM_WIDTH, false);
+        scrollNode(bevRef, 0, false);
+      });
     }
   }, [visible]);
 
-  // SVG fill level: y=240 fully empty, y=10 fully full
-  const fillY = useSharedValue(240);
-
-  useEffect(() => {
-    const pct = Math.min(effectiveHydrationOz / dailyTargetOz, 1);
-    fillY.value = withSpring(240 - pct * 230, { damping: 15, stiffness: 120 });
-  }, [effectiveHydrationOz, dailyTargetOz]);
-
-  const fillProps = useAnimatedProps(() => ({ y: fillY.value }));
-
-  const addBeverage = (rawOz: number, bevKey: BeverageKey) => {
-    const factor = HYDRATION_FACTOR_MAP[bevKey];
-    const effective = Math.round(rawOz * factor * 10) / 10; // 1 decimal
+  const addBeverage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const factor = HYDRATION_FACTOR_MAP[activeBeverage.key];
+    const effective = Math.round(pourOz * factor * 10) / 10;
     setEffectiveHydrationOz(prev => Math.round((prev + effective) * 10) / 10);
-    setLastAdd({ rawOz, effectiveOz: effective, bevKey });
+    setLastAdd({ rawOz: pourOz, bevKey: activeBeverage.key });
   };
-
-  const subtractHydration = (rawOz: number) => {
-    const factor = HYDRATION_FACTOR_MAP[selectedBeverage];
-    const effective = Math.round(rawOz * factor * 10) / 10;
-    setEffectiveHydrationOz(prev => Math.max(0, Math.round((prev - effective) * 10) / 10));
-    setLastAdd(null);
-  };
-
-  const handleUpdate = async () => {
-    const deltaOz = effectiveHydrationOz - initialHydrationOz.current;
-    if (deltaOz !== 0) {
-      const ml = Math.round(deltaOz * 29.5735);
-      dispatch({ type: 'LOG_WATER', ml });
-      if (ml > 0) {
-        const synced = await useHealthKitStore.getState().writeWater(ml);
-        if (synced) useUiStore.getState().showHealthSyncToast(`Water saved to ${HEALTH_SERVICE_NAME}`);
-      }
-    }
-    closeSheet();
-  };
-
-  const cycleStepSize = () => setStepSizeIdx(i => (i + 1) % STEP_SIZES.length);
-
-  // Display effective oz rounded for the big number
-  const displayOz = Math.round(effectiveHydrationOz);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={closeSheet}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={commitAndClose}>
       <View style={s.container}>
 
         {/* Backdrop */}
-        <Pressable style={s.backdrop} onPress={closeSheet} />
+        <Pressable style={s.backdrop} onPress={commitAndClose} />
 
         {/* Sheet */}
-        <Animated.View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20), transform: [{ translateY: sheetY }] }]}>
+        <Animated.View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY: sheetY }] }]}>
           <View pointerEvents="none" style={s.topBorder} />
 
           {/* Drag handle */}
-          <View {...panResponder.panHandlers} style={s.handleHitArea}>
+          <View {...handlePan.panHandlers} style={s.handleHitArea}>
             <View style={s.handle} />
           </View>
 
           {/* Header */}
           <View style={s.header}>
-            <TouchableOpacity onPress={closeSheet} style={s.closeBtn} activeOpacity={0.7}>
-              <X size={20} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
-            </TouchableOpacity>
+            <View style={{ width: 32 }} />
             <Text style={s.title}>Hydration Log</Text>
-            <View style={{ width: 36 }} />
+            <TouchableOpacity onPress={commitAndClose} style={s.closeBtn} activeOpacity={0.7}>
+              <X size={18} color={colors.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'} />
+            </TouchableOpacity>
           </View>
 
-          {/* Beverage selector */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.beverageRow}
-            style={s.beverageScroll}
-          >
-            {BEVERAGES.map(bev => {
-              const isActive = bev.key === selectedBeverage;
-              return (
-                <TouchableOpacity
-                  key={bev.key}
-                  style={[
-                    s.beveragePill,
-                    isActive && { backgroundColor: bev.color + '22', borderColor: bev.color },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedBeverage(bev.key);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <LucideIconByName name={bev.icon} size={18} color={isActive ? bev.color : colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
-                  <Text style={[
-                    s.beveragePillLabel,
-                    isActive && { color: bev.color },
-                  ]}>
-                    {bev.label}
-                  </Text>
-                  {bev.hydrationFactor !== 1.0 && (
-                    <Text style={[
-                      s.beverageFactorBadge,
-                      isActive && { color: bev.color, opacity: 1 },
-                    ]}>
-                      {bev.hydrationFactor > 1 ? '+' : ''}{Math.round((bev.hydrationFactor - 1) * 100)}%
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          {/* Running total */}
+          <View style={s.summaryWrap}>
+            <Text style={s.summaryTotal} numberOfLines={1}>{displayTotalOz}oz</Text>
+            <Text style={s.summarySub} numberOfLines={1}>{goalPct}% of your goal</Text>
+            <Text style={[s.feedbackLine, lastAdd ? { color: BEVERAGES.find(b => b.key === lastAdd.bevKey)!.color } : { opacity: 0 }]} numberOfLines={1}>
+              {lastAdd ? `Added ${lastAdd.rawOz}oz ${BEVERAGES.find(b => b.key === lastAdd.bevKey)!.label.toLowerCase()}` : ' '}
+            </Text>
+          </View>
 
-          {/* Cup card */}
-          <View style={s.cupCard}>
+          {/* Glass with animated liquid — drag up/down to set exact amount */}
+          <View style={s.glassWrap}>
+            <Svg pointerEvents="none" width={GLASS_RENDER_W} height={GLASS_RENDER_H} viewBox="0 0 200 270">
+              <Defs>
+                <ClipPath id="wls-glass">
+                  <Path d={GLASS_PATH} />
+                </ClipPath>
+              </Defs>
 
-            {/* Label row */}
-            <View style={s.cupLabelRow}>
-              <Text style={s.cupLabel}>Hydration</Text>
-              <Text style={[s.cupCounter, displayOz > 0 && { color: activeBeverage.color }]}>
-                {displayOz}oz
-              </Text>
-            </View>
+              {/* Empty glass body */}
+              <Path d={GLASS_PATH} fill={colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'} />
 
-            {/* SVG cup */}
-            <View style={s.cupWrap}>
-              <Svg width={200} height={240} viewBox="0 0 200 240">
-                <Defs>
-                  <ClipPath id="wls-cup-clip">
-                    <Path d={CUP_PATH} />
-                  </ClipPath>
-                </Defs>
+              {/* Liquid (clipped to glass) */}
+              <AnimatedPath animatedProps={backWaveProps} fill={activeBeverage.color} opacity={0.4} clipPath="url(#wls-glass)" />
+              <AnimatedPath animatedProps={frontWaveProps} fill={activeBeverage.color} opacity={0.85} clipPath="url(#wls-glass)" />
 
-                {/* Animated fill */}
-                <AnimatedRect
-                  x={0}
-                  width={200}
-                  height={260}
-                  fill={activeBeverage.color}
-                  opacity={0.72}
-                  clipPath="url(#wls-cup-clip)"
-                  animatedProps={fillProps}
-                />
+              {/* Glass outline */}
+              <Path
+                d={GLASS_PATH}
+                stroke={colors.isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.18)'}
+                strokeWidth={2.5}
+                fill="none"
+              />
+            </Svg>
 
-                {/* Cup outline */}
-                <Path
-                  d={CUP_PATH}
-                  stroke={colors.isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)'}
-                  strokeWidth={2}
-                  fill={colors.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'}
-                />
-              </Svg>
-
-              {/* Centered oz overlay */}
-              <View style={s.cupTextOverlay} pointerEvents="none">
-                <Text style={s.cupOzNum}>{displayOz}</Text>
-                <Text style={s.cupOzUnit}>oz hydration</Text>
-              </View>
-            </View>
-
-            {/* Feedback badge — shows conversion after adding a beverage */}
-            {lastAdd && lastAdd.rawOz !== lastAdd.effectiveOz && (
-              <View style={[s.feedbackBadge, { backgroundColor: BEVERAGES.find(b => b.key === lastAdd.bevKey)!.color + '1A' }]}>
-                <Text style={[s.feedbackText, { color: BEVERAGES.find(b => b.key === lastAdd.bevKey)!.color }]}>
-                  {lastAdd.rawOz}oz {BEVERAGES.find(b => b.key === lastAdd.bevKey)!.label} → {lastAdd.effectiveOz}oz hydration
-                </Text>
+            {/* Value bubble that follows the finger while dragging */}
+            {dragY !== null && (
+              <View pointerEvents="none" style={[s.dragBubble, { top: clamp(dragY - 16, 0, GLASS_RENDER_H - 32), backgroundColor: activeBeverage.color }]}>
+                <Text style={s.dragBubbleText}>{pourOz.toFixed(1)}oz</Text>
               </View>
             )}
 
-            {/* Stepper */}
-            <View style={s.stepper}>
-              <TouchableOpacity
-                style={s.stepBtn}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); subtractHydration(stepSize); }}
-                activeOpacity={0.7}
-              >
-                <Text style={s.stepBtnText}>−</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cycleStepSize(); }} activeOpacity={0.7} style={[s.stepLabelWrap, { backgroundColor: activeBeverage.color + '1F', borderColor: activeBeverage.color + '40' }]}>
-                <Text style={[s.stepLabelMain, { color: activeBeverage.color }]}>{stepSize}oz</Text>
-                <Text style={[s.stepLabelHint, { color: activeBeverage.color + '88' }]}>tap to change</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.stepBtn}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); addBeverage(stepSize, selectedBeverage); }}
-                activeOpacity={0.7}
-              >
-                <Text style={s.stepBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
+            {/* Transparent touch overlay — captures the drag gesture */}
+            <View style={StyleSheet.absoluteFill} {...glassPan.panHandlers} />
           </View>
 
-          {/* Quick Add */}
-          <Text style={s.sectionLabel}>Quick Add</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.chipsRow}
-            style={s.chipsScroll}
-          >
-            {QUICK_PRESETS.map((preset, idx) => {
-              const bev = BEVERAGES.find(b => b.key === preset.beverageKey)!;
-              const effectiveOz = Math.round(preset.oz * bev.hydrationFactor * 10) / 10;
-              return (
-                <TouchableOpacity
-                  key={`${preset.beverageKey}-${preset.oz}-${idx}`}
-                  style={s.chip}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setSelectedBeverage(preset.beverageKey);
-                    addBeverage(preset.oz, preset.beverageKey);
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <LucideIconByName name={preset.icon} size={24} color={bev.color} />
-                  <Text style={[s.chipLabel, { color: bev.color }]}>+{preset.oz}oz</Text>
-                  <Text style={s.chipSublabel}>{bev.label}</Text>
-                  {bev.hydrationFactor !== 1.0 && (
-                    <Text style={[s.chipEffective, { color: bev.color }]}>→ {effectiveOz}oz</Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          {/* Amount carousel (swipe to choose) */}
+          <View style={s.carouselWrap}>
+            <Animated.ScrollView
+              ref={amountRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={ITEM_WIDTH}
+              decelerationRate="fast"
+              scrollEventThrottle={16}
+              onScroll={onAmountScroll}
+              contentOffset={{ x: DEFAULT_OZ_INDEX * ITEM_WIDTH, y: 0 }}
+              contentContainerStyle={{ paddingHorizontal: CAROUSEL_SIDE_PAD }}
+            >
+              {OZ_VALUES.map((oz, i) => {
+                const inputRange = [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH];
+                const opacity = scrollX.interpolate({ inputRange, outputRange: [0.25, 1, 0.25], extrapolate: 'clamp' });
+                const scale = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
+                return (
+                  <Animated.View key={oz} style={[s.carouselItem, { opacity, transform: [{ scale }] }]}>
+                    <Text style={s.carouselText} numberOfLines={1} allowFontScaling={false}>{oz}.0oz</Text>
+                  </Animated.View>
+                );
+              })}
+            </Animated.ScrollView>
+          </View>
 
-          {/* Update CTA */}
-          <TouchableOpacity style={s.updateBtn} onPress={handleUpdate} activeOpacity={0.85}>
-            <Text style={s.updateBtnText}>Update</Text>
+          {/* Add CTA */}
+          <TouchableOpacity
+            style={[s.addBtn, { backgroundColor: activeBeverage.color }]}
+            onPress={addBeverage}
+            activeOpacity={0.85}
+          >
+            <Text style={s.addBtnText} numberOfLines={1}>+ {activeBeverage.label}</Text>
           </TouchableOpacity>
+
+          {/* Beverage carousel — centered item is selected */}
+          <View style={s.bevCarouselWrap}>
+            <Animated.ScrollView
+              ref={bevRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={BEV_ITEM_W}
+              decelerationRate="fast"
+              scrollEventThrottle={16}
+              onScroll={onBevScroll}
+              contentContainerStyle={{ paddingHorizontal: BEV_SIDE_PAD }}
+            >
+              {BEVERAGES.map((bev, i) => {
+                const inputRange = [(i - 1) * BEV_ITEM_W, i * BEV_ITEM_W, (i + 1) * BEV_ITEM_W];
+                const opacity = bevScrollX.interpolate({ inputRange, outputRange: [0.45, 1, 0.45], extrapolate: 'clamp' });
+                const scale = bevScrollX.interpolate({ inputRange, outputRange: [0.6, 1, 0.6], extrapolate: 'clamp' });
+                const isActive = i === selectedIdx;
+                return (
+                  <TouchableOpacity
+                    key={bev.key}
+                    activeOpacity={0.8}
+                    onPress={() => { Haptics.selectionAsync(); scrollNode(bevRef, i * BEV_ITEM_W, true); }}
+                  >
+                    <Animated.View style={[s.bevItem, { opacity, transform: [{ scale }] }]}>
+                      <Image
+                        source={bev.image}
+                        style={[s.bevIcon, { transform: [{ rotate: bev.iconRotation ?? '0deg' }] }]}
+                        resizeMode="contain"
+                      />
+                      <Text style={[s.bevLabel, isActive && { color: bev.color }]} numberOfLines={1} allowFontScaling={false}>
+                        {bev.label}
+                      </Text>
+                    </Animated.View>
+                  </TouchableOpacity>
+                );
+              })}
+            </Animated.ScrollView>
+          </View>
 
         </Animated.View>
       </View>
@@ -383,7 +469,7 @@ const createStyles = (c: AppColors) => {
     backgroundColor: c.bg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: 20,
+    paddingHorizontal: SHEET_PAD,
     paddingTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
@@ -405,7 +491,7 @@ const createStyles = (c: AppColors) => {
   handleHitArea: {
     alignItems: 'center',
     paddingTop: 4,
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   handle: {
     width: 44,
@@ -418,246 +504,135 @@ const createStyles = (c: AppColors) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: c.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: c.textPrimary,
     letterSpacing: -0.3,
     fontFamily: FF,
   },
 
-  // Beverage selector
-  beverageScroll: { marginBottom: 16 },
-  beverageRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingRight: 4,
-  },
-  beveragePill: {
-    flexDirection: 'row',
+  // Running total
+  summaryWrap: {
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: w(0.08),
-    backgroundColor: w(0.03),
+    marginBottom: 2,
   },
-  beveragePillLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: w(0.40),
-    fontFamily: FF,
-  },
-  beverageFactorBadge: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: w(0.30),
-    fontFamily: FF,
-    opacity: 0.7,
-  },
-
-  // Cup card
-  cupCard: {
-    backgroundColor: w(0.05),
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.borderSubtle,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  cupLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 12,
-  },
-  cupLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: w(0.55),
-    fontFamily: FF,
-  },
-  cupCounter: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: w(0.30),
-    fontFamily: FF,
-    letterSpacing: -0.5,
-  },
-
-  // Cup SVG area
-  cupWrap: {
-    width: 200,
-    height: 240,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  cupTextOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cupOzNum: {
-    fontSize: 52,
+  summaryTotal: {
+    fontSize: 32,
     fontWeight: '800',
     color: c.textPrimary,
-    letterSpacing: -2,
+    letterSpacing: -1,
     fontFamily: FF,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
-  cupOzUnit: {
-    fontSize: 16,
+  summarySub: {
+    fontSize: 14,
     fontWeight: '600',
-    color: w(0.50),
+    color: w(0.45),
     fontFamily: FF,
-    marginTop: -4,
+    marginTop: 1,
+  },
+  feedbackLine: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FF,
+    marginTop: 4,
   },
 
-  // Feedback badge
-  feedbackBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  // Glass
+  glassWrap: {
+    width: GLASS_RENDER_W,
+    height: GLASS_RENDER_H,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+  },
+  dragBubble: {
+    position: 'absolute',
+    right: -8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  dragBubbleText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: FF,
+  },
+
+  // Amount carousel
+  carouselWrap: {
     marginBottom: 14,
   },
-  feedbackText: {
-    fontSize: 14,
-    fontWeight: '700',
+  carouselItem: {
+    width: ITEM_WIDTH,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: c.textPrimary,
+    letterSpacing: -1,
     fontFamily: FF,
     textAlign: 'center',
   },
 
-  // Stepper
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 8,
-  },
-  stepBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: c.borderSubtle,
-    borderWidth: 1,
-    borderColor: c.ringTrack,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBtnText: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: c.textPrimary,
-    lineHeight: 32,
-    fontFamily: FF,
-  },
-  stepLabelWrap: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 80,
-  },
-  stepLabelMain: {
-    fontSize: 20,
-    fontWeight: '800',
-    fontFamily: FF,
-    letterSpacing: -0.3,
-  },
-  stepLabelHint: {
-    fontSize: 11,
-    fontWeight: '500',
-    fontFamily: FF,
-    marginTop: 1,
-    letterSpacing: 0.2,
-  },
-
-  // Quick Add
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: w(0.30),
-    letterSpacing: 1.0,
-    textTransform: 'uppercase',
-    fontFamily: FF,
-    marginBottom: 10,
-  },
-  chipsScroll: { marginBottom: 20 },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingRight: 4,
-  },
-  chip: {
-    width: 82,
-    height: 92,
-    borderRadius: 16,
-    backgroundColor: c.glassOverlay,
-    borderWidth: 1,
-    borderColor: w(0.09),
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  chipLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: FF,
-  },
-  chipSublabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: w(0.35),
-    fontFamily: FF,
-  },
-  chipEffective: {
-    fontSize: 11,
-    fontWeight: '800',
-    fontFamily: FF,
-    opacity: 0.7,
-  },
-
-  // Update CTA
-  updateBtn: {
+  // Add CTA
+  addBtn: {
     height: 54,
-    borderRadius: 16,
-    backgroundColor: c.orange,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: c.orange,
+    marginBottom: 16,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 6,
   },
-  updateBtnText: {
+  addBtnText: {
     fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    fontFamily: FF,
+  },
+
+  // Beverage carousel
+  bevCarouselWrap: {
+    marginBottom: 4,
+  },
+  bevItem: {
+    width: BEV_ITEM_W,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  bevIcon: {
+    width: 60,
+    height: 60,
+  },
+  bevLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: w(0.45),
     fontFamily: FF,
   },
   });

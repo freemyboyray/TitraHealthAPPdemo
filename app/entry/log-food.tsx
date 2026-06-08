@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estimateMacrosWithAI } from '../../lib/openai';
 import { parseDescriptionToDishes, describeErrorMessage } from '../../lib/food-parse';
 import { resizeImageForVision } from '../../lib/image';
-import { searchUSDA, getFatSecretFood, lookupFatSecretBarcode, autocompleteFatSecret, type FoodResult, type ServingOption } from '../../lib/usda';
+import { searchUSDA, getFatSecretFood, autocompleteFatSecret, type FoodResult, type ServingOption } from '../../lib/usda';
 import { useMealTrayStore, type RecentFood, type SavedMeal } from '../../stores/meal-tray-store';
 import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useFoodTaskStore } from '../../stores/food-task-store';
@@ -34,34 +34,14 @@ import { useHealthData } from '@/contexts/health-data';
 import { useUiStore } from '@/stores/ui-store';
 import type { AppColors } from '@/constants/theme';
 import { ORANGE } from '@/constants/theme';
-import { AlertCircle, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Images, Info, Mic, PlayCircle, PlusCircle, RefreshCw, ScanBarcode, Search, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
+import { AlertCircle, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Images, Info, Mic, PlayCircle, PlusCircle, RefreshCw, Search, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type Mode = 'search' | 'scan' | 'describe' | 'camera';
+type Mode = 'search' | 'describe' | 'camera';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type OFFProduct = {
-  name: string;
-  brand: string;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  fiber_g: number;
-  // Premier extras (only set when populated via FatSecret fallback, not OFF itself)
-  saturated_fat_g?: number;
-  sugar_g?: number;
-  sodium_mg?: number;
-  cholesterol_mg?: number;
-  image_url?: string;
-  allergens?: Record<string, number>;
-  preferences?: Record<string, number>;
-  fatsecret_food_id?: number;
-  fatsecret_category_name?: string;
-};
 
 type DescribeItem = {
   item: string;
@@ -100,27 +80,6 @@ type PendingFood = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function lookupBarcode(barcode: string): Promise<OFFProduct | null> {
-  try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`, { cache: 'no-store' });
-    const json = await res.json();
-    if (json.status !== 1 || !json.product) return null;
-    const p = json.product;
-    const n = p.nutriments ?? {};
-    return {
-      name: p.product_name ?? p.product_name_en ?? 'Unknown Product',
-      brand: p.brands ?? '',
-      calories: Math.round(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0),
-      protein_g: parseFloat((n['proteins_100g'] ?? 0).toFixed(1)),
-      carbs_g: parseFloat((n['carbohydrates_100g'] ?? 0).toFixed(1)),
-      fat_g: parseFloat((n['fat_100g'] ?? 0).toFixed(1)),
-      fiber_g: parseFloat((n['fiber_100g'] ?? 0).toFixed(1)),
-    };
-  } catch {
-    return null;
-  }
-}
 
 // estimateMacrosWithAI is now imported from lib/openai.ts
 
@@ -174,7 +133,14 @@ export default function LogFoodScreen() {
   const setInsightsDefaultTab = useUiStore((s) => s.setInsightsDefaultTab);
 
   // ── Mode ──────────────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<Mode>((modeParam as Mode) ?? 'search');
+  const [mode, setMode] = useState<Mode>(
+    modeParam === 'describe' || modeParam === 'camera' ? modeParam : 'search',
+  );
+
+  // Barcode scanning moved to its own screen; redirect any old ?mode=scan links.
+  useEffect(() => {
+    if (modeParam === 'scan') router.replace('/entry/scan-barcode' as any);
+  }, [modeParam, router]);
 
   // ── Search state ──────────────────────────────────────────────────────────
   const [query, setQuery] = useState('');
@@ -183,16 +149,6 @@ export default function LogFoodScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const autocompleteRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-
-  // ── Scan state ────────────────────────────────────────────────────────────
-  const [scanned, setScanned] = useState(false);
-  const [scanFetching, setScanFetching] = useState(false);
-  const [scanProduct, setScanProduct] = useState<OFFProduct | null>(null);
-  const [scanNotFound, setScanNotFound] = useState(false);
-  const scanLockRef = useRef(false);
-  const lastBarcodeRef = useRef<string | null>(null);
-  const [cameraKey, setCameraKey] = useState(0);
-  const [scanServingG, setScanServingG] = useState('100');
 
   // ── Camera (photo) state ──────────────────────────────────────────────────
   const photoCameraRef = useRef<CameraView>(null);
@@ -240,19 +196,7 @@ export default function LogFoodScreen() {
 
   // ── Mode switch helpers ───────────────────────────────────────────────────
 
-  async function switchToScan() {
-    if (!camPermission?.granted) await requestCamPermission();
-    setScanProduct(null);
-    setScanNotFound(false);
-    setScanned(false);
-    scanLockRef.current = false;
-    lastBarcodeRef.current = null;
-    setCameraKey((k) => k + 1);
-    setMode('scan');
-  }
-
   function switchMode(m: Mode) {
-    if (m === 'scan') { switchToScan(); return; }
     if (m === 'camera') {
       setPhotoUri(null);
       setPhotoBase64(null);
@@ -481,92 +425,6 @@ export default function LogFoodScreen() {
     setShowNutritionInfo(false);
   }
 
-  // ── Scan ──────────────────────────────────────────────────────────────────
-
-  async function handleBarcode({ data }: { data: string }) {
-    if (scanLockRef.current) return;
-    // Reject re-fires of the same barcode (expo-camera native buffer re-emit)
-    if (data === lastBarcodeRef.current) return;
-    scanLockRef.current = true;
-    lastBarcodeRef.current = data;
-    setScanned(true);
-    setScanFetching(true);
-    setScanNotFound(false);
-    setScanProduct(null);
-
-    // Try Open Food Facts first, then FatSecret as fallback
-    let offResult = await lookupBarcode(data);
-    if (offResult) {
-      setScanFetching(false);
-      setScanProduct(offResult);
-      setScanServingG('100');
-    } else {
-      const fsResult = await lookupFatSecretBarcode(data);
-      setScanFetching(false);
-      if (fsResult) {
-        setScanProduct({
-          name: fsResult.name,
-          brand: fsResult.brand,
-          calories: fsResult.calories,
-          protein_g: fsResult.protein_g,
-          carbs_g: fsResult.carbs_g,
-          fat_g: fsResult.fat_g,
-          fiber_g: fsResult.fiber_g,
-          saturated_fat_g: fsResult.saturated_fat_g,
-          sugar_g: fsResult.sugar_g,
-          sodium_mg: fsResult.sodium_mg,
-          cholesterol_mg: fsResult.cholesterol_mg,
-          image_url: fsResult.image_url,
-          allergens: fsResult.allergens,
-          preferences: fsResult.preferences,
-          fatsecret_food_id: Number.isFinite(fsResult.fdcId) && fsResult.fdcId > 0 ? fsResult.fdcId : undefined,
-          fatsecret_category_name: fsResult.category_name,
-        });
-        setScanServingG('100');
-      } else {
-        setScanNotFound(true);
-      }
-    }
-  }
-
-  function handleScanAgain() {
-    scanLockRef.current = false;
-    lastBarcodeRef.current = null;
-    setScanned(false);
-    setScanProduct(null);
-    setScanNotFound(false);
-    // Force CameraView remount so native decoder fully resets
-    setCameraKey((k) => k + 1);
-  }
-
-  function handleAddScanProduct() {
-    if (!scanProduct) return;
-    const g = parseFloat(scanServingG) || 100;
-    const scale = g / 100;
-    const scaled1 = (v: number | undefined) => v == null ? undefined : parseFloat((v * scale).toFixed(1));
-    const scaledInt = (v: number | undefined) => v == null ? undefined : Math.round(v * scale);
-    addToTray({
-      food_name: scanProduct.name + (scanProduct.brand ? ` (${scanProduct.brand})` : ''),
-      calories: Math.round(scanProduct.calories * scale),
-      protein_g: parseFloat((scanProduct.protein_g * scale).toFixed(1)),
-      carbs_g: parseFloat((scanProduct.carbs_g * scale).toFixed(1)),
-      fat_g: parseFloat((scanProduct.fat_g * scale).toFixed(1)),
-      fiber_g: parseFloat((scanProduct.fiber_g * scale).toFixed(1)),
-      serving_g: g,
-      source: 'barcode',
-      saturated_fat_g: scaled1(scanProduct.saturated_fat_g),
-      sugar_g: scaled1(scanProduct.sugar_g),
-      sodium_mg: scaledInt(scanProduct.sodium_mg),
-      cholesterol_mg: scaledInt(scanProduct.cholesterol_mg),
-      image_url: scanProduct.image_url,
-      allergens: scanProduct.allergens,
-      preferences: scanProduct.preferences,
-      fatsecret_food_id: scanProduct.fatsecret_food_id,
-      fatsecret_category_name: scanProduct.fatsecret_category_name,
-    });
-    handleScanAgain();
-  }
-
   // ── Describe ──────────────────────────────────────────────────────────────
 
   // Shared: take parsed items [{item, estimated_g}] → resolve via USDA/AI → set describeItems
@@ -771,13 +629,11 @@ export default function LogFoodScreen() {
 
   const MODE_ICONS: Record<Mode, string> = {
     search: 'Search',
-    scan: 'ScanBarcode',
     describe: 'Pencil',
     camera: 'Camera',
   };
   const MODE_LABELS: Record<Mode, string> = {
     search: 'Search',
-    scan: 'Scan',
     describe: 'Describe',
     camera: 'Camera',
   };
@@ -802,7 +658,7 @@ export default function LogFoodScreen() {
 
         {/* Mode pills */}
         <View style={s.modePills}>
-          {(['search', 'scan', 'describe', 'camera'] as Mode[]).map((m) => (
+          {(['search', 'describe', 'camera'] as Mode[]).map((m) => (
             <TouchableOpacity
               key={m}
               onPress={() => switchMode(m)}
@@ -822,104 +678,7 @@ export default function LogFoodScreen() {
 
       {/* ── Content area ───────────────────────────────────────────────────── */}
 
-      {/* SCAN MODE - full body camera */}
-      {mode === 'scan' ? (
-        <View style={{ flex: 1 }}>
-          {camPermission?.granted ? (
-            <View style={{ flex: 1 }}>
-              <CameraView
-                key={cameraKey}
-                style={StyleSheet.absoluteFillObject}
-                facing="back"
-                onBarcodeScanned={scanned ? undefined : handleBarcode}
-              />
-              {/* Barcode frame overlay */}
-              <View style={s.barcodeFrame} pointerEvents="none">
-                <View style={s.barcodeCornerTL} />
-                <View style={s.barcodeCornerTR} />
-                <View style={s.barcodeCornerBL} />
-                <View style={s.barcodeCornerBR} />
-              </View>
-              {!scanned && (
-                <View style={s.scanHintWrap} pointerEvents="none">
-                  <Text style={s.scanHint}>Point at a barcode</Text>
-                </View>
-              )}
-              {scanFetching && (
-                <View style={[StyleSheet.absoluteFillObject, s.scanLoadingOverlay]}>
-                  <ActivityIndicator size="large" color={colors.orange} />
-                  <Text style={s.scanLoadingText}>Looking up product…</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={s.centered}>
-              <ScanBarcode size={60} color={colors.orange} />
-              <Text style={s.permTitle}>Camera Access Needed</Text>
-              <Text style={s.permDesc}>Allow camera access to scan barcodes.</Text>
-              <TouchableOpacity style={s.permBtn} onPress={requestCamPermission} activeOpacity={0.8} accessibilityLabel="Allow camera access for barcode scanning" accessibilityRole="button">
-                <Text style={s.permBtnText}>Allow Camera</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Scan product panel */}
-          {(scanProduct || scanNotFound) && (
-            <View style={[s.scanPanel, { paddingBottom: insets.bottom + 16 }]}>
-              <BlurView intensity={85} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
-              <GlassBorder r={0} />
-              {scanProduct ? (
-                <View style={{ padding: 20 }}>
-                  <Text style={s.scanProductName} numberOfLines={2}>{scanProduct.name}</Text>
-                  {!!scanProduct.brand && <Text style={s.scanProductBrand}>{scanProduct.brand}</Text>}
-                  <View style={s.macroRow}>
-                    <Text style={s.macroPill}>{Math.round(scanProduct.calories * (parseFloat(scanServingG) || 100) / 100)} cal</Text>
-                    <Text style={s.macroPill}>{(scanProduct.protein_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g P</Text>
-                    <Text style={s.macroPill}>{(scanProduct.carbs_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g C</Text>
-                    <Text style={s.macroPill}>{(scanProduct.fat_g * (parseFloat(scanServingG) || 100) / 100).toFixed(1)}g F</Text>
-                  </View>
-                  <View style={s.scanServingRow}>
-                    <Text style={s.servingLabel}>Amount</Text>
-                    <View style={s.servingInputWrap}>
-                      <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-                      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} />
-                      <GlassBorder />
-                      <TextInput
-                        style={s.servingInput}
-                        value={scanServingG}
-                        onChangeText={setScanServingG}
-                        keyboardType="numeric"
-                        selectTextOnFocus
-                      />
-                    </View>
-                    <Text style={s.servingUnit}>g</Text>
-                  </View>
-                  <View style={s.scanBtns}>
-                    <TouchableOpacity style={s.scanSecBtn} onPress={handleScanAgain} activeOpacity={0.8} accessibilityLabel="Scan again" accessibilityRole="button">
-                      <Text style={s.scanSecBtnText}>Scan Again</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.scanPrimBtn} onPress={handleAddScanProduct} activeOpacity={0.85} accessibilityLabel="Add scanned product to meal" accessibilityRole="button">
-                      <Text style={s.scanPrimBtnText}>Add to Meal</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <AlertCircle size={36} color={colors.orange} style={{ marginBottom: 8 }} />
-                  <Text style={s.scanProductName}>Product Not Found</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 15, marginBottom: 16, textAlign: 'center' }}>
-                    This barcode wasn't in the database. Try searching manually.
-                  </Text>
-                  <TouchableOpacity style={s.scanPrimBtn} onPress={handleScanAgain} activeOpacity={0.8}>
-                    <Text style={s.scanPrimBtnText}>Scan Again</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      ) : mode === 'camera' ? (
+      {mode === 'camera' ? (
         /* CAMERA MODE - full body camera (photo) */
         <View style={{ flex: 1 }}>
           {photoUri ? (

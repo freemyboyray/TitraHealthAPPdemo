@@ -182,7 +182,7 @@ function createStyles(c: AppColors) {
     kav: { width: '100%' },
     sheet: {
       // Taller sheet that sits higher up the screen.
-      minHeight: Math.round(SCREEN_H * 0.5),
+      minHeight: Math.round(SCREEN_H * 0.62),
       backgroundColor: c.cardBg,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,

@@ -4,6 +4,7 @@ export default function InsightsLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="side-effects" />
+      <Stack.Screen name="symptom-changes" />
       <Stack.Screen name="nutrition" />
       <Stack.Screen name="activity" />
       <Stack.Screen name="vitals" />

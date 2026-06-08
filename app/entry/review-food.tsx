@@ -296,11 +296,11 @@ function PhotoLimitReached({
   };
   const goBarcode = () => {
     onClose();
-    router.push('/entry/log-food?mode=scan' as any);
+    router.push('/entry/scan-barcode' as any);
   };
   const goSearch = () => {
     onClose();
-    router.push('/entry/log-food?mode=search' as any);
+    router.push('/entry/add-food-search' as any);
   };
 
   return (

@@ -46,7 +46,6 @@ export default function MicrosDetailScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>Micronutrients</Text>
         <Text style={s.intro}>Vitamins, minerals and extended fats from what you've logged. Tap any to see its trend.</Text>
 
         <View style={s.list}>
@@ -63,8 +62,8 @@ export default function MicrosDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${m.label}, ${st.label}`}
               >
-                <View style={[s.iconWrap, { backgroundColor: m.color + '1A' }]}>
-                  <LucideIconByName name={m.icon} size={18} color={m.color} />
+                <View style={s.iconWrap}>
+                  <LucideIconByName name={m.icon} size={22} color={colors.textPrimary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowLabel}>{m.label}</Text>
@@ -102,7 +101,6 @@ const createStyles = (c: AppColors) => {
     },
     headerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '700', fontFamily: FF, letterSpacing: -0.2 },
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 36 },
-    title: { fontSize: 30, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.7 },
     intro: { color: c.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 6, marginBottom: 18, fontFamily: FF },
     list: { gap: 2 },
     row: {

@@ -19,7 +19,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
-import { ARTICLE_SECTIONS, getArticleById, type Article } from '@/constants/articles';
+import { ARTICLE_SECTIONS, getArticleById, getArticleColor, type Article } from '@/constants/articles';
 
 const FF = 'System';
 
@@ -31,23 +31,25 @@ const DISCLAIMER_TEXT =
 const CARD_W = 172;
 
 function ArticleCard({ article }: { article: Article }) {
+  const cardColor = getArticleColor(article);
   return (
     <Pressable
       style={({ pressed }) => [
         cardStyles.card,
-        { backgroundColor: article.bgColor },
+        { backgroundColor: cardColor },
         pressed && { opacity: 0.92, transform: [{ scale: 0.97 }] },
       ]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
       accessibilityRole="button"
       accessibilityLabel={`${article.title}. ${article.subtitle}. ${article.readingTime} minute read.`}
     >
-      {/* Square illustration — its baked-in background matches article.bgColor */}
+      {/* Square illustration. Transparent art is contained with padding over the section
+          color; legacy baked-background art fills the tile edge-to-edge. */}
       <View style={cardStyles.imageWrap}>
         <Image
           source={article.coverImage}
-          style={cardStyles.image}
-          resizeMode="cover"
+          style={article.transparentArt ? cardStyles.imageContain : cardStyles.image}
+          resizeMode={article.transparentArt ? 'contain' : 'cover'}
           accessibilityIgnoresInvertColors
         />
         <View style={cardStyles.readPill}>
@@ -79,6 +81,12 @@ const cardStyles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  imageContain: {
+    width: '118%',
+    height: '118%',
+    marginLeft: '-9%',
+    marginTop: '-9%',
+  },
   readPill: {
     position: 'absolute',
     top: 10,
@@ -97,8 +105,8 @@ const cardStyles = StyleSheet.create({
   },
   textArea: {
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   title: {
     fontSize: 16,
