@@ -170,7 +170,7 @@ export function MedicationStatusTile(props: Props) {
               {daysAway > 0 ? ` (${daysAway} day${daysAway !== 1 ? 's' : ''})` : ' (today)'}
             </Text>
             <Text style={s.transitionHint}>
-              Washout — {medName}{oldDoneLabel ? ` complete ${oldDoneLabel}` : ' complete'}
+              Washout: {medName}{oldDoneLabel ? ` complete ${oldDoneLabel}` : ' complete'}
             </Text>
           </View>
         )}

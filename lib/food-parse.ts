@@ -18,7 +18,7 @@ export function describeErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message === 'AUTH_EXPIRED') {
     return 'Your session expired. Please sign out and back in.';
   }
-  return "Couldn't read that — try being more specific.";
+  return "Couldn't read that. Try being more specific.";
 }
 
 export const PARSE_SYSTEM = `You are a food logging assistant. Read the user's input and identify the distinct DISHES they ate.

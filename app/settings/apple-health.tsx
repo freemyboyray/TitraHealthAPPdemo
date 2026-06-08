@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -20,100 +20,34 @@ import type { AppColors } from '@/constants/theme';
 import { usePreferencesStore } from '@/stores/preferences-store';
 import { useHealthKitStore } from '@/stores/healthkit-store';
 import { openHealthSettings } from '@/lib/healthkit';
-import type { HKCategoryKey } from '@/lib/healthkit';
-import { ChevronLeft, ExternalLink, Heart, RefreshCw, Settings } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
+import {
+  Activity,
+  ChevronLeft,
+  ExternalLink,
+  HeartPulse,
+  Scale,
+  Settings,
+  Utensils,
+  type LucideIcon,
+} from 'lucide-react-native';
 
-const HEALTH_RED = '#FF3B30';
+const APPLE_HEALTH_LOGO = require('@/assets/images/apple-health-icon.png');
 
-// Grouped view of the categories we read. Group order = display order on the
-// detail screen. Each entry maps a user-facing label to one or more HK keys
-// that light up the row. First key is the "primary" and drives the row icon.
-type CategoryRow = {
-  key: HKCategoryKey | HKCategoryKey[];
-  label: string;
-  sub: string;
-  icon: string;
-};
-type Group = { title: string; rows: CategoryRow[] };
-
-const GROUPS: Group[] = [
-  {
-    title: 'CORE VITALS',
-    rows: [
-      { key: 'weight',       label: 'Weight',          sub: 'From your scale',            icon: 'Scale' },
-      { key: 'hrv',          label: 'Heart Rate Variability', sub: 'GLP-1 pharmacodynamic marker', icon: 'HeartPulse' },
-      { key: 'restingHR',    label: 'Resting Heart Rate', sub: '',                         icon: 'Heart' },
-      { key: 'sleep',        label: 'Sleep',           sub: 'Last night\u2019s duration',  icon: 'Moon' },
-      { key: 'steps',        label: 'Steps',           sub: 'Today',                       icon: 'Footprints' },
-      { key: 'activeEnergy', label: 'Active Calories', sub: 'Today',                       icon: 'Flame' },
-    ],
-  },
-  {
-    title: 'CARDIOVASCULAR',
-    rows: [
-      { key: 'spo2',             label: 'Blood Oxygen',   sub: 'Relevant for GLP-1 sleep apnea use', icon: 'Droplet' },
-      { key: 'respiratoryRate',  label: 'Respiratory Rate', sub: 'Recovery scoring signal',         icon: 'Leaf' },
-    ],
-  },
-  {
-    title: 'NUTRITION',
-    rows: [
-      { key: 'water',        label: 'Hydration',      sub: 'Common GLP-1 issue',                    icon: 'Droplet' },
-      { key: 'calories',     label: 'Calories',       sub: 'Only counted from other apps (e.g. MyFitnessPal)', icon: 'Flame' },
-      { key: 'protein',      label: 'Protein',        sub: 'Critical for preserving lean mass',     icon: 'Apple' },
-      { key: 'saturatedFat', label: 'Saturated Fat',  sub: 'Cardiovascular health tracking',        icon: 'Circle' },
-      { key: 'cholesterol',  label: 'Cholesterol',    sub: 'Cardiovascular risk factor',            icon: 'BarChart3' },
-    ],
-  },
-  {
-    title: 'GI SYMPTOMS',
-    rows: [
-      { key: 'symptomNausea',           label: 'Nausea',       sub: 'Auto-filled into your side-effects log', icon: 'Frown' },
-      { key: 'symptomVomiting',         label: 'Vomiting',     sub: '', icon: 'AlertCircle' },
-      { key: 'symptomDiarrhea',         label: 'Diarrhea',     sub: '', icon: 'TriangleAlert' },
-      { key: 'symptomConstipation',     label: 'Constipation', sub: '', icon: 'MinusCircle' },
-      { key: 'symptomHeartburn',        label: 'Heartburn',    sub: '', icon: 'Flame' },
-      { key: 'symptomBloating',         label: 'Bloating',     sub: '', icon: 'Circle' },
-      { key: 'symptomAbdominalCramps',  label: 'Stomach Pain', sub: '', icon: 'Hospital' },
-      { key: 'symptomFatigue',          label: 'Fatigue',      sub: '', icon: 'BatteryLow' },
-      { key: 'symptomHeadache',         label: 'Headache',     sub: '', icon: 'HeartPulse' },
-      { key: 'symptomDizziness',        label: 'Dizziness',    sub: '', icon: 'RefreshCw' },
-      { key: 'symptomAppetite',         label: 'Appetite Changes', sub: '', icon: 'Utensils' },
-      { key: 'symptomMood',             label: 'Mood Changes', sub: '', icon: 'Smile' },
-    ],
-  },
-  {
-    title: 'ACTIVITY',
-    rows: [
-      { key: 'basalEnergy',    label: 'Basal Energy',     sub: 'Resting metabolism — combines with active cal for TDEE', icon: 'Zap' },
-      { key: 'distance',       label: 'Distance',         sub: 'Walking + running distance',        icon: 'Map' },
-      { key: 'flightsClimbed', label: 'Flights Climbed',  sub: 'From your iPhone sensors',          icon: 'TrendingUp' },
-      { key: 'workouts',       label: 'Workouts',         sub: 'Peloton, Strava, Garmin, Nike Run', icon: 'Dumbbell' },
-    ],
-  },
-  {
-    title: 'MINDFULNESS',
-    rows: [
-      { key: 'mindfulMinutes', label: 'Mindful Minutes', sub: 'Calm, Headspace, and other apps', icon: 'Brain' },
-    ],
-  },
+// The handful of things syncing actually does for the user. We surface the
+// value, not the raw 30-category plumbing behind it.
+type Benefit = { icon: LucideIcon; title: string; desc: string };
+const BENEFITS: Benefit[] = [
+  { icon: HeartPulse, title: 'Heart rate & recovery', desc: 'See how GLP-1s shift your HRV and resting heart rate.' },
+  { icon: Scale,      title: 'Weight, hands-free',     desc: 'Smart-scale readings log themselves.' },
+  { icon: Activity,   title: 'Activity & sleep',       desc: 'Steps, workouts, and sleep sync from your watch.' },
+  { icon: Utensils,   title: 'Nutrition & hydration',  desc: 'Protein and water carry over from your food apps.' },
 ];
-
-function isRowLive(live: Set<HKCategoryKey>, key: HKCategoryKey | HKCategoryKey[]): boolean {
-  if (Array.isArray(key)) return key.some((k) => live.has(k));
-  return live.has(key);
-}
 
 export default function AppleHealthSettingsScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { appleHealthEnabled, setAppleHealthEnabled } = usePreferencesStore();
-  const { permissionsGranted, liveCategories, lastRefreshed, requestPermissions, fetchAll, refreshLive } = useHealthKitStore();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const liveCount = liveCategories.size;
-  const totalRowCount = GROUPS.reduce((n, g) => n + g.rows.length, 0);
+  const { permissionsGranted, lastRefreshed, requestPermissions, fetchAll } = useHealthKitStore();
 
   const handleMasterToggle = useCallback(async (value: boolean) => {
     if (!value) {
@@ -137,24 +71,15 @@ export default function AppleHealthSettingsScreen() {
     }
   }, [fetchAll, requestPermissions, setAppleHealthEnabled]);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([fetchAll(), refreshLive()]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchAll, refreshLive]);
-
   const handleManageInSettings = useCallback(async () => {
     await openHealthSettings();
   }, []);
 
-  const syncSubtitle = lastRefreshed
-    ? `Last synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-    : permissionsGranted
-      ? 'Not yet synced'
-      : 'Not connected';
+  const syncSubtitle = appleHealthEnabled
+    ? lastRefreshed
+      ? `Last synced ${lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      : permissionsGranted ? 'Syncing in the background' : 'Connecting…'
+    : 'Sync your health data automatically';
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -163,18 +88,17 @@ export default function AppleHealthSettingsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>{HEALTH_SERVICE_NAME.toUpperCase()}</Text>
+        <Text style={s.headerTitle}>{HEALTH_SERVICE_NAME}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Master toggle card */}
+        {/* Master toggle */}
         <View style={s.masterCard}>
           <View style={s.masterLeft}>
-            <View style={s.masterIcon}>
-              <Heart size={18} color={HEALTH_RED} />
-            </View>
+            <Image source={APPLE_HEALTH_LOGO} style={s.masterIcon} resizeMode="contain" />
+
             <View style={{ flex: 1 }}>
               <Text style={s.masterLabel}>Connect {HEALTH_SERVICE_NAME}</Text>
               <Text style={s.masterSub}>{syncSubtitle}</Text>
@@ -183,104 +107,55 @@ export default function AppleHealthSettingsScreen() {
           <Switch
             value={appleHealthEnabled}
             onValueChange={handleMasterToggle}
-            trackColor={{ false: '#333', true: HEALTH_RED }}
+            trackColor={{ false: colors.isDark ? '#333' : '#D1D1D6', true: colors.orange }}
             thumbColor="#FFFFFF"
-            ios_backgroundColor="#333"
+            ios_backgroundColor={colors.isDark ? '#333' : '#D1D1D6'}
           />
         </View>
 
-        {appleHealthEnabled && (
-          <>
-            {/* Live count summary */}
-            <View style={s.summaryCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.summaryNumber}>{liveCount}<Text style={s.summaryDenom}> / {totalRowCount}</Text></Text>
-                <Text style={s.summarySub}>categories flowing data (last 30 days)</Text>
-              </View>
-              <TouchableOpacity
-                style={s.refreshBtn}
-                onPress={handleRefresh}
-                disabled={refreshing}
-                activeOpacity={0.7}
-              >
-                {refreshing
-                  ? <ActivityIndicator size="small" color={colors.orange} />
-                  : <RefreshCw size={18} color={colors.orange} />
-                }
-              </TouchableOpacity>
-            </View>
-
-            {/* "Manage in iOS Settings" — the only way to change a declined category */}
-            <Pressable onPress={handleManageInSettings} style={s.manageCard}>
-              <View style={s.manageIcon}>
-                <Settings size={18} color={colors.orange} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.manageLabel}>Manage in iOS Settings</Text>
-                <Text style={s.manageSub}>
-                  iOS won&apos;t let apps re-prompt for declined categories. Toggle them in{' '}
-                  <Text style={{ fontWeight: '700' }}>Privacy → Health → Titra</Text>.
-                </Text>
-              </View>
-              <ExternalLink size={16} color={colors.textMuted} />
-            </Pressable>
-
-            {/* Grouped category status */}
-            {GROUPS.map((group) => {
-              const groupLiveCount = group.rows.filter((r) => isRowLive(liveCategories, r.key)).length;
-              return (
-                <View key={group.title}>
-                  <View style={s.groupHeader}>
-                    <Text style={s.sectionLabel}>{group.title}</Text>
-                    <Text style={s.groupCount}>{groupLiveCount}/{group.rows.length}</Text>
-                  </View>
-                  <View style={s.card}>
-                    {group.rows.map((row, i) => {
-                      const live = isRowLive(liveCategories, row.key);
-                      return (
-                        <View key={String(row.key)}>
-                          {i > 0 && <View style={s.divider} />}
-                          <View style={s.row}>
-                            <View style={[s.rowIconWrap, !live && s.rowIconWrapDormant]}>
-                              <LucideIconByName name={row.icon}
-                                size={16}
-                                color={live ? colors.orange : colors.textMuted} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[s.rowLabel, !live && s.rowLabelDormant]}>{row.label}</Text>
-                              {row.sub ? (
-                                <Text style={s.rowSub}>{row.sub}</Text>
-                              ) : null}
-                            </View>
-                            <View style={live ? s.statusPillLive : s.statusPillDormant}>
-                              <Text style={live ? s.statusTextLive : s.statusTextDormant}>
-                                {live ? 'LIVE' : 'DORMANT'}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      );
-                    })}
+        {/* Why connect / what you're getting */}
+        <Text style={s.sectionTitle}>
+          {appleHealthEnabled ? 'What you’re getting' : 'Why connect'}
+        </Text>
+        <View style={s.card}>
+          {BENEFITS.map((b, i) => {
+            const Icon = b.icon;
+            return (
+              <View key={b.title}>
+                {i > 0 && <View style={s.divider} />}
+                <View style={s.row}>
+                  <Icon size={18} color={colors.textSecondary} style={s.rowIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowLabel}>{b.title}</Text>
+                    <Text style={s.rowSub}>{b.desc}</Text>
                   </View>
                 </View>
-              );
-            })}
+              </View>
+            );
+          })}
+        </View>
 
-            {/* Footer note */}
-            <Text style={s.footerNote}>
-              A category is &quot;live&quot; if {HEALTH_SERVICE_NAME} has returned at least one sample in the last 30 days.
-              Dormant categories either weren&apos;t granted or have no data — connect a device (scale, watch, CGM)
-              or log the metric in the {HEALTH_SERVICE_NAME} app to bring them online.
-            </Text>
-          </>
+        {/* Manage declined categories (only relevant once connected) */}
+        {appleHealthEnabled && (
+          <Pressable onPress={handleManageInSettings} style={s.manageRow}>
+            <Settings size={18} color={colors.textSecondary} style={s.rowIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowLabel}>Manage in iOS Settings</Text>
+              <Text style={s.rowSub}>Choose exactly what {HEALTH_SERVICE_NAME} shares.</Text>
+            </View>
+            <ExternalLink size={16} color={colors.textMuted} />
+          </Pressable>
         )}
+
+        <Text style={s.footerNote}>
+          Your health data stays private to your account and is never sold.
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     header: {
@@ -289,124 +164,58 @@ const createStyles = (c: AppColors) => {
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
     backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
+    headerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '700' },
 
     scroll: { flex: 1 },
     content: { padding: 16, paddingBottom: 80 },
 
-    /* Master toggle */
+    /* Master toggle (no outline, black & white heart) */
     masterCard: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: c.surface,
       borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16,
-      borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
-      marginBottom: 8,
+      marginBottom: 24,
     },
     masterLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     masterIcon: {
-      width: 36, height: 36, borderRadius: 18,
-      backgroundColor: 'rgba(255,59,48,0.15)',
-      alignItems: 'center', justifyContent: 'center',
+      width: 32, height: 32,
     },
     masterLabel: { color: c.textPrimary, fontSize: 18, fontWeight: '700' },
     masterSub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
 
-    /* Summary card */
-    summaryCard: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: c.surface,
-      borderRadius: 16, padding: 16,
-      borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
-      marginTop: 8, marginBottom: 4,
+    /* Benefits */
+    sectionTitle: {
+      color: c.textPrimary, fontSize: 16, fontWeight: '700',
+      marginBottom: 10, marginLeft: 4,
     },
-    summaryNumber: {
-      color: c.orange, fontSize: 32, fontWeight: '800', letterSpacing: -1,
-    },
-    summaryDenom: {
-      color: c.textMuted, fontSize: 20, fontWeight: '600',
-    },
-    summarySub: { color: c.textMuted, fontSize: 14, marginTop: 2 },
-    refreshBtn: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: 'rgba(255,116,42,0.12)',
-      alignItems: 'center', justifyContent: 'center',
-    },
-
-    /* Manage in Settings */
-    manageCard: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: c.surface,
-      borderRadius: 16, padding: 14,
-      borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
-      marginTop: 8, marginBottom: 4,
-    },
-    manageIcon: {
-      width: 32, height: 32, borderRadius: 8,
-      backgroundColor: 'rgba(255,116,42,0.12)',
-      alignItems: 'center', justifyContent: 'center',
-    },
-    manageLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '700' },
-    manageSub: { color: c.textMuted, fontSize: 13, lineHeight: 15, marginTop: 2 },
-
-    /* Group headers */
-    groupHeader: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      marginTop: 20, marginBottom: 6, paddingHorizontal: 4,
-    },
-    sectionLabel: {
-      color: c.textMuted, fontSize: 13, fontWeight: '700', letterSpacing: 2,
-    },
-    groupCount: {
-      color: c.textMuted, fontSize: 13, fontWeight: '700',
-    },
-
-    /* Category card */
     card: {
       backgroundColor: c.surface,
-      borderRadius: 16, borderWidth: 1,
-      borderTopColor: w(0.13), borderLeftColor: c.borderSubtle,
-      borderRightColor: w(0.03), borderBottomColor: w(0.02),
+      borderRadius: 16,
       overflow: 'hidden',
     },
     row: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingLeft: 14, paddingRight: 12, paddingVertical: 12,
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingHorizontal: 16, paddingVertical: 14,
     },
-    rowIconWrap: {
-      width: 32, height: 32, borderRadius: 8,
-      backgroundColor: 'rgba(255,116,42,0.12)',
-      alignItems: 'center', justifyContent: 'center',
-    },
-    rowIconWrapDormant: {
-      backgroundColor: w(0.05),
-    },
+    rowIcon: { width: 22, textAlign: 'center' },
     rowLabel: { color: c.textPrimary, fontSize: 16, fontWeight: '600' },
-    rowLabelDormant: { color: c.textMuted },
-    rowSub: { color: c.textMuted, fontSize: 13, lineHeight: 14, marginTop: 2 },
+    rowSub: { color: c.textMuted, fontSize: 13, lineHeight: 17, marginTop: 2 },
 
-    statusPillLive: {
-      backgroundColor: 'rgba(93,184,123,0.14)',
-      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-    },
-    statusPillDormant: {
-      backgroundColor: w(0.05),
-      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-    },
-    statusTextLive: { color: '#5DB87B', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
-    statusTextDormant: { color: c.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 52 },
 
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 58 },
+    /* Manage row */
+    manageRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      backgroundColor: c.surface,
+      borderRadius: 16,
+      paddingHorizontal: 16, paddingVertical: 14,
+      marginTop: 12,
+    },
 
     footerNote: {
       color: c.textMuted,
       fontSize: 13,
-      lineHeight: 16,
+      lineHeight: 18,
       marginTop: 24,
       paddingHorizontal: 4,
     },

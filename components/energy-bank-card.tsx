@@ -99,13 +99,13 @@ function InfoModal({
 
           <Text style={{ fontSize: 13.5, color: w(0.6), fontFamily: FF, lineHeight: 20 }}>
             Energy Bank is an <Text style={{ fontWeight: '700', color: w(0.75) }}>estimate</Text>, not a medical reading.
-            It blends the things that most affect energy on GLP-1s — your sleep, recovery (HRV & resting heart rate),
+            It blends the things that most affect energy on GLP-1s: your sleep, recovery (HRV & resting heart rate),
             where you are in your dose cycle, nutrition, hydration, and recent side effects.
           </Text>
 
           <Text style={{ fontSize: 13.5, color: w(0.6), fontFamily: FF, lineHeight: 20 }}>
-            Factors you haven't tracked yet are left out and the rest are reweighted, so logging more — or connecting
-            {HEALTH_SERVICE_NAME} — makes it more accurate. Tap the card for the full breakdown.
+            Factors you haven't tracked yet are left out and the rest are reweighted, so logging more, or connecting
+            {HEALTH_SERVICE_NAME}, makes it more accurate. Tap the card for the full breakdown.
           </Text>
         </Pressable>
       </Pressable>
@@ -159,7 +159,7 @@ export function EnergyBankCard({ result, phase, bare = false }: Props) {
         style={s.wrap}
         onPress={() => router.push('/upgrade' as any)}
         activeOpacity={0.82}
-        accessibilityLabel="Energy Bank — premium feature, tap to unlock"
+        accessibilityLabel="Energy Bank, premium feature, tap to unlock"
         accessibilityRole="button"
       >
         {lockedInner}

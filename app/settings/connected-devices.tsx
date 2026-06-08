@@ -232,7 +232,7 @@ export default function ConnectedDevicesScreen() {
         <View style={s.heroSection}>
           <Text style={s.heroTitle}>Unlock deeper insights</Text>
           <Text style={s.heroBody}>
-            Connect your devices to {HEALTH_NAME}. Titra reads the data automatically — no extra setup.
+            Connect your devices to {HEALTH_NAME}. Titra reads the data automatically, no extra setup.
           </Text>
         </View>
 

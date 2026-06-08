@@ -27,8 +27,8 @@ export function buildMainTourSteps(onTreatment: boolean): TourStep[] {
   const steps: TourStep[] = [
     {
       id: TOUR_IDS.homeTodayCard,
-      title: 'Your day at a glance',
-      body: 'Swipe this card to move through your medication phase, energy, and today’s highlights.',
+      title: 'Track your progress',
+      body: 'Watch your weight trend from where you started toward your goal. Tap to open your full insights.',
       placement: 'bottom',
       radius: 24,
       before: closeSheet,
@@ -36,14 +36,14 @@ export function buildMainTourSteps(onTreatment: boolean): TourStep[] {
     {
       id: TOUR_IDS.homeFocusRow,
       title: 'Today’s focus',
-      body: 'Your protein, hydration, and activity goals live here. Tap any tile to dig into the detail.',
+      body: 'Your energy and daily goals like protein, hydration, and activity live here. Tap any tile to dig into the detail.',
       placement: 'bottom',
       radius: 24,
     },
     {
       id: TOUR_IDS.fab,
       title: 'Log anything',
-      body: 'This is your hub — tap + to log food, doses, weight, water, activity, and more.',
+      body: 'This is your hub. Tap + to log food, doses, weight, water, activity, and more.',
       placement: 'top',
       radius: 'full',
       before: closeSheet,
@@ -51,7 +51,7 @@ export function buildMainTourSteps(onTreatment: boolean): TourStep[] {
     {
       id: TOUR_IDS.entryDescribeFood,
       title: 'Describe a meal',
-      body: 'Just type what you ate in plain words — AI estimates the calories and protein for you.',
+      body: 'Just type what you ate in plain words, and AI estimates the calories and protein for you.',
       placement: 'top',
       radius: 16,
       before: openSheet,
@@ -69,7 +69,7 @@ export function buildMainTourSteps(onTreatment: boolean): TourStep[] {
     {
       id: TOUR_IDS.entryAskAi,
       title: 'Ask AI anything',
-      body: 'Your GLP-1 coach — ask about side effects, what to eat, or how your week is trending.',
+      body: 'Your GLP-1 coach. Ask about side effects, what to eat, or how your week is trending.',
       placement: 'top',
       radius: 16,
     },
@@ -84,7 +84,7 @@ export function buildMainTourSteps(onTreatment: boolean): TourStep[] {
     {
       id: TOUR_IDS.tabExplore,
       title: 'Learn & explore',
-      body: 'Courses and articles tailored to your GLP-1 journey — that’s it, you’re all set!',
+      body: 'Courses and articles tailored to your GLP-1 journey. That’s it, you’re all set!',
       placement: 'top',
       radius: 'full',
     },

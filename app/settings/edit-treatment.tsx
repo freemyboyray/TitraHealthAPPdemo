@@ -671,7 +671,7 @@ export default function EditTreatmentScreen() {
           This helps us accurately track your transition and schedule.
         </Text>
         <Text style={ms.stepSource}>
-          Prefilled from your last logged dose — adjust if it's not right.
+          Prefilled from your last logged dose. Adjust if it's not right.
         </Text>
         <View style={{ alignSelf: 'center', marginTop: 16 }}>
           <DateTimePicker

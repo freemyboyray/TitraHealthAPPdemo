@@ -4,7 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import type { ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Check, Plus, Lock, Moon } from 'lucide-react-native';
-import Svg, { Circle, Defs, RadialGradient, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -189,37 +189,6 @@ function MetricCard({ def, data, onLog, colors }: {
   );
 }
 
-// ─── Aurora hero ────────────────────────────────────────────────────────────
-
-function AuroraHero({ heroH, onTrack, total, colors }: {
-  heroH: number; onTrack: number; total: number; colors: AppColors;
-}) {
-  const W = 400;
-  return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: heroH }} pointerEvents="none">
-      <Svg width="100%" height={heroH} viewBox={`0 0 ${W} ${heroH}`} preserveAspectRatio="xMidYMid slice">
-        <Defs>
-          <RadialGradient id="auroraA" cx="80%" cy="18%" r="55%">
-            <Stop offset="0" stopColor="#FF742A" stopOpacity={colors.isDark ? 0.32 : 0.28} />
-            <Stop offset="1" stopColor="#FF742A" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="auroraB" cx="12%" cy="40%" r="55%">
-            <Stop offset="0" stopColor="#6E73E0" stopOpacity={colors.isDark ? 0.26 : 0.22} />
-            <Stop offset="1" stopColor="#6E73E0" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="auroraC" cx="55%" cy="95%" r="60%">
-            <Stop offset="0" stopColor="#2BA7E0" stopOpacity={colors.isDark ? 0.2 : 0.16} />
-            <Stop offset="1" stopColor="#2BA7E0" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={W} cy={heroH * 0.18} r={W * 0.7} fill="url(#auroraA)" />
-        <Circle cx={0} cy={heroH * 0.4} r={W * 0.7} fill="url(#auroraB)" />
-        <Circle cx={W * 0.55} cy={heroH} r={W * 0.7} fill="url(#auroraC)" />
-      </Svg>
-    </View>
-  );
-}
-
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function DailyFocusScreen() {
@@ -248,32 +217,30 @@ export default function DailyFocusScreen() {
     if (routes[id]) router.push(routes[id] as any);
   }, [router]);
 
-  const heroH = insets.top + 150;
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <AuroraHero heroH={heroH} onTrack={onTrack} total={total} colors={colors} />
 
-      {/* Glass back button */}
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={10}
-        style={[s.backBtn, { top: insets.top + 6 }]}
-        accessibilityLabel="Back"
-        accessibilityRole="button"
-      >
-        <ChevronLeft size={24} color={colors.textPrimary} />
-      </Pressable>
+      {/* Top bar — back + centered title (matches the Energy Bank header) */}
+      <View style={[s.header, { paddingTop: insets.top + 4 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={10} style={s.backBtn} accessibilityLabel="Back" accessibilityRole="button">
+          <ChevronLeft size={24} color={colors.textPrimary} />
+        </Pressable>
+        <Text style={s.headerTitle}>Today's Focus</Text>
+        <View style={s.backBtn} />
+      </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: heroH - 64, paddingBottom: insets.bottom + 80 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 80 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero title */}
-        <Text style={s.title}>Today's Focus</Text>
-        <Text style={s.subtitle}>
+        {/* Intro — what this is + what you get out of it */}
+        <Text style={s.intro}>
+          These are the daily habits that help you lose fat, protect muscle, and feel steadier while
+          you're on a GLP-1. Tap any card to log toward its target.
+        </Text>
+        <Text style={s.introStatus}>
           {total > 0 ? `${onTrack} of ${total} on track today` : 'No focuses selected'}
         </Text>
 
@@ -304,14 +271,14 @@ export default function DailyFocusScreen() {
 const createStyles = (c: AppColors) => {
   const w = (a: number) => (c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return StyleSheet.create({
-    backBtn: {
-      position: 'absolute', left: 16, zIndex: 10,
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.6)',
-      alignItems: 'center', justifyContent: 'center',
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 12, paddingBottom: 8, zIndex: 10,
     },
-    title: { fontSize: 32, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.8 },
-    subtitle: { fontSize: 15, fontWeight: '500', color: c.textSecondary, fontFamily: FF, marginTop: 4 },
+    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '700', fontFamily: FF, letterSpacing: -0.2 },
+    intro: { fontSize: 14.5, color: w(0.55), fontFamily: FF, lineHeight: 21, marginTop: 4 },
+    introStatus: { fontSize: 13, fontWeight: '600', color: w(0.4), fontFamily: FF, marginTop: 10 },
     sectionHeader: { fontSize: 22, fontWeight: '700', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.3, marginBottom: 12 },
     card: {
       flexDirection: 'row', alignItems: 'center',

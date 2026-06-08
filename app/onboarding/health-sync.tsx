@@ -166,7 +166,7 @@ export default function HealthSyncScreen() {
 
         <Text style={s.title}>Have all your health data in one place</Text>
         <Text style={s.subtitle}>
-          Connect {HEALTH_NAME} to sync your steps, heart rate, sleep, and weight — so Titra
+          Connect {HEALTH_NAME} to sync your steps, heart rate, sleep, and weight, so Titra
           can save you setup time and tailor your plan.
         </Text>
 

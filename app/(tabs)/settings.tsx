@@ -253,6 +253,22 @@ export default function SettingsScreen() {
               </View>
               <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
             </Pressable>
+
+            {isPremium && (
+              <>
+                <View style={s.divider} />
+
+                <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)} accessibilityLabel="Provider Report" accessibilityRole="button">
+                  <View style={s.rowLeft}>
+                    <View style={s.iconBadge}>
+                      <IconSymbol name="doc.text" size={18} color={colors.textPrimary} />
+                    </View>
+                    <Text style={s.rowLabel}>Provider Report</Text>
+                  </View>
+                  <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
 
@@ -328,7 +344,7 @@ export default function SettingsScreen() {
           <Pressable style={s.cardRow} onPress={handleDeleteAccount} disabled={deleting} accessibilityLabel="Delete account" accessibilityRole="button">
             <View style={s.rowLeft}>
               <View style={s.iconBadge}>
-                <IconSymbol name="trash" size={18} color={colors.textPrimary} />
+                <IconSymbol name="trash" size={18} color="#FF453A" />
               </View>
               <Text style={[s.rowLabel, { color: '#FF453A' }]}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
             </View>

@@ -64,7 +64,7 @@ export default function WeightScreen() {
         <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={s.title}>What's your current weight?</Text>
           <Text style={s.subtitle}>
-            What you weigh right now — helps us personalize your nutrition and activity goals.
+            What you weigh right now. This helps us personalize your nutrition and activity goals.
           </Text>
 
           <View style={s.toggle}>

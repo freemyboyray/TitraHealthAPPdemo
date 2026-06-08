@@ -55,7 +55,7 @@ export default function DoctorCodeScreen() {
         <View style={s.content}>
           <Text style={s.title}>Have a provider code?</Text>
           <Text style={s.subtitle}>
-            If your doctor or clinic gave you a code, enter it to connect your account. This is optional — you can skip it.
+            If your doctor or clinic gave you a code, enter it to connect your account. This is optional, so you can skip it.
           </Text>
 
           <TextInput

@@ -142,7 +142,7 @@ export function ScheduleSelector({
                 style={{ alignSelf: 'flex-start', marginTop: 8 }}
               />
               <TouchableOpacity onPress={pickMidday} activeOpacity={0.7} style={s.unsureBtn}>
-                <Text style={s.midToggleLink}>I'm not sure — just remind me midday</Text>
+                <Text style={s.midToggleLink}>I'm not sure, just remind me midday</Text>
               </TouchableOpacity>
             </>
           )}

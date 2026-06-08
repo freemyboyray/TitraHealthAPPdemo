@@ -319,7 +319,7 @@ function PhotoLimitReached({
           <Text style={s.failTitle}>You've used all {limit} photo analyses today</Text>
           <Text style={s.failSub}>
             Free plan includes {limit} AI photo analyses per day. Upgrade for unlimited, or log this
-            meal another way below — it's still free.
+            meal another way below, it's still free.
           </Text>
         </View>
 
@@ -340,7 +340,7 @@ function PhotoLimitReached({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.limitOptionTitle}>Scan a barcode</Text>
-            <Text style={s.limitOptionSub}>Packaged foods — instant macros</Text>
+            <Text style={s.limitOptionSub}>Packaged foods, instant macros</Text>
           </View>
           <ChevronRight size={20} color={colors.textMuted} />
         </TouchableOpacity>

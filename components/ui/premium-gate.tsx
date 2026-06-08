@@ -96,7 +96,7 @@ export function PremiumGate({
       style={[styles.hardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={handleUpgrade}
       activeOpacity={0.7}
-      accessibilityLabel={title ? `${title} — locked, unlock with Pro` : 'Premium feature — unlock with Pro'}
+      accessibilityLabel={title ? `${title}, locked, unlock with Pro` : 'Premium feature, unlock with Pro'}
       accessibilityRole="button"
       accessibilityHint="Opens the subscription upgrade screen"
     >

@@ -43,6 +43,7 @@ type TourContextValue = {
   index: number;
   total: number;
   next: () => void;
+  back: () => void;
   skip: () => void;
 };
 
@@ -104,15 +105,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     cb?.();
   }, []);
 
-  const showStep = useCallback(async (i: number) => {
+  const showStep = useCallback(async (i: number, dir: 1 | -1 = 1) => {
     const list = stepsRef.current;
+    if (i < 0) return; // already at the first step
     if (i >= list.length) { finish(); return; }
     const st = list[i];
     if (st.before) { try { await st.before(); } catch { /* keep going */ } }
     await wait(st.beforeDelay ?? 350);
     if (!runningRef.current) return; // skipped mid-transition
     const r = await measureWithRetry(st.id);
-    if (!r) { showStep(i + 1); return; } // target absent → skip
+    if (!r) { showStep(i + dir, dir); return; } // target absent → keep moving the same way
     if (!runningRef.current) return;
     setRect(r);
     setStep(st);
@@ -137,11 +139,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     showStep(index + 1);
   }, [index, showStep]);
 
+  const back = useCallback(() => {
+    if (!runningRef.current) return;
+    showStep(index - 1, -1);
+  }, [index, showStep]);
+
   const skip = useCallback(() => { finish(); }, [finish]);
 
   return (
     <TourContext.Provider
-      value={{ register, start, active, step, rect, index, total, next, skip }}
+      value={{ register, start, active, step, rect, index, total, next, back, skip }}
     >
       {children}
     </TourContext.Provider>

@@ -86,7 +86,7 @@ export default function ProgressPhotosScreen() {
       Alert.alert(
         'Delete Photo',
         photo.isStarting
-          ? 'This is your starting photo — deleting it removes your before/after anchor. This can’t be undone.'
+          ? 'This is your starting photo. Deleting it removes your before/after anchor. This can’t be undone.'
           : 'Remove this progress photo? This can’t be undone.',
         [
           { text: 'Cancel', style: 'cancel' },

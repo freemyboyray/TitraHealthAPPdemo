@@ -45,7 +45,7 @@ export default function ReferralCodeScreen() {
       }
       Alert.alert(
         'Code applied',
-        "You're all set — you and your friend will each get a free month of Titra Pro once you subscribe.",
+        "You're all set. You and your friend will each get a free month of Titra Pro once you subscribe.",
         [{ text: 'Continue', onPress: goNext }],
       );
     } catch {
@@ -63,7 +63,7 @@ export default function ReferralCodeScreen() {
           <Text style={s.title}>Have a referral code?</Text>
           <Text style={s.subtitle}>
             If a friend invited you, enter their code. You’ll both get a free month of Titra Pro when you
-            subscribe. This is optional — you can skip it.
+            subscribe. This is optional, so you can skip it.
           </Text>
 
           <TextInput

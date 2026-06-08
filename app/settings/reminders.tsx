@@ -384,7 +384,7 @@ export default function RemindersScreen() {
         {/* Master toggle card */}
         <Animated.View style={[s.masterCard, { opacity: masterOpacity, transform: [{ translateY: masterTranslate }] }]}>
           <View style={s.masterIconWrap}>
-            <Bell size={22} color={colors.orange} />
+            <Bell size={22} color={colors.textPrimary} />
           </View>
           <View style={s.masterTextWrap}>
             <Text style={s.masterLabel}>Enable Reminders</Text>
@@ -902,10 +902,8 @@ const createStyles = (c: AppColors) => {
       borderBottomColor: c.borderSubtle,
     },
     masterIconWrap: {
-      width: 44,
+      width: 28,
       height: 44,
-      borderRadius: 14,
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(232,101,42,0.08)',
       justifyContent: 'center',
       alignItems: 'center',
     },

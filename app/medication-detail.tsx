@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  LayoutAnimation,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
@@ -23,7 +30,7 @@ import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, isOnTreatment, getTransitionPh
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
 import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
-import { Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronLeft, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
 
 const FF = 'System';
 
@@ -96,8 +103,13 @@ function MedicationCard({
   const freq = med.frequency_days === 1 ? 'Daily' : `Every ${med.frequency_days} days`;
   const halfLife = DRUG_HALF_LIFE_LABEL[med.glp1_type as keyof typeof DRUG_HALF_LIFE_LABEL] ?? '';
 
+  // Smoothly rotate the chevron between collapsed (0°) and expanded (180°).
+  const rotation = useSharedValue(expanded ? 180 : 0);
+  rotation.value = withTiming(expanded ? 180 : 0, { duration: 220 });
+  const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.value}deg` }] }));
+
   return (
-    <View>
+    <Animated.View layout={LinearTransition.duration(220)}>
       {!isFirst && <View style={s.rowDivider} />}
 
       {/* Row header — text only, trailing check (active) + expand chevron */}
@@ -109,14 +121,18 @@ function MedicationCard({
         {active && (
           <View style={s.checkWrap}><Check size={15} color="#FFF" /></View>
         )}
-        {expanded
-          ? <ChevronUp size={18} color={colors.textMuted} />
-          : <ChevronDown size={18} color={colors.textMuted} />}
+        <Animated.View style={chevronStyle}>
+          <ChevronDown size={18} color={colors.textMuted} />
+        </Animated.View>
       </Pressable>
 
       {/* Expanded detail */}
       {expanded && (
-        <View style={s.rowExpanded}>
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(140)}
+          style={s.rowExpanded}
+        >
           {/* Info rows */}
           <View>
             <InfoRow label="Active Ingredient" value={ingredient} colors={colors} />
@@ -153,9 +169,9 @@ function MedicationCard({
               <Text style={s.removeBtnText}>Remove</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -253,7 +269,6 @@ export default function MedicationDetailScreen() {
   );
 
   function handleToggle(id: string) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId(expandedId === id ? null : id);
   }
 
@@ -295,7 +310,6 @@ export default function MedicationDetailScreen() {
             await supabase.storage.from('medication-photos').remove([med.photo_url]).catch(() => {});
           }
           await supabase.from('user_medications').delete().eq('id', med.id);
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           await fetchMedications();
         },
       },
@@ -398,7 +412,7 @@ export default function MedicationDetailScreen() {
                   {!!pendingMeta && <Text style={s.pendingMeta}>{pendingMeta}</Text>}
                   <Text style={s.pendingNote}>
                     {transitionPhase === 'washout'
-                      ? 'Between medications — your current course has ended.'
+                      ? 'Between medications. Your current course has ended.'
                       : 'Replaces your current medication on the start date.'}
                   </Text>
                 </View>
@@ -433,7 +447,7 @@ export default function MedicationDetailScreen() {
               >
                 <View style={s.rowText}>
                   <Text style={s.medName}>Not taking a medication</Text>
-                  <Text style={s.medDose}>Lifestyle tracking only — weight, food, activity</Text>
+                  <Text style={s.medDose}>Lifestyle tracking only: weight, food, activity</Text>
                 </View>
                 {!onTreatment && (
                   <View style={s.checkWrap}><Check size={15} color="#FFF" /></View>

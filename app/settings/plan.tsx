@@ -7,7 +7,6 @@ import { useMemo } from 'react';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useLogStore } from '@/stores/log-store';
-import { useSubscriptionStore } from '@/stores/subscription-store';
 import { isOnTreatment } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 
@@ -37,7 +36,6 @@ function computeNextDose(lastDate: string | undefined, freqDays: number | undefi
 export default function PlanScreen() {
   const { profile: p } = useProfile();
   const { colors } = useAppTheme();
-  const isPremium = useSubscriptionStore((s) => s.isPremium);
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const onTreatment = isOnTreatment(p);
@@ -91,7 +89,6 @@ export default function PlanScreen() {
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           {/* Treatment Plan */}
-          <Text style={s.sectionLabel}>TREATMENT</Text>
           <View style={s.card}>
             <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel={`Treatment Plan, ${treatmentLine1}`} accessibilityRole="button">
               <View style={s.rowLeft}>
@@ -109,8 +106,7 @@ export default function PlanScreen() {
           </View>
 
           {/* Body & Goals */}
-          <Text style={s.sectionLabel}>BODY & GOALS</Text>
-          <View style={s.card}>
+          <View style={[s.card, { marginTop: 12 }]}>
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')} accessibilityLabel={`Body & Goals, ${bodyLine}`} accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={s.iconBadge}>
@@ -125,27 +121,6 @@ export default function PlanScreen() {
               <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
-
-          {/* Provider Report (premium only) */}
-          {isPremium && (
-            <>
-              <Text style={s.sectionLabel}>REPORTS</Text>
-              <View style={s.card}>
-                <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)} accessibilityLabel="Provider Report" accessibilityRole="button">
-                  <View style={s.rowLeft}>
-                    <View style={s.iconBadge}>
-                      <IconSymbol name="doc.text" size={18} color={colors.textPrimary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.rowLabel}>Provider Report</Text>
-                      <Text style={s.rowSub}>Export PDF for your doctor</Text>
-                    </View>
-                  </View>
-                  <IconSymbol name="chevron.right" size={18} color={colors.textMuted} />
-                </Pressable>
-              </View>
-            </>
-          )}
         </ScrollView>
       </SafeAreaView>
     </View>

@@ -78,7 +78,7 @@ export function ConnectedDevicesPromoCard({ onExplore, onDismiss }: Props) {
           <View style={s.textWrap}>
             <Text style={s.title}>Supercharge Your Tracking</Text>
             <Text style={s.subtitle}>
-              Connect a smart scale, CGM, or fitness tracker — data flows into Titra automatically via {HEALTH_SERVICE_NAME}.
+              Connect a smart scale, CGM, or fitness tracker. Data flows into Titra automatically via {HEALTH_SERVICE_NAME}.
             </Text>
           </View>
         </View>

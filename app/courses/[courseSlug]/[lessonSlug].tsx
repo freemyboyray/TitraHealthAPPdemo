@@ -83,7 +83,7 @@ export default function LessonScreen() {
         <View style={s.disclaimerBanner}>
           <Info size={14} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
           <Text style={s.disclaimerText}>
-            Educational content only — not medical advice. Always consult your healthcare provider.
+            Educational content only, not medical advice. Always consult your healthcare provider.
           </Text>
         </View>
 

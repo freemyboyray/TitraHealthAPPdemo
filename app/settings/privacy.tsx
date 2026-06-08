@@ -101,13 +101,13 @@ export default function PrivacyScreen() {
                   <View style={s.iconBadge}>
                     <IconSymbol name="sparkles" size={16} color={colors.textPrimary} />
                   </View>
-                  <Text style={s.detailTitle}>AI Data (OpenAI)</Text>
+                  <Text style={s.detailTitle}>AI Data</Text>
                 </View>
                 <Text style={s.detailBody}>
-                  When enabled, the app sends data to OpenAI to power Ask AI, voice logging, and AI meal capture. Depending on the feature, this includes your chat messages, meal descriptions, food photos, and voice recordings.
+                  When enabled, the app sends data to a third-party AI provider to power Ask AI, voice logging, and AI meal capture. Depending on the feature, this includes your chat messages, meal descriptions, food photos, and voice recordings.
                 </Text>
                 <Text style={s.detailBody}>
-                  Ask AI and personalized insights also include a snapshot of your wellness context — your medication, dose, weight progress, scores, and side effects — so responses are relevant to you.
+                  Ask AI and personalized insights also include a snapshot of your wellness context, such as your medication, dose, weight progress, scores, and side effects, so responses are relevant to you.
                 </Text>
                 <Text style={s.detailBody}>
                   <Text style={s.detailBodyStrong}>Never shared:</Text> your name, email, or account ID.
@@ -121,10 +121,10 @@ export default function PrivacyScreen() {
                   <View style={s.iconBadge}>
                     <IconSymbol name="fork.knife" size={16} color={colors.textPrimary} />
                   </View>
-                  <Text style={s.detailTitle}>Food Database (FatSecret)</Text>
+                  <Text style={s.detailTitle}>Food Database</Text>
                 </View>
                 <Text style={s.detailBody}>
-                  When enabled, food search queries and scanned barcodes are sent to FatSecret to return nutrition data.
+                  When enabled, food search queries and scanned barcodes are sent to a third-party food database provider to return nutrition data.
                 </Text>
                 <Text style={s.detailBody}>
                   <Text style={s.detailBodyStrong}>Not shared:</Text> your account, meals you've logged, or any personal information.

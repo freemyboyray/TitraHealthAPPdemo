@@ -114,7 +114,7 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
   {
     id: 'calories', label: 'Calories', unit: 'cal', color: '#C084FC', icon: 'Flame', group: 'nutrition',
     getValue: (f, _a, d) => f[d]?.calories ?? null,
-    about: 'Total energy intake. With reduced appetite, the quality of each calorie matters more — focus on nutrient-dense, protein-forward meals.',
+    about: 'Total energy intake. With reduced appetite, the quality of each calorie matters more, so focus on nutrient-dense, protein-forward meals.',
     articleId: 'what-to-eat',
   },
   {
@@ -132,7 +132,7 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
   {
     id: 'active_cal', label: 'Active Calories', unit: 'cal', color: '#E8960C', icon: 'Zap', group: 'wellness',
     getValue: (_f, a, d) => a[d]?.calories ?? null,
-    about: 'Active calories reflect energy burned through movement. Pairing activity — especially resistance training — with adequate protein helps preserve muscle.',
+    about: 'Active calories reflect energy burned through movement. Pairing activity, especially resistance training, with adequate protein helps preserve muscle.',
     articleId: 'exercise-on-glp1s',
   },
 
@@ -152,7 +152,7 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
   {
     id: 'added_sugars', label: 'Added Sugars', unit: 'g', color: '#F472B6', icon: 'Candy', group: 'micro', inverseGoal: true,
     getValue: (f, _a, d) => (f[d] ? f[d].added_sugars_g : null),
-    about: 'Sugars added during processing. These add calories without nutrition — keeping them low leaves room for protein and fiber.',
+    about: 'Sugars added during processing. These add calories without nutrition, so keeping them low leaves room for protein and fiber.',
     articleId: 'what-to-eat',
   },
   {
@@ -164,19 +164,19 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
   {
     id: 'trans_fat', label: 'Trans Fat', unit: 'g', color: '#EF4444', icon: 'Droplet', group: 'micro', inverseGoal: true,
     getValue: (f, _a, d) => (f[d] ? f[d].trans_fat_g : null),
-    about: 'Trans fats are best avoided entirely — they raise bad cholesterol and lower good cholesterol.',
+    about: 'Trans fats are best avoided entirely, since they raise bad cholesterol and lower good cholesterol.',
     articleId: 'what-to-eat',
   },
   {
     id: 'mono_fat', label: 'Mono Fat', unit: 'g', color: '#FBBF24', icon: 'Droplet', group: 'micro',
     getValue: (f, _a, d) => (f[d] ? f[d].mono_fat_g : null),
-    about: 'Monounsaturated fats — from olive oil, avocado and nuts — support heart health and help absorb vitamins.',
+    about: 'Monounsaturated fats, from olive oil, avocado and nuts, support heart health and help absorb vitamins.',
     articleId: 'what-to-eat',
   },
   {
     id: 'poly_fat', label: 'Poly Fat', unit: 'g', color: '#FCD34D', icon: 'Droplet', group: 'micro',
     getValue: (f, _a, d) => (f[d] ? f[d].poly_fat_g : null),
-    about: 'Polyunsaturated fats include omega-3 and omega-6 — essential fats your body cannot make on its own.',
+    about: 'Polyunsaturated fats include omega-3 and omega-6, essential fats your body cannot make on its own.',
     articleId: 'what-to-eat',
   },
   {
@@ -194,7 +194,7 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
   {
     id: 'calcium', label: 'Calcium', unit: 'mg', color: '#60A5FA', icon: 'Milk', group: 'micro',
     getValue: (f, _a, d) => (f[d] ? f[d].calcium_mg : null),
-    about: 'Calcium keeps bones strong — especially important during weight loss, when bone density can decline.',
+    about: 'Calcium keeps bones strong, especially important during weight loss, when bone density can decline.',
     articleId: 'what-to-eat',
   },
   {

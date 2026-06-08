@@ -53,7 +53,7 @@ export default function RemindersScreen() {
 
           <Text style={s.title}>Stay on track with{'\n'}gentle reminders</Text>
           <Text style={s.subtitle}>
-            We'll only send what's useful — never spam.
+            We'll only send what's useful, never spam.
           </Text>
 
           {/* Benefit rows */}

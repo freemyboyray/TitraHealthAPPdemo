@@ -1720,7 +1720,7 @@ function LifestyleLogCard({ foodLogs, activityLogs }: {
       accessibilityLabel={hasEntry ? `Lifestyle log, latest entry ${category}, tap to view history` : 'Lifestyle log, tap to view history'}
     >
       {/* Illustration bleeds off the top-right corner */}
-      <Image source={LIFESTYLE_LOG_ART} style={{ position: 'absolute', top: -8, right: -10, width: 176, height: 176 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+      <Image source={LIFESTYLE_LOG_ART} style={{ position: 'absolute', top: -2, right: -6, width: 156, height: 156 }} resizeMode="contain" accessibilityIgnoresInvertColors />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: hasEntry ? 10 : 0, paddingRight: 132 }}>
         <Text style={{ fontSize: 19, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.3 }}>

@@ -77,7 +77,7 @@ export default function AiConsentScreen() {
           <Text style={s.title}>Enable AI features?</Text>
           <Text style={s.subtitle}>
             Titra can use OpenAI, a third-party AI provider, to power Ask AI, food analysis, and
-            voice logging. This is optional — you can turn it on later anytime.
+            voice logging. This is optional, so you can turn it on later anytime.
           </Text>
 
           {/* What gets sent — icon rows */}

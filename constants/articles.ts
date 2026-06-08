@@ -447,7 +447,7 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
   {
     id: 'essentials',
     title: 'The Essentials',
-    description: 'Start here: how GLP-1 medications work and what your first weeks may feel like.',
+    description: 'Start here. How GLP-1 medications work and what your first weeks may feel like.',
     bgColor: '#F4F2FE',
     articleIds: [
       'how-glp1s-work',

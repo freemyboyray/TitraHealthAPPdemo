@@ -15,17 +15,17 @@ type TransitionPhase = 'none' | 'old_med' | 'washout' | 'new_med_ready';
 
 // Default per-phase copy for an injectable weekly/biweekly cycle.
 const SHOT_COPY: Record<ShotPhase, HomeHeadline> = {
-  shot: { headline: 'Fresh cycle ahead', subtext: 'Shot day — hydrate and rotate your site.' },
-  peak: { headline: "You're in your strongest window", subtext: 'Appetite control peaks now — lean on protein.' },
-  balance: { headline: 'Steady and strong', subtext: 'Stable levels — a great window to move.' },
-  reset: { headline: 'Hunger may creep back', subtext: 'Levels are tapering — plan meals, stay consistent.' },
+  shot: { headline: 'Fresh cycle ahead', subtext: 'Shot day. Hydrate and rotate your site.' },
+  peak: { headline: "You're in your strongest window", subtext: 'Appetite control peaks now. Lean on protein.' },
+  balance: { headline: 'Steady and strong', subtext: 'Stable levels, a great window to move.' },
+  reset: { headline: 'Hunger may creep back', subtext: 'Levels are tapering. Plan meals, stay consistent.' },
 };
 
 // Default per-phase copy for daily / oral drugs (intraday rhythm).
 const INTRADAY_COPY: Record<IntradayPhase, HomeHeadline> = {
-  post_dose: { headline: 'Settling in', subtext: 'Your dose is absorbing — give it a little time.' },
-  peak: { headline: "You're in your strongest window", subtext: 'Peak effect now — lean on protein-rich meals.' },
-  trough: { headline: 'Hunger may creep back', subtext: 'Approaching the trough — protein keeps you steady.' },
+  post_dose: { headline: 'Settling in', subtext: 'Your dose is absorbing. Give it a little time.' },
+  peak: { headline: "You're in your strongest window", subtext: 'Peak effect now. Lean on protein-rich meals.' },
+  trough: { headline: 'Hunger may creep back', subtext: 'Approaching the trough. Protein keeps you steady.' },
 };
 
 export type HomeHeadlineInput = {
@@ -73,7 +73,7 @@ export function getHomeHeadline(input: HomeHeadlineInput): HomeHeadline {
 
   // 3. Goal reached.
   if (pctToGoal != null && pctToGoal >= 100) {
-    return { headline: 'Goal reached 🎉', subtext: 'Incredible work — time to set what’s next.' };
+    return { headline: 'Goal reached 🎉', subtext: 'Incredible work. Time to set what’s next.' };
   }
 
   // 4. Dose timing prompts.
@@ -89,8 +89,8 @@ export function getHomeHeadline(input: HomeHeadlineInput): HomeHeadline {
     return {
       headline: oral ? 'Dose day' : 'Shot day',
       subtext: lostLbs >= 5
-        ? `Down ${lostLbs} lbs — fresh cycle ahead.`
-        : (oral ? "Time for today's dose." : 'Time for your shot — fresh cycle ahead.'),
+        ? `Down ${lostLbs} lbs. Fresh cycle ahead.`
+        : (oral ? "Time for today's dose." : 'Time for your shot. Fresh cycle ahead.'),
     };
   }
 

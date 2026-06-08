@@ -73,7 +73,7 @@ export default function ReferralsScreen() {
     try {
       await Share.share({
         message:
-          `Join me on Titra — the GLP-1 companion that tracks your medication, food, and progress. ` +
+          `Join me on Titra, the GLP-1 companion that tracks your medication, food, and progress. ` +
           `Use my code ${code} and we'll each get a free month of Titra Pro when you subscribe.`,
       });
     } catch {
@@ -101,7 +101,7 @@ export default function ReferralsScreen() {
       setRedeemInput('');
       Alert.alert(
         'Code applied',
-        "You're all set — you and your friend will each get a free month of Titra Pro once you subscribe.",
+        "You're all set. You and your friend will each get a free month of Titra Pro once you subscribe.",
       );
     } catch {
       Alert.alert('Error', 'Could not apply that code right now. Please try again.');
@@ -113,12 +113,12 @@ export default function ReferralsScreen() {
   const statusLine = (status: string): string | null => {
     switch (status) {
       case 'pending':
-        return 'A friend joined — waiting for them to start a trial';
+        return 'A friend joined, waiting for them to start a trial';
       case 'trialing':
-        return 'A friend started their free trial — your month lands when they subscribe';
+        return 'A friend started their free trial, your month lands when they subscribe';
       case 'qualified':
       case 'rewarded':
-        return 'A friend subscribed — free month earned!';
+        return 'A friend subscribed, free month earned!';
       default:
         return null; // void / unknown — hide
     }
@@ -199,7 +199,7 @@ export default function ReferralsScreen() {
               <View style={s.card}>
                 <Text style={s.cardTitle}>Your referrals</Text>
                 {visibleReferrals.length === 0 ? (
-                  <Text style={s.emptyText}>No referrals yet — share your code to get started.</Text>
+                  <Text style={s.emptyText}>No referrals yet. Share your code to get started.</Text>
                 ) : (
                   visibleReferrals.map((r, i) => {
                     const earnedRow = r.status === 'rewarded' || r.status === 'qualified';
@@ -215,7 +215,7 @@ export default function ReferralsScreen() {
 
               <Text style={s.disclaimer}>
                 Referral months are applied as free Titra Pro access. If you’re already subscribed, your free
-                month starts automatically once your current subscription ends — your App Store subscription is
+                month starts automatically once your current subscription ends. Your App Store subscription is
                 never changed or paused.
               </Text>
             </>

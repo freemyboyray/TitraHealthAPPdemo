@@ -40,7 +40,7 @@ export function WeeklyCheckinCard({ currentWeekComplete, isDaily, fill }: Weekly
       tone="positive"
       eyebrow={cardTitle}
       headline="You’re all checked in."
-      caption="Nicely done — your targets are tuned for the week."
+      caption="Nicely done. Your targets are tuned for the week."
       cta="Review answers"
       onPress={() => router.push('/entry/weekly-checkin-history' as any)}
       fill={fill}

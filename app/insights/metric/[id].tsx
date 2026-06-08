@@ -58,7 +58,7 @@ function statInfo(metricLabel: string, inverseGoal?: boolean): Record<string, { 
   return {
     Average: {
       title: 'Average',
-      body: `Your typical ${m} per day across the selected period — the mean of every day with logged data. Days with no data are skipped, so this reflects how you actually tracked.`,
+      body: `Your typical ${m} per day across the selected period, the mean of every day with logged data. Days with no data are skipped, so this reflects how you actually tracked.`,
     },
     'Goal hit': {
       title: 'Goal hit',
@@ -66,11 +66,11 @@ function statInfo(metricLabel: string, inverseGoal?: boolean): Record<string, { 
     },
     Trend: {
       title: 'Trend',
-      body: `The direction your ${m} is moving — the average of the second half of this period compared with the first half. A positive value means it is rising over time.`,
+      body: `The direction your ${m} is moving, the average of the second half of this period compared with the first half. A positive value means it is rising over time.`,
     },
     'Best streak': {
       title: 'Best streak',
-      body: `Your longest run of consecutive days where you ${goalPhrase} — a measure of consistency, not just total.`,
+      body: `Your longest run of consecutive days where you ${goalPhrase}, a measure of consistency, not just total.`,
     },
   };
 }

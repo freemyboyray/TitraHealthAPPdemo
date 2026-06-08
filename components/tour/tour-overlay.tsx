@@ -40,7 +40,7 @@ function holeGeometry(rect: TourRect, padding: number, radius: number | 'full') 
 }
 
 export function TourOverlay() {
-  const { active, step, rect, index, total, next, skip } = useTour();
+  const { active, step, rect, index, total, next, back, skip } = useTour();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
@@ -93,22 +93,30 @@ export function TourOverlay() {
 
   const isLast = index >= total - 1;
 
-  // Place the card on whichever side has more room, honoring an explicit request.
-  let placeBelow = true;
-  if (rect) {
-    const center = rect.y + rect.height / 2;
-    placeBelow = center < H * 0.55;
+  // Place the card on whichever side actually has room, honoring an explicit
+  // request only when the card fits there — otherwise flip so it never lands
+  // on top of the highlighted target.
+  const g = rect ? holeGeometry(rect, step?.padding ?? 10, step?.radius ?? 16) : null;
+  let cardTop = insets.top + 24;
+  if (g) {
+    const topLimit = insets.top + 12;
+    const bottomLimit = H - insets.bottom - 12;
+    const roomAbove = g.y - GAP - topLimit;
+    const roomBelow = bottomLimit - (g.y + g.h) - GAP;
+    const fitsAbove = roomAbove >= cardH;
+    const fitsBelow = roomBelow >= cardH;
+
+    let placeBelow = (g.y + g.h / 2) < H * 0.5;
     if (step?.placement === 'top') placeBelow = false;
     if (step?.placement === 'bottom') placeBelow = true;
-  }
+    // Flip to the side that fits; if neither fits, take the roomier side.
+    if (placeBelow && !fitsBelow && fitsAbove) placeBelow = false;
+    else if (!placeBelow && !fitsAbove && fitsBelow) placeBelow = true;
+    else if (!fitsAbove && !fitsBelow) placeBelow = roomBelow >= roomAbove;
 
-  let cardTop = insets.top + 24;
-  if (rect) {
-    const g = holeGeometry(rect, step?.padding ?? 10, step?.radius ?? 16);
     cardTop = placeBelow ? g.y + g.h + GAP : g.y - GAP - cardH;
+    cardTop = Math.max(topLimit, Math.min(cardTop, bottomLimit - cardH));
   }
-  // Clamp within the safe viewport.
-  cardTop = Math.max(insets.top + 12, Math.min(cardTop, H - insets.bottom - cardH - 12));
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="auto">
@@ -159,13 +167,27 @@ export function TourOverlay() {
               <GlassBorder r={22} />
 
               <View style={styles.cardContent}>
+                <Pressable
+                  onPress={skip}
+                  hitSlop={10}
+                  style={styles.skipCorner}
+                  accessibilityRole="button"
+                  accessibilityLabel="Skip tour"
+                >
+                  <Text style={[styles.skip, { color: colors.textMuted }]}>Skip</Text>
+                </Pressable>
+
                 <Text style={[styles.title, { color: colors.textPrimary }]}>{step.title}</Text>
                 <Text style={[styles.body, { color: colors.textSecondary }]}>{step.body}</Text>
 
                 <View style={styles.footer}>
-                  <Pressable onPress={skip} hitSlop={10} accessibilityRole="button" accessibilityLabel="Skip tour">
-                    <Text style={[styles.skip, { color: colors.textMuted }]}>Skip</Text>
-                  </Pressable>
+                  {index > 0 ? (
+                    <Pressable onPress={back} hitSlop={10} style={styles.navSlot} accessibilityRole="button" accessibilityLabel="Previous tip">
+                      <Text style={[styles.back, { color: colors.textMuted }]}>Back</Text>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.navSlot} />
+                  )}
 
                   <View style={styles.dots}>
                     {Array.from({ length: total }).map((_, i) => (
@@ -220,10 +242,13 @@ const styles = StyleSheet.create({
   },
   cardBody: { borderRadius: 22, overflow: 'hidden' },
   cardContent: { padding: 18 },
-  title: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, marginBottom: 6, fontFamily: 'System' },
+  skipCorner: { position: 'absolute', top: 14, right: 16, zIndex: 2 },
+  title: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, marginBottom: 6, paddingRight: 44, fontFamily: 'System' },
   body: { fontSize: 15, fontWeight: '500', lineHeight: 21, fontFamily: 'System' },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 },
-  skip: { fontSize: 15, fontWeight: '600', fontFamily: 'System', minWidth: 52 },
+  navSlot: { minWidth: 52 },
+  skip: { fontSize: 15, fontWeight: '600', fontFamily: 'System' },
+  back: { fontSize: 15, fontWeight: '600', fontFamily: 'System' },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { height: 6, borderRadius: 3 },
   nextBtn: { borderRadius: 999, paddingHorizontal: 22, paddingVertical: 10, minWidth: 52, alignItems: 'center' },

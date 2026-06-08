@@ -411,10 +411,6 @@ export default function WeeklySummaryScreen() {
   const wDelta = summary?.weight.delta ?? null;
   const wDown = (wDelta ?? 0) <= 0;
   const wColor = wDelta == null ? colors.textSecondary : wDown ? GREEN : RED;
-  const wDescriptor = wDelta == null
-    ? 'No weight logged this week'
-    : wDelta === 0 ? 'Holding steady'
-    : wDown ? 'Trending down · on track' : 'Up slightly this week';
 
   return (
     <View style={s.root}>
@@ -463,7 +459,6 @@ export default function WeeklySummaryScreen() {
             {/* ── Weight hero (radial glow number) ── */}
             <View style={s.card}>
               <View style={s.hero}>
-                <View pointerEvents="none" style={[s.heroGlow, { backgroundColor: wColor + '26' }]} />
                 <Text style={s.heroEyebrow}>WEIGHT</Text>
                 {wDelta == null ? (
                   <Text style={[s.heroValue, { color: colors.textPrimary, fontSize: 30 }]}>—</Text>
@@ -478,10 +473,6 @@ export default function WeeklySummaryScreen() {
                     <Text style={[s.heroUnit, { color: wColor }]}>lbs</Text>
                   </View>
                 )}
-                <View style={s.heroStatusRow}>
-                  <View style={[s.statusDot, { backgroundColor: wColor }]} />
-                  <Text style={s.heroDescriptor}>{wDescriptor}</Text>
-                </View>
                 {summary.weight.start != null && summary.weight.end != null && (
                   <View style={s.heroRange}>
                     <Text style={s.heroRangeText}>{summary.weight.start.toFixed(1)}</Text>
@@ -695,14 +686,10 @@ const createStyles = (c: AppColors) => StyleSheet.create({
 
   // Weight hero
   hero: { padding: 22, alignItems: 'center', overflow: 'hidden' },
-  heroGlow: { position: 'absolute', width: 220, height: 220, borderRadius: 999, top: -70 },
   heroEyebrow: { fontSize: 12, fontWeight: '800', color: c.textMuted, letterSpacing: 1.5, fontFamily: FF, marginBottom: 8 },
   heroValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroValue: { fontSize: 46, fontWeight: '800', fontFamily: FF, letterSpacing: -1 },
   heroUnit: { fontSize: 20, fontWeight: '700', fontFamily: FF, marginBottom: 6 },
-  heroStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  heroDescriptor: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
   heroRange: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,

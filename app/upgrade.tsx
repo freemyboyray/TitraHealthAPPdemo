@@ -281,7 +281,7 @@ export default function UpgradeScreen() {
             {/* Referral reward: active free month */}
             {refCreditEndDate && (
               <View style={s.refBadge}>
-                <Text style={s.refBadgeText}>🎁 Free referral month active — ends {refCreditEndDate}</Text>
+                <Text style={s.refBadgeText}>🎁 Free referral month active, ends {refCreditEndDate}</Text>
               </View>
             )}
 
@@ -293,7 +293,7 @@ export default function UpgradeScreen() {
                   🎁 {refCredit.banked} free {refCredit.banked === 1 ? 'month' : 'months'} earned from referrals
                 </Text>
                 <Text style={s.refBadgeSub}>
-                  Your subscription keeps renewing as normal through the App Store — we don’t change or pause it.
+                  Your subscription keeps renewing as normal through the App Store. We don’t change or pause it.
                   Your free month starts automatically once your current subscription ends, so you won’t be charged
                   for that month.
                 </Text>

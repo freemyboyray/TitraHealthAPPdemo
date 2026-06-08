@@ -127,7 +127,7 @@ export default function ScheduleScreen() {
                     />
                   </View>
                   <TouchableOpacity onPress={pickMidday} activeOpacity={0.7} style={{ paddingVertical: 8 }}>
-                    <Text style={s.midToggleLink}>I'm not sure — just remind me midday</Text>
+                    <Text style={s.midToggleLink}>I'm not sure, just remind me midday</Text>
                   </TouchableOpacity>
                 </>
               )}
