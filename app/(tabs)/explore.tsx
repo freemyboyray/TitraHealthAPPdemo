@@ -20,7 +20,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
-import { ARTICLE_SECTIONS, getArticleById, getArticleColor, type Article } from '@/constants/articles';
+import { ARTICLE_SECTIONS, getArticleById, getArticleColor, tintBg, type Article } from '@/constants/articles';
 
 const FF = 'System';
 
@@ -28,31 +28,8 @@ const DISCLAIMER_TEXT =
   'Content is for informational and educational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult your healthcare provider.';
 
 // ─── Article Card (tinted illustration tile in horizontal rows) ───────────────
-
-// Extract the hue (0–360) from a hex color. Used so even near-white pastel
-// article colors yield a clearly-colored tint instead of washing out to gray.
-function hexToHue(hex: string): number {
-  const s = hex.replace('#', '');
-  const r = parseInt(s.slice(0, 2), 16) / 255;
-  const g = parseInt(s.slice(2, 4), 16) / 255;
-  const b = parseInt(s.slice(4, 6), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-  if (d === 0) return 220; // neutral → soft blue fallback
-  let hue: number;
-  if (max === r) hue = ((g - b) / d) % 6;
-  else if (max === g) hue = (b - r) / d + 2;
-  else hue = (r - g) / d + 4;
-  hue *= 60;
-  return Math.round(hue < 0 ? hue + 360 : hue);
-}
-
-// A clean single-color card tint from the article's hue: a rich, dark muted
-// color in dark mode; a soft pastel in light mode. The whole card uses this one
-// color so the illustration and title share a single seamless background.
-function tintBg(hex: string, dark: boolean): string {
-  const hue = hexToHue(hex);
-  return dark ? `hsl(${hue}, 42%, 17%)` : `hsl(${hue}, 58%, 92%)`;
-}
+// `tintBg` (hue-derived card tint) is shared from constants/articles so the card
+// and the article detail header always use the identical color.
 
 function ArticleCard({ article, colors }: { article: Article; colors: AppColors }) {
   const dark = colors.isDark;

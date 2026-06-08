@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { contentCategoryColor } from '@/constants/theme';
-import { ARTICLES, getArticleColor, type ArticleSection } from '@/constants/articles';
+import { ARTICLES, getArticleColor, tintBg, type ArticleSection } from '@/constants/articles';
 import { ChevronLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -67,6 +67,7 @@ function SectionContent({ section, styles }: { section: ArticleSection; styles: 
 
 export default function ArticleDetailScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -95,33 +96,21 @@ export default function ArticleDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Nav bar */}
-        <View style={s.navBar}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
-            <ChevronLeft size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={s.navTitle} numberOfLines={1}>Article</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-          {/* Cover illustration. Transparent art sits on a vertical gradient that fades
-              the section color into the page background at top and bottom (soft vignette,
-              no hard edges); legacy baked-background art keeps its solid matching color. */}
-          <View
-            style={[
-              s.coverWrap,
-              !article.transparentArt && { backgroundColor: getArticleColor(article) },
-            ]}
-          >
-            {article.transparentArt && (
+          {/* Cover header: a colored gradient matching this article's card tint,
+              filling the top behind the illustration and fading into the page bg
+              where the article text begins. Legacy baked-art keeps a solid color. */}
+          <View style={[s.coverWrap, { height: insets.top + 380, paddingTop: insets.top + 52 }]}>
+            {article.transparentArt ? (
               <LinearGradient
                 pointerEvents="none"
-                colors={[colors.bg, getArticleColor(article), getArticleColor(article), colors.bg]}
-                locations={[0, 0.32, 0.68, 1]}
+                colors={[tintBg(getArticleColor(article), colors.isDark), tintBg(getArticleColor(article), colors.isDark), colors.bg]}
+                locations={[0, 0.84, 1]}
                 style={StyleSheet.absoluteFill}
               />
+            ) : (
+              <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: getArticleColor(article) }]} />
             )}
             <Image
               source={article.coverImage}
@@ -164,6 +153,15 @@ export default function ArticleDetailScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* Floating nav over the colored header */}
+        <View style={[s.navBar, { paddingTop: insets.top + 4 }]} pointerEvents="box-none">
+          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
+            <ChevronLeft size={24} color={colors.textPrimary} />
+          </Pressable>
+          <Text style={s.navTitle} numberOfLines={1}>Article</Text>
+          <View style={{ width: 40 }} />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -175,11 +173,14 @@ const createStyles = (c: AppColors) => {
   const w = (a: number) => (c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return StyleSheet.create({
     navBar: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingTop: 8,
       paddingBottom: 12,
     },
     backBtn: {
@@ -204,18 +205,17 @@ const createStyles = (c: AppColors) => {
 
     coverWrap: {
       width: '100%',
-      height: 300,
-      marginBottom: 20,
+      marginBottom: 8,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
     },
     coverImage: {
       width: 260,
       height: 260,
     },
     coverImageLarge: {
-      width: 300,
-      height: 300,
+      width: 250,
+      height: 250,
     },
 
     metaRow: {

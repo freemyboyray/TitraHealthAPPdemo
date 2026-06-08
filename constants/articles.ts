@@ -470,6 +470,7 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
     id: 'hydration-comfort',
     title: 'Hydration & Comfort',
     description: 'Stay ahead of the most common bumps along the way.',
+    bgColor: '#D9EDFB',
     articleIds: [
       'staying-hydrated',
       'electrolytes-explained',
@@ -500,6 +501,31 @@ export function getArticleColor(article: Article): string {
     if (section?.bgColor) return section.bgColor;
   }
   return article.bgColor;
+}
+
+/** Extract the hue (0–360) from a hex color. Used so even near-white pastel article
+ *  colors yield a clearly-colored tint instead of washing out to gray. */
+export function hexToHue(hex: string): number {
+  const s = hex.replace('#', '');
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 220; // neutral → soft blue fallback
+  let hue: number;
+  if (max === r) hue = ((g - b) / d) % 6;
+  else if (max === g) hue = (b - r) / d + 2;
+  else hue = (r - g) / d + 4;
+  hue *= 60;
+  return Math.round(hue < 0 ? hue + 360 : hue);
+}
+
+/** A clean single-color tint from an article color's hue: a rich, dark muted color in
+ *  dark mode; a soft pastel in light mode. Shared by the Education card and the article
+ *  detail header so a card and its article always match. */
+export function tintBg(hex: string, dark: boolean): string {
+  const hue = hexToHue(hex);
+  return dark ? `hsl(${hue}, 42%, 17%)` : `hsl(${hue}, 58%, 92%)`;
 }
 
 export function getSectionById(id: string): ArticleRow | undefined {
