@@ -10,13 +10,12 @@ import { ActivityLevel } from '@/constants/user-profile';
 import { useProfile } from '@/contexts/profile-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
 
-const OPTION_DATA: { value: ActivityLevel; label: string; iconName: string; subtitle: string }[] = [
-  { value: 'sedentary',   label: 'Sedentary',      iconName: 'Armchair',      subtitle: 'Mostly seated, little exercise' },
-  { value: 'light',       label: 'Lightly Active',  iconName: 'Footprints', subtitle: 'Some walking or light movement' },
-  { value: 'active',      label: 'Active',           iconName: 'Activity',  subtitle: 'Regular workouts or physical tasks' },
-  { value: 'very_active', label: 'Very Active',      iconName: 'Zap',       subtitle: 'Intense exercise or very physical job' },
+const OPTION_DATA: { value: ActivityLevel; label: string; emoji: string; subtitle: string }[] = [
+  { value: 'sedentary',   label: 'Sedentary',      emoji: '🛋️', subtitle: 'Mostly seated, little exercise' },
+  { value: 'light',       label: 'Lightly Active', emoji: '🚶', subtitle: 'Some walking or light movement' },
+  { value: 'active',      label: 'Active',         emoji: '🏃', subtitle: 'Regular workouts or physical tasks' },
+  { value: 'very_active', label: 'Very Active',    emoji: '🏋️', subtitle: 'Intense exercise or very physical job' },
 ];
 
 export default function ActivityScreen() {
@@ -26,14 +25,13 @@ export default function ActivityScreen() {
   const total = isStarting ? 10 : 15;
   const step = isStarting ? 10 : 15;
   const [selected, setSelected] = useState<ActivityLevel | null>(null);
-  const [saving, setSaving] = useState(false);
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const iconColor = colors.isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)';
 
-  const handleContinue = async () => {
-    if (!selected || saving) return;
-    setSaving(true);
+  // Navigation is synchronous (draft write + push), so there's no async save to
+  // track. A leftover `saving` flag was getting stuck `true` on back-navigation.
+  const handleContinue = () => {
+    if (!selected) return;
     updateDraft({ activityLevel: selected });
     router.push('/onboarding/progress-photo');
   };
@@ -51,7 +49,7 @@ export default function ActivityScreen() {
               <OptionPill
                 key={o.value}
                 label={o.label}
-                icon={<LucideIconByName name={o.iconName as any} size={20} color={selected === o.value ? '#FFFFFF' : iconColor} />}
+                icon={<Text style={s.emoji}>{o.emoji}</Text>}
                 subtitle={o.subtitle}
                 selected={selected === o.value}
                 solidSelect
@@ -66,8 +64,8 @@ export default function ActivityScreen() {
 
         <ContinueButton
           onPress={handleContinue}
-          disabled={!selected || saving}
-          label={saving ? 'Saving...' : 'Done'}
+          disabled={!selected}
+          label="Done"
         />
       </View>
     </SafeAreaView>
@@ -81,4 +79,5 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', color: c.textPrimary, marginBottom: 8, lineHeight: 34, fontFamily: 'System' },
   subtitle: { fontSize: 17, color: c.textSecondary, marginBottom: 32, lineHeight: 22, fontFamily: 'System' },
   options: {},
+  emoji: { fontSize: 20 },
 });

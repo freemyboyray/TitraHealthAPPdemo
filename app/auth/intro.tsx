@@ -11,13 +11,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft } from 'lucide-react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
-import { cardElevation, type AppColors } from '@/constants/theme';
+import { type AppColors } from '@/constants/theme';
 
 const FONT = 'System';
 const { width: SW } = Dimensions.get('window');
@@ -175,13 +174,8 @@ export default function IntroScreen() {
           renderItem={({ item }) => (
             <View style={s.slide}>
               {/* Photo mat — warm framed card, echoes the reference layout */}
-              <View style={[s.mat, cardElevation(c.isDark)]}>
+              <View style={s.mat}>
                 <Image source={item.img} style={s.photo} resizeMode="cover" />
-                <LinearGradient
-                  colors={['transparent', c.isDark ? 'rgba(0,0,0,0.18)' : 'rgba(40,30,20,0.10)']}
-                  style={s.photoWash}
-                  pointerEvents="none"
-                />
               </View>
 
               {/* Headline */}
@@ -234,7 +228,6 @@ export default function IntroScreen() {
 }
 
 const MAT = SW - 56; // 28pt page padding each side
-const PHOTO = MAT - 28; // 14pt mat padding each side
 
 const createStyles = (c: AppColors) =>
   StyleSheet.create({
@@ -276,26 +269,14 @@ const createStyles = (c: AppColors) =>
     mat: {
       width: MAT,
       height: MAT,
-      borderRadius: 32,
-      padding: 14,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
-      borderWidth: c.isDark ? 1 : 0,
-      borderColor: c.cardBorder,
-      marginBottom: 40,
+      marginTop: 64,
+      marginBottom: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     photo: {
-      width: PHOTO,
-      height: PHOTO,
-      borderRadius: 22,
-    },
-    photoWash: {
-      position: 'absolute',
-      left: 14,
-      right: 14,
-      bottom: 14,
-      height: PHOTO * 0.4,
-      borderBottomLeftRadius: 22,
-      borderBottomRightRadius: 22,
+      width: MAT,
+      height: MAT,
     },
 
     headline: {
@@ -314,7 +295,7 @@ const createStyles = (c: AppColors) =>
     body: {
       fontSize: 16,
       fontWeight: '400',
-      color: c.textSecondary,
+      color: c.isDark ? c.textPrimary : c.textSecondary,
       fontFamily: FONT,
       lineHeight: 24,
       textAlign: 'center',

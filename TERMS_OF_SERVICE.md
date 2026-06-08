@@ -223,7 +223,7 @@ These Terms, together with the Privacy Policy, constitute the entire agreement b
 
 If you have questions about these Terms, contact us at:
 
-**Email:** legal@titrahealth.com
+**Email:** support@titrahealth.io
 
 ---
 

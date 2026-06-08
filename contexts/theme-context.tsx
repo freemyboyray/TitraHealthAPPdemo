@@ -7,12 +7,21 @@ type ThemeContextValue = { colors: AppColors; isDark: boolean };
 
 const ThemeContext = createContext<ThemeContextValue>({ colors: darkColors, isDark: true });
 
-export function AppThemeProvider({ children }: { children: React.ReactNode }) {
+export function AppThemeProvider({
+  children,
+  force,
+}: {
+  children: React.ReactNode;
+  /** Pin this subtree to a fixed scheme, ignoring the user's preference/system. */
+  force?: 'light' | 'dark';
+}) {
   const themeMode = usePreferencesStore((s: { themeMode: string }) => s.themeMode);
   const systemScheme = useColorScheme();
 
   const isDark =
-    themeMode === 'light' ? false
+    force === 'light' ? false
+    : force === 'dark' ? true
+    : themeMode === 'light' ? false
     : themeMode === 'dark' ? true
     : systemScheme !== 'light'; // 'system' mode — follow phone setting
 

@@ -31,8 +31,8 @@ const requestPermissionsDetailed = isIOS ? hkRequestDetailed : hcRequestDetailed
 // Center logo asset — swap the placeholder PNGs in assets/images/health/ with the
 // official Apple Health / Health Connect icons (same paths, ~512px square).
 const HEALTH_LOGO = isIOS
-  ? require('@/assets/images/health/apple-health.png')
-  : require('@/assets/images/health/health-connect.png');
+  ? require('@/assets/images/health/apple-health-v2.png')
+  : require('@/assets/images/health/health-connect-v2.png');
 
 // Constellation geometry — a fixed square stage, capped so it never clips on small devices.
 const STAGE = Math.min(Dimensions.get('window').width - 48, 320);
@@ -232,12 +232,9 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     height: STAGE * 0.62,
   },
   centerLogo: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 104,
+    height: 104,
+    borderRadius: 23,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 14,

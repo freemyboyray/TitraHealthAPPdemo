@@ -1,13 +1,10 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  LayoutAnimation,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from 'react-native';
 
@@ -18,12 +15,6 @@ import { useProfile } from '@/contexts/profile-context';
 import type { TreatmentStatus } from '@/constants/user-profile';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-
-// LayoutAnimation needs to be enabled explicitly on Android for the card
-// grow/shrink reflow to animate (iOS supports it out of the box).
-if (Platform.OS === 'android') {
-  UIManager.setLayoutAnimationEnabledExperimental?.(true);
-}
 
 type JourneyOption = 'active' | 'starting' | 'off';
 
@@ -56,7 +47,6 @@ export default function JourneyScreen() {
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const selectOption = (id: JourneyOption) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelected(id);
   };
 

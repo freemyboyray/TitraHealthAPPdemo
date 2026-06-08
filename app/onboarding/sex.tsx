@@ -11,8 +11,8 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'male', label: '♂  Male' },
-  { value: 'female', label: '♀  Female' },
+  { value: 'male', label: '👨  Male' },
+  { value: 'female', label: '👩  Female' },
   { value: 'other', label: 'Other' },
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];

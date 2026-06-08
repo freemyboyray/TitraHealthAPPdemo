@@ -122,7 +122,7 @@ export default function MedicalSourcesScreen() {
         <View style={s.footer}>
           <Text style={s.footerText}>
             If you believe any information in this app is inaccurate or outdated,
-            please contact us at titrahealth@gmail.com.
+            please contact us at support@titrahealth.io.
           </Text>
         </View>
       </ScrollView>

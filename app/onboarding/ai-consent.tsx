@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ChevronRight, Sparkles, X } from 'lucide-react-native';
+import { Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronRight, X } from 'lucide-react-native';
 
 import { ContinueButton } from '@/components/onboarding/continue-button';
 import { OnboardingHeader } from '@/components/onboarding/onboarding-header';
@@ -12,6 +12,14 @@ import { useProfile } from '@/contexts/profile-context';
 import { AI_VERSION, AI_EFFECTIVE_DATE, AI_SECTIONS } from '@/constants/legal';
 
 const FF = 'System';
+
+// What gets sent to OpenAI — shown as custom illustrated icon rows.
+const SENT_ITEMS = [
+  { image: require('@/assets/images/icon-chat.png'), text: 'Your chat messages and food descriptions' },
+  { image: require('@/assets/images/icon-camera.png'), text: 'Food photos you capture' },
+  { image: require('@/assets/images/icon-voice.png'), text: 'Voice recordings (for transcription)' },
+  { image: require('@/assets/images/icon-wellness.png'), text: 'Wellness context: medication, dose, weight progress, scores, and side effects' },
+];
 
 /**
  * Explicit, default-OFF opt-in for sending data to OpenAI. Shown right after the
@@ -50,43 +58,52 @@ export default function AiConsentScreen() {
       <View style={s.container}>
         <OnboardingHeader step={4} total={17} onBack={() => router.back()} />
 
-        <View style={s.iconBadge}>
-          <Sparkles size={26} color={colors.orange} />
-        </View>
-
-        <Text style={s.title}>Enable AI features?</Text>
-        <Text style={s.subtitle}>
-          Titra can use OpenAI, a third-party AI provider, to power Ask AI, food analysis, and voice
-          logging. This is optional — you can turn it on later anytime.
-        </Text>
-
-        <View style={s.card}>
-          <Text style={s.cardHeading}>What gets sent to OpenAI</Text>
-          <Text style={s.cardItem}>• Your chat messages and food descriptions</Text>
-          <Text style={s.cardItem}>• Food photos you capture</Text>
-          <Text style={s.cardItem}>• Voice recordings (for transcription)</Text>
-          <Text style={s.cardItem}>
-            • Wellness context: medication, dose, weight progress, scores, and side effects
-          </Text>
-          <View style={s.divider} />
-          <Text style={s.cardNever}>
-            <Text style={s.cardNeverStrong}>Never sent: </Text>
-            your name, email, or account ID.
-          </Text>
-          <Text style={s.cardNever}>
-            OpenAI doesn't train on this data and deletes it within 30 days.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={s.disclosureLink}
-          onPress={() => setAiOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Read full AI Disclosure"
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={s.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={s.disclosureLinkText}>Read full AI Disclosure</Text>
-          <ChevronRight size={16} color={colors.orange} />
-        </TouchableOpacity>
+          <Image
+            source={require('@/assets/images/ai-features.png')}
+            style={s.hero}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+
+          <Text style={s.title}>Enable AI features?</Text>
+          <Text style={s.subtitle}>
+            Titra can use OpenAI, a third-party AI provider, to power Ask AI, food analysis, and
+            voice logging. This is optional — you can turn it on later anytime.
+          </Text>
+
+          {/* What gets sent — icon rows */}
+          <View style={s.rows}>
+            {SENT_ITEMS.map((item) => (
+              <View key={item.text} style={s.row}>
+                <View style={s.iconCircle}>
+                  <Image source={item.image} style={s.iconImg} resizeMode="contain" />
+                </View>
+                <Text style={s.rowText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={s.never}>
+            <Text style={s.neverStrong}>Never sent: </Text>
+            your name, email, or account ID. OpenAI doesn't train on this data and deletes it within
+            30 days.
+          </Text>
+
+          <TouchableOpacity
+            style={s.disclosureLink}
+            onPress={() => setAiOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Read full AI Disclosure"
+          >
+            <Text style={s.disclosureLinkText}>Read full AI Disclosure</Text>
+            <ChevronRight size={16} color={colors.orange} />
+          </TouchableOpacity>
+        </ScrollView>
 
         <View style={s.bottom}>
           <ContinueButton onPress={handleAllow} label="Allow AI features" />
@@ -135,16 +152,18 @@ const createStyles = (c: AppColors) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     container: { flex: 1, paddingHorizontal: 24 },
-    iconBadge: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,116,42,0.15)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 8,
-      marginBottom: 18,
+
+    scroll: { flex: 1 },
+    scrollContent: { paddingBottom: 12 },
+
+    hero: {
+      width: '100%',
+      height: 230,
+      alignSelf: 'center',
+      marginTop: 4,
+      marginBottom: 8,
     },
+
     title: {
       fontSize: 28,
       fontWeight: '800',
@@ -152,48 +171,71 @@ const createStyles = (c: AppColors) =>
       lineHeight: 34,
       fontFamily: FF,
       letterSpacing: -0.3,
-      marginBottom: 10,
+      textAlign: 'center',
+      marginBottom: 8,
     },
     subtitle: {
       fontSize: 16,
       color: c.textSecondary,
       lineHeight: 22,
       fontFamily: FF,
+      textAlign: 'center',
       marginBottom: 24,
     },
-    card: {
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
-      borderRadius: 16,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-      gap: 8,
+
+    rows: {
+      gap: 16,
     },
-    cardHeading: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: c.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-      marginBottom: 4,
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    iconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconImg: {
+      width: 30,
+      height: 30,
+    },
+    rowText: {
+      flex: 1,
+      fontSize: 15,
+      color: c.textPrimary,
+      lineHeight: 20,
       fontFamily: FF,
     },
-    cardItem: { fontSize: 14, color: c.textSecondary, lineHeight: 20, fontFamily: FF },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginVertical: 6 },
-    cardNever: { fontSize: 14, color: c.textSecondary, lineHeight: 20, fontFamily: FF },
-    cardNeverStrong: { color: c.textPrimary, fontWeight: '700' },
-    bottom: { flex: 1, justifyContent: 'flex-end', paddingBottom: 8 },
-    skipBtn: { paddingVertical: 16, alignItems: 'center' },
-    skipText: { fontSize: 16, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+
+    never: {
+      fontSize: 13,
+      color: c.textSecondary,
+      lineHeight: 19,
+      fontFamily: FF,
+      marginTop: 18,
+      textAlign: 'center',
+    },
+    neverStrong: { color: c.textPrimary, fontWeight: '700' },
 
     disclosureLink: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 4,
-      paddingVertical: 14,
+      paddingVertical: 16,
       marginTop: 4,
     },
     disclosureLinkText: { fontSize: 14, fontWeight: '600', color: c.orange, fontFamily: FF },
+
+    bottom: { paddingTop: 8, paddingBottom: 8 },
+    skipBtn: { paddingVertical: 16, alignItems: 'center' },
+    skipText: { fontSize: 16, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
 
     // AI Disclosure modal
     modalHeader: {

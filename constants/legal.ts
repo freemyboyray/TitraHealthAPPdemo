@@ -95,7 +95,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '8. Contact Information',
-    body: `For questions about this Privacy Policy, to exercise your data rights, or to report a concern:\n\nEmail: titrahealth@gmail.com\n\nWe will respond to all data rights requests within 30 days.`,
+    body: `For questions about this Privacy Policy, to exercise your data rights, or to report a concern:\n\nEmail: support@titrahealth.io\n\nWe will respond to all data rights requests within 30 days.`,
   },
 ];
 
@@ -128,6 +128,6 @@ export const AI_SECTIONS: LegalSection[] = [
   },
   {
     title: '7. Your Rights & Controls',
-    body: `You have the following rights and controls regarding AI use in TitraHealth:\n\n• Granular consent toggles:you can enable or disable AI Data Processing (OpenAI) and Food Database (FatSecret) independently at any time in Settings > Privacy & Data. Disabling a toggle immediately stops all data from being sent to that provider.\n• Revoke consent at any time:toggling off a service does not delete data already processed, but prevents any future data from being sent.\n• The App is fully functional without AI features:disabling AI Data Processing only affects Ask AI, Capture Food, Describe Food, voice logging, and AI-generated insights. Core tracking features (logging, scoring, charts) continue to work without any third-party data sharing.\n• Delete AI history:your Ask AI conversation history is part of your account data and is permanently deleted within 30 days when you delete your account.\n• Export:you can export your health data at any time via the App's PDF export feature.\n• Updates:if we change AI providers or what data is sent to them, we will notify you and request your acceptance of an updated AI Disclosure before the changes take effect.\n\nFor questions, contact us at titrahealth@gmail.com.`,
+    body: `You have the following rights and controls regarding AI use in TitraHealth:\n\n• Granular consent toggles:you can enable or disable AI Data Processing (OpenAI) and Food Database (FatSecret) independently at any time in Settings > Privacy & Data. Disabling a toggle immediately stops all data from being sent to that provider.\n• Revoke consent at any time:toggling off a service does not delete data already processed, but prevents any future data from being sent.\n• The App is fully functional without AI features:disabling AI Data Processing only affects Ask AI, Capture Food, Describe Food, voice logging, and AI-generated insights. Core tracking features (logging, scoring, charts) continue to work without any third-party data sharing.\n• Delete AI history:your Ask AI conversation history is part of your account data and is permanently deleted within 30 days when you delete your account.\n• Export:you can export your health data at any time via the App's PDF export feature.\n• Updates:if we change AI providers or what data is sent to them, we will notify you and request your acceptance of an updated AI Disclosure before the changes take effect.\n\nFor questions, contact us at support@titrahealth.io.`,
   },
 ];

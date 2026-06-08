@@ -132,7 +132,7 @@ Each third-party service operates under its own privacy policy. We encourage you
 ## 7. Your Rights and Choices
 
 ### 7.1 Access and Export
-You may request a copy of all data associated with your account by contacting us at privacy@titrahealth.com.
+You may request a copy of all data associated with your account by contacting us at support@titrahealth.io.
 
 ### 7.2 Deletion
 You may delete your account and all associated data at any time through Settings > Delete Account, or by contacting us. Deletion is permanent and irreversible.
@@ -169,7 +169,7 @@ We may update this Privacy Policy from time to time. When we make material chang
 
 If you have questions about this Privacy Policy or wish to exercise your rights, contact us at:
 
-**Email:** privacy@titrahealth.com
+**Email:** support@titrahealth.io
 
 ---
 

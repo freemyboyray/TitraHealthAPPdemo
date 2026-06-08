@@ -100,10 +100,13 @@ export default function ProgressPhotoScreen() {
           ) : (
             /* ── Initial state ── */
             <View style={s.center}>
-              {/* Icon */}
-              <View style={s.iconCircle}>
-                <Camera size={32} color={colors.orange} />
-              </View>
+              {/* Hero illustration */}
+              <Image
+                source={require('@/assets/images/progress-photo-hero.png')}
+                style={s.hero}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
 
               <Text style={s.title}>Starting Photo</Text>
               <Text style={[s.subtitle, { color: w(0.45) }]}>
@@ -113,11 +116,11 @@ export default function ProgressPhotoScreen() {
               {/* Action buttons */}
               <View style={s.actions}>
                 <TouchableOpacity style={s.primaryBtn} onPress={takePhoto} activeOpacity={0.8}>
-                  <Camera size={20} color="#FFFFFF" />
+                  <Text style={s.btnEmoji}>📷</Text>
                   <Text style={s.primaryBtnLabel}>Take Photo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.secondaryBtn, { backgroundColor: w(0.06) }]} onPress={chooseFromGallery} activeOpacity={0.8}>
-                  <Images size={20} color={colors.textPrimary} />
+                  <Text style={s.btnEmoji}>🖼️</Text>
                   <Text style={[s.secondaryBtnLabel, { color: colors.textPrimary }]}>Choose from Gallery</Text>
                 </TouchableOpacity>
               </View>
@@ -145,12 +148,12 @@ const createStyles = (c: AppColors) => {
     content: { flex: 1, justifyContent: 'center' },
     center: { alignItems: 'center' },
 
-    // Icon
-    iconCircle: {
-      width: 72, height: 72, borderRadius: 36,
-      backgroundColor: c.isDark ? 'rgba(255,116,42,0.12)' : 'rgba(255,116,42,0.08)',
-      alignItems: 'center', justifyContent: 'center',
-      marginBottom: 24,
+    // Hero illustration
+    hero: {
+      width: '100%',
+      height: 230,
+      alignSelf: 'center',
+      marginBottom: 12,
     },
 
     // Text
@@ -166,6 +169,7 @@ const createStyles = (c: AppColors) => {
 
     // Buttons
     actions: { width: '100%', gap: 12 },
+    btnEmoji: { fontSize: 18 },
     primaryBtn: {
       backgroundColor: c.orange, borderRadius: 16,
       paddingVertical: 16, alignItems: 'center', justifyContent: 'center',

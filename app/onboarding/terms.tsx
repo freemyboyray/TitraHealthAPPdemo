@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useMemo } from 'react';
 import {
+  Image,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -57,6 +58,13 @@ export default function TermsScreen() {
         </Text>
 
         <View style={s.center}>
+          <Image
+            source={require('@/assets/images/data-privacy.png')}
+            style={s.hero}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+
           <TouchableOpacity
             style={s.linkRow}
             activeOpacity={0.7}
@@ -118,6 +126,13 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     gap: 12,
+  },
+
+  hero: {
+    width: '100%',
+    height: 200,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
 
   linkRow: {

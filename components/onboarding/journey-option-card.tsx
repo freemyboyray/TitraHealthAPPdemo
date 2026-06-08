@@ -43,7 +43,6 @@ export function JourneyOptionCard({ emoji, label, subtitle, selected, onPress }:
   const containerStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [greyBg, ORANGE]),
     borderColor: interpolateColor(progress.value, [0, 1], [greyBorder, ORANGE]),
-    transform: [{ scale: 1 + progress.value * 0.02 }],
   }));
 
   const labelStyle = useAnimatedStyle(() => ({
@@ -85,6 +84,9 @@ const createStyles = (c: AppColors) =>
       flex: 1,
       fontSize: 18,
       fontWeight: '600',
+      // Explicit lineHeight prevents the animated <Animated.Text> from clipping
+      // its glyphs vertically when its color animates on selection.
+      lineHeight: 24,
       fontFamily: FF,
     },
     emoji: {

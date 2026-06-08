@@ -1,6 +1,9 @@
 import { Redirect, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useUserStore } from '@/stores/user-store';
 import { useProfile } from '@/contexts/profile-context';
+import { lightColors } from '@/constants/theme';
+import { AppThemeProvider } from '@/contexts/theme-context';
 
 export default function AuthLayout() {
   const session = useUserStore((s) => s.session);
@@ -16,8 +19,19 @@ export default function AuthLayout() {
     return <Redirect href="/(tabs)" />;
   }
 
-  // Show auth screens while session/profile are still loading
+  // Show auth screens while session/profile are still loading.
+  // Auth (welcome, login, name, intro slides) is always presented in light mode.
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_bottom' }} />
+    <AppThemeProvider force="light">
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade_from_bottom',
+          animationDuration: 500,
+          contentStyle: { backgroundColor: lightColors.bg },
+        }}
+      />
+    </AppThemeProvider>
   );
 }

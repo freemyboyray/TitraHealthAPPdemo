@@ -40,8 +40,8 @@ export default function CommitmentScreen() {
   // Users not yet on a GLP-1 shouldn't pledge consistency "with my treatment".
   const isActive = draft.glp1Status === 'active';
   const pledgeTail = isActive
-    ? 'will show up for myself — staying consistent with my treatment and building habits that last.'
-    : 'will show up for myself — staying consistent and committed to building habits that last.';
+    ? 'will show up for myself, staying consistent with my treatment and building habits that last.'
+    : 'will show up for myself, staying consistent and committed to building habits that last.';
 
   const [committed, setCommitted] = useState(false);
   const committedRef = useRef(false);
@@ -84,12 +84,15 @@ export default function CommitmentScreen() {
     setTimeout(() => {
       if (navigatedRef.current) return;
       navigatedRef.current = true;
-      router.replace('/upgrade?from=onboarding');
+      router.replace('/onboarding/compare');
     }, 1300);
   };
 
   const startHold = () => {
     if (committedRef.current) return;
+    // Immediate tap-down tick so the hold registers tactilely before the
+    // escalating impacts at 25/50/75% kick in.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     fillProgress.value = withTiming(1, { duration: HOLD_MS, easing: Easing.linear });
   };
 
@@ -145,8 +148,10 @@ export default function CommitmentScreen() {
             accessibilityLabel="Commit"
             accessibilityHint="Press and hold the logo to commit"
           >
-            {/* Growing orange circle (behind the logo) */}
-            <Animated.View style={[s.circle, { backgroundColor: colors.orange }, circleStyle]} />
+            {/* Growing circle (behind the logo). Uses the logo PNG's exact orange
+                (#FC5108) — not the theme orange — so the logo tile blends into the
+                circle seamlessly and only the white "T" reads on top. */}
+            <Animated.View style={[s.circle, { backgroundColor: '#FC5108' }, circleStyle]} />
             {/* Logo stays on top throughout */}
             <Image source={require('@/assets/images/titra-logo.png')} style={s.logo} />
           </View>

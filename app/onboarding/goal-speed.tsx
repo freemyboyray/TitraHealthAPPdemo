@@ -32,13 +32,13 @@ const N = SNAP_VALUES.length;
 const REC_IDX = 2; // 1.0 lbs/week — the recommended sweet spot
 
 const CONTEXT_NOTES: Record<string, string> = {
-  '0.2': 'A gentle, sustainable pace — easy on your body.',
-  '0.5': 'A gentle, sustainable pace — great for long-term success.',
+  '0.2': 'A gentle, sustainable pace, easy on your body.',
+  '0.5': 'A gentle, sustainable pace, great for long-term success.',
   '1.0': 'A balanced pace with steady results. Ideal for most.',
   '1.5': 'A moderate pace with good results.',
-  '2.0': 'Aggressive — keep your protein and recovery up.',
-  '2.5': 'Aggressive — keep your protein and recovery up.',
-  '3.0': 'Aggressive — keep your protein and recovery up.',
+  '2.0': 'Aggressive. Keep your protein and recovery up.',
+  '2.5': 'Aggressive. Keep your protein and recovery up.',
+  '3.0': 'Aggressive. Keep your protein and recovery up.',
 };
 
 // Warm heat ramp for the gauge: amber (gentle) → orange (fast).
@@ -53,8 +53,8 @@ const CY = R + ARC_SW / 2; // 112
 const SVG_H = CY + 16;
 const ARC_LEN = Math.PI * R;
 const NEEDLE_L = R - 30;
-// Upper semicircle, left → right (sweep flag 0 arcs over the top in y-down space).
-const ARC_PATH = `M ${CX - R} ${CY} A ${R} ${R} 0 0 0 ${CX + R} ${CY}`;
+// Upper semicircle, left → right (sweep flag 1 arcs over the top in y-down space).
+const ARC_PATH = `M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedLine = Animated.createAnimatedComponent(Line);
@@ -225,7 +225,7 @@ export default function GoalSpeedScreen() {
           How quickly do you want to reach your goal?
         </Text>
         <Text style={s.subtitle}>
-          (Don&apos;t worry — we&apos;ll help you stay healthy whatever pace you choose.)
+          (Don&apos;t worry, we&apos;ll help you stay healthy whatever pace you choose.)
         </Text>
 
         {/* Hero: live number + sweeping gauge */}
