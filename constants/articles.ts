@@ -242,26 +242,292 @@ export const ARTICLES: Article[] = [
       'NIH/PMC: Micronutrient Deficiencies During GLP-1 RA Therapy',
     ],
   },
+  {
+    id: 'quieting-food-noise',
+    title: 'Quieting Food Noise',
+    subtitle: 'What "food noise" really is and why it often quiets down.',
+    category: 'medication',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    bgColor: '#E6E3FB',
+    sections: [
+      {
+        heading: 'What "Food Noise" Actually Means',
+        body: '"Food noise" is the term many people use for the constant background chatter about food: thinking about the next meal, replaying what\'s in the fridge, or fighting the urge to snack even when you\'re not hungry.\n\nResearch suggests this isn\'t a character flaw or a lack of willpower. It\'s driven by reward and craving circuits in the brain that respond strongly to food cues, the smell of something cooking, an ad, or just the time of day. For some people these signals are unusually loud, which makes eating feel like a battle of attention.',
+      },
+      {
+        heading: 'Why GLP-1s Turn the Volume Down',
+        body: 'GLP-1 receptors aren\'t only in the gut. They\'re also present in regions of the brain involved in appetite and reward. By acting on those areas, GLP-1 medications appear to reduce the intensity of food-related thoughts, not just physical hunger.\n\nMany people describe the change as the mental volume being turned down. Food is still enjoyable, but it stops occupying so much mental space. That freed-up attention is one of the most commonly reported and most valued effects.',
+      },
+      {
+        heading: 'Making the Most of a Quieter Mind',
+        body: 'The reduction in food noise is an opportunity, not a guarantee of long-term change. A few ways people use it:\n\n- **Build the habits now**: With cravings quieter, it\'s easier to establish protein-forward meals, regular movement, and consistent hydration that can outlast the medication.\n\n- **Notice your real cues**: Without constant noise, genuine hunger and fullness signals become easier to recognize.\n\n- **Don\'t skip meals just because you can**: A quiet appetite can lead to under-eating. Scheduled, balanced meals matter even when you don\'t feel driven to eat.\n\nIf food thoughts remain overwhelming or tip into distress, that\'s worth raising with your healthcare provider.',
+      },
+    ],
+    sources: [
+      'Scientific American: How GLP-1s Affect Brain Reward Circuits',
+      'NIH/PMC: GLP-1 Receptors and Central Appetite Regulation',
+      'Cleveland Clinic: GLP-1 Agonists Overview',
+    ],
+  },
+  {
+    id: 'when-the-scale-stalls',
+    title: 'When the Scale Stalls',
+    subtitle: 'Why weight loss plateaus happen and what they actually mean.',
+    category: 'medication',
+    readingTime: 5,
+    coverImage: require('@/assets/images/articles/glp1-how-they-work.png'),
+    bgColor: '#E6E3FB',
+    sections: [
+      {
+        heading: 'Plateaus Are Expected, Not a Failure',
+        body: 'Almost everyone who loses weight hits points where the scale stops moving, sometimes for weeks. This is one of the most common sources of frustration during GLP-1 therapy, and it rarely means anything has gone wrong.\n\nAs the body loses weight, it needs fewer calories to function. The same intake that once created a deficit eventually matches your new, lower needs. The body also defends itself with hormonal and metabolic adjustments. A plateau is often simply the point where everything has rebalanced.',
+      },
+      {
+        heading: 'What\'s Happening Beneath the Surface',
+        body: 'The number on the scale measures everything at once: fat, muscle, water, and the contents of your digestive system. Day-to-day swings of a few pounds are usually water and food weight, not fat.\n\nThis matters during a plateau, because body composition can keep improving even when total weight holds steady. People sometimes lose fat and gain or maintain muscle at the same time, which barely moves the scale but meaningfully changes how they look and feel. Measurements, how clothes fit, and energy levels often tell a fuller story.',
+      },
+      {
+        heading: 'Working Through a Stall',
+        body: 'Plateaus usually resolve with patience and consistency rather than drastic action. Approaches many people find helpful:\n\n- **Protect protein and muscle**: Adequate protein plus resistance exercise helps preserve the lean mass that keeps metabolism higher.\n\n- **Check the basics**: Hydration, sleep, and stress all influence weight regulation and are easy to overlook.\n\n- **Track trends, not single days**: A weekly average smooths out the daily noise and reveals the real direction.\n\n- **Avoid extreme restriction**: Cutting intake too far can backfire, costing muscle and making the plateau harder to break.\n\nDose questions and stubborn plateaus are worth discussing with your healthcare provider, who can look at your full picture. This app never recommends changing your dose on your own.',
+      },
+    ],
+    sources: [
+      'NIH/PMC: Metabolic Adaptation During Weight Loss',
+      'Cleveland Clinic: Weight Loss Plateaus Explained',
+      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on GLP-1 Therapy',
+    ],
+  },
+  {
+    id: 'managing-constipation',
+    title: 'The Constipation Fix',
+    subtitle: 'Why digestion slows down and the habits that get things moving.',
+    category: 'side-effects',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/managing-side-effects.png'),
+    bgColor: '#FBE3EC',
+    sections: [
+      {
+        heading: 'Why It Happens',
+        body: 'Constipation is one of the more common digestive effects of GLP-1 medications, reported by roughly one in five people. The cause is the same mechanism that helps with appetite: slowed gastric emptying and slower movement through the digestive tract.\n\nWhen food moves more slowly, more water is reabsorbed along the way, which can leave stool harder and less frequent. Reduced overall food and fluid intake, common when appetite drops, can compound the effect.',
+      },
+      {
+        heading: 'The Three Levers That Help Most',
+        body: 'Most people see improvement by working on three things together:\n\n- **Fluid**: Slowed digestion plus low intake is the main driver. Sipping water steadily through the day, rather than waiting for thirst, makes a real difference.\n\n- **Fiber, increased gradually**: Soluble fiber (oats, chia, berries, legumes) tends to be gentler than insoluble fiber. Add it slowly, and always with enough water, since fiber without fluid can make things worse.\n\n- **Movement**: Even a short daily walk stimulates the natural muscle contractions that move things along.',
+      },
+      {
+        heading: 'When to Check In',
+        body: 'Mild constipation usually responds to fluid, fiber, and movement within a week or two. Some over-the-counter options can help short-term, but it\'s worth asking your pharmacist or provider what fits your situation before starting one.\n\nReach out to your healthcare team if you experience severe or persistent abdominal pain, no bowel movement for several days alongside bloating and discomfort, or symptoms that don\'t improve with the basics. These are worth a conversation rather than waiting it out.',
+      },
+    ],
+    sources: [
+      'NIH/PMC: Adverse Effects of GLP-1 Receptor Agonists',
+      'Cleveland Clinic: GLP-1 Agonists: Side Effects',
+      'NIH/PMC: Dietary Fiber and GI Symptom Management',
+    ],
+  },
+  {
+    id: 'protein-on-low-appetite-days',
+    title: 'Protein on Low-Appetite Days',
+    subtitle: 'How to hit your protein goal when you can barely finish a meal.',
+    category: 'nutrition',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/protein-priority.png'),
+    bgColor: '#FBEED0',
+    sections: [
+      {
+        heading: 'The Low-Appetite Challenge',
+        body: 'Protein matters most during weight loss precisely when it\'s hardest to eat. Reduced appetite means smaller portions and fewer meals, and protein-rich foods can feel heavy or unappealing when nausea is present.\n\nThe goal on these days isn\'t a perfect plate. It\'s getting enough quality protein, spread out, to help protect the muscle your body would otherwise be tempted to break down.',
+      },
+      {
+        heading: 'Protein-Dense, Low-Volume Foods',
+        body: 'When you can only manage a little, choose foods that pack the most protein into the smallest amount:\n\n- **Greek yogurt or skyr**: 15–20g per cup, easy to eat when solids feel like too much\n\n- **Cottage cheese**: about 14g per half cup\n\n- **Eggs**: 6–7g each, soft and simple to prepare\n\n- **Protein shakes or powder**: a reliable fallback when nothing solid appeals; can be added to smoothies, oatmeal, or soup\n\n- **Bone broth or protein-fortified soups**: warm, gentle, and hydrating at the same time',
+      },
+      {
+        heading: 'Practical Tactics',
+        body: 'A few habits make low-appetite days easier:\n\n- **Lead with protein**: Eat the protein portion first, so if fullness arrives early, the most important part is already in.\n\n- **Sip, don\'t force**: A protein drink over 20–30 minutes is often more tolerable than a full meal at once.\n\n- **Eat on a schedule**: Appetite cues may not come, so use the clock instead of waiting to feel hungry.\n\n- **Keep easy options stocked**: Having yogurt, eggs, or ready-to-drink shakes on hand removes the decision when you don\'t feel like cooking.\n\nIf you regularly struggle to eat enough, a registered dietitian can help build a plan around your tolerance.',
+      },
+    ],
+    sources: [
+      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on Nutritional Priorities',
+      'NIH/PMC: Protein Intake and Lean Mass Preservation',
+      'Cleveland Clinic: Protein Deficiency Signs',
+    ],
+  },
+  {
+    id: 'electrolytes-explained',
+    title: 'Electrolytes, Explained',
+    subtitle: "When plain water isn't enough and what your body needs.",
+    category: 'hydration',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/staying-hydrated.png'),
+    bgColor: '#D9EDFB',
+    sections: [
+      {
+        heading: 'What Electrolytes Do',
+        body: 'Electrolytes are minerals, mainly sodium, potassium, and magnesium, that carry small electrical charges your body uses for nerve signals, muscle contractions, and fluid balance.\n\nHydration isn\'t only about water volume. It\'s about water and these minerals being in the right balance. Drinking a lot of plain water while minerals run low can actually leave you feeling worse, not better.',
+      },
+      {
+        heading: 'Why GLP-1s Can Tip the Balance',
+        body: 'A few factors can lower electrolyte levels during GLP-1 therapy. Episodes of vomiting or diarrhea, especially during dose changes, flush out minerals along with fluid. Reduced food intake means fewer minerals coming in to begin with. And blunted thirst can lead to drinking less overall.\n\nResearch suggests people on these medications may be more prone to mineral shortfalls over time, which can show up as cramping, fatigue, headaches, or dizziness, symptoms easy to mistake for the medication itself.',
+      },
+      {
+        heading: 'When and How to Add Them',
+        body: 'Most people don\'t need electrolytes with every glass of water. They matter most during digestive upset, hot weather, heavier activity, or stretches of very low food intake.\n\nSimple options include broth, coconut water, electrolyte tablets or powders, or naturally mineral-rich foods. Many sports drinks are high in added sugar, so a low-sugar electrolyte option is often a better fit. If you have kidney concerns, heart conditions, or take blood pressure medication, check with your provider first, since sodium and potassium needs can be very individual. Persistent cramping, dizziness, or fatigue is worth getting checked.',
+      },
+    ],
+    sources: [
+      'NIH/PMC: Electrolyte Balance and Fluid Regulation',
+      'Mayo Clinic: Dehydration and Electrolytes',
+      'NIH/PMC: Micronutrient Deficiencies During GLP-1 RA Therapy',
+    ],
+  },
+  {
+    id: 'walking-counts',
+    title: 'Why Walking Counts',
+    subtitle: 'The most underrated movement for steady, sustainable progress.',
+    category: 'lifestyle',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    bgColor: '#D9F2E3',
+    sections: [
+      {
+        heading: 'Simple, but Far From Trivial',
+        body: 'Walking is easy to dismiss because it feels too simple to matter. But major health organizations recommend roughly 150 minutes per week of moderate activity, and walking is one of the most accessible ways to get there.\n\nIt supports cardiovascular health, mood, digestion, and blood sugar regulation, all relevant during GLP-1 therapy, and it\'s low-impact enough to do nearly every day without adding recovery burden.',
+      },
+      {
+        heading: 'Why It Fits GLP-1 Therapy So Well',
+        body: 'Energy can dip during dose escalations, and intense workouts may feel unappealing when nausea is present. Walking bridges that gap: it keeps you moving when harder exercise feels like too much.\n\nA short walk after meals can also ease the bloating and slowed digestion many people notice, and gentle movement helps with the constipation that GLP-1s can cause. It complements resistance training rather than competing with it.',
+      },
+      {
+        heading: 'Building the Habit',
+        body: 'Consistency matters more than intensity. A few ways to make walking stick:\n\n- **Anchor it to something**: a walk after lunch, or a loop before your first meeting, is easier to keep than a vague intention.\n\n- **Start where you are**: even 10 minutes counts, and short walks add up across the day.\n\n- **Stack it**: phone calls, podcasts, or a friend can turn a walk into time you look forward to.\n\n- **Watch the trend**: small, steady increases beat occasional long efforts followed by burnout.\n\nIf you have joint issues or cardiovascular concerns, your provider can help you find a safe starting point.',
+      },
+    ],
+    sources: [
+      'Mayo Clinic: Walking for Health',
+      'NIH/PMC: Physical Activity Guidelines and Cardiometabolic Health',
+      'Cleveland Clinic: Exercise for GLP-1 Use',
+    ],
+  },
+  {
+    id: 'preserving-muscle',
+    title: 'Protecting Your Muscle',
+    subtitle: "Lean mass is easy to lose and worth defending. Here's how.",
+    category: 'lifestyle',
+    readingTime: 5,
+    coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    bgColor: '#D9F2E3',
+    sections: [
+      {
+        heading: 'Why Muscle Is on the Line',
+        body: 'When the body loses weight quickly, it doesn\'t only shed fat. Research consistently shows that without intentional effort, roughly 25–40% of weight lost during rapid reduction can come from lean mass: muscle, connective tissue, and bone density.\n\nGLP-1 medications can drive significant weight change, which makes this more relevant, not less. Muscle supports metabolic rate, joint stability, balance, and everyday strength, so protecting it is about long-term function, not just appearance.',
+      },
+      {
+        heading: 'The Two Pillars',
+        body: 'Two strategies have the strongest evidence behind them, and they work best together:\n\n- **Adequate protein**: Spreading 25–40g of protein across three to four eating occasions gives the body the raw material to maintain muscle. Distribution matters; the body can only use so much at once.\n\n- **Resistance training**: A 2025 systematic review found high-certainty evidence that adding resistance exercise during caloric restriction preserves lean mass and strength compared with diet alone. Bodyweight movements count, no gym required.',
+      },
+      {
+        heading: 'Making It Sustainable',
+        body: 'You don\'t need to overhaul your life. A realistic baseline:\n\n- **Two to three short resistance sessions a week**, hitting the major muscle groups. Even 10–15 minutes is a meaningful start.\n\n- **Protein at every meal**, prioritized first on the plate when appetite is low.\n\n- **Enough rest**: recovery is slightly impaired during caloric restriction, so one to two rest days a week supports better progress.\n\n- **Track non-scale wins**: strength gains and how clothes fit reveal the body composition changes the scale can hide.\n\nA qualified trainer or your healthcare provider can help tailor this to your fitness level and energy.',
+      },
+    ],
+    sources: [
+      'NIH/PMC: Resistance Training During Dietary Weight Loss (2025 Meta-Analysis)',
+      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on Nutritional Priorities',
+      'Mayo Clinic: Strength Training Guidelines',
+    ],
+  },
+  {
+    id: 'eating-out',
+    title: 'Eating Out Without the Stress',
+    subtitle: 'Restaurants, social meals, and travel on a reduced appetite.',
+    category: 'nutrition',
+    readingTime: 4,
+    coverImage: require('@/assets/images/articles/what-to-eat.png'),
+    bgColor: '#FBE2D2',
+    sections: [
+      {
+        heading: 'The Restaurant Reality',
+        body: 'Eating out on a reduced appetite comes with a few predictable challenges: large portions, rich and fried foods that sit heavily when digestion is slowed, and the social pressure to clean your plate.\n\nNone of this means avoiding restaurants. With a little planning, social meals stay enjoyable, you just work with your appetite instead of against it.',
+      },
+      {
+        heading: 'Ordering with Confidence',
+        body: 'A few habits make menus easier to navigate:\n\n- **Lead with protein**: Grilled chicken, fish, eggs, or a lean cut gives you the most important nutrient first, before fullness arrives.\n\n- **Go for cooked over heavy**: Grilled, baked, or steamed dishes tend to sit better than fried or cream-heavy ones during dose adjustments.\n\n- **Right-size the portion**: Order an appetizer as your main, split a dish, or plan to take half home. Restaurant portions often far exceed what a reduced appetite can handle.\n\n- **Watch carbonation and alcohol**: Both can amplify bloating in a slow-emptying stomach.',
+      },
+      {
+        heading: 'The Social Side',
+        body: 'You don\'t owe anyone an explanation for eating less. A simple "I\'m pacing myself" is plenty. Eating slowly also helps, your body needs time to register fullness, and rushing when digestion is already slowed tends to backfire.\n\nFor travel, packing a few protein-dense, shelf-stable options, like jerky, nuts, or ready-to-drink shakes, keeps you covered when good choices aren\'t available. And keep sipping water throughout; it\'s easy to fall behind on hydration when you\'re out and about.',
+      },
+    ],
+    sources: [
+      'NIH/PMC: Dietary Recommendations for GI Symptoms on GLP-1 RAs',
+      'Cleveland Clinic: GLP-1 Agonists: Side Effects',
+      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on Nutritional Priorities',
+    ],
+  },
 ];
 
 // ─── Section grouping (horizontal scroll rows on the Education tab) ────────────
 
 export type ArticleRow = {
+  /** Stable slug used for the "See All" route (/articles/section/[id]). */
+  id: string;
   title: string;
+  /** One-line description shown under the section title. */
+  description: string;
   articleIds: string[];
 };
 
 export const ARTICLE_SECTIONS: ArticleRow[] = [
   {
+    id: 'essentials',
     title: 'The Essentials',
-    articleIds: ['how-glp1s-work', 'managing-side-effects', 'exercise-on-glp1s'],
+    description: 'Start here — how GLP-1 medications work and what your first weeks may feel like.',
+    articleIds: [
+      'how-glp1s-work',
+      'managing-side-effects',
+      'quieting-food-noise',
+      'when-the-scale-stalls',
+    ],
   },
   {
-    title: 'Food & Hydration',
-    articleIds: ['protein-priority', 'what-to-eat', 'staying-hydrated'],
+    id: 'food-nutrition',
+    title: 'Food & Nutrition',
+    description: 'Eat in a way that works with your medication, not against it.',
+    articleIds: [
+      'protein-priority',
+      'what-to-eat',
+      'protein-on-low-appetite-days',
+      'eating-out',
+    ],
+  },
+  {
+    id: 'hydration-comfort',
+    title: 'Hydration & Comfort',
+    description: 'Stay ahead of the most common bumps along the way.',
+    articleIds: [
+      'staying-hydrated',
+      'electrolytes-explained',
+      'managing-constipation',
+    ],
+  },
+  {
+    id: 'movement-body',
+    title: 'Movement & Body',
+    description: 'Protect muscle and keep moving as your body changes.',
+    articleIds: [
+      'exercise-on-glp1s',
+      'walking-counts',
+      'preserving-muscle',
+    ],
   },
 ];
 
 export function getArticleById(id: string): Article | undefined {
   return ARTICLES.find((a) => a.id === id);
+}
+
+export function getSectionById(id: string): ArticleRow | undefined {
+  return ARTICLE_SECTIONS.find((s) => s.id === id);
 }

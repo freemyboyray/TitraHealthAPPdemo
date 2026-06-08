@@ -39,6 +39,7 @@ import { EnergyBankCard } from '@/components/energy-bank-card';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { AppleHealthPromoCard } from '@/components/apple-health-promo-card';
 import { computeEnergyBank, computeSideEffectBurden } from '@/constants/scoring';
+import { buildEnergyTimeline } from '@/lib/energy-timeline';
 import { usePersonalizationStore } from '@/stores/personalization-store';
 import type { PersonalizedPlan } from '@/lib/personalization';
 import { useLogStore } from '@/stores/log-store';
@@ -67,6 +68,9 @@ import { useWeeklySummaryAutoGen } from '@/hooks/use-weekly-summary-gen';
 import { MEDICAL_DISCLAIMER } from '@/constants/medical-sources';
 import { getEscalationPhase } from '@/lib/escalation-phase';
 import { FocusEnergyRow } from '@/components/home/focus-tiles';
+import { TourTarget } from '@/components/tour/tour-target';
+import { useTour } from '@/contexts/tour-context';
+import { buildMainTourSteps, TOUR_IDS } from '@/lib/tour';
 import { PremiumUpsellCard } from '@/components/premium-upsell-card';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
@@ -639,7 +643,7 @@ function DailyLogSummaryCard({
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const { appleHealthEnabled, headerStyle, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklyCheckinCardDismissed, dismissWeeklyCheckinCard, weeklySummaryCardDismissed, dismissWeeklySummaryCard, tutorialHintPending, setTutorialHintPending } = usePreferencesStore();
+  const { appleHealthEnabled, headerStyle, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklySummaryViewedId, setWeeklySummaryViewed, tutorialHintPending, setTutorialHintPending } = usePreferencesStore();
   const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -658,6 +662,23 @@ export default function HomeScreen() {
   const plan = personalizationStore.plan;
   const router = useRouter();
   const { openAiChat } = useUiStore();
+
+  // Interactive walkthrough: launch when flagged (post-onboarding, or from
+  // Settings → App Tutorial). Checked on focus — reading the flag via getState
+  // (not a reactive selector) so clearing it doesn't tear down the scheduled
+  // start. Small delay lets the home cards mount before we measure their targets.
+  const { start: startTour } = useTour();
+  useFocusEffect(useCallback(() => {
+    if (!usePreferencesStore.getState().tourPending) return;
+    usePreferencesStore.getState().setTourPending(false);
+    const t = setTimeout(() => {
+      startTour(
+        buildMainTourSteps(isOnTreatment(fullUserProfile)),
+        () => usePreferencesStore.getState().setTourCompleted(true),
+      );
+    }, 650);
+    return () => clearTimeout(t);
+  }, [fullUserProfile, startTour]));
 
   // Lazily generate the just-completed program week's summary snapshot (once).
   useWeeklySummaryAutoGen();
@@ -1195,7 +1216,33 @@ export default function HomeScreen() {
       biometricStore.baseline,
       onTreatment,
     );
-    return { result: energyResult, phase };
+    // Hourly reconstruction for the home tile's mini graph (same data the
+    // /energy-detail chart uses — keeps the two surfaces consistent).
+    const timeline = buildEnergyTimeline({
+      wearable: healthData.wearable,
+      targets,
+      phase,
+      seBurden,
+      fatigueBurden,
+      baseline: biometricStore.baseline,
+      pkHoursSinceInjection: tHours,
+      glp1Type: glp1Type as any,
+      injectionFrequencyDays: freq ?? 7,
+      isOnTreatment: onTreatment,
+      todayFoodLogs: todayFoodLogs.map(f => ({
+        logged_at: f.logged_at,
+        calories: f.calories ?? 0,
+        protein_g: f.protein_g ?? 0,
+        fiber_g: (f as any).fiber_g ?? 0,
+      })),
+      todayWaterMl: actuals.waterMl,
+      todaySideEffectLogs: todaySideEffects.map(se => ({
+        logged_at: se.logged_at,
+        severity: se.severity ?? 0,
+        effect_type: se.effect_type,
+      })),
+    });
+    return { result: energyResult, phase, timeline };
   })();
 
   return (
@@ -1305,6 +1352,7 @@ export default function HomeScreen() {
           )}
 
           {/* ── Today Pager Card (medication, energy, lifestyle highlight, article of day) ── */}
+          <TourTarget id={TOUR_IDS.homeTodayCard}>
           <TodayPagerCard
             medication={{
               onTreatment,
@@ -1333,15 +1381,20 @@ export default function HomeScreen() {
             }}
             energy={null}
           />
+          </TourTarget>
 
           {/* ── Today's Focus + Energy tiles (two-tile row) ── */}
-          {isToday && <FocusEnergyRow energy={energySlide} focuses={displayFocuses ?? []} />}
+          {isToday && (
+            <TourTarget id={TOUR_IDS.homeFocusRow}>
+              <FocusEnergyRow energy={energySlide} focuses={displayFocuses ?? []} />
+            </TourTarget>
+          )}
 
           {/* ── Weekly Check-In + Summary (side-by-side recap cards) ── */}
           {isToday && (() => {
             // ── Check-in element (or null) ──
             let checkinEl: React.ReactNode = null;
-            if (!weeklyCheckinCardDismissed) {
+            {
               // Read directly from logStore so deletion updates the card synchronously,
               // without waiting for the async personalization plan recompute.
               const allRows = Object.values(logStore.weeklyCheckins).flat();
@@ -1369,15 +1422,21 @@ export default function HomeScreen() {
                     currentWeekComplete={currentWeekComplete}
                     nextAvailableAt={nextWin?.startStr ?? null}
                     isDaily={scheduleMode === 'intraday'}
-                    onDismiss={dismissWeeklyCheckinCard}
                   />
                 );
               }
             }
 
             // ── Summary element (or null) ──
-            const summaryEl: React.ReactNode = (!weeklySummaryCardDismissed && daysSinceEngagement(profile.engagementStartDate) >= 7)
-              ? <WeeklySummaryCard latestSummary={logStore.weeklySummaries[0] ?? null} onDismiss={dismissWeeklySummaryCard} />
+            const latestSummary = logStore.weeklySummaries[0] ?? null;
+            const summaryEl: React.ReactNode = daysSinceEngagement(profile.engagementStartDate) >= 7
+              ? (
+                <WeeklySummaryCard
+                  latestSummary={latestSummary}
+                  viewed={!!latestSummary && weeklySummaryViewedId === latestSummary.id}
+                  onView={() => latestSummary && setWeeklySummaryViewed(latestSummary.id)}
+                />
+              )
               : null;
 
             const items = [checkinEl, summaryEl].filter(Boolean);

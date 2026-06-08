@@ -22,6 +22,7 @@ export default function EntryLayout() {
       <Stack.Screen name="checkin-summary" />
       <Stack.Screen name="weekly-checkin" />
       <Stack.Screen name="weekly-checkin-result" />
+      <Stack.Screen name="weekly-checkin-targets" />
       <Stack.Screen name="weekly-checkin-history" />
       <Stack.Screen name="weekly-summary" />
       <Stack.Screen name="weekly-summary-history" />

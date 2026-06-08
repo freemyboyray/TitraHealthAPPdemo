@@ -63,6 +63,17 @@ const TAB_TITLES: Record<ScopeTab, string> = {
   progress: 'Progress History',
 };
 
+// Single-category deep links (e.g. the Symptom Log card → side effects only).
+const FILTER_TYPES: FilterType[] = ['food', 'activity', 'weight', 'medication', 'side_effect'];
+const FILTER_TITLES: Record<FilterType, string> = {
+  all: 'All Logs',
+  food: 'Food History',
+  activity: 'Activity History',
+  weight: 'Weight History',
+  medication: 'Dose History',
+  side_effect: 'Symptom History',
+};
+
 type LogEntry = {
   id: string;
   timestamp: string;
@@ -283,9 +294,11 @@ function EditModal({ editState, onSave, onClose, colors }: {
 
 export default function LogHistoryScreen() {
   const router = useRouter();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { tab, filter } = useLocalSearchParams<{ tab?: string; filter?: string }>();
   const scopeTab = tab && tab in TAB_KINDS ? (tab as ScopeTab) : null;
-  const scopeKinds = scopeTab ? TAB_KINDS[scopeTab] : null;
+  // A `filter` param scopes to a single category; otherwise fall back to the tab scope.
+  const singleFilter = filter && FILTER_TYPES.includes(filter as FilterType) ? (filter as FilterType) : null;
+  const scopeKinds = singleFilter ? [singleFilter] : scopeTab ? TAB_KINDS[scopeTab] : null;
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const store = useLogStore();
@@ -450,7 +463,7 @@ export default function LogHistoryScreen() {
             <ChevronLeft size={26} color="#FFFFFF" />
           </Pressable>
           <Text style={s.headerTitle} numberOfLines={1}>
-            {scopeTab ? TAB_TITLES[scopeTab] : 'All Logs'}
+            {singleFilter ? FILTER_TITLES[singleFilter] : scopeTab ? TAB_TITLES[scopeTab] : 'All Logs'}
           </Text>
           <View style={{ width: 26 }} />
         </View>

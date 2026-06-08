@@ -12,6 +12,7 @@ import type { AppColors } from '@/constants/theme';
 
 import { AddEntrySheet } from '@/components/add-entry-sheet';
 import { GlassSurface } from '@/components/glass-surface';
+import { TourTarget } from '@/components/tour/tour-target';
 import { FoodProcessingBanner } from '@/components/food-processing-banner';
 import { useAppTheme } from '@/contexts/theme-context';
 
@@ -98,23 +99,24 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
                 {state.routes.map((route, index) => {
                   const isFocused = index === activeIndex;
                   return (
-                    <TouchableOpacity
-                      key={route.key}
-                      style={s.tabBtn}
-                      accessibilityLabel={`${TAB_LABELS[index]} tab`}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: isFocused }}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        if (!isFocused) navigation.navigate(route.name);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      {isFocused
-                        ? <View style={s.activeIconWrap}>{ICON_DEFS[index].focused}</View>
-                        : ICON_DEFS[index].unfocused
-                      }
-                    </TouchableOpacity>
+                    <TourTarget key={route.key} id={`tab-${route.name}`} style={s.tabBtn}>
+                      <TouchableOpacity
+                        style={s.tabBtnInner}
+                        accessibilityLabel={`${TAB_LABELS[index]} tab`}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: isFocused }}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          if (!isFocused) navigation.navigate(route.name);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        {isFocused
+                          ? <View style={s.activeIconWrap}>{ICON_DEFS[index].focused}</View>
+                          : ICON_DEFS[index].unfocused
+                        }
+                      </TouchableOpacity>
+                    </TourTarget>
                   );
                 })}
               </View>
@@ -153,24 +155,29 @@ function CustomTabBar({ state, navigation, fabOpen, onFabPress }: CustomTabBarPr
       </View>
 
       {/* FAB */}
-      <TouchableOpacity
-        style={s.fab}
-        accessibilityLabel="Add new entry"
-        accessibilityRole="button"
-        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onFabPress(); }}
-        activeOpacity={0.85}
-      >
-        <View style={s.fabInner}>
-          <IconSymbol name={fabOpen ? 'xmark' : 'plus'} size={32} color="#FFFFFF" weight="semibold" />
-        </View>
-      </TouchableOpacity>
+      <TourTarget id="fab">
+        <TouchableOpacity
+          style={s.fab}
+          accessibilityLabel="Add new entry"
+          accessibilityRole="button"
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onFabPress(); }}
+          activeOpacity={0.85}
+        >
+          <View style={s.fabInner}>
+            <IconSymbol name={fabOpen ? 'xmark' : 'plus'} size={32} color="#FFFFFF" weight="semibold" />
+          </View>
+        </TouchableOpacity>
+      </TourTarget>
 
     </View>
   );
 }
 
 export default function TabLayout() {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // Sheet state lives in the ui-store so the interactive tour can open/close the
+  // add-entry sheet while it walks the user through the entry grid.
+  const sheetOpen = useUiStore(s => s.sheetOpen);
+  const setSheetOpen = useUiStore(s => s.setSheetOpen);
   const fetchInsightsData = useLogStore(s => s.fetchInsightsData);
   const logLoading = useLogStore(s => s.loading);
   const fetchHealthData = useHealthKitStore(s => s.fetchAll);
@@ -230,12 +237,12 @@ export default function TabLayout() {
             <CustomTabBar
               {...props}
               fabOpen={sheetOpen}
-              onFabPress={() => setSheetOpen((v) => !v)}
+              onFabPress={() => setSheetOpen(!sheetOpen)}
             />
           )}
           screenOptions={{
             headerShown: false,
-            animation: 'none',
+            animation: 'fade',
           }}>
           <Tabs.Screen name="index" />
           <Tabs.Screen name="log" />
@@ -273,7 +280,8 @@ const createStyles = (_c: AppColors) => StyleSheet.create({
   pillBorder: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 36, borderWidth: 1 },
   pillContent: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 10 },
 
-  tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 46 },
+  tabBtn: { flex: 1 },
+  tabBtnInner: { alignItems: 'center', justifyContent: 'center', height: 46 },
   activeIconWrap: {
     width: 46, height: 46, borderRadius: 23,
     backgroundColor: _c.orange,

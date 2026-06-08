@@ -58,8 +58,13 @@ export function useWeeklySummaryAutoGen() {
     if (!lastWin) return;
 
     if (ranForWeek.current === lastWin.endStr) return;
-    const exists = weeklySummaries.some((s) => s.window_end === lastWin.endStr);
-    if (exists) {
+    // Regenerate when no snapshot exists OR the existing one is stale: frozen
+    // before the per-day chart fields existed (or before that week's logs synced),
+    // which would otherwise leave it permanently empty.
+    const existing = weeklySummaries.find((s) => s.window_end === lastWin.endStr);
+    const existingNutrition = (existing?.summary_data as { nutrition?: { caloriesByDay?: unknown } } | undefined)?.nutrition;
+    const isStaleFormat = !!existing && !Array.isArray(existingNutrition?.caloriesByDay);
+    if (existing && !isStaleFormat) {
       ranForWeek.current = lastWin.endStr;
       return;
     }

@@ -1,110 +1,131 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { ChevronRight, X } from 'lucide-react-native';
+
+import { GlassBorder } from '@/components/ui/glass-border';
+import { cardElevation } from '@/constants/theme';
+import type { AppColors } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/theme-context';
 
 const FF = 'System';
 
-// White "Monthly Recap"-style highlight card (matches the reference app).
-// Black pill badge + title + optional close, then a big bold headline.
-// `compact` shrinks it for half-width row placement (drops the title text).
+export type RecapTone = 'orange' | 'neutral' | 'positive';
+
+// Editorial recap/highlight card (DESIGN.md "Recap / highlight card"), theme-honest.
+// A calm surface card: status pill + small eyebrow + one big headline, an optional
+// real-data accent, and a "view" affordance. A faint warm flourish bleeds off the
+// right edge. Used for the weekly check-in + weekly summary on the home feed.
 export function RecapCard({
   badge,
-  title,
+  tone = 'orange',
+  eyebrow,
   headline,
+  caption,
+  accent,
+  cta = 'View',
   onPress,
   onDismiss,
-  compact = false,
 }: {
-  badge: string;
-  title: string;
+  /** Status pill text. Omit to hide the pill entirely (e.g. an already-viewed card). */
+  badge?: string;
+  tone?: RecapTone;
+  /** Small uppercase label above the headline (e.g. "Weekly Summary"). */
+  eyebrow?: string;
   headline: string;
+  /** One muted line under the headline. */
+  caption?: string;
+  /** Optional small visual (delta chip, sparkline, dots) shown above the CTA. */
+  accent?: React.ReactNode;
+  cta?: string;
   onPress: () => void;
   onDismiss?: () => void;
-  compact?: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const s = React.useMemo(() => createStyles(colors), [colors]);
+
+  const toneStyle =
+    tone === 'positive'
+      ? { bg: 'rgba(39,174,96,0.14)', fg: '#27AE60' }
+      : tone === 'neutral'
+        ? { bg: colors.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)', fg: colors.textSecondary }
+        : { bg: colors.orangeDim, fg: colors.orange };
+
   return (
     <Pressable
-      style={[s.card, compact && s.cardCompact]}
+      style={s.card}
       onPress={onPress}
-      accessibilityLabel={`${title}. ${headline}`}
+      accessibilityLabel={`${eyebrow ? eyebrow + '. ' : ''}${headline}`}
       accessibilityRole="button"
     >
-      {/* Decorative faint circles (reference flourish) */}
-      <View pointerEvents="none" style={[s.circle, compact
-        ? { width: 90, height: 90, right: -26, top: 14 }
-        : { width: 120, height: 120, right: -28, top: 18 }]} />
-      {!compact && <View pointerEvents="none" style={[s.circle, { width: 96, height: 96, right: 44, top: 30 }]} />}
+      {/* Warm decorative flourish bleeding off the right edge */}
+      <View pointerEvents="none" style={[s.blob, { backgroundColor: colors.orangeDim }]} />
 
-      <View style={[s.topRow, compact && { marginBottom: 14 }]}>
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{badge}</Text>
+      {(badge || onDismiss) && (
+        <View style={s.topRow}>
+          {badge ? (
+            <View style={[s.badge, { backgroundColor: toneStyle.bg }]}>
+              <Text style={[s.badgeText, { color: toneStyle.fg }]}>{badge}</Text>
+            </View>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          {onDismiss && (
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); onDismiss(); }}
+              hitSlop={10}
+              accessibilityLabel="Dismiss"
+              accessibilityRole="button"
+            >
+              <X size={18} color={colors.textMuted} />
+            </Pressable>
+          )}
         </View>
-        {!compact && <Text style={s.title}>{title}</Text>}
-        <View style={{ flex: 1 }} />
-        {onDismiss && (
-          <Pressable
-            onPress={(e) => { e.stopPropagation(); onDismiss(); }}
-            hitSlop={10}
-            accessibilityLabel={`Dismiss ${title}`}
-            accessibilityRole="button"
-          >
-            <X size={20} color="rgba(0,0,0,0.4)" />
-          </Pressable>
-        )}
-      </View>
+      )}
 
-      <Text style={[s.headline, compact && s.headlineCompact]}>{headline}</Text>
+      {eyebrow ? <Text style={s.eyebrow}>{eyebrow}</Text> : null}
+      <Text style={s.headline}>{headline}</Text>
+      {caption ? <Text style={s.caption}>{caption}</Text> : null}
+
+      {accent ? <View style={s.accent}>{accent}</View> : null}
+
+      <View style={s.ctaRow}>
+        <Text style={s.ctaText}>{cta}</Text>
+        <ChevronRight size={16} color={colors.orange} />
+      </View>
     </Pressable>
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: AppColors) => StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.surface,
     borderRadius: 26,
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 26,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 18,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 6,
+    ...cardElevation(c.isDark),
   },
-  cardCompact: {
-    flex: 1,
-    minHeight: 150,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  circle: {
+  blob: {
     position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.045)',
+    width: 150, height: 150, borderRadius: 999,
+    right: -46, top: -34,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
-  badge: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 13,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  badge: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
+  badgeText: { fontSize: 11, fontWeight: '800', fontFamily: FF, letterSpacing: 1, textTransform: 'uppercase' },
+  eyebrow: {
+    fontSize: 12, fontWeight: '800', color: c.textMuted,
+    fontFamily: FF, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4,
   },
-  badgeText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', fontFamily: FF, letterSpacing: 0.5 },
-  title: { fontSize: 18, fontWeight: '700', color: '#111111', fontFamily: FF, letterSpacing: -0.3 },
   headline: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#0A0A0A',
-    fontFamily: FF,
-    letterSpacing: -0.8,
-    lineHeight: 34,
+    fontSize: 26, fontWeight: '800', color: c.textPrimary,
+    fontFamily: FF, letterSpacing: -0.6, lineHeight: 30,
   },
-  headlineCompact: {
-    fontSize: 20,
-    letterSpacing: -0.5,
-    lineHeight: 24,
+  caption: {
+    fontSize: 14, fontWeight: '500', color: c.textSecondary,
+    fontFamily: FF, marginTop: 6, lineHeight: 19,
   },
+  accent: { marginTop: 14 },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 16 },
+  ctaText: { fontSize: 14, fontWeight: '700', color: c.orange, fontFamily: FF },
 });

@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import { usePostHog } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import type { AppColors } from '@/constants/theme';
@@ -126,9 +127,13 @@ export default function UpgradeScreen() {
     ? `${intro!.trialLabel}, then ${selectedPrice}. Auto-renews until canceled. Cancel anytime in your App Store settings.`
     : `Auto-renews at ${selectedPrice} until canceled. Cancel anytime in your App Store settings.`;
 
-  // After onboarding (whether the user starts the trial or skips it) we route
-  // through the first-run tutorial before the home screen, then land in the app.
-  const continueFromOnboarding = () => router.replace('/settings/tutorial?firstRun=1' as any);
+  // After onboarding (whether the user starts the trial or skips it) we drop the
+  // user onto the home screen and flag the interactive walkthrough to launch,
+  // which highlights the real buttons in place.
+  const continueFromOnboarding = () => {
+    usePreferencesStore.getState().setTourPending(true);
+    router.replace('/(tabs)');
+  };
 
   // Leave the screen: onboarding continues into the app, everywhere else returns.
   const leave = () => {

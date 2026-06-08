@@ -17,6 +17,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
+import { TourTarget } from '@/components/tour/tour-target';
+import { TOUR_IDS } from '@/lib/tour';
 import { WaterLogSheet } from '@/components/water-log-sheet';
 import { DescribeFoodSheet } from '@/components/describe-food-sheet';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
@@ -181,17 +183,20 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
 
   const onTreatment = isOnTreatment(fullProfile);
 
-  const GRID = [
+  type GridItem = {
+    label: string;
+    tourId?: string;
+    icon: React.ReactNode;
+    onPress: () => void;
+  };
+
+  const FOOD_ITEMS: GridItem[] = [
     {
       label: 'DESCRIBE FOOD',
+      tourId: TOUR_IDS.entryDescribeFood,
       icon: <IconSymbol name="fork.knife" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => gateFood(() => { closeSheet(); setTimeout(() => setDescribeVisible(true), 300); }, true),
     },
-    ...(onTreatment ? [{
-      label: oral ? 'LOG DOSE' : 'LOG INJECTION',
-      icon: <IconSymbol name={oral ? 'pills.fill' : 'syringe.fill'} size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: handleLogDose,
-    }] : []),
     {
       label: 'CAPTURE FOOD',
       icon: <IconSymbol name="camera.fill" size={ICON_SIZE} color={colors.textPrimary} />,
@@ -203,11 +208,22 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=scan' as any), 300); }),
     },
     {
-      label: 'ASK AI',
-      special: true,
-      icon: null,
-      onPress: handleAskAI,
+      label: 'LOG WATER',
+      icon: <IconSymbol name="drop.fill" size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: () => {
+        closeSheet();
+        setTimeout(() => setWaterLogVisible(true), 300);
+      },
     },
+  ];
+
+  const LOG_ITEMS: GridItem[] = [
+    ...(onTreatment ? [{
+      label: oral ? 'LOG DOSE' : 'LOG INJECTION',
+      tourId: TOUR_IDS.entryLogDose,
+      icon: <IconSymbol name={oral ? 'pills.fill' : 'syringe.fill'} size={ICON_SIZE} color={colors.textPrimary} />,
+      onPress: handleLogDose,
+    }] : []),
     ...(onTreatment ? [{
       label: 'SIDE EFFECTS',
       icon: <IconSymbol name="exclamationmark.triangle.fill" size={ICON_SIZE} color={colors.textPrimary} />,
@@ -219,18 +235,15 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
       onPress: () => { closeSheet(); router.push('/entry/log-weight'); },
     },
     {
-      label: 'LOG WATER',
-      icon: <IconSymbol name="drop.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => {
-        closeSheet();
-        setTimeout(() => setWaterLogVisible(true), 300);
-      },
-    },
-    {
       label: 'LOG ACTIVITY',
       icon: <IconSymbol name="figure.run" size={ICON_SIZE} color={colors.textPrimary} />,
       onPress: () => { closeSheet(); router.push('/entry/log-activity'); },
     },
+  ];
+
+  const SECTIONS: { title: string; items: GridItem[] }[] = [
+    { title: 'FOOD', items: FOOD_ITEMS },
+    { title: 'LOG', items: LOG_ITEMS },
   ];
 
   // ─── Inline form config ──────────────────────────────────────────────────────
@@ -415,26 +428,47 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
                     <View style={{ height: 8 }} />
                   </>
                 ) : (
-                  /* ── Grid view ── */
+                  /* ── Sectioned view: all groups visible at once ── */
                   <>
-                    <View style={s.dash} />
-                    <View style={s.grid}>
-                      {GRID.map((item) => (
-                        <TouchableOpacity key={item.label} style={s.gridItem} activeOpacity={0.7} onPress={item.onPress} accessibilityLabel={item.label} accessibilityRole="button">
-                          {item.special ? (
-                            <View style={s.specialCircle}>
-                              <IconSymbol name="bubble.left.fill" size={ICON_SIZE} color="#FFF" />
-                            </View>
-                          ) : (
-                            <View style={s.iconCircle}>
-                              <GlassBorder r={32} />
-                              {item.icon}
-                            </View>
-                          )}
-                          <Text style={[s.gridLabel, item.special && s.gridLabelSpecial]}>{item.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                    {SECTIONS.map((section) => (
+                      <View key={section.title} style={s.section}>
+                        <Text style={s.sectionLabel}>{section.title}</Text>
+                        <View style={s.sectionCard}>
+                          <GlassBorder r={22} />
+                          <View style={s.sectionRow}>
+                            {section.items.map((item) => {
+                              const tile = (
+                                <TouchableOpacity style={s.gridItemBtn} activeOpacity={0.7} onPress={item.onPress} accessibilityLabel={item.label} accessibilityRole="button">
+                                  <View style={s.iconCircle}>
+                                    <GlassBorder r={28} />
+                                    {item.icon}
+                                  </View>
+                                  <Text style={s.gridLabel}>{item.label.replace(' ', '\n')}</Text>
+                                </TouchableOpacity>
+                              );
+                              return item.tourId
+                                ? <TourTarget key={item.label} id={item.tourId} style={s.gridItem}>{tile}</TourTarget>
+                                : <View key={item.label} style={s.gridItem}>{tile}</View>;
+                            })}
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+
+                    {/* Ask AI — full-width row that opens the chat */}
+                    <TourTarget id={TOUR_IDS.entryAskAi}>
+                      <TouchableOpacity style={s.aiRow} activeOpacity={0.8} onPress={handleAskAI} accessibilityLabel="Ask AI" accessibilityRole="button">
+                        <GlassBorder r={22} />
+                        <View style={s.aiRowIcon}>
+                          <IconSymbol name="bubble.left.fill" size={20} color="#FFF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.aiRowTitle}>Ask AI</Text>
+                          <Text style={s.aiRowSubtitle}>Your GLP-1 coach — ask anything</Text>
+                        </View>
+                        <IconSymbol name="chevron.right" size={18} color={colors.isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
+                      </TouchableOpacity>
+                    </TourTarget>
                   </>
                 )}
               </View>
@@ -647,22 +681,24 @@ const createSheetStyles = (c: AppColors) => {
   sheetContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 16 },
   title: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 4, fontFamily: 'System' },
   subtitle: { fontSize: 16, color: w(0.35), fontWeight: '400', marginBottom: 18, fontFamily: 'System' },
-  dash: { marginBottom: 22 },
 
-  // Grid
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  gridItem: { width: '33.33%', alignItems: 'center', marginBottom: 24 },
+  // Section cards (all groups visible at once)
+  section: { marginBottom: 18 },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: w(0.4), letterSpacing: 1.2, marginBottom: 8, marginLeft: 4, fontFamily: 'System' },
+  sectionCard: { borderRadius: 22, backgroundColor: w(0.05), overflow: 'hidden', paddingVertical: 18, paddingHorizontal: 6 },
+  sectionRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', rowGap: 18 },
 
-  // Icon circles
-  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
+  // Grid items inside a section card
+  gridItem: { width: '25%', alignItems: 'center' },
+  gridItemBtn: { width: '100%', alignItems: 'center' },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.borderSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2 },
+  gridLabel: { fontSize: 11, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.3, lineHeight: 14, textAlign: 'center', fontFamily: 'System' },
 
-  // ASK AI sphere
-  specialCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  sphereShine: { position: 'absolute', top: 10, right: 12, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.25)' },
-  sphereShineSmall: { position: 'absolute', top: 22, right: 18, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
-
-  gridLabel: { fontSize: 12, fontWeight: '700', color: c.textPrimary, letterSpacing: 0.4, textAlign: 'center', fontFamily: 'System' },
-  gridLabelSpecial: { color: c.orange },
+  // Ask AI row
+  aiRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 22, backgroundColor: w(0.05), overflow: 'hidden', paddingVertical: 14, paddingHorizontal: 16, gap: 14, marginTop: 2 },
+  aiRowIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
+  aiRowTitle: { fontSize: 17, fontWeight: '700', color: c.textPrimary, fontFamily: 'System' },
+  aiRowSubtitle: { fontSize: 13, color: w(0.4), fontFamily: 'System', marginTop: 1 },
 
   });
 };

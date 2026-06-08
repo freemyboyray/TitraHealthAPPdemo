@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react-native';
+import { ChevronRight, FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
@@ -152,8 +152,21 @@ export default function EducationScreen() {
                 .filter((a): a is Article => Boolean(a));
               if (items.length === 0) return null;
               return (
-                <View key={section.title} style={s.section}>
-                  <Text style={s.sectionTitle}>{section.title}</Text>
+                <View key={section.id} style={s.section}>
+                  <View style={s.sectionHeader}>
+                    <Text style={s.sectionTitle}>{section.title}</Text>
+                    <Pressable
+                      style={({ pressed }) => [s.seeAllBtn, pressed && { opacity: 0.6 }]}
+                      onPress={() => router.push(`/articles/section/${section.id}` as any)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`See all ${section.title} articles`}
+                    >
+                      <Text style={s.seeAllText}>See All</Text>
+                      <ChevronRight size={16} color={colors.orange} />
+                    </Pressable>
+                  </View>
+                  <Text style={s.sectionDescription}>{section.description}</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -197,11 +210,37 @@ const createScreenStyles = (c: AppColors, minimalHeader = false) => {
     content: { paddingTop: 0, paddingBottom: 120 },
     heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
     section: { marginBottom: 28 },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      marginBottom: 4,
+    },
     sectionTitle: {
       fontSize: 20,
       fontWeight: '800',
       color: c.textPrimary,
       letterSpacing: -0.4,
+      flexShrink: 1,
+      fontFamily: FF,
+    },
+    seeAllBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 1,
+      paddingLeft: 12,
+    },
+    seeAllText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.orange,
+      fontFamily: FF,
+    },
+    sectionDescription: {
+      fontSize: 14,
+      color: w(0.45),
+      lineHeight: 19,
       paddingHorizontal: 20,
       marginBottom: 14,
       fontFamily: FF,

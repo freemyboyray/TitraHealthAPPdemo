@@ -47,12 +47,19 @@ export interface WeeklySummaryData {
     fiberTarget: number;
     waterTarget: number;
     daysLogged: number;
+    // Per-day series (7 slots, slot 0 = windowStart). null = nothing logged that
+    // day, so charts render an empty column rather than a fake zero.
+    caloriesByDay: (number | null)[];
+    proteinByDay: (number | null)[];
+    fiberByDay: (number | null)[];
+    waterByDay: (number | null)[];   // ml; null on days with no water logged
   };
   activity: {
     avgSteps: number | null;
     stepsTarget: number;
     activeDays: number;
     dayFlags: boolean[];   // 7 slots: slot 0 = windowStart, slot 6 = yesterday
+    stepsByDay: number[];  // 7 slots; 0 when no steps logged that day
   };
   checkins: {
     foodNoise: number | null;
@@ -66,6 +73,8 @@ export interface WeeklySummaryData {
   sideEffects: {
     totalCount: number;
     topTypes: string[];   // up to 3 most frequent
+    countByDay: number[];                  // 7 slots; logs per day for the trend line
+    typeCounts: Record<string, number>;    // full per-type tally for the week-over-week log
   };
 }
 
@@ -120,6 +129,13 @@ export function computeWeeklySummary(
     return dateStr >= windowStartStr && dateStr <= windowEndStr;
   }
 
+  // Slot 0..6 for a date string, where slot 0 = windowStart. Out-of-window → -1.
+  function dayIndex(dateStr: string): number {
+    const ms = new Date(`${dateStr}T00:00:00`).getTime();
+    const i = Math.round((ms - windowStartMs) / 86400000);
+    return i >= 0 && i < 7 ? i : -1;
+  }
+
   // ── Weight ────────────────────────────────────────────────────────────────
 
   const weightInWindow = logs.weightLogs
@@ -155,6 +171,18 @@ export function computeWeeklySummary(
   const avgProteinG = daysLogged > 0 ? Math.round(totalProtein  / daysLogged) : null;
   const avgFiberG   = daysLogged > 0 ? Math.round(totalFiber    / daysLogged) : null;
 
+  // Per-day calorie/protein/fiber series (null on days with no food logged).
+  const caloriesByDay: (number | null)[] = Array(7).fill(null);
+  const proteinByDay:  (number | null)[] = Array(7).fill(null);
+  const fiberByDay:    (number | null)[] = Array(7).fill(null);
+  for (const [dateStr, dayFoods] of foodByDate) {
+    const idx = dayIndex(dateStr);
+    if (idx < 0) continue;
+    caloriesByDay[idx] = Math.round(dayFoods.reduce((a, fl) => a + (fl.calories  ?? 0), 0));
+    proteinByDay[idx]  = Math.round(dayFoods.reduce((a, fl) => a + (fl.protein_g ?? 0), 0));
+    fiberByDay[idx]    = Math.round(dayFoods.reduce((a, fl) => a + (fl.fiber_g   ?? 0), 0));
+  }
+
   // Water from AsyncStorage keys
   const waterValues = Object.entries(waterByDate)
     .filter(([k]) => k >= windowStartStr && k <= windowEndStr)
@@ -163,6 +191,13 @@ export function computeWeeklySummary(
   const avgWaterMl = waterValues.length > 0
     ? Math.round(waterValues.reduce((a, b) => a + b, 0) / waterValues.length)
     : null;
+
+  // Per-day water (ml); null on days with no water logged.
+  const waterByDay: (number | null)[] = Array(7).fill(null);
+  for (const [dateStr, ml] of Object.entries(waterByDate)) {
+    const idx = dayIndex(dateStr);
+    if (idx >= 0 && ml > 0) waterByDay[idx] = Math.round(ml);
+  }
 
   // ── Activity ──────────────────────────────────────────────────────────────
 
@@ -179,11 +214,14 @@ export function computeWeeklySummary(
     ? Math.round(allStepsValues.reduce((a, b) => a + b, 0) / allStepsValues.length)
     : null;
 
-  // 7-slot day flags (slot 0 = windowStart, slot 6 = windowEnd)
+  // 7-slot day flags + step counts (slot 0 = windowStart, slot 6 = windowEnd)
   const dayFlags: boolean[] = Array(7).fill(false);
+  const stepsByDay: number[] = Array(7).fill(0);
   for (let i = 0; i < 7; i++) {
     const dateStr = toDateStr(new Date(windowStartMs + i * 86400000));
-    dayFlags[i] = (stepsByDate.get(dateStr) ?? 0) > 0;
+    const steps = stepsByDate.get(dateStr) ?? 0;
+    stepsByDay[i] = steps;
+    dayFlags[i] = steps > 0;
   }
 
   // ── Check-ins (most recent within window per type) ────────────────────────
@@ -212,13 +250,17 @@ export function computeWeeklySummary(
 
   const seInWindow = logs.sideEffectLogs.filter(se => tsInWindow(se.logged_at));
   const seTypeCounts = new Map<string, number>();
+  const seCountByDay: number[] = Array(7).fill(0);
   for (const se of seInWindow) {
     seTypeCounts.set(se.effect_type, (seTypeCounts.get(se.effect_type) ?? 0) + 1);
+    const idx = dayIndex(se.logged_at.slice(0, 10));
+    if (idx >= 0) seCountByDay[idx] += 1;
   }
   const topTypes = [...seTypeCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([t]) => t);
+  const typeCounts: Record<string, number> = Object.fromEntries(seTypeCounts);
 
   return {
     windowStart: windowStartStr,
@@ -234,17 +276,24 @@ export function computeWeeklySummary(
       fiberTarget:    targets.fiberG,
       waterTarget:    targets.waterMl,
       daysLogged,
+      caloriesByDay,
+      proteinByDay,
+      fiberByDay,
+      waterByDay,
     },
     activity: {
       avgSteps,
       stepsTarget: targets.steps,
       activeDays,
       dayFlags,
+      stepsByDay,
     },
     checkins,
     sideEffects: {
       totalCount: seInWindow.length,
       topTypes,
+      countByDay: seCountByDay,
+      typeCounts,
     },
   };
 }

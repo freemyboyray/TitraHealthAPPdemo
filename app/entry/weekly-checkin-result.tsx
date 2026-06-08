@@ -1,7 +1,7 @@
-import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,46 +10,24 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SolidCard } from '@/components/ui/solid-card';
+import { BarGroup, type Bar } from '@/components/insights/bar-group';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useHealthData } from '@/contexts/health-data';
 import type { AppColors } from '@/constants/theme';
-import { applyCheckinAdjustments, type CheckinScores } from '@/lib/checkin-adjustments';
-import { computeBaseTargets } from '@/lib/targets';
-import { useUiStore } from '@/stores/ui-store';
-import { AlertCircle, ArrowDown, ArrowRight, ArrowUp, CircleCheck, Droplet, Flame, Footprints, Grip, MessageCircle, Sparkles, Utensils } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
+import { buildAdjustmentRows } from '@/lib/checkin-target-rows';
+import { useLogStore } from '@/stores/log-store';
+import {
+  CHECKIN_ASSETS, DOMAIN_BY_KEY, DOMAIN_ORDER, scoreColor, type CheckinDomainKey,
+} from '@/constants/checkin-domains';
+import { AlertCircle, ArrowDown, ArrowRight, ArrowUp, Minus } from 'lucide-react-native';
 
-const GREEN  = '#34C759';
-const BLUE   = '#5AC8FA';
-const FF     = 'System';
+const GREEN = '#27AE60';
+const FF = 'System';
 
-// ─── Domain metadata ──────────────────────────────────────────────────────────
+// ─── Explanation copy (GLP-1 specific, label-bucketed) ────────────────────────
 
-type DomainKey =
-  | 'gi_burden' | 'energy_mood' | 'appetite' | 'food_noise'
-  | 'sleep_quality' | 'activity_quality' | 'mental_health';
-
-const DOMAIN_ORDER: DomainKey[] = [
-  'gi_burden', 'energy_mood', 'appetite', 'food_noise',
-  'sleep_quality', 'activity_quality', 'mental_health',
-];
-
-const DOMAIN_META: Record<DomainKey, { label: string; icon: string }> = {
-  gi_burden:        { label: 'GI Symptoms',   icon: 'Hospital' },
-  energy_mood:      { label: 'Energy & Mood', icon: 'Zap' },
-  appetite:         { label: 'Appetite',       icon: 'Utensils' },
-  food_noise:       { label: 'Food Noise',     icon: 'Volume2' },
-  sleep_quality:    { label: 'Sleep',          icon: 'Moon' },
-  activity_quality: { label: 'Activity',       icon: 'Dumbbell' },
-  mental_health:    { label: 'Mental Health',  icon: 'Heart' },
-};
-
-// ─── Explanation copy (GLP-1 specific, score-bucketed) ────────────────────────
-
-/** Map each domain's label (from the checkin screen) to a contextual explanation.
- *  Using the label string instead of score ensures the explanation always matches
- *  the badge shown on screen — no threshold drift between the two systems. */
-function getExplanation(key: DomainKey, label: string): string {
+function getExplanation(key: CheckinDomainKey, label: string): string {
   switch (key) {
     case 'gi_burden':
       switch (label) {
@@ -58,7 +36,6 @@ function getExplanation(key: DomainKey, label: string): string {
         case 'Moderate': return 'Moderate GI burden. Targets have been adjusted to ease your system. Focus on hydration and light, frequent meals.';
         default:        return 'Significant GI symptoms are affecting your daily routine. Targets have been reduced. Contact your prescriber if symptoms persist beyond a week.';
       }
-
     case 'energy_mood':
       switch (label) {
         case 'Excellent': return 'Energy and mood are strong this week. Consistent sleep and protein intake help maintain this through treatment.';
@@ -66,7 +43,6 @@ function getExplanation(key: DomainKey, label: string): string {
         case 'Fair':      return 'Low energy is common during dose-escalation. Prioritize sleep and protein. Both directly affect GLP-1 outcomes.';
         default:          return 'Very low energy or mood for multiple weeks warrants a conversation with your care team.';
       }
-
     case 'appetite':
       switch (label) {
         case 'Excellent': return 'Excellent appetite control. Stay consistent with protein targets to protect lean mass.';
@@ -74,7 +50,6 @@ function getExplanation(key: DomainKey, label: string): string {
         case 'Fair':      return "Smaller, more frequent meals help GLP-1's gastric emptying mechanism work better.";
         default:          return "Very low appetite may reflect early treatment. Note your injection timing and discuss with your prescriber if it persists.";
       }
-
     case 'food_noise':
       switch (label) {
         case 'Quiet':    return 'Food noise is minimal. GLP-1 is effectively quieting cravings. This is your prime window to build lasting habits.';
@@ -82,15 +57,13 @@ function getExplanation(key: DomainKey, label: string): string {
         case 'Moderate': return 'Moderate food noise may mean the medication is still titrating. Protein and fiber both help reduce cravings.';
         default:         return "High food noise can indicate the medication hasn't fully taken effect. Discuss with your prescriber if this persists.";
       }
-
     case 'sleep_quality':
       switch (label) {
-        case 'Excellent': return 'Excellent sleep this week. Quality rest amplifies GLP-1\'s metabolic effects and supports lean mass preservation.';
+        case 'Excellent': return "Excellent sleep this week. Quality rest amplifies GLP-1's metabolic effects and supports lean mass preservation.";
         case 'Good':      return 'Decent sleep with some disruption. Even small improvements like a consistent bedtime and cool room can meaningfully improve outcomes.';
         case 'Fair':      return 'Disrupted sleep reduces satiety hormone effectiveness. Activity targets have been eased to account for lower energy.';
-        default:          return "Poor sleep significantly affects weight loss and recovery. If side effects are disturbing your sleep, discuss timing adjustments with your prescriber.";
+        default:          return 'Poor sleep significantly affects weight loss and recovery. If side effects are disturbing your sleep, discuss timing adjustments with your prescriber.';
       }
-
     case 'activity_quality':
       switch (label) {
         case 'Excellent': return 'Strong activity week. Resistance training and consistent steps are the best way to preserve lean mass on GLP-1. Keep it up.';
@@ -98,7 +71,6 @@ function getExplanation(key: DomainKey, label: string): string {
         case 'Fair':      return 'Low activity this week. Targets have been adjusted down to stay achievable. Light walks are still beneficial.';
         default:          return 'Very low activity reported. Rest is appropriate if symptomatic, but try to include short walks when possible.';
       }
-
     case 'mental_health':
       switch (label) {
         case 'Stable':   return 'Good mental health this week. Stable mood supports consistent habits, the foundation of long-term GLP-1 success.';
@@ -109,190 +81,56 @@ function getExplanation(key: DomainKey, label: string): string {
   }
 }
 
-function scoreColor(score: number): string {
-  if (score >= 70) return '#27AE60';
-  if (score >= 50) return '#F6CB45';
-  if (score >= 30) return '#E8960C';
-  return '#E53E3E';
-}
-
-function mlToOz(ml: number) { return Math.round(ml / 29.5735); }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function GlassBorder({ r = 20, isDark = true }: { r?: number; isDark?: boolean }) {
-  const base = isDark ? 255 : 0;
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        borderRadius: r, borderWidth: 1,
-        borderTopColor: `rgba(${base},${base},${base},0.13)`,
-        borderLeftColor: `rgba(${base},${base},${base},0.08)`,
-        borderRightColor: `rgba(${base},${base},${base},0.03)`,
-        borderBottomColor: `rgba(${base},${base},${base},0.02)`,
-      }}
-    />
-  );
-}
-
-function GlassCard({ children, style, themeColors }: { children: React.ReactNode; style?: object; themeColors: AppColors }) {
-  return (
-    <View style={[{
-      borderRadius: 20, overflow: 'hidden',
-      backgroundColor: themeColors.surface,
-      shadowColor: themeColors.shadowColor, shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
-    }, style]}>
-      <BlurView intensity={78} tint={themeColors.blurTint} style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: themeColors.glassOverlay }]} />
-      <GlassBorder r={20} isDark={themeColors.isDark} />
-      {children}
-    </View>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function WeeklyCheckinResultScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 
   const params = useLocalSearchParams<{ scores: string; labels: string }>();
-
   const scores: Record<string, number> = useMemo(() => {
     try { return JSON.parse(params.scores ?? '{}'); } catch { return {}; }
   }, [params.scores]);
-
   const labels: Record<string, string> = useMemo(() => {
     try { return JSON.parse(params.labels ?? '{}'); } catch { return {}; }
   }, [params.labels]);
 
   const { profile } = useHealthData();
-  const { openAiChat } = useUiStore();
+  const history = useLogStore((st) => st.weeklyCheckins);
+
+  // Average of prior check-ins per domain (rows[0] is this week's, just saved).
+  const avgScores = useMemo(() => {
+    const out: Partial<Record<CheckinDomainKey, number>> = {};
+    for (const key of DOMAIN_ORDER) {
+      const prior = (history[key] ?? []).slice(1);
+      if (!prior.length) continue;
+      out[key] = Math.round(prior.reduce((a, r) => a + (r.score ?? 0), 0) / prior.length);
+    }
+    return out;
+  }, [history]);
 
   const showProviderBanner = (scores['mental_health'] ?? 100) < 30;
 
-  // ── Target adjustments ───────────────────────────────────────────────────────
-
-  const metricRows = useMemo(() => {
-    const base = computeBaseTargets(profile);
-    const baseWithActive = { ...base, activeCaloriesTarget: base.activeMinutes * 3 };
-
-    const checkinScores: CheckinScores = {
-      foodNoise:       scores['food_noise']       ?? null,
-      energyMood:      scores['energy_mood']      ?? null,
-      appetite:        scores['appetite']          ?? null,
-      giBurden:        scores['gi_burden']         ?? null,
-      activityQuality: scores['activity_quality'] ?? null,
-      sleepQuality:    scores['sleep_quality']    ?? null,
-      mentalHealth:    scores['mental_health']    ?? null,
-    };
-
-    const adjusted = applyCheckinAdjustments(baseWithActive, checkinScores);
-    const rows: Array<{
-      icon: React.ReactNode;
-      label: string;
-      before: string;
-      after: string;
-      delta: string;
-      increased: boolean;
-      reason: string;
-    }> = [];
-
-    const calDiff = adjusted.caloriesTarget - baseWithActive.caloriesTarget;
-    if (Math.abs(calDiff) >= 50) rows.push({
-      icon: <Flame size={18} color={colors.orange} />,
-      label: 'Daily Calories',
-      before: `${baseWithActive.caloriesTarget} cal`,
-      after:  `${adjusted.caloriesTarget} cal`,
-      delta:  `${calDiff > 0 ? '+' : ''}${calDiff} cal`,
-      increased: calDiff > 0,
-      reason: calDiff < 0
-        ? 'Calorie target eased to reduce the burden on your body this week.'
-        : 'Calorie target increased to support your energy needs.',
-    });
-
-    const stepsDiff = adjusted.steps - baseWithActive.steps;
-    if (Math.abs(stepsDiff) >= 200) rows.push({
-      icon: <Footprints size={18} color={GREEN} />,
-      label: 'Daily Steps',
-      before: `${baseWithActive.steps.toLocaleString()}`,
-      after:  `${adjusted.steps.toLocaleString()}`,
-      delta:  `${stepsDiff > 0 ? '+' : ''}${stepsDiff.toLocaleString()}`,
-      increased: stepsDiff > 0,
-      reason: stepsDiff > 0
-        ? 'Higher activity target reflects your strong weekly performance. Keep building.'
-        : 'Step target reduced to keep goals realistic given what you reported this week.',
-    });
-
-    const proteinDiff = adjusted.proteinG - baseWithActive.proteinG;
-    if (Math.abs(proteinDiff) >= 1) rows.push({
-      icon: <Utensils size={18} color={colors.orange} />,
-      label: 'Daily Protein',
-      before: `${baseWithActive.proteinG}g`,
-      after:  `${adjusted.proteinG}g`,
-      delta:  `${proteinDiff > 0 ? '+' : ''}${proteinDiff}g`,
-      increased: proteinDiff > 0,
-      reason: 'Protein is the single most important nutrient for preserving lean mass on GLP-1. Try eggs, Greek yogurt, or a protein shake.',
-    });
-
-    const waterDiffMl = adjusted.waterMl - baseWithActive.waterMl;
-    const waterDiffOz = mlToOz(Math.abs(waterDiffMl));
-    if (waterDiffOz >= 2) rows.push({
-      icon: <Droplet size={18} color={BLUE} />,
-      label: 'Daily Water',
-      before: `${mlToOz(baseWithActive.waterMl)} oz`,
-      after:  `${mlToOz(adjusted.waterMl)} oz`,
-      delta:  `${waterDiffMl > 0 ? '+' : '-'}${waterDiffOz} oz`,
-      increased: waterDiffMl > 0,
-      reason: 'Extra hydration helps manage GI symptoms and supports medication absorption. Sip steadily throughout the day.',
-    });
-
-    const carbsDiff = adjusted.carbsG - baseWithActive.carbsG;
-    if (Math.abs(carbsDiff) >= 3) rows.push({
-      icon: <Grip size={18} color="#F6CB45" />,
-      label: 'Daily Carbs',
-      before: `${baseWithActive.carbsG}g`,
-      after:  `${adjusted.carbsG}g`,
-      delta:  `${carbsDiff > 0 ? '+' : ''}${carbsDiff}g`,
-      increased: carbsDiff > 0,
-      reason: carbsDiff > 0
-        ? 'A modest carb boost provides steady fuel. Focus on complex sources: oats, sweet potato, whole grains.'
-        : 'Carb target reduced to lower GI load.',
-    });
-
-    return rows;
-  }, [profile, scores]);
-
-  const aiContext = useMemo(() =>
-    DOMAIN_ORDER
-      .filter((key) => scores[key] != null)
-      .map((key) => `${DOMAIN_META[key].label}: ${labels[key] ?? scores[key]}`)
-      .join(', '),
-    [scores, labels],
+  const hasAdjustments = useMemo(
+    () => buildAdjustmentRows(profile, scores).length > 0,
+    [profile, scores],
   );
 
-  const aiChips = [
-    'What should I focus on most this week?',
-    'How do my results compare to what is typical on GLP-1?',
-    'What can I do to improve my GI symptoms?',
-    'How does sleep affect my weight loss results?',
-  ];
+  function handleContinue() {
+    if (hasAdjustments) {
+      router.push({ pathname: '/entry/weekly-checkin-targets', params: { scores: params.scores } });
+    } else {
+      router.replace('/(tabs)');
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-
       {/* Header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        paddingHorizontal: 20, paddingTop: insets.top + 14, paddingBottom: 14,
-      }}>
+      <View style={[s.headerWrap, { paddingTop: insets.top + 14 }]}>
         <View style={s.pill}>
-          <CircleCheck size={13} color={colors.orange} style={{ marginRight: 4 }} />
           <Text style={s.pillText}>Check-In Complete</Text>
         </View>
       </View>
@@ -302,235 +140,89 @@ export default function WeeklyCheckinResultScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={s.screenTitle}>Your week, recapped</Text>
 
-        {/* Provider banner for high mental health concerns */}
+        {/* Provider banner */}
         {showProviderBanner && (
-          <View style={[s.card, {
-            marginBottom: 12, borderWidth: 1,
-            borderColor: 'rgba(246,203,69,0.4)',
-            backgroundColor: 'rgba(246,203,69,0.08)',
-            overflow: 'hidden',
-          }]}>
-            <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <AlertCircle size={22} color="#F6CB45" />
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.textPrimary, fontFamily: FF, lineHeight: 18 }}>
-                Your mental health responses suggest it may be helpful to speak with your healthcare provider this week.
-              </Text>
-            </View>
+          <View style={[s.banner, { backgroundColor: 'rgba(246,203,69,0.10)', borderColor: 'rgba(246,203,69,0.35)' }]}>
+            <AlertCircle size={22} color="#E8960C" />
+            <Text style={s.bannerText}>
+              Your mental health responses suggest it may be helpful to speak with your healthcare provider this week.
+            </Text>
           </View>
         )}
 
-        {/* ── THIS WEEK — domain status + explanations (FIRST) ─────────────── */}
-        <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
-          <View style={{ padding: 20 }}>
-            <Text style={s.sectionTitle}>THIS WEEK</Text>
+        {/* THIS WEEK vs your average */}
+        <Text style={s.sectionHeader}>How this week compared</Text>
+        {DOMAIN_ORDER.map((key) => {
+          const score = scores[key];
+          if (score == null) return null;
+          const meta = DOMAIN_BY_KEY[key];
+          const label = labels[key];
+          const color = scoreColor(score);
+          const avg = avgScores[key];
+          const explanation = getExplanation(key, label ?? '');
 
-            {DOMAIN_ORDER.map((key, i) => {
-              const score  = scores[key];
-              const label  = labels[key];
-              if (score == null) return null;
+          const bars: Bar[] = [
+            { label: 'This week', pct: score, display: String(score), color, bold: true },
+          ];
+          if (avg != null) bars.push({ label: 'Average', pct: avg, display: String(avg), color: w(0.3) });
 
-              const meta        = DOMAIN_META[key];
-              const color       = scoreColor(score);
-              const explanation = getExplanation(key, label ?? '');
-              const isLast      = i === DOMAIN_ORDER.length - 1;
+          const delta = avg != null ? score - avg : null;
 
-              return (
-                <View
-                  key={key}
-                  style={{
-                    paddingVertical: 14,
-                    borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                    borderBottomColor: w(0.07),
-                  }}
-                >
-                  {/* Label row */}
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center',
-                    justifyContent: 'space-between', marginBottom: 6,
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={{
-                        width: 28, height: 28, borderRadius: 14,
-                        backgroundColor: colors.orangeDim,
-                        alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <LucideIconByName name={meta.icon} size={15} color={colors.orange} />
-                      </View>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
-                        {meta.label}
-                      </Text>
+          return (
+            <SolidCard key={key} radius={24} style={{ marginBottom: 12 }}>
+              <View style={{ padding: 18 }}>
+                <View style={s.domainTop}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <View style={[s.assetWrap, { backgroundColor: meta.color + '1A' }]}>
+                      <Image source={CHECKIN_ASSETS[key]} style={s.assetImg} resizeMode="contain" accessibilityIgnoresInvertColors />
                     </View>
-                    <View style={{
-                      backgroundColor: `${color}22`,
-                      borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3,
-                    }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color, fontFamily: FF }}>
-                        {label}
-                      </Text>
-                    </View>
+                    <Text style={s.domainLabel}>{meta.label}</Text>
                   </View>
-
-                  {/* Explanation */}
-                  <Text style={{ fontSize: 15, color: w(0.5), fontFamily: FF, lineHeight: 18 }}>
-                    {explanation}
-                  </Text>
+                  <View style={[s.statusBadge, { backgroundColor: `${color}22` }]}>
+                    <Text style={[s.statusText, { color }]}>{label}</Text>
+                  </View>
                 </View>
-              );
-            })}
-          </View>
-        </GlassCard>
 
-        {/* ── ADJUSTMENTS ────────────────────────────────────────────────────── */}
-        {metricRows.length > 0 ? (
-          <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
-            <View style={{ padding: 20 }}>
-              <Text style={s.sectionTitle}>THIS WEEK'S ADJUSTMENTS</Text>
+                <BarGroup bars={bars} colors={colors} />
 
-              {metricRows.map((row, i) => {
-                const arrowColor = row.increased ? colors.orange : BLUE;
-                const isLast     = i === metricRows.length - 1;
-                return (
-                  <View
-                    key={row.label}
-                    style={{
-                      paddingVertical: 14,
-                      borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                      borderBottomColor: w(0.07),
-                    }}
-                  >
-                    <View style={{
-                      flexDirection: 'row', alignItems: 'center',
-                      justifyContent: 'space-between', marginBottom: 8,
-                    }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        {row.icon}
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
-                          {row.label}
-                        </Text>
-                      </View>
-                      <View style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 4,
-                        paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20,
-                        backgroundColor: row.increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)',
-                      }}>
-                        {row.increased ? <ArrowUp
-                          size={11}
-                          color={arrowColor}
-                        /> : <ArrowDown
-                          size={11}
-                          color={arrowColor}
-                        />}
-                        <Text style={{ fontSize: 14, fontWeight: '800', color: arrowColor, fontFamily: FF }}>
-                          {row.delta}
-                        </Text>
-                      </View>
-                    </View>
+                {/* Trend vs average */}
+                <View style={s.trendRow}>
+                  {delta == null ? (
+                    <Text style={[s.trendText, { color: w(0.4) }]}>First check-in — no past weeks to compare yet.</Text>
+                  ) : delta === 0 ? (
+                    <>
+                      <Minus size={13} color={w(0.4)} />
+                      <Text style={[s.trendText, { color: w(0.4) }]}>Right in line with your average.</Text>
+                    </>
+                  ) : delta > 0 ? (
+                    <>
+                      <ArrowUp size={13} color={GREEN} />
+                      <Text style={[s.trendText, { color: GREEN }]}>{delta} better than your average.</Text>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown size={13} color="#E8960C" />
+                      <Text style={[s.trendText, { color: '#E8960C' }]}>{Math.abs(delta)} below your average.</Text>
+                    </>
+                  )}
+                </View>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 20, fontWeight: '300', color: w(0.35), fontFamily: FF }}>
-                        {row.before}
-                      </Text>
-                      <ArrowRight size={14} color={w(0.25)} />
-                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>
-                        {row.after}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF, marginTop: 5, lineHeight: 17 }}>
-                      {row.reason}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </GlassCard>
-        ) : (
-          <GlassCard style={{ marginBottom: 14 }} themeColors={colors}>
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <CircleCheck size={28} color={GREEN} style={{ marginBottom: 8 }} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>
-                No adjustments needed
-              </Text>
-              <Text style={{ fontSize: 15, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
-                Your scores are in a healthy range. Continue with your regular targets.
-              </Text>
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ── AI COACH ────────────────────────────────────────────────────────── */}
-        <GlassCard style={{ borderWidth: 1, borderColor: 'rgba(255,116,42,0.15)' }} themeColors={colors}>
-          <View style={{ padding: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <View style={{
-                width: 28, height: 28, borderRadius: 14,
-                backgroundColor: colors.orangeDim,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Sparkles size={16} color={colors.orange} />
+                <Text style={s.explanation}>{explanation}</Text>
               </View>
-              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.orange, fontFamily: FF, letterSpacing: 1.5 }}>
-                AI COACH
-              </Text>
-            </View>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.2, marginTop: 6, marginBottom: 4 }}>
-              Questions about your results?
-            </Text>
-            <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF, lineHeight: 17, marginBottom: 16 }}>
-              Ask why your targets changed, what to focus on, or anything about this week.
-            </Text>
-
-            <View style={{ gap: 8, marginBottom: 14 }}>
-              {aiChips.map((chip) => (
-                <TouchableOpacity
-                  key={chip}
-                  activeOpacity={0.75}
-                  style={s.chip}
-                  onPress={() => openAiChat({
-                    type: 'focus',
-                    contextLabel: 'Weekly Check-In',
-                    contextValue: aiContext,
-                    seedMessage: chip,
-                    chips: JSON.stringify(aiChips),
-                  })}
-                >
-                  <Text style={s.chipText}>{chip}</Text>
-                  <ArrowRight size={13} color={colors.orange} style={{ marginLeft: 2 }} />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={s.askBtn}
-              onPress={() => openAiChat({
-                type: 'focus',
-                contextLabel: 'Weekly Check-In',
-                contextValue: aiContext,
-                chips: JSON.stringify(aiChips),
-              })}
-            >
-              <MessageCircle size={18} color="#FFF" />
-              <Text style={s.askBtnText}>Ask anything</Text>
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
-
+            </SolidCard>
+          );
+        })}
       </ScrollView>
 
-      {/* Done CTA */}
-      <View style={{
-        paddingHorizontal: 20, paddingTop: 12,
-        paddingBottom: insets.bottom + 16,
-        backgroundColor: colors.bg,
-        borderTopWidth: 1,
-        borderTopColor: w(0.06),
-      }}>
-        <TouchableOpacity style={s.doneBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.8}>
-          <Text style={s.doneBtnText}>Done</Text>
+      {/* CTA */}
+      <View style={[s.ctaWrap, { paddingBottom: insets.bottom + 16, borderTopColor: w(0.06) }]}>
+        <TouchableOpacity style={s.doneBtn} onPress={handleContinue} activeOpacity={0.85}>
+          <Text style={s.doneBtnText}>{hasAdjustments ? 'See your new targets' : 'Done'}</Text>
+          {hasAdjustments && <ArrowRight size={18} color="#FFF" style={{ marginLeft: 6 }} />}
         </TouchableOpacity>
       </View>
-
     </View>
   );
 }
@@ -538,50 +230,33 @@ export default function WeeklyCheckinResultScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const w = (a: number) => (c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return StyleSheet.create({
-    pill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.orangeDim,
-      borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
-    },
+    headerWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 10 },
+    pill: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.orangeDim, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
     pillText: { fontSize: 15, fontWeight: '700', color: c.orange, fontFamily: FF },
 
-    card: {
-      borderRadius: 20,
-      shadowColor: c.shadowColor, shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
-    },
+    screenTitle: { fontSize: 28, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.6, textAlign: 'center', marginTop: 6, marginBottom: 20 },
 
-    sectionTitle: {
-      fontSize: 12, fontWeight: '800', color: w(0.35),
-      fontFamily: FF, letterSpacing: 1.5, marginBottom: 2,
-    },
+    sectionHeader: { fontSize: 13, fontWeight: '800', color: w(0.4), fontFamily: FF, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12, marginLeft: 4 },
 
-    chip: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 14, paddingVertical: 11,
-      borderRadius: 14, borderWidth: 1,
-      borderColor: 'rgba(255,116,42,0.25)',
-      backgroundColor: 'rgba(255,116,42,0.07)',
-    },
-    chipText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
+    banner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 18, padding: 16, marginBottom: 18 },
+    bannerText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary, fontFamily: FF, lineHeight: 19 },
 
-    askBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 8, height: 48, borderRadius: 24, backgroundColor: c.orange,
-      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-    },
-    askBtnText: { fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF },
+    domainTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+    assetWrap: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    assetImg: { width: 38, height: 38 },
+    domainLabel: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.3, flexShrink: 1 },
+    statusBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+    statusText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
 
-    doneBtn: {
-      backgroundColor: c.orange, borderRadius: 28, paddingVertical: 17,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: c.orange, shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
-    },
+    trendRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 12 },
+    trendText: { fontSize: 13.5, fontWeight: '600', fontFamily: FF },
+
+    explanation: { fontSize: 14.5, color: w(0.5), fontFamily: FF, lineHeight: 19, marginTop: 12 },
+
+    ctaWrap: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth },
+    doneBtn: { flexDirection: 'row', backgroundColor: c.orange, borderRadius: 999, paddingVertical: 17, alignItems: 'center', justifyContent: 'center', shadowColor: c.orange, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 10 },
     doneBtnText: { fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
   });
 };

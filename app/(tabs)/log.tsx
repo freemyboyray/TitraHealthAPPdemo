@@ -1,12 +1,12 @@
-import { Maximize2, XCircle, Zap, TrendingUp, ChevronRight, ChevronDown, Check, Frown, MessageCircle, Heart, Syringe, Pill } from 'lucide-react-native';
+import { Maximize2, XCircle, Zap, TrendingUp, ChevronRight, ChevronLeft, ChevronDown, Check, Frown, MessageCircle, Heart, Syringe, Pill } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
-import Svg, { Path, Circle, Line, Rect, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Line, Rect, Text as SvgText, Defs, LinearGradient, Stop, ClipPath } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, LayoutAnimation, LayoutChangeEvent, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/ui/gradient-background';
@@ -39,12 +39,14 @@ import { LeanMassPreservationCard } from '@/components/lean-mass-preservation-ca
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { LifestyleInsightsCard } from '@/components/lifestyle-insights-card';
 import { CategoryRow } from '@/components/insights/category-row';
+import { LifestyleEntryCard } from '@/components/insights/lifestyle-entry-card';
+import { SUMMARY_METRICS, buildSeries, buildFoodByDate, buildActivityByDate } from '@/lib/metric-history';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
 import { computeFatToLeanRatio, bodyCompTrendData, computeLeanPreservation } from '@/lib/body-composition';
 import { computeClinicalBenchmark } from '@/stores/insights-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Reanimated, { useAnimatedReaction, runOnJS as reanimatedRunOnJS, FadeIn } from 'react-native-reanimated';
+import Reanimated, { useAnimatedReaction, runOnJS as reanimatedRunOnJS, FadeIn, useSharedValue, useAnimatedStyle, interpolate, withTiming, Easing, Extrapolation } from 'react-native-reanimated';
 import { useChartScrub } from '@/hooks/useChartScrub';
 import { ChartScrubOverlay } from '@/components/chart-scrub-overlay';
 import { smoothPath, niceYTicks } from '@/lib/chart-utils';
@@ -112,7 +114,7 @@ function fmtSleep(min: number): string { return `${Math.floor(min / 60)}h ${min 
 function fmtWorkoutType(raw: string): string {
   return raw.replace('HKWorkoutActivityType', '').replace(/([A-Z])/g, ' $1').trim();
 }
-const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
+export const hmStatusStyle: Record<HMStatus, { bg: string; text: string }> = {
   good:     { bg: 'rgba(39,174,96,0.15)',   text: '#27AE60' },
   normal:   { bg: 'rgba(91,139,245,0.15)',  text: '#7BA3F7' },
   low:      { bg: 'rgba(243,156,18,0.15)',  text: '#F39C12' },
@@ -145,7 +147,7 @@ function hmGaugePos(id: string, rawVal: number | null): number | null {
 const GAUGE_TRACK_H = 76;
 const GAUGE_TRACK_W = 5;
 const GAUGE_THUMB_D = 14;
-function GaugeBar({ position, color }: { position: number | null; color: string }) {
+export function GaugeBar({ position, color }: { position: number | null; color: string }) {
   const availH = GAUGE_TRACK_H - GAUGE_THUMB_D;
   const thumbTop = position != null ? (1 - position) * availH : null;
   const fillH    = position != null ? GAUGE_TRACK_H - (thumbTop! + GAUGE_THUMB_D / 2) : 0;
@@ -286,12 +288,12 @@ function nextInjectionLabel(injectionDate: string | null | undefined, freqDays =
   return `In ${daysLeft} Days`;
 }
 
-function computeBMI(weightLbs: number, heightInches: number): number {
+export function computeBMI(weightLbs: number, heightInches: number): number {
   if (!heightInches) return 0;
   return Math.round((weightLbs / (heightInches * heightInches)) * 703 * 10) / 10;
 }
 
-function goalProgress(start: number, current: number, goal: number): number {
+export function goalProgress(start: number, current: number, goal: number): number {
   if (start <= goal) return 0;
   return Math.max(0, Math.min(100, Math.round(((start - current) / (start - goal)) * 100)));
 }
@@ -303,20 +305,68 @@ function last7DayLabels(): string[] {
   return Array.from({ length: 7 }, (_, i) => days[(todayIdx - 6 + i + 7) % 7]);
 }
 
-type WeightPoint = { weight: number; date: string };
+// `anchor` marks a point that lives just *before* the visible window. It exists
+// only so the trend line can connect back to prior history (drawn off the left
+// edge); it is never rendered as a dot and carries no x-axis meaning.
+// `projected` marks a forward-looking point (the "to goal" view) — rendered as a
+// dashed continuation, never a dot.
+export type WeightPoint = { weight: number; date: string; anchor?: boolean; projected?: boolean };
 
-function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '90D' | 'MAX'): WeightPoint[] {
+export type WeightPeriod = '7D' | '14D' | '30D' | '90D' | 'MAX' | 'GOAL';
+
+export function weightDataForPeriod(logs: WeightLog[], period: '7D' | '14D' | '30D' | '90D' | 'MAX'): WeightPoint[] {
+  const sorted = [...logs].sort((a, b) => a.logged_at.localeCompare(b.logged_at));
   if (period === 'MAX') {
-    return [...logs]
-      .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
-      .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
+    return sorted.map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
   }
   const days = { '7D': 7, '14D': 14, '30D': 30, '90D': 90 }[period];
   const since = new Date(Date.now() - days * 86400000).toISOString();
-  return logs
-    .filter(l => l.logged_at >= since)
+  const inWindow = sorted.filter(l => l.logged_at >= since);
+  const points: WeightPoint[] = inWindow.map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
+  // If the window has data but the most recent prior reading falls outside it,
+  // prepend that reading as an anchor so the line connects to history instead of
+  // showing a lone dot. Empty windows stay empty (no anchor) — a window with no
+  // recent logs should still read as "no recent data," per the chart's contract.
+  if (points.length > 0) {
+    const before = sorted.filter(l => l.logged_at < since);
+    if (before.length > 0) {
+      const a = before[before.length - 1];
+      points.unshift({ weight: a.weight_lbs, date: a.logged_at, anchor: true });
+    }
+  }
+  return points;
+}
+
+/**
+ * The "to goal" dataset: all actual weigh-ins (solid) followed by the projected
+ * sigmoid trajectory forward (dashed), spanning from the first log until roughly
+ * the projected goal date. The projection curve is anchored to program start
+ * (week 0 = start weight), so week → date maps as now + (week − programWeek)·7d.
+ * Returns just the actuals when there's no projection or no future to show.
+ */
+export function buildGoalDataset(
+  logs: WeightLog[],
+  projection: WeightProjection | null,
+  programWeek: number,
+): WeightPoint[] {
+  const actual: WeightPoint[] = [...logs]
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at))
     .map(l => ({ weight: l.weight_lbs, date: l.logged_at }));
+  if (!projection || !actual.length) return actual;
+
+  const now = Date.now();
+  const goalT = new Date(projection.projectedGoalDate + 'T00:00:00').getTime();
+  const projected: WeightPoint[] = projection.curve
+    .filter(c => c.week > programWeek)
+    .map(c => ({
+      weight: c.weightLbs,
+      date: new Date(now + (c.week - programWeek) * 7 * 86400000).toISOString(),
+      projected: true,
+    }))
+    // Stop at the projected goal date horizon (don't trail off into the plateau).
+    .filter(p => new Date(p.date).getTime() <= goalT + 7 * 86400000);
+
+  return [...actual, ...projected];
 }
 
 // smoothPath and niceYTicks imported from @/lib/chart-utils
@@ -1788,69 +1838,77 @@ function MedLevelChartCard({ chartData, daysSince, dayLabels, glp1Type, medicati
   );
 }
 
-// ─── Latest injection entry-point (taps through to /injection-history) ──────
+// ─── Past Doses card (latest dose summary, taps through to full history) ──────
 
-function LatestInjectionEntry({
-  lastInj, lastSite, rotateTo, lastDosage, nextInjLabel, lastDaysSince, oral,
-}: {
-  lastInj: InjectionLog | null;
-  lastSite: string | null;
-  rotateTo: string;
-  lastDosage: string;
-  nextInjLabel: string;
-  lastDaysSince: number;
+const PAST_DOSES_ART = require('@/assets/images/cards/past-doses.png');
+
+function daysSinceDate(dateStr: string): number {
+  const ms = new Date(dateStr + 'T00:00:00').getTime();
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  return Math.floor((todayMs - ms) / 86400000);
+}
+
+function doseSinceLabel(dateStr: string): string {
+  const d = daysSinceDate(dateStr);
+  if (d <= 0) return 'Today';
+  if (d === 1) return 'Yesterday';
+  return `${d} days ago`;
+}
+
+function PastDosesCard({ injections, oral }: {
+  injections: InjectionLog[];
   oral: boolean;
 }) {
   const { colors } = useAppTheme();
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const noun = oral ? 'Dose' : 'Injection';
 
-  const sinceLabel = !lastInj
-    ? null
-    : lastDaysSince <= 1
-      ? 'Today'
-      : lastDaysSince === 2
-        ? 'Yesterday'
-        : `${lastDaysSince - 1} days ago`;
+  const latest = injections[0] ?? null;
+  const lastSite = latest?.site ?? null;
+  const lastDosage = latest ? `${latest.dose_mg}mg` : '-';
+  const rotateTo = nextSite(lastSite);
+  const sinceLabel = latest ? doseSinceLabel(latest.injection_date) : null;
 
   return (
     <Pressable
       onPress={() => router.push('/injection-history' as any)}
       style={({ pressed }) => [{
-        borderRadius: 20,
+        borderRadius: 24,
         marginBottom: 24,
+        minHeight: 168,
+        justifyContent: 'center',
         backgroundColor: colors.surface,
         borderWidth: 0.5,
         borderColor: colors.border,
-        padding: 18,
-        opacity: pressed ? 0.85 : 1,
+        padding: 22,
+        overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1,
         ...(colors.isDark
-          ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 4 }
-          : { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3 }),
+          ? { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 4 }
+          : { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 }),
       }]}
-      accessibilityLabel={`Latest ${noun.toLowerCase()}, tap to view history`}
       accessibilityRole="button"
+      accessibilityLabel={latest ? `Past doses, latest ${noun.toLowerCase()} ${lastDosage}, tap to view history` : 'Past doses, tap to view history'}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {oral ? <Pill size={14} color={colors.orange} /> : <Syringe size={14} color={colors.orange} />}
-          <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.2 }}>
-            Latest {noun}
-          </Text>
-        </View>
-        <IconSymbol name="chevron.right" size={16} color={w(0.35)} />
+      {/* Illustration bleeds off the top-right corner */}
+      <Image source={PAST_DOSES_ART} style={{ position: 'absolute', top: -8, right: -10, width: 176, height: 176 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: latest ? 10 : 0, paddingRight: 132 }}>
+        <Text style={{ fontSize: 19, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', letterSpacing: -0.3 }}>
+          Past Doses
+        </Text>
       </View>
 
-      {lastInj ? (
+      {latest ? (
         <>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginBottom: 4 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System', marginBottom: 4 }}>
             {!oral && lastSite ? `${lastSite} · ${lastDosage}` : lastDosage}
           </Text>
-          <Text style={{ fontSize: 14, color: w(0.55), fontFamily: 'System' }}>
-            {sinceLabel ? `${sinceLabel} · ` : ''}Next {oral ? 'dose' : 'injection'} {nextInjLabel.toLowerCase()}
-          </Text>
+          {sinceLabel && (
+            <Text style={{ fontSize: 14, color: w(0.55), fontFamily: 'System' }}>{sinceLabel}</Text>
+          )}
           {!oral && lastSite && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: w(0.08) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <IconSymbol name="arrow.triangle.2.circlepath" size={13} color={w(0.5)} />
               <Text style={{ fontSize: 13, color: w(0.55), fontFamily: 'System' }}>
                 Rotate to <Text style={{ color: colors.orange, fontWeight: '700' }}>{rotateTo}</Text>
@@ -1859,10 +1917,18 @@ function LatestInjectionEntry({
           )}
         </>
       ) : (
-        <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System' }}>
-          No {noun.toLowerCase()}s logged yet. Tap to view history.
+        <Text style={{ fontSize: 14, color: w(0.45), fontFamily: 'System', marginTop: 8 }}>
+          No {noun.toLowerCase()}s logged yet.
         </Text>
       )}
+
+      {/* View-full-history affordance (the whole card is tappable) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: w(0.08) }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.orange, fontFamily: 'System', letterSpacing: 0.2 }}>
+          View Full History
+        </Text>
+        <IconSymbol name="chevron.right" size={14} color={colors.orange} />
+      </View>
     </Pressable>
   );
 }
@@ -1875,23 +1941,24 @@ const PERIOD_SUBTITLES: Record<string, string> = {
   '7D': 'Last 7 days', '14D': 'Last 14 days', '30D': 'Last 30 days', '90D': 'Last 3 months', 'MAX': 'All time',
 };
 
-const WML = 52; // margin left (Y-axis labels)
-const WMR = 12; // margin right
-const WMT = 10; // margin top
+const WML = 34; // margin left (Y-axis labels live here, outside the plot)
+const WMR = 8;  // margin right
+const WMT = 16; // margin top (headroom so the top Y-axis label isn't clipped)
 const WMB = 28; // margin bottom (X-axis labels)
 
-function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false, activePeriod: activePeriodProp, onPeriodChange }: {
+export function WeightChartCard({ datasets, currentWeight, startWeight, goalWeight, chartHeight = WEIGHT_CHART_HEIGHT, inline = false, activePeriod: activePeriodProp, onPeriodChange }: {
   datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
   startWeight?: number | null;
+  goalWeight?: number | null;
   chartHeight?: number;
   inline?: boolean;
-  activePeriod?: '7D' | '14D' | '30D' | '90D' | 'MAX';
-  onPeriodChange?: (p: '7D' | '14D' | '30D' | '90D' | 'MAX') => void;
+  activePeriod?: WeightPeriod;
+  onPeriodChange?: (p: WeightPeriod) => void;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const [localPeriod, setLocalPeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
+  const [localPeriod, setLocalPeriod] = useState<WeightPeriod>('30D');
   const activePeriod = activePeriodProp ?? localPeriod;
   const setActivePeriod = onPeriodChange ?? setLocalPeriod;
   const [svgWidth, setSvgWidth] = useState(0);
@@ -1918,8 +1985,13 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
   // axis. The previous index-based mapping stretched 2 close-together points
   // across the full plot width, making the chart look like a 30-day trend.
   const periodDays = { '7D': 7, '14D': 14, '30D': 30, '90D': 90 }[activePeriod as '7D' | '14D' | '30D' | '90D'] ?? null;
-  const tEndChart = Date.now();
-  const tStartChart = activePeriod === 'MAX'
+  // GOAL spans first log → projected goal date (future); MAX spans first→last log;
+  // fixed windows span [now − N days, now].
+  const spanFromFirst = activePeriod === 'MAX' || activePeriod === 'GOAL';
+  const tEndChart = activePeriod === 'GOAL' && hasData
+    ? new Date(data[data.length - 1].date).getTime()
+    : Date.now();
+  const tStartChart = spanFromFirst
     ? (hasData ? new Date(data[0].date).getTime() : tEndChart - 30 * 86400000)
     : tEndChart - (periodDays ?? 30) * 86400000;
   const tRangeChart = Math.max(tEndChart - tStartChart, 1);
@@ -1928,21 +2000,41 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
     if (!data || data.length === 0) return WML;
     if (data.length === 1) return WML + plotW / 2;
     const t = new Date(data[i].date).getTime();
-    const frac = Math.max(0, Math.min(1, (t - tStartChart) / tRangeChart));
+    // Don't clamp the low end: an anchor point sits before the window and must
+    // map to a negative (off-screen-left) x so the line enters the plot at the
+    // geometrically correct height. The SVG clips the off-screen portion.
+    const frac = Math.min(1, (t - tStartChart) / tRangeChart);
     return WML + plotW * frac;
   };
   const toY = (w: number) => WMT + plotH - ((w - minW) / yRange) * plotH;
 
   const points = hasData ? data.map((d, i) => ({ x: toX(i), y: toY(d.weight) })) : [];
 
-  const linePath = smoothPath(points);
-  const areaPath = points.length >= 2
-    ? `${linePath} L ${points[points.length - 1].x} ${WMT + plotH} L ${points[0].x} ${WMT + plotH} Z`
+  // Split actual (solid) from projected (dashed). The two paths share the last
+  // actual point so they join seamlessly. For non-GOAL data nothing is projected,
+  // so the solid path is the whole line and the projected path is empty.
+  const lastActualIdx = hasData
+    ? Math.max(0, data.reduce((acc, d, i) => (d.projected ? acc : i), 0))
+    : 0;
+  const solidPoints = points.slice(0, lastActualIdx + 1);
+  const projPoints = points.slice(lastActualIdx);
+
+  const linePath = smoothPath(solidPoints);
+  const projPath = projPoints.length >= 2 ? smoothPath(projPoints) : '';
+  const areaPath = solidPoints.length >= 2
+    ? `${linePath} L ${solidPoints[solidPoints.length - 1].x} ${WMT + plotH} L ${solidPoints[0].x} ${WMT + plotH} Z`
     : '';
 
-  const yTicks = hasData ? niceYTicks(rawMin, rawMax) : [];
-  const xLabels = hasData && svgWidth > 0 ? xAxisLabels(data, activePeriod, plotW) : [];
-  const lastPt = points[points.length - 1];
+  // Keep only ticks that fall inside the plot, so the top label can't render
+  // half-clipped above the chart.
+  const yTicks = hasData ? niceYTicks(rawMin, rawMax).filter(t => t >= minW && t <= maxW) : [];
+  const xLabels = hasData && svgWidth > 0
+    ? xAxisLabels(data, activePeriod, plotW, spanFromFirst ? tStartChart : undefined, activePeriod === 'GOAL' ? tEndChart : undefined)
+    : [];
+  // The "current" marker sits on the last *actual* point, not the projected tip.
+  const lastPt = points[lastActualIdx];
+  // Goal reference line (only when a goal weight is in view).
+  const goalLineY = goalWeight != null && goalWeight >= minW && goalWeight <= maxW ? toY(goalWeight) : null;
 
   const displayWeight = currentWeight ?? (hasData ? data[data.length - 1].weight : null);
   const PERIODS = ['7D', '14D', '30D', '90D', 'MAX'] as const;
@@ -2001,6 +2093,12 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
                     <Stop offset="0" stopColor={colors.orange} stopOpacity="0.28" />
                     <Stop offset="1" stopColor={colors.orange} stopOpacity="0" />
                   </LinearGradient>
+                  {/* Confine the fill + line to the plot so the off-window anchor
+                      (which extends past the left edge) never paints over the
+                      Y-axis labels sitting in the left margin. */}
+                  <ClipPath id="plotClip">
+                    <Rect x={WML} y={WMT} width={plotW} height={plotH} />
+                  </ClipPath>
                 </Defs>
 
                 {/* Y-axis gridlines + labels */}
@@ -2043,22 +2141,40 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
                   );
                 })}
 
+                {/* Goal weight reference line */}
+                {goalLineY != null && (
+                  <>
+                    <Line
+                      x1={WML} y1={goalLineY} x2={WML + plotW} y2={goalLineY}
+                      stroke={colors.isDark ? 'rgba(39,174,96,0.55)' : 'rgba(39,174,96,0.7)'} strokeWidth={1} strokeDasharray="5,4"
+                    />
+                    <SvgText x={WML + plotW} y={goalLineY - 4} fontSize={10} fill={colors.isDark ? 'rgba(39,174,96,0.85)' : '#1E8E4E'} textAnchor="end" fontFamily="System">
+                      Goal
+                    </SvgText>
+                  </>
+                )}
+
                 {/* Area fill */}
                 {areaPath ? (
-                  <Path d={areaPath} fill="url(#areaGrad)" />
+                  <Path d={areaPath} fill="url(#areaGrad)" clipPath="url(#plotClip)" />
                 ) : null}
 
-                {/* Line */}
+                {/* Line (actual, solid) */}
                 {linePath ? (
-                  <Path d={linePath} stroke={colors.orange} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d={linePath} stroke={colors.orange} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#plotClip)" />
                 ) : null}
 
-                {/* Data dots */}
+                {/* Projected continuation (dashed) */}
+                {projPath ? (
+                  <Path d={projPath} stroke={colors.orange} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5,5" opacity={0.65} clipPath="url(#plotClip)" />
+                ) : null}
+
+                {/* Data dots (skip the off-window anchor and projected points) */}
                 {points.slice(0, -1).map((pt, i) => (
-                  <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={4} fill={colors.orange} />
+                  data[i]?.anchor || data[i]?.projected ? null : <Circle key={`dot-${i}`} cx={pt.x} cy={pt.y} r={4} fill={colors.orange} />
                 ))}
 
-                {/* Last point — double ring */}
+                {/* Current (last actual) point — double ring */}
                 {lastPt && (
                   <>
                     <Circle cx={lastPt.x} cy={lastPt.y} r={9} fill="rgba(255,116,42,0.2)" />
@@ -2081,14 +2197,6 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
         </View>
       </GestureDetector>
 
-      {hasData && svgWidth > 0 && (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={s.progGoalLabel}>START ({startWeight ?? data[0].weight} lbs)</Text>
-          <Text style={[s.progGoalLabel, { color: colors.orange, fontWeight: '700' }]}>
-            CURRENT ({currentWeight ?? data[data.length - 1].weight} lbs)
-          </Text>
-        </View>
-      )}
     </>
   );
 
@@ -2107,66 +2215,225 @@ function WeightChartCard({ datasets, currentWeight, startWeight, chartHeight = W
   );
 }
 
+// Hardcoded, plain-language explanation of what the Weight Journey graph shows
+// (no em dashes). Shown in the expanded detail view.
+const WEIGHT_ABOUT =
+  'Your weight over time. Each dot is a weigh-in; the line shows which way you’re trending. Use the time range to zoom from the past week out to your whole journey.';
+
+// ─── Weight detail (expanded) view ────────────────────────────────────────────
+// The content shown when the Progress weight card expands to full screen. Lives
+// here so it can reuse WeightChartCard + the card's already-computed props.
+
+function WeightDetailView({
+  datasets, projection, currentWeight, startWeight, goalWeight, toGoalPct, topInset, onClose,
+}: {
+  datasets: Record<string, WeightPoint[]>;
+  projection: WeightProjection | null;
+  currentWeight: number | null;
+  startWeight?: number | null;
+  goalWeight?: number | null;
+  toGoalPct?: number | null;
+  topInset: number;
+  onClose: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const [activePeriod, setActivePeriod] = useState<WeightPeriod>('30D');
+
+  const periods: WeightPeriod[] = ['7D', '14D', '30D', '90D', 'MAX'];
+  const goalDateLabel = projection
+    ? new Date(projection.projectedGoalDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: topInset }}>
+      {/* Nav bar — mirrors the Lifestyle detail pages (back chevron + centered title) */}
+      <View style={s.detailHeader}>
+        <Pressable onPress={onClose} hitSlop={12} style={s.detailBack} accessibilityRole="button" accessibilityLabel="Back">
+          <ChevronLeft size={24} color={colors.textPrimary} />
+        </Pressable>
+        <Text style={s.detailTitle} numberOfLines={1}>Weight Journey</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
+        {/* Headline */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginBottom: 16 }}>
+          <Text style={{ fontSize: 40, fontWeight: '800', color: colors.orange, letterSpacing: -1.2, fontFamily: 'System' }}>
+            {currentWeight != null ? `${currentWeight}` : '-'}
+          </Text>
+          <Text style={{ fontSize: 17, fontWeight: '600', color: colors.textSecondary, marginBottom: 7, fontFamily: 'System' }}>lbs</Text>
+        </View>
+
+        {/* Period selector */}
+        <View style={s.progPeriodRow}>
+          {periods.map((p) => (
+            <TouchableOpacity
+              key={p}
+              style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
+              onPress={() => setActivePeriod(p)}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel={`${p === 'MAX' ? 'All time' : p} period${activePeriod === p ? ', selected' : ''}`}
+              accessibilityState={{ selected: activePeriod === p }}
+            >
+              <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Main chart */}
+        <WeightChartCard
+          datasets={datasets}
+          currentWeight={currentWeight}
+          startWeight={startWeight}
+          goalWeight={goalWeight}
+          chartHeight={260}
+          inline
+          activePeriod={activePeriod}
+          onPeriodChange={setActivePeriod}
+        />
+
+        {/* Progress toward goal — right below the graph */}
+        {toGoalPct != null && (
+          <View style={{ marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>
+                {toGoalPct}% to goal{goalWeight != null ? ` · ${goalWeight} lbs` : ''}
+              </Text>
+              {goalDateLabel && <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System' }}>Est. {goalDateLabel}</Text>}
+            </View>
+            <View style={s.progBar}><View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} /></View>
+          </View>
+        )}
+
+        {/* Short description */}
+        <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.58)', lineHeight: 20, marginTop: 18, fontFamily: 'System' }}>
+          {WEIGHT_ABOUT}
+        </Text>
+
+        {/* Second graph: projection to goal */}
+        {projection && (
+          <View style={{ marginTop: 24 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3, marginBottom: 2, fontFamily: 'System' }}>
+              Projected path to goal
+            </Text>
+            {goalDateLabel && (
+              <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 10, fontFamily: 'System' }}>Estimated {goalDateLabel}</Text>
+            )}
+            <WeightChartCard
+              datasets={datasets}
+              currentWeight={currentWeight}
+              startWeight={startWeight}
+              goalWeight={goalWeight}
+              chartHeight={210}
+              inline
+              activePeriod="GOAL"
+            />
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
 // ─── Weight projection card (tap-to-expand) ───────────────────────────────────
 
 function WeightProjectionCard({
-  projection, datasets, currentWeight, startWeight, programWeek,
+  projection, datasets, currentWeight, startWeight, goalWeight, toGoalPct, programWeek,
 }: {
   projection: WeightProjection | null;
   datasets: Record<string, WeightPoint[]>;
   currentWeight: number | null;
   startWeight?: number | null;
+  goalWeight?: number | null;
+  toGoalPct?: number | null;
   programWeek?: number;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const [expanded, setExpanded] = useState(false);
-  const [activePeriod, setActivePeriod] = useState<'7D' | '14D' | '30D' | '90D' | 'MAX'>('30D');
-  const { height: screenHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const [activePeriod, setActivePeriod] = useState<WeightPeriod>('30D');
   const { openAiChat } = useUiStore();
 
-  // Drag-to-dismiss + slide-in/out
-  const sheetY = useRef(new Animated.Value(0)).current;
-  const openSheet = useCallback(() => {
-    sheetY.setValue(screenHeight);
-    setExpanded(true);
-  }, [screenHeight, sheetY]);
-  const closeSheet = () => {
-    Animated.timing(sheetY, { toValue: screenHeight, duration: 240, useNativeDriver: true }).start(() => {
-      setExpanded(false);
+  // ── Expand-in-place ────────────────────────────────────────────────────────
+  // Tapping the card morphs it from its on-screen rect up to full screen (no
+  // navigation/slide). We measure the card, then animate a Reanimated overlay.
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const cardRef = useRef<View>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [rect, setRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const progress = useSharedValue(0);
+
+  const openDetail = () => {
+    const node = cardRef.current;
+    if (!node) { setExpanded(true); return; }
+    node.measureInWindow((x, y, width, height) => {
+      setRect({ x, y, width, height });
+      setExpanded(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     });
   };
   useEffect(() => {
-    if (expanded) {
-      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, bounciness: 4, speed: 14 }).start();
-    }
-  }, [expanded, sheetY]);
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 6 && Math.abs(gs.dy) > Math.abs(gs.dx),
-      onPanResponderMove: (_, gs) => { if (gs.dy > 0) sheetY.setValue(gs.dy); },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dy > 80 || gs.vy > 0.5) {
-          closeSheet();
-        } else {
-          Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
-        }
-      },
-    })
-  ).current;
+    if (expanded) progress.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+  }, [expanded, progress]);
+  const closeDetail = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    progress.value = withTiming(0, { duration: 240, easing: Easing.in(Easing.cubic) }, (finished) => {
+      if (finished) reanimatedRunOnJS(setExpanded)(false);
+    });
+  };
+
+  const morphStyle = useAnimatedStyle(() => {
+    const r = rect ?? { x: 0, y: 0, width: screenW, height: screenH };
+    const p = progress.value;
+    return {
+      position: 'absolute',
+      left: interpolate(p, [0, 1], [r.x, 0]),
+      top: interpolate(p, [0, 1], [r.y, 0]),
+      width: interpolate(p, [0, 1], [r.width, screenW]),
+      height: interpolate(p, [0, 1], [r.height, screenH]),
+      borderRadius: interpolate(p, [0, 1], [24, 0]),
+    };
+  });
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0.15, 0.6], [0, 1], Extrapolation.CLAMP) }));
 
   const goalDateLabel = projection
     ? new Date(projection.projectedGoalDate + 'T00:00:00')
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
+  // Compact form for the in-card progress row (e.g. "Aug 2026").
+  const goalDateShort = projection
+    ? new Date(projection.projectedGoalDate + 'T00:00:00')
+        .toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : null;
+
+  // Inline "% to goal" bar + projected end date, shown in both the card and the
+  // expanded sheet. Replaces the separate goal/projected-date card.
+  const progressBlock = toGoalPct != null ? (
+    <View style={{ marginTop: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>
+          {toGoalPct}% to goal{goalWeight != null ? ` · ${goalWeight} lbs` : ''}
+        </Text>
+        {goalDateShort && (
+          <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System' }}>Est. {goalDateShort}</Text>
+        )}
+      </View>
+      <View style={s.progBar}>
+        <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
+      </View>
+    </View>
+  ) : null;
 
   return (
     <>
-      {/* Header row — outside the card */}
       <Pressable
-        onPress={openSheet}
+        ref={cardRef}
+        style={[s.cardWrap, { marginBottom: 16 }]}
+        onPress={openDetail}
         onLongPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           openAiChat({
@@ -2177,17 +2444,18 @@ function WeightProjectionCard({
           });
         }}
         delayLongPress={400}
-        style={{ marginBottom: 10, paddingHorizontal: 4 }}
+        accessibilityLabel="Your Journey weight chart. Tap to expand"
+        accessibilityRole="button"
       >
-        <View style={{ height: 4 }} />
-      </Pressable>
-
-      <Pressable style={[s.cardWrap, { marginBottom: 16 }]} onPress={openSheet} accessibilityLabel="Weight Journey chart. Tap for full view" accessibilityRole="button">
         <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
           <View style={{ padding: 18 }}>
-            <View style={{ position: 'absolute', top: 22, right: 18, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Maximize2 size={11} color={w(0.3)} />
-              <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap for full view</Text>
+            {/* Card header — title + tap-to-expand, matching the Lifestyle cards */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3, fontFamily: 'System' }}>Your Journey</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Maximize2 size={12} color={w(0.4)} />
+                <Text style={[s.chartMuted, { fontSize: 12 }]}>Tap to expand</Text>
+              </View>
             </View>
             {/* Weight value */}
             <View style={{ marginBottom: 12 }}>
@@ -2222,183 +2490,46 @@ function WeightProjectionCard({
               activePeriod={activePeriod}
               onPeriodChange={setActivePeriod}
             />
+
+            {/* Progress toward goal + projected date */}
+            {progressBlock}
           </View>
         </View>
       </Pressable>
 
-      <Modal visible={expanded} transparent animationType="none" onRequestClose={closeSheet}>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Pressable
-            style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)' }]}
-            onPress={closeSheet}
-          />
-          <Animated.View style={{ height: screenHeight * 0.82, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', transform: [{ translateY: sheetY }] }}>
-            <BlurView intensity={colors.isDark ? 60 : 90} tint={colors.blurTint} style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? colors.glassOverlay : 'rgba(255,255,255,0.85)' }]} />
-
-            {/* Drag handle — swipe down to dismiss */}
-            <View
-              {...panResponder.panHandlers}
-              style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 12 }}
-            >
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: w(0.18) }} />
-            </View>
-
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 16 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>Weight Journey</Text>
-                <Pressable onPress={closeSheet} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close weight journey detail">
-                  <XCircle size={28} color={w(0.4)} />
-                </Pressable>
-              </View>
-
-              {/* Period selector */}
-              <View style={s.progPeriodRow}>
-                {(['7D', '14D', '30D', '90D', 'MAX'] as const).map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[s.progPeriodBtn, activePeriod === p && s.progPeriodBtnActive]}
-                    onPress={() => setActivePeriod(p)}
-                    activeOpacity={0.6}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${p === 'MAX' ? 'All time' : p} period${activePeriod === p ? ', selected' : ''}`}
-                    accessibilityState={{ selected: activePeriod === p }}
-                  >
-                    <Text style={[s.progPeriodLabel, activePeriod === p && s.progPeriodLabelActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Embedded chart at 220px */}
-              <WeightChartCard
+      {/* Expand-in-place overlay: morphs from the card's rect to full screen */}
+      {expanded && (
+        <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={closeDetail}>
+          <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)' }, scrimStyle]} />
+          <Reanimated.View style={[morphStyle, { overflow: 'hidden', backgroundColor: colors.surface }]}>
+            {/* Fixed full-screen content — the morphing container just clips a
+                growing window of it, so the chart lays out once (no per-frame
+                relayout) and the growth reads as a clean reveal. */}
+            <Reanimated.View style={[{ width: screenW, height: screenH }, contentStyle]}>
+              <WeightDetailView
                 datasets={datasets}
+                projection={projection}
                 currentWeight={currentWeight}
                 startWeight={startWeight}
-                chartHeight={220}
-                inline
-                activePeriod={activePeriod}
-                onPeriodChange={setActivePeriod}
+                goalWeight={goalWeight}
+                toGoalPct={toGoalPct}
+                topInset={insets.top}
+                onClose={closeDetail}
               />
-
-              {/* Stats + plateau below chart */}
-              {projection && (
-                <>
-                  <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 16 }} />
-                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
-                    <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>WEEKLY RATE</Text>
-                      <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
-                        {projection.weeklyLossRateLbs > 0 ? `-${projection.weeklyLossRateLbs}` : '0'}
-                        <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textMuted }}> lbs/wk</Text>
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-                      <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>GOAL DATE</Text>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{goalDateLabel}</Text>
-                      <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System', marginTop: 2 }}>{projection.weeksToGoal} wks away</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {/* Ask AI button */}
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSubtle, marginBottom: 16 }} />
-              <Pressable
-                onPress={() => {
-                  closeSheet();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  openAiChat({
-                    type: 'metric',
-                    contextLabel: 'Weight Journey',
-                    contextValue: `${currentWeight != null ? currentWeight + ' lbs' : '-'}${projection ? ` · -${projection.weeklyLossRateLbs} lbs/wk · goal ${goalDateLabel}` : ''}`,
-                    chips: JSON.stringify(['Am I on pace for my goal?', 'Is my rate of loss healthy on GLP-1?', 'When will I reach my goal?', 'What can I do to accelerate progress?']),
-                  });
-                }}
-                style={({ pressed }) => ({
-                  alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: pressed ? '#E5661F' : colors.orange,
-                  borderRadius: 14, paddingVertical: 13, paddingHorizontal: 24,
-                })}
-              >
-                <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', fontFamily: 'System', letterSpacing: -0.2 }}>Ask AI about my weight</Text>
-              </Pressable>
-            </ScrollView>
-          </Animated.View>
-        </View>
-      </Modal>
+            </Reanimated.View>
+          </Reanimated.View>
+        </Modal>
+      )}
     </>
-  );
-}
-
-// ─── Weight goal card ─────────────────────────────────────────────────────────
-
-function WeightGoalCard({ projection, currentWeight, goalWeight, toGoalPct }: {
-  projection: WeightProjection | null;
-  currentWeight: number | null;
-  goalWeight: number | null;
-  toGoalPct: number | null;
-}) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const goalDateLabel = projection
-    ? new Date(projection.projectedGoalDate + 'T00:00:00')
-        .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : null;
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ height: 12 }} />
-      <View style={s.cardWrap}>
-        <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-          <View style={{ padding: 18 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>GOAL WEIGHT</Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, fontFamily: 'System' }}>
-                {goalWeight != null ? `${goalWeight}` : '-'}
-                {goalWeight != null && <Text style={{ fontSize: 14, fontWeight: '500', color: colors.textMuted }}> lbs</Text>}
-              </Text>
-              {toGoalPct != null && (
-                <>
-                  <View style={[s.progBar, { marginTop: 8 }]}>
-                    <View style={[s.progBarFill, { width: `${toGoalPct}%` as any }]} />
-                  </View>
-                  <Text style={{ fontSize: 13, color: w(0.4), fontFamily: 'System', marginTop: 4 }}>{toGoalPct}% of the way there</Text>
-                </>
-              )}
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.borderSubtle, borderRadius: 14, padding: 12 }}>
-              <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'System', marginBottom: 4 }}>PROJECTED DATE</Text>
-              {goalDateLabel ? (
-                <>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>{goalDateLabel}</Text>
-                  <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'System', marginTop: 2 }}>{projection!.weeksToGoal} wks · based on current rate</Text>
-                </>
-              ) : (
-                <Text style={{ fontSize: 14, color: w(0.35), fontFamily: 'System', marginTop: 4 }}>Log 2+ weights to unlock</Text>
-              )}
-            </View>
-          </View>
-
-          </View>
-        </View>
-      </View>
-    </View>
   );
 }
 
 // ─── Progress stat card ───────────────────────────────────────────────────────
 
 function ProgressStatCard({
-  icon, label, value, children,
+  icon, image, label, value, children, tall,
 }: {
-  icon: React.ReactNode; label: string; value: string; children?: React.ReactNode;
+  icon: React.ReactNode; image?: number; label: string; value: string; children?: React.ReactNode; tall?: boolean;
 }) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -2411,171 +2542,25 @@ function ProgressStatCard({
   return (
     <Pressable style={[s.dailyWrap, glassShadow]} onLongPress={handleAskAI}>
       <View style={[s.cardBody, { flex: 1, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={[s.dailyInner, { flex: 1 }]}>
-          <View style={[s.dailyTopRow, { marginBottom: 10 }]}>
-            <View style={s.dailyIconWrap}>{icon}</View>
-          </View>
+        {image != null && (
+          <Image
+            source={image}
+            // `tall` cards nudge the asset down so it sits lower in the taller tile.
+            style={{ position: 'absolute', top: tall ? 18 : -10, right: -10, width: 96, height: 96 }}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
+        )}
+        <View style={[s.dailyInner, { flex: 1 }, tall && { minHeight: 138 }]}>
+          {image == null && (
+            <View style={[s.dailyTopRow, { marginBottom: 10 }]}><View style={s.dailyIconWrap}>{icon}</View></View>
+          )}
           <Text style={s.dailyLabel}>{label}</Text>
+          {/* Tall cards keep the label pinned to the top and push the value (and
+              any change badge) down to the bottom of the card. */}
+          {tall && <View style={{ flex: 1, minHeight: 24 }} />}
           <Text style={s.dailyValue}>{value}</Text>
           {children != null && <View style={s.progStatSub}>{children}</View>}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-
-// ─── Side Effects card ────────────────────────────────────────────────────────
-
-const EFFECT_LABELS: Record<string, string> = {
-  nausea: 'Nausea', vomiting: 'Vomiting', fatigue: 'Fatigue',
-  constipation: 'Constipation', diarrhea: 'Diarrhea', headache: 'Headache',
-  injection_site: 'Injection Site', appetite_loss: 'Appetite Loss',
-  dehydration: 'Dehydration', dizziness: 'Dizziness', muscle_loss: 'Muscle Loss',
-  heartburn: 'Heartburn', food_noise: 'Food Noise', sulfur_burps: 'Sulfur Burps',
-  bloating: 'Bloating', hair_loss: 'Hair Loss', other: 'Other',
-};
-
-const EFFECT_ICONS: Record<string, string> = {
-  nausea:         'Frown',
-  vomiting:       'Frown',
-  fatigue:        'Bed',
-  constipation:   'PersonStanding',
-  diarrhea:       'Droplet',
-  headache:       'Brain',
-  injection_site: 'Syringe',
-  appetite_loss:  'Utensils',
-  dehydration:    'Droplet',
-  dizziness:      'RefreshCw',
-  muscle_loss:    'Dumbbell',
-  heartburn:      'Flame',
-  food_noise:     'Brain',
-  sulfur_burps:   'Wind',
-  bloating:       'Wind',
-  hair_loss:      'PersonStanding',
-  other:          'TriangleAlert',
-};
-
-function EffectIcon({ type, size = 22, color }: { type: string; size?: number; color: string }) {
-  const iconName = EFFECT_ICONS[type] ?? 'TriangleAlert';
-  return <LucideIconByName name={iconName} size={size} color={color} />;
-}
-
-function severityColor(avg: number): string {
-  if (avg <= 3) return '#27AE60';
-  if (avg <= 6) return '#F6CB45';
-  return '#E74C3C';
-}
-
-function severityLabel(avg: number): string {
-  if (avg <= 3) return 'Mild';
-  if (avg <= 6) return 'Moderate';
-  return 'Severe';
-}
-
-function SideEffectsCard({ logs }: { logs: SideEffectLog[] }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  const { openAiChat } = useUiStore();
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-
-  const cutoff = Date.now() - 30 * 86400000;
-  const recent = logs.filter(l => new Date(l.logged_at).getTime() >= cutoff);
-
-  const grouped = new Map<string, { count: number; totalSev: number }>();
-  for (const l of recent) {
-    const key = l.effect_type as string;
-    const prev = grouped.get(key) ?? { count: 0, totalSev: 0 };
-    grouped.set(key, { count: prev.count + 1, totalSev: prev.totalSev + (l.severity ?? 5) });
-  }
-
-  const top = [...grouped.entries()]
-    .map(([type, d]) => ({ type, count: d.count, avgSev: Math.round((d.totalSev / d.count) * 10) / 10 }))
-    .sort((a, b) => b.count - a.count || b.avgSev - a.avgSev)
-    .slice(0, 4);
-
-  const aiContext = top.map(e => `${EFFECT_LABELS[e.type] ?? e.type} x${e.count} (avg severity ${e.avgSev})`).join(', ');
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ height: 12 }} />
-      <Pressable
-        style={s.cardWrap}
-        onLongPress={() => { if (top.length > 0) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openAiChat({ type: 'metric', contextLabel: 'Side Effects', contextValue: aiContext, chips: JSON.stringify(['Are these normal for my phase?', 'How can I reduce nausea?', 'Should I contact my doctor?', 'Do these affect my score?']) }); } }}
-      >
-        <View style={[s.cardBody, { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-          <View style={{ padding: 18 }}>
-
-          {top.length === 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
-              <IconSymbol name="checkmark.circle.fill" size={20} color="#27AE60" />
-              <Text style={{ fontSize: 16, color: w(0.45), fontFamily: 'System' }}>No side effects logged recently</Text>
-            </View>
-          ) : (
-            top.map((item, i) => {
-              const color = severityColor(item.avgSev);
-              const name = EFFECT_LABELS[item.type] ?? item.type;
-              return (
-                <View key={item.type}>
-                  {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: w(0.06), marginVertical: 10 }} />}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 30, alignItems: 'center' }}>
-                      <EffectIcon type={item.type} size={22} color={color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, fontFamily: 'System' }}>{name}</Text>
-                      <Text style={{ fontSize: 14, color: w(0.4), fontFamily: 'System', marginTop: 2 }}>
-                        {item.count} {item.count === 1 ? 'time' : 'times'} logged
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end', gap: 3 }}>
-                      <View style={{ backgroundColor: color + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color, fontFamily: 'System' }}>{severityLabel(item.avgSev)}</Text>
-                      </View>
-                      <Text style={{ fontSize: 13, color: w(0.3), fontFamily: 'System' }}>avg {item.avgSev}/10</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
-          )}
-          </View>
-        </View>
-      </Pressable>
-    </View>
-  );
-}
-
-// ─── Side Effect Insights entry-point ────────────────────────────────────────
-
-function SideEffectInsightsEntryCard({ count }: { count: number }) {
-  const { colors } = useAppTheme();
-  const s = useMemo(() => createStyles(colors), [colors]);
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const subtitle = count === 0
-    ? 'Track symptoms to surface cycle patterns'
-    : `Cycle patterns, trends & clusters from ${count} log${count === 1 ? '' : 's'}`;
-  return (
-    <Pressable
-      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/insights/side-effects'); }}
-      style={[s.cardWrap, { marginBottom: 16 }]}
-      accessibilityRole="button"
-      accessibilityLabel="View side effect insights"
-    >
-      <View style={[s.cardBody, { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 }}>
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.orange + '1A', alignItems: 'center', justifyContent: 'center' }}>
-            <TrendingUp size={20} color={colors.orange} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: 'System' }}>
-              Side Effect Insights
-            </Text>
-            <Text style={{ fontSize: 13, color: w(0.5), fontFamily: 'System', marginTop: 2 }}>
-              {subtitle}
-            </Text>
-          </View>
-          <ChevronRight size={18} color={w(0.35)} />
         </View>
       </View>
     </Pressable>
@@ -3316,7 +3301,13 @@ export default function InsightsScreen() {
   const hkStore = useHealthKitStore();
   // Shared lifestyle data. The same hook powers the three /insights detail
   // screens so the row preview and detail cards never diverge.
-  const { todayCalories, todaySteps, routedHealthGroups } = useLifestyleMetrics();
+  const {
+    todayCalories, todaySteps, routedHealthGroups,
+    todayProteinG, todayCarbsG, todayFatG, todayFiberG, todayActiveCalories,
+    waterOz, waterTargetOz,
+    targets: ltTargets,
+    proteinPct, carbsPct, fatPct, caloriesPct, fiberPct, waterPct,
+  } = useLifestyleMetrics();
   const biometricStore = useBiometricStore();
   const { profile: fullProfile } = useProfile();
   const onTreatment = isOnTreatment(fullProfile);
@@ -3359,43 +3350,48 @@ export default function InsightsScreen() {
     ? new Date(fullProfile.pendingFirstDoseDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : '';
 
-  // ── Historical aggregations ────────────────────────────────────────────────
-  const foodByDate: FoodByDate = useMemo(() => {
-    const map: FoodByDate = {};
-    foodLogs.forEach(log => {
-      const date = localDateStr(new Date(log.logged_at));
-      if (!map[date]) map[date] = {
-        protein: 0, carbs: 0, fat: 0, calories: 0, fiber: 0,
-        sodium_mg: 0, sugar_g: 0, saturated_fat_g: 0, cholesterol_mg: 0,
-      };
-      map[date].protein         += log.protein_g;
-      map[date].carbs           += log.carbs_g;
-      map[date].fat             += log.fat_g;
-      map[date].calories        += log.calories;
-      map[date].fiber           += log.fiber_g;
-      map[date].sodium_mg       += log.sodium_mg ?? 0;
-      map[date].sugar_g         += log.sugar_g ?? 0;
-      map[date].saturated_fat_g += log.saturated_fat_g ?? 0;
-      map[date].cholesterol_mg  += log.cholesterol_mg ?? 0;
-    });
-    return map;
-  }, [foodLogs]);
+  // ── Historical aggregations (shared builders — single source of truth) ──────
+  const foodByDate = useMemo(() => buildFoodByDate(foodLogs), [foodLogs]);
+  const activityByDate = useMemo(() => buildActivityByDate(activityLogs), [activityLogs]);
 
-  const activityByDate = useMemo(() => {
-    const map: Record<string, { steps: number; calories: number }> = {};
-    activityLogs.forEach(log => {
-      if (!map[log.date]) map[log.date] = { steps: 0, calories: 0 };
-      map[log.date].steps    += log.steps ?? 0;
-      map[log.date].calories += log.active_calories ?? 0;
+  // ── Lifestyle entry-card sparklines (calories + steps) ─────────────────────
+  const SPARK_DAYS = 14;
+  const summarySeries = useMemo(() => {
+    const out: Record<string, (number | null)[]> = {};
+    SUMMARY_METRICS.forEach((m) => {
+      out[m.id] = buildSeries(m, foodByDate, activityByDate, todayStr, SPARK_DAYS).values;
     });
-    return map;
-  }, [activityLogs]);
+    return out;
+  }, [foodByDate, activityByDate, todayStr]);
+
+  // ── Side-effect month (Symptom Log bar graph + Your Patterns headline) ──────
+  const SIDE_EFFECT_DAYS = 30;
+  const sideEffectMonth = useMemo(() => {
+    // last 30 calendar days, oldest → newest
+    const days: string[] = [];
+    const base = new Date(todayStr + 'T12:00:00');
+    for (let i = SIDE_EFFECT_DAYS - 1; i >= 0; i--) {
+      const d = new Date(base);
+      d.setDate(d.getDate() - i);
+      days.push(localDateStr(d));
+    }
+    const dayIdx = new Map(days.map((d, i) => [d, i]));
+    const bars: (number | null)[] = days.map(() => null);
+    let monthCount = 0;
+    const types = new Set<string>();
+    for (const se of sideEffectLogs) {
+      types.add(se.effect_type as string);
+      const key = localDateStr(new Date(se.logged_at));
+      const idx = dayIdx.get(key);
+      if (idx == null) continue;
+      monthCount++;
+      bars[idx] = Math.max(bars[idx] ?? 0, se.severity ?? 0);
+    }
+    return { bars, monthCount, distinctTypes: types.size };
+  }, [sideEffectLogs, todayStr]);
 
   // ── Medication data ────────────────────────────────────────────────────────
   const lastInj = injectionLogs[0] ?? null;
-  const lastSite = lastInj?.site ?? null;
-  const rotateTo = nextSite(lastSite);
-  const lastDosage = lastInj ? `${lastInj.dose_mg}mg` : '-';
   const injTimestamp = lastInj?.injection_date
     ? (lastInj.injection_time
         ? `${lastInj.injection_date}T${lastInj.injection_time}`
@@ -3409,9 +3405,6 @@ export default function InsightsScreen() {
     // Cap at 30 days - beyond that the chart is meaningless anyway
     return Math.max(1, Math.min(diff, 30));
   })();
-  const nextInjLabel = lastInj
-    ? nextInjectionLabel(lastInj.injection_date, profile?.injection_frequency_days ?? 7)
-    : '-';
   const isDailyDrug = DRUG_DEFAULT_FREQ_DAYS[health.profile.glp1Type] === 1;
   const oral = isOralDrug(health.profile.glp1Type);
   const hasInjectionData = isDailyDrug || !!lastInj;
@@ -3581,6 +3574,13 @@ export default function InsightsScreen() {
     });
   }, [weightLogs, startWeight, currentWeight, goalWeight, programWeek, health.profile]);
 
+  // Add the forward-looking "to goal" dataset (dashed projection) for the
+  // expanded detail view. Harmless extra key for the collapsed card.
+  const weightDatasetsWithGoal = useMemo<Record<string, WeightPoint[]>>(
+    () => ({ ...weightDatasets, GOAL: buildGoalDataset(weightLogs, projection ?? null, programWeek) }),
+    [weightLogs, projection, programWeek],
+  );
+
 
   // ── Today's logs (all types, for the shared Today's Logs card) ──────────────
   const todayLogs: LogEntry[] = [
@@ -3646,48 +3646,37 @@ export default function InsightsScreen() {
             <Reanimated.View key="lifestyle" entering={FadeIn.duration(350)}>
               {/* <AIInsightsCard /> */}
 
-              <View style={{ height: 4 }} />
-              {/* ── Lifestyle Trend Card ── */}
-              <LifestyleTrendCard
-                foodByDate={foodByDate}
-                activityByDate={activityByDate}
-                todayStr={todayStr}
-                targets={targets}
-                profile={profile}
+              <View style={{ height: 8 }} />
+
+              {/* ── Nutrition hub → opens the macro breakdown ── */}
+              <LifestyleEntryCard
+                image={require('@/assets/images/cards/nutrition-bowl.png')}
+                iconName="Utensils"
+                color="#E0533A"
+                title="Nutrition"
+                value={todayCalories.toLocaleString()}
+                unit="cal today"
+                description="Protein, carbs, fat, hydration & micronutrients."
+                sparkline={{ values: summarySeries.calories, color: '#E0533A' }}
+                onPress={() => router.push('/insights/nutrition')}
+                onLongPress={() => openAiChat({ chips: JSON.stringify(['How am I doing on nutrition?', 'Is my protein intake on track?', 'What should I eat next?']) })}
               />
 
               <View style={{ height: 12 }} />
-              <View style={{ gap: 12 }}>
-                <CategoryRow
-                  icon={<IconSymbol name="fork.knife" size={18} color={categoryColor(colors.isDark, 'nutrition')} />}
-                  label="Nutrition"
-                  categoryKey="nutrition"
-                  todayValue={`${todayCalories.toLocaleString()} cal`}
-                  onPress={() => router.push('/insights/nutrition')}
-                  aiChips={['How am I doing on nutrition?', 'Is my protein intake on track?', 'What should I eat next?', 'How does GLP-1 affect appetite?']}
-                />
-                <CategoryRow
-                  icon={<IconSymbol name="bolt.fill" size={18} color={categoryColor(colors.isDark, 'activity')} />}
-                  label="Activity"
-                  categoryKey="activity"
-                  todayValue={todaySteps > 0 ? `${todaySteps.toLocaleString()} steps` : '—'}
-                  onPress={() => router.push('/insights/activity')}
-                  aiChips={['Am I active enough today?', 'How can I move more?', 'How does activity affect GLP-1 results?', 'What workout fits my phase?']}
-                />
-                <CategoryRow
-                  icon={<Heart size={18} color={healthCategoryColor(colors.isDark, 'Vitals')} />}
-                  label="Vitals"
-                  categoryKey="vitals"
-                  todayValue={
-                    hkStore.hrv != null ? `${hkStore.hrv} ms HRV`
-                    : hkStore.restingHR != null ? `${hkStore.restingHR} bpm RHR`
-                    : hkStore.sleepHours != null ? `${hkStore.sleepHours.toFixed(1)} h sleep`
-                    : '—'
-                  }
-                  onPress={() => router.push('/insights/vitals')}
-                  aiChips={['What do my biometrics show?', 'How is GLP-1 affecting my HRV?', 'How was my sleep last night?', 'What should I watch for?']}
-                />
-              </View>
+
+              {/* ── Wellness hub → opens the activity + vitals breakdown ── */}
+              <LifestyleEntryCard
+                image={require('@/assets/images/cards/wellness-meditation.png')}
+                iconName="HeartPulse"
+                color="#F5972A"
+                title="Wellness"
+                value={todaySteps > 0 ? todaySteps.toLocaleString() : '0'}
+                unit="steps today"
+                description="Activity, heart rate, sleep & vitals."
+                sparkline={{ values: summarySeries.steps, color: '#F5972A' }}
+                onPress={() => router.push('/insights/wellness' as any)}
+                onLongPress={() => openAiChat({ chips: JSON.stringify(['Am I active enough today?', 'What do my biometrics show?', 'How was my sleep last night?']) })}
+              />
 
               <TodayLogsCard entries={todayLogs} tab="lifestyle" />
             </Reanimated.View>
@@ -3719,10 +3708,39 @@ export default function InsightsScreen() {
                 injTimestamp={injTimestamp}
                 lastDoseMg={health.profile.doseMg ?? null}
               />
-              <SideEffectsCard logs={sideEffectLogs} />
-              <PremiumGate feature="side_effect_insights" variant="soft" title="Side Effect Insights">
-                <SideEffectInsightsEntryCard count={sideEffectLogs.length} />
+              <View style={{ height: 12 }} />
+
+              {/* ── Symptom Log → opens side-effect history, 30-day severity bars ── */}
+              <LifestyleEntryCard
+                image={require('@/assets/images/cards/symptom-log.png')}
+                iconName="ClipboardList"
+                color="#E07A5F"
+                title="Symptom Log"
+                value={sideEffectMonth.monthCount.toString()}
+                unit="logged · 30d"
+                description="Track nausea, fatigue & more with severity across your cycle."
+                bars={{ values: sideEffectMonth.bars }}
+                onPress={() => router.push({ pathname: '/log-history', params: { filter: 'side_effect' } })}
+                onLongPress={() => openAiChat({ chips: JSON.stringify(['Are my side effects normal for my phase?', 'How can I reduce nausea?', 'Should I contact my doctor?']) })}
+              />
+
+              <View style={{ height: 12 }} />
+
+              {/* ── Your Patterns → side-effect insights (premium) ── */}
+              <PremiumGate feature="side_effect_insights" variant="soft" title="Your Patterns">
+                <LifestyleEntryCard
+                  image={require('@/assets/images/cards/your-patterns.png')}
+                  iconName="TrendingUp"
+                  color="#5B9BD5"
+                  title="Your Patterns"
+                  value={sideEffectMonth.distinctTypes.toString()}
+                  unit={sideEffectMonth.distinctTypes === 1 ? 'symptom tracked' : 'symptoms tracked'}
+                  description="Cycle timing, symptom clusters & week-over-week trends."
+                  onPress={() => router.push('/insights/side-effects')}
+                />
               </PremiumGate>
+
+              <View style={{ height: 12 }} />
               {appleHealthEnabled && (hkStore.hrv != null || hkStore.restingHR != null || hkStore.sleepHours != null) && (
                 <>
                   <Text style={[s.sectionTitle, { marginTop: 8 }]}>Cycle Biometrics</Text>
@@ -3733,16 +3751,10 @@ export default function InsightsScreen() {
                 </>
               )}
               <View style={{ height: 12 }} />
-              <LatestInjectionEntry
-                lastInj={lastInj}
-                lastSite={lastSite}
-                rotateTo={rotateTo}
-                lastDosage={lastDosage}
-                nextInjLabel={nextInjLabel}
-                lastDaysSince={lastDaysSince}
+              <PastDosesCard
+                injections={injectionLogs}
                 oral={oral}
               />
-              <TodayLogsCard entries={todayLogs} tab="medication" />
             </Reanimated.View>
           )}
 
@@ -3752,20 +3764,18 @@ export default function InsightsScreen() {
               {/* <ProgAIInsightsCard /> */}
               <WeightProjectionCard
                 projection={projection ?? null}
-                datasets={weightDatasets}
+                datasets={weightDatasetsWithGoal}
                 currentWeight={currentWeight}
                 startWeight={startWeight}
-                programWeek={programWeek}
-              />
-              <WeightGoalCard
-                projection={projection ?? null}
-                currentWeight={currentWeight}
                 goalWeight={goalWeight}
                 toGoalPct={toGoalPct}
+                programWeek={programWeek}
               />
               <View style={[s.dailyGrid, { marginBottom: 14 }]}>
                 <ProgressStatCard
+                  tall
                   icon={<IconSymbol name="dumbbell.fill" size={20} color={colors.orange} />}
+                  image={require('@/assets/images/cards/bmi.png')}
                   label="Current BMI"
                   value={bmi != null ? String(bmi) : '-'}
                 >
@@ -3777,7 +3787,9 @@ export default function InsightsScreen() {
                 </ProgressStatCard>
 
                 <ProgressStatCard
+                  tall
                   icon={<IconSymbol name="chart.line.downtrend.xyaxis" size={20} color={colors.orange} />}
+                  image={require('@/assets/images/cards/lost-so-far.png')}
                   label="Lost So Far"
                   value={weightLost != null ? `${weightLost} lbs` : '0 lbs'}
                 >
@@ -3908,6 +3920,9 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120 },
 
+  // Lifestyle summary section header
+  summarySectionLabel: { fontSize: 22, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, marginBottom: 12, fontFamily: 'System' },
+
   // Hero title (matches Education / Home)
   heroHeader: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 },
   heroTitle: { fontSize: 36, fontWeight: '800', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -1, fontFamily: 'System' },
@@ -3980,6 +3995,11 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   progPeriodLabelActive: { color: c.textPrimary, fontFamily: 'System' },
   progCurrentDotRing: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: c.bg },
   progGoalLabel: { fontSize: 12, fontWeight: '600', color: w(0.35), fontFamily: 'System' },
+
+  // Expanded weight detail — nav bar mirrors the Lifestyle detail pages
+  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
+  detailBack: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
+  detailTitle: { flex: 1, textAlign: 'center', fontSize: 19, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: 'System' },
 
   // Progress stat card
   progStatSub: { marginTop: 6 },

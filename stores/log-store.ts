@@ -7,6 +7,11 @@ import { HEALTH_SERVICE_NAME } from '../lib/health-service';
 import { BRAND_DISPLAY_NAMES } from '../constants/user-profile';
 import { useSubscriptionStore } from './subscription-store';
 
+// Guards against concurrent HealthKit weight syncs. The sync runs on both a 60s
+// poll and on screen focus; without this flag two overlapping calls read the
+// same stale in-memory "latest log" and insert the same sample twice.
+let weightSyncInFlight = false;
+
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
 
@@ -434,6 +439,11 @@ export const useLogStore = create<LogStore>((set, get) => ({
 
   syncWeightFromHealthKit: async () => {
     if (Platform.OS !== 'ios') return;
+    // Re-entrancy guard: the sync fires on a 60s poll and on focus, so two calls
+    // can overlap before the store refreshes. Without this they both pass the
+    // stale-store guard below and insert the same sample twice.
+    if (weightSyncInFlight) return;
+    weightSyncInFlight = true;
     try {
       // Dynamic import to avoid crashes in Expo Go
       const HK = require('../lib/healthkit') as typeof import('../lib/healthkit');
@@ -442,6 +452,8 @@ export const useLogStore = create<LogStore>((set, get) => ({
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const sampleIso = sample.recordedAt.toISOString();
 
       // Check if we already have a weight log at or after this sample's timestamp
       const latestLog = get().weightLogs[0]; // sorted desc by logged_at
@@ -454,11 +466,23 @@ export const useLogStore = create<LogStore>((set, get) => ({
         if (Math.abs(latestLog.weight_lbs - sample.lbs) < 0.05) return;
       }
 
+      // Authoritative dedupe against the DB (not the possibly-stale store): a row
+      // for this exact sample timestamp means it was already synced — e.g. by an
+      // earlier sync on another session/restart that the store hasn't loaded.
+      const { data: existing } = await supabase
+        .from('weight_logs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('logged_at', sampleIso)
+        .limit(1)
+        .maybeSingle();
+      if (existing) return;
+
       // Insert the Apple Health weight as a new log
       const { error } = await supabase.from('weight_logs').insert({
         user_id: user.id,
         weight_lbs: sample.lbs,
-        logged_at: sample.recordedAt.toISOString(),
+        logged_at: sampleIso,
         notes: `Synced from ${HEALTH_SERVICE_NAME}`,
       });
       if (!error) {
@@ -478,6 +502,8 @@ export const useLogStore = create<LogStore>((set, get) => ({
       }
     } catch {
       // HealthKit unavailable (Expo Go, Android) — silently skip
+    } finally {
+      weightSyncInFlight = false;
     }
   },
 

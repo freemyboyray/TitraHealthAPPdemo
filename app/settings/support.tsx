@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 
 import { useAppTheme } from '@/contexts/theme-context';
+import { usePreferencesStore } from '@/stores/preferences-store';
 import type { AppColors } from '@/constants/theme';
 
 
@@ -38,7 +39,16 @@ export default function SupportScreen() {
 
             <View style={s.divider} />
 
-            <Pressable style={s.cardRow} onPress={() => router.push('/settings/tutorial' as any)} accessibilityLabel="App Tutorial" accessibilityRole="button">
+            <Pressable
+              style={s.cardRow}
+              onPress={() => {
+                // Flag the walkthrough and jump to Home, where it launches in place.
+                usePreferencesStore.getState().setTourPending(true);
+                router.replace('/(tabs)');
+              }}
+              accessibilityLabel="App Tutorial"
+              accessibilityRole="button"
+            >
               <View style={s.rowLeft}>
                 <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
                   <IconSymbol name="book.fill" size={18} color="#FF742A" />

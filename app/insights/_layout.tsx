@@ -7,6 +7,9 @@ export default function InsightsLayout() {
       <Stack.Screen name="nutrition" />
       <Stack.Screen name="activity" />
       <Stack.Screen name="vitals" />
+      <Stack.Screen name="wellness" />
+      <Stack.Screen name="micros" />
+      <Stack.Screen name="metric/[id]" />
     </Stack>
   );
 }

@@ -29,6 +29,8 @@ let iapModule: typeof import('@/lib/storekit') | undefined;
 try { iapModule = require('@/lib/storekit'); } catch {}
 import { AiChatOverlay } from '@/components/ai-chat-overlay';
 import { AiConsentModal } from '@/components/ai-consent-modal';
+import { TourProvider } from '@/contexts/tour-context';
+import { TourOverlay } from '@/components/tour/tour-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
@@ -290,6 +292,7 @@ function RootLayoutInner() {
         <AuthGate>
           <AppWithHealth>
             <ThemeProvider value={colors.isDark ? DarkTheme : DefaultTheme}>
+              <TourProvider>
               <Stack>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -321,6 +324,8 @@ function RootLayoutInner() {
               <HealthSyncToast />
               <MilestoneLayer />
               <ReviewPromptLayer />
+              <TourOverlay />
+              </TourProvider>
             </ThemeProvider>
           </AppWithHealth>
         </AuthGate>

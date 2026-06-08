@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Beef, Droplet, Wheat, Footprints, Moon, ChevronRight, Lock } from 'lucide-react-native';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import { ChevronRight, Lock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useLifestyleMetrics } from '@/hooks/use-lifestyle-metrics';
-import { usePreferencesStore } from '@/stores/preferences-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { smoothPath } from '@/lib/chart-utils';
+import type { EnergyTimelinePoint } from '@/lib/energy-timeline';
 import type { EnergyBankResult, FocusItem } from '@/constants/scoring';
 
 const FF = 'System';
@@ -16,37 +19,26 @@ type Metrics = ReturnType<typeof useLifestyleMetrics>;
 
 type MetricDef = {
   id: string;
-  color: string;
-  icon: (c: string) => React.ReactNode;
-  build: (m: Metrics) => { pct: number; locked: boolean };
+  image: ImageSourcePropType;
+  build: (m: Metrics) => { pct: number };
 };
 
 const METRICS: MetricDef[] = [
   {
-    id: 'protein', color: '#E0533A', icon: (c) => <Beef size={16} color={c} />,
-    build: (m) => ({ pct: (m.targets.proteinG || 0) > 0 ? m.todayProteinG / m.targets.proteinG : 0, locked: false }),
+    id: 'protein', image: require('@/assets/images/focus/protein.png'),
+    build: (m) => ({ pct: (m.targets.proteinG || 0) > 0 ? m.todayProteinG / m.targets.proteinG : 0 }),
   },
   {
-    id: 'water', color: '#2BA7E0', icon: (c) => <Droplet size={16} color={c} />,
-    build: (m) => ({ pct: m.waterTargetOz > 0 ? m.waterOz / m.waterTargetOz : 0, locked: false }),
+    id: 'water', image: require('@/assets/images/focus/water.png'),
+    build: (m) => ({ pct: m.waterTargetOz > 0 ? m.waterOz / m.waterTargetOz : 0 }),
   },
   {
-    id: 'fiber', color: '#3AAE5A', icon: (c) => <Wheat size={16} color={c} />,
-    build: (m) => ({ pct: (m.targets.fiberG || 0) > 0 ? m.todayFiberG / m.targets.fiberG : 0, locked: false }),
+    id: 'fiber', image: require('@/assets/images/focus/fiber.png'),
+    build: (m) => ({ pct: (m.targets.fiberG || 0) > 0 ? m.todayFiberG / m.targets.fiberG : 0 }),
   },
   {
-    id: 'activity', color: '#F5972A', icon: (c) => <Footprints size={16} color={c} />,
-    build: (m) => ({
-      pct: (m.targets.steps || 0) > 0 ? m.todaySteps / m.targets.steps : 0,
-      locked: !m.appleHealthEnabled && m.todaySteps === 0,
-    }),
-  },
-  {
-    id: 'sleep', color: '#6E73E0', icon: (c) => <Moon size={16} color={c} />,
-    build: (m) => ({
-      pct: m.hkStore.sleepHours != null ? m.hkStore.sleepHours / 8 : 0,
-      locked: m.hkStore.sleepHours == null,
-    }),
+    id: 'activity', image: require('@/assets/images/focus/steps.png'),
+    build: (m) => ({ pct: (m.targets.steps || 0) > 0 ? m.todaySteps / m.targets.steps : 0 }),
   },
 ];
 
@@ -61,33 +53,34 @@ function TodayFocusTile({ width }: { width: number }) {
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const m = useLifestyleMetrics();
-  const enabledIds = usePreferencesStore((st) => st.homeFocusTiles);
   const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-
-  const metrics = useMemo(() => METRICS.filter((x) => enabledIds.includes(x.id)), [enabledIds]);
 
   return (
     <Pressable
       style={[s.tile, { width }]}
       onPress={() => router.push('/daily-focus' as any)}
-      accessibilityLabel="Today's Focus. View details."
+      accessibilityLabel="Today's Focuses. View details."
       accessibilityRole="button"
     >
       <View style={s.tileHead}>
-        <Text style={s.tileTitle}>Today's{'\n'}Focus</Text>
+        <Text style={s.tileTitle}>Today's{'\n'}Focuses</Text>
         <ChevronRight size={20} color={colors.textMuted} />
       </View>
 
       <View style={s.barList}>
-        {metrics.map((mt) => {
-          const { pct, locked } = mt.build(m);
+        {METRICS.map((mt) => {
+          const { pct } = mt.build(m);
           return (
             <View key={mt.id} style={s.barRow}>
-              {mt.icon(locked ? w(0.35) : mt.color)}
+              <Image
+                source={mt.image}
+                style={s.metricIcon}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
               <View style={[s.track, { backgroundColor: w(0.07) }]}>
-                {!locked && <View style={{ height: '100%', width: pctStr(pct), backgroundColor: mt.color, opacity: 0.92, borderRadius: 5 }} />}
+                <View style={{ height: '100%', width: pctStr(pct), backgroundColor: colors.textPrimary, opacity: 0.92, borderRadius: 5 }} />
               </View>
-              {locked && <Lock size={12} color={w(0.35)} />}
             </View>
           );
         })}
@@ -105,7 +98,59 @@ function energyColor(pct: number): string {
   return '#E53E3E';
 }
 
-function EnergyTile({ width, result }: { width: number; result: EnergyBankResult | null }) {
+// ─── Mini 24h sparkline (area + line on a fixed 0–100 scale) ──────────────────
+
+const SPARK_H = 58;
+
+function EnergySparkline({
+  data, width, color, isDark,
+}: {
+  data: EnergyTimelinePoint[];
+  width: number;
+  color: string;
+  isDark: boolean;
+}) {
+  const pad = 4;
+  if (data.length < 2 || width <= 0) return null;
+
+  const n = data.length;
+  const toX = (i: number) => pad + (i / (n - 1)) * (width - pad * 2);
+  const toY = (v: number) => pad + (1 - v / 100) * (SPARK_H - pad * 2);
+
+  const pts = data.map((d, i) => ({ x: toX(i), y: toY(d.score) }));
+  const line = smoothPath(pts);
+  const area = `${line} L ${pts[n - 1].x} ${SPARK_H} L ${pts[0].x} ${SPARK_H} Z`;
+  const last = pts[n - 1];
+
+  return (
+    <Svg width={width} height={SPARK_H}>
+      <Defs>
+        <LinearGradient id="energyTileFill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} stopOpacity={isDark ? '0.32' : '0.38'} />
+          <Stop offset="1" stopColor={color} stopOpacity="0.02" />
+        </LinearGradient>
+      </Defs>
+      <Path d={area} fill="url(#energyTileFill)" />
+      <Path
+        d={line}
+        stroke={color}
+        strokeWidth={2.5}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx={last.x} cy={last.y} r={3.5} fill={color} />
+    </Svg>
+  );
+}
+
+function EnergyTile({
+  width, result, timeline,
+}: {
+  width: number;
+  result: EnergyBankResult | null;
+  timeline?: EnergyTimelinePoint[];
+}) {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -115,12 +160,14 @@ function EnergyTile({ width, result }: { width: number; result: EnergyBankResult
   const score = result?.score ?? 0;
   const color = energyColor(score);
   const showData = isPremium && result != null;
+  const hasGraph = showData && timeline != null && timeline.length >= 2;
+  const innerW = width - 32; // tile paddingHorizontal: 16 each side
 
   return (
     <Pressable
       style={[s.tile, { width }]}
       onPress={() => router.push((isPremium ? '/energy-detail' : '/upgrade') as any)}
-      accessibilityLabel={showData ? `Energy ${score} percent` : 'Energy Bank, premium feature'}
+      accessibilityLabel={showData ? `Energy ${score} percent, last 24 hours` : 'Energy Bank, premium feature'}
       accessibilityRole="button"
     >
       <View style={s.tileHead}>
@@ -128,19 +175,28 @@ function EnergyTile({ width, result }: { width: number; result: EnergyBankResult
         <ChevronRight size={20} color={colors.textMuted} />
       </View>
 
-      <View style={s.batteryWrap}>
-        <View style={s.batteryRow}>
-          <View style={[s.batteryBody, { borderColor: w(0.2) }, !showData && { alignItems: 'center', justifyContent: 'center' }]}>
-            {showData
-              ? <View style={{ height: '100%', width: pctStr(score / 100), backgroundColor: color }} />
-              : <Lock size={18} color={w(0.3)} />}
-          </View>
-          <View style={[s.batteryCap, { backgroundColor: w(0.25) }]} />
+      {hasGraph ? (
+        // ── Premium: mini graph on top, score at the bottom ──────────────────
+        <View style={s.graphWrap}>
+          <EnergySparkline data={timeline!} width={innerW} color={color} isDark={colors.isDark} />
+          <Text style={[s.batteryScore, { color, marginTop: 'auto' }]}>{score}%</Text>
         </View>
-        <Text style={[s.batteryScore, { color: showData ? color : w(0.3) }]}>
-          {showData ? `${score}%` : '—'}
-        </Text>
-      </View>
+      ) : (
+        // ── No timeline yet, or locked: fall back to the battery ─────────────
+        <View style={s.batteryWrap}>
+          <View style={s.batteryRow}>
+            <View style={[s.batteryBody, { borderColor: w(0.2) }, !showData && { alignItems: 'center', justifyContent: 'center' }]}>
+              {showData
+                ? <View style={{ height: '100%', width: pctStr(score / 100), backgroundColor: color }} />
+                : <Lock size={18} color={w(0.3)} />}
+            </View>
+            <View style={[s.batteryCap, { backgroundColor: w(0.25) }]} />
+          </View>
+          <Text style={[s.batteryScore, { color: showData ? color : w(0.3) }]}>
+            {showData ? `${score}%` : '—'}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -148,7 +204,7 @@ function EnergyTile({ width, result }: { width: number; result: EnergyBankResult
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 export function FocusEnergyRow({ energy, focuses: _focuses }: {
-  energy: { result: EnergyBankResult; phase: string } | null;
+  energy: { result: EnergyBankResult; phase: string; timeline?: EnergyTimelinePoint[] } | null;
   focuses?: FocusItem[];
 }) {
   const { width } = useWindowDimensions();
@@ -159,7 +215,7 @@ export function FocusEnergyRow({ energy, focuses: _focuses }: {
   return (
     <View style={{ flexDirection: 'row', gap: GAP, marginBottom: 16 }}>
       <TodayFocusTile width={halfW} />
-      <EnergyTile width={halfW} result={energy?.result ?? null} />
+      <EnergyTile width={halfW} result={energy?.result ?? null} timeline={energy?.timeline} />
     </View>
   );
 }
@@ -183,7 +239,11 @@ const createStyles = (c: AppColors) => {
     // Focus horizontal bars
     barList: { marginTop: 'auto', paddingTop: 14, gap: 12 },
     barRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    metricIcon: { width: 22, height: 22 },
     track: { flex: 1, height: 10, borderRadius: 5, overflow: 'hidden' },
+
+    // Energy mini graph (top) + score (bottom)
+    graphWrap: { flex: 1, justifyContent: 'flex-start', paddingTop: 14 },
 
     // Energy horizontal battery
     batteryWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 8, gap: 12 },

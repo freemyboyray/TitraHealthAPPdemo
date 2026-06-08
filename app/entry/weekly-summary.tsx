@@ -1,31 +1,94 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
 let Print: typeof import('expo-print') | undefined;
 try { Print = require('expo-print'); } catch {}
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CircleIconButton } from '@/components/ui/circle-icon-button';
+import { WeekBarChart } from '@/components/summary/week-bar-chart';
+import { CompareBars, type CompareRow } from '@/components/summary/compare-bars';
+import { DualLineChart } from '@/components/summary/dual-line-chart';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
-import type { AppColors } from '@/constants/theme';
-import { type WeeklySummaryData } from '@/lib/weekly-summary';
+import { useHealthData, waterStorageKey } from '@/contexts/health-data';
+import { cardElevation, type AppColors } from '@/constants/theme';
+import { computeWeeklySummary, type WeeklySummaryData } from '@/lib/weekly-summary';
 import { useLogStore } from '@/stores/log-store';
 import { useUiStore } from '@/stores/ui-store';
-import { ArrowRight, BarChart3, MessageCircle, Share2, TrendingDown, TrendingUp, X } from 'lucide-react-native';
+import {
+  ArrowRight, BarChart3, Clock, MessageCircle,
+  Share2, Sparkles, TrendingDown, TrendingUp, X,
+} from 'lucide-react-native';
 
-const GREEN  = '#27AE60';
-const RED    = '#E53E3E';
-const FF     = 'System';
+// Hand-illustrated metric art (same assets used across the insights + check-in screens).
+const ART_NUTRITION = require('@/assets/images/cards/nutrition-bowl.png');
+const ART_STEPS = require('@/assets/images/cards/steps.png');
+const ART_CHECKIN = require('@/assets/images/cards/wellness-meditation.png');
+const ART_SIDE_EFFECTS = require('@/assets/images/cards/symptom-log.png');
+// Per-metric art for the individual chart blocks.
+const ART_CALORIES = require('@/assets/images/cards/calories.png');
+const ART_PROTEIN = require('@/assets/images/cards/protein.png');
+const ART_FIBER = require('@/assets/images/cards/fiber.png');
+const ART_WATER = require('@/assets/images/cards/hydration.png');
+
+const GREEN = '#27AE60';
+const RED = '#E53E3E';
+const FF = 'System';
+
+// Per-metric identity colors (DESIGN.md "Per-metric data colors").
+const C_PROTEIN = '#E0533A';
+const C_WATER = '#2BA7E0';
+const C_FIBER = '#3AAE5A';
+const C_STEPS = '#F5972A';
+const C_SE = '#E0699B';
+
+const FILL_NULL: (number | null)[] = [null, null, null, null, null, null, null];
+const FILL_ZERO: number[] = [0, 0, 0, 0, 0, 0, 0];
+
+// Single-letter weekday labels for the 7-day window (derived from its real start
+// date, so the axis matches the actual program week — not a hardcoded Mon–Sun).
+const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+function weekdayLabels(startStr: string): string[] {
+  try {
+    const d0 = new Date(`${startStr}T00:00:00`).getTime();
+    return Array.from({ length: 7 }, (_, i) => WD[new Date(d0 + i * 86400000).getDay()]);
+  } catch {
+    return ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  }
+}
+
+// Qualitative descriptor for a higher-is-better average vs goal (protein, steps).
+function goalDescriptor(avg: number | null, goal: number): string {
+  if (avg == null) return 'No data logged';
+  const r = goal > 0 ? avg / goal : 0;
+  if (r >= 1) return 'Goal reached';
+  if (r >= 0.8) return 'Close to goal';
+  if (r >= 0.5) return 'Below goal';
+  return 'Well below goal';
+}
+
+// Calories is a target band, not higher-is-better.
+function calorieDescriptor(avg: number | null, goal: number): string {
+  if (avg == null) return 'No data logged';
+  const r = goal > 0 ? avg / goal : 1;
+  if (r > 1.1) return 'Above target';
+  if (r < 0.9) return 'Below target';
+  return 'On target';
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,11 +103,6 @@ function capitalize(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function progressPct(actual: number | null, target: number): number {
-  if (actual == null || target <= 0) return 0;
-  return Math.min(1, actual / target);
-}
-
 const CHECKIN_LABELS: Record<string, string> = {
   foodNoise:       'Food Noise',
   appetite:        'Appetite',
@@ -55,14 +113,7 @@ const CHECKIN_LABELS: Record<string, string> = {
   mentalHealth:    'Mental Health',
 };
 
-function scoreColor(score: number): string {
-  if (score >= 70) return '#27AE60';
-  if (score >= 50) return '#F6CB45';
-  if (score >= 30) return '#E8960C';
-  return '#E53E3E';
-}
-
-// ─── PDF Builder ──────────────────────────────────────────────────────────────
+// ─── PDF Builder (unchanged) ────────────────────────────────────────────────────
 
 function buildPdfHtml(
   summary: WeeklySummaryData,
@@ -97,9 +148,6 @@ function buildPdfHtml(
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
   th   { font-weight: 600; color: #888; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
-  .green { background: #e8f8ef; color: #27AE60; }
-  .red   { background: #fdeaea; color: #E53E3E; }
   footer { margin-top: 40px; font-size: 11px; color: #aaa; text-align: center; }
 </style>
 </head>
@@ -141,49 +189,63 @@ ${checkinRows ? `<h2>Check-In Scores</h2><table><tr><th>Type</th><th>Score</th><
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SectionCard({
-  title,
-  children,
-  colors,
-}: {
-  title: string;
-  children: React.ReactNode;
-  colors: AppColors;
+// Card header: title + optional subtitle on the left, the metric's hand-illustrated
+// art on the right (matching the insights cards).
+function CardHead({ image, title, subtitle, colors }: {
+  image: ImageSourcePropType; title: string; subtitle?: string; colors: AppColors;
 }) {
   return (
-    <View style={[cardStyles(colors).card]}>
-      <Text style={cardStyles(colors).title}>{title}</Text>
-      {children}
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.3 }}>
+          {title}
+        </Text>
+        {!!subtitle && (
+          <Text style={{ fontSize: 13.5, color: colors.textSecondary, fontFamily: FF, marginTop: 2 }}>{subtitle}</Text>
+        )}
+      </View>
+      <Image source={image} style={{ width: 62, height: 62 }} resizeMode="contain" accessibilityIgnoresInvertColors />
     </View>
   );
 }
 
-function ProgressRow({
-  label,
-  value,
-  target,
-  unit = '',
-  colors,
+// A single metric inside a card: eyebrow + 7-day-average headline + qualitative
+// descriptor (with the metric's art on the right), then a WeekBarChart with the
+// goal drawn as a dashed line.
+function MetricBlock({
+  title, avg, unit, goal, descriptor, values, labels, color, colors, image, topGap = 16,
 }: {
-  label: string;
-  value: number | null;
-  target: number;
-  unit?: string;
-  colors: AppColors;
+  title: string; avg: number | null; unit: string; goal: number; descriptor: string;
+  values: (number | null)[]; labels: string[]; color: string; colors: AppColors;
+  image?: ImageSourcePropType; topGap?: number;
 }) {
-  const pct = progressPct(value, target);
-  const s = cardStyles(colors);
+  const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return (
-    <View style={s.row}>
-      <View style={s.rowHeader}>
-        <Text style={s.rowLabel}>{label}</Text>
-        <Text style={s.rowValue}>
-          {value != null ? `${value}${unit}` : '—'}
-          <Text style={s.rowTarget}> / {target}{unit}</Text>
-        </Text>
+    <View style={{ marginTop: topGap }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.2, color: w(0.4), fontFamily: FF }}>
+            {title.toUpperCase()}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.6 }}>
+              {avg != null ? avg.toLocaleString() : '—'}
+            </Text>
+            {!!unit.trim() && (
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textSecondary, fontFamily: FF }}>{unit.trim()}</Text>
+            )}
+            <Text style={{ fontSize: 14, color: w(0.4), fontFamily: FF, marginLeft: 2 }}>· 7-day avg</Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, fontFamily: FF, marginTop: 2 }}>
+            {descriptor}
+          </Text>
+        </View>
+        {image && (
+          <Image source={image} style={{ width: 46, height: 46 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+        )}
       </View>
-      <View style={s.barBg}>
-        <View style={[s.barFill, { width: `${Math.round(pct * 100)}%` }]} />
+      <View style={{ marginTop: 14 }}>
+        <WeekBarChart values={values} labels={labels} color={color} goal={goal} />
       </View>
     </View>
   );
@@ -192,15 +254,17 @@ function ProgressRow({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function WeeklySummaryScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
-  const { weeklySummaries } = useLogStore();
+  const {
+    weeklySummaries, foodLogs, weightLogs, activityLogs, sideEffectLogs,
+    weeklyCheckins, foodNoiseLogs,
+  } = useLogStore();
+  const { targets } = useHealthData();
   const { openAiChat } = useUiStore();
 
-  // Viewer only: snapshots are generated in the background (hooks/use-weekly-summary-gen)
-  // and frozen per program week. Open by snapshot_id, or default to the latest.
   const { snapshot_id } = useLocalSearchParams<{ snapshot_id?: string }>();
   const snapshot = useMemo(
     () => snapshot_id
@@ -209,23 +273,97 @@ export default function WeeklySummaryScreen() {
     [snapshot_id, weeklySummaries],
   );
 
-  const summary: WeeklySummaryData | null = snapshot
+  const storedSummary: WeeklySummaryData | null = snapshot
     ? (snapshot.summary_data as unknown as WeeklySummaryData)
     : null;
   const aiInsight = snapshot?.ai_insight ?? '';
 
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  // Guard: profile required for PDF export. Show loading until ready.
+  // Water lives in AsyncStorage (per-day). Load this window's 7 days so a stale
+  // snapshot can be recomputed with real water values.
+  const [waterByDate, setWaterByDate] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!snapshot) return;
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, number> = {};
+      const start = new Date(`${snapshot.window_start}T00:00:00`).getTime();
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start + i * 86400000);
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const v = await AsyncStorage.getItem(waterStorageKey(ds)).catch(() => null);
+        if (v) map[ds] = parseFloat(v);
+      }
+      if (!cancelled) setWaterByDate(map);
+    })();
+    return () => { cancelled = true; };
+  }, [snapshot?.window_start]);
+
+  // Older snapshots were frozen before the per-day chart fields existed (or before
+  // the week's logs had synced). When we detect that stale format, recompute live
+  // from the current logs for the snapshot's window so the charts reflect reality.
+  const summary: WeeklySummaryData | null = useMemo(() => {
+    if (!storedSummary || !snapshot) return storedSummary;
+    const isStale = !Array.isArray((storedSummary.nutrition as { caloriesByDay?: unknown }).caloriesByDay);
+    if (!isStale) return storedSummary;
+    return computeWeeklySummary(
+      { foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs },
+      targets,
+      waterByDate,
+      { windowStart: snapshot.window_start, windowEnd: snapshot.window_end },
+    );
+  }, [storedSummary, snapshot, foodLogs, weightLogs, activityLogs, sideEffectLogs, weeklyCheckins, foodNoiseLogs, targets, waterByDate]);
+
+  // The chronologically-previous snapshot, for week-over-week comparisons.
+  const prevSummary = useMemo<WeeklySummaryData | null>(() => {
+    if (!snapshot) return null;
+    const earlier = weeklySummaries
+      .filter(x => x.window_end < snapshot.window_start)
+      .sort((a, b) => b.window_end.localeCompare(a.window_end));
+    return earlier[0]
+      ? (earlier[0].summary_data as unknown as WeeklySummaryData)
+      : null;
+  }, [snapshot, weeklySummaries]);
+
+  const dayLabels = useMemo(
+    () => (summary ? weekdayLabels(summary.windowStart) : FILL_NULL.map(() => '')),
+    [summary],
+  );
+
+  // Check-in rows: this week vs last week, dropping domains with no data either week.
+  const checkinRows = useMemo<CompareRow[]>(() => {
+    if (!summary) return [];
+    return (Object.keys(CHECKIN_LABELS) as (keyof typeof CHECKIN_LABELS)[])
+      .map(k => ({
+        label: CHECKIN_LABELS[k],
+        current: (summary.checkins as Record<string, number | null>)[k] ?? null,
+        previous: prevSummary ? ((prevSummary.checkins as Record<string, number | null>)[k] ?? null) : null,
+      }))
+      .filter(r => r.current != null || r.previous != null);
+  }, [summary, prevSummary]);
+
+  // Side-effect symptom log: union of types across both weeks, this/last counts.
+  const seTypeRows = useMemo(() => {
+    if (!summary) return [];
+    const cur = summary.sideEffects.typeCounts ?? {};
+    const prev = prevSummary?.sideEffects.typeCounts ?? {};
+    const keys = Array.from(new Set([...Object.keys(cur), ...Object.keys(prev)]));
+    return keys
+      .map(type => ({ type, cur: cur[type] ?? 0, prev: prev[type] ?? 0 }))
+      .sort((a, b) => (b.cur - a.cur) || (b.prev - a.prev));
+  }, [summary, prevSummary]);
+
   if (!profile) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator size="large" color={colors.orange} />
       </View>
     );
   }
 
-  const handleClose = () => router.replace('/(tabs)');
+  // From history → go back. From the home card → return to the dashboard.
+  const handleClose = () => (snapshot_id ? router.back() : router.replace('/(tabs)'));
 
   const handleExportPdf = async () => {
     if (!summary || !profile) return;
@@ -258,28 +396,37 @@ export default function WeeklySummaryScreen() {
     ? `${formatDate(summary.windowStart)} – ${formatDate(summary.windowEnd)}`
     : '';
 
-  // Day of week labels (Mon–Sun) for the 7-day activity row
-  const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  // Weight hero values
+  const wDelta = summary?.weight.delta ?? null;
+  const wDown = (wDelta ?? 0) <= 0;
+  const wColor = wDelta == null ? colors.textSecondary : wDown ? GREEN : RED;
+  const wDescriptor = wDelta == null
+    ? 'No weight logged this week'
+    : wDelta === 0 ? 'Holding steady'
+    : wDown ? 'Trending down · on track' : 'Up slightly this week';
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
+    <View style={s.root}>
       {/* Header */}
-      <View style={s.header}>
-        <View>
+      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+        <CircleIconButton icon={X} onPress={handleClose} accessibilityLabel="Close summary" />
+        <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={s.headerTitle}>Weekly Summary</Text>
           {dateRange ? <Text style={s.headerSub}>{dateRange}</Text> : null}
         </View>
-        <TouchableOpacity style={s.closeBtn} onPress={handleClose}>
-          <X size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <CircleIconButton
+          icon={Clock}
+          onPress={() => router.push('/entry/weekly-summary-history' as any)}
+          accessibilityLabel="Past summaries"
+        />
       </View>
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Not-ready state — no snapshot for this week yet */}
+        {/* Not-ready state */}
         {!summary && (
           <View style={s.emptyState}>
             <BarChart3 size={48} color={colors.textSecondary} style={{ marginBottom: 14, opacity: 0.4 }} />
@@ -291,172 +438,207 @@ export default function WeeklySummaryScreen() {
           </View>
         )}
 
-        {/* AI Insight Card */}
         {summary && (
-          <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={s.aiCard}>
-            <View style={s.aiCardInner}>
-              <View style={s.aiOrangeBorder} />
-              <View style={s.aiContent}>
-                <Text style={s.aiLabel}>AI Insight</Text>
-                <Text style={s.aiText}>{aiInsight || 'Tap "Chat with AI" for a personalized recap.'}</Text>
-                <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi}>
+          <>
+            {/* ── Weight hero (radial glow number) ── */}
+            <View style={s.card}>
+              <View style={s.hero}>
+                <View pointerEvents="none" style={[s.heroGlow, { backgroundColor: wColor + '26' }]} />
+                <Text style={s.heroEyebrow}>WEIGHT</Text>
+                {wDelta == null ? (
+                  <Text style={[s.heroValue, { color: colors.textPrimary, fontSize: 30 }]}>—</Text>
+                ) : (
+                  <View style={s.heroValueRow}>
+                    {wDown
+                      ? <TrendingDown size={26} color={wColor} />
+                      : <TrendingUp size={26} color={wColor} />}
+                    <Text style={[s.heroValue, { color: wColor }]}>
+                      {wDelta > 0 ? '+' : ''}{wDelta.toFixed(1)}
+                    </Text>
+                    <Text style={[s.heroUnit, { color: wColor }]}>lbs</Text>
+                  </View>
+                )}
+                <View style={s.heroStatusRow}>
+                  <View style={[s.statusDot, { backgroundColor: wColor }]} />
+                  <Text style={s.heroDescriptor}>{wDescriptor}</Text>
+                </View>
+                {summary.weight.start != null && summary.weight.end != null && (
+                  <View style={s.heroRange}>
+                    <Text style={s.heroRangeText}>{summary.weight.start.toFixed(1)}</Text>
+                    <ArrowRight size={14} color={colors.textMuted} />
+                    <Text style={s.heroRangeText}>{summary.weight.end.toFixed(1)} lbs</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* ── AI Insight ── */}
+            <View style={s.card}>
+              <View style={s.cardPad}>
+                <View style={s.aiHead}>
+                  <Sparkles size={15} color={colors.orange} />
+                  <Text style={s.aiLabel}>AI INSIGHT</Text>
+                </View>
+                <Text style={s.aiText}>
+                  {aiInsight || 'Tap “Chat with AI” for a personalized recap of your week.'}
+                </Text>
+                <TouchableOpacity style={s.askAiBtn} onPress={handleAskAi} activeOpacity={0.7}>
                   <MessageCircle size={14} color={colors.orange} />
-                  <Text style={s.askAiBtnText}>Ask AI</Text>
+                  <Text style={s.askAiBtnText}>Ask AI about this week</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </BlurView>
-        )}
 
-        {summary && (
-          <>
-            {/* Weight */}
-            <SectionCard title="Weight" colors={colors}>
-              {summary.weight.start == null && summary.weight.end == null ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>No weight logs this week</Text>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '700', fontFamily: FF }}>
-                    {summary.weight.start?.toFixed(1) ?? '—'}
-                  </Text>
-                  <ArrowRight size={16} color={colors.textSecondary} />
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '700', fontFamily: FF }}>
-                    {summary.weight.end?.toFixed(1) ?? '—'} lbs
-                  </Text>
-                  {summary.weight.delta != null && (
-                    <View style={[s.deltaBadge, { backgroundColor: summary.weight.delta <= 0 ? '#e8f8ef' : '#fdeaea' }]}>
-                      {summary.weight.delta <= 0 ? <TrendingDown
-                        size={12}
-                        color={summary.weight.delta <= 0 ? GREEN : RED}
-                      /> : <TrendingUp
-                        size={12}
-                        color={summary.weight.delta <= 0 ? GREEN : RED}
-                      />}
-                      <Text style={[s.deltaBadgeText, { color: summary.weight.delta <= 0 ? GREEN : RED }]}>
-                        {summary.weight.delta > 0 ? '+' : ''}{summary.weight.delta.toFixed(1)} lbs
-                      </Text>
-                    </View>
+            {/* ── Nutrition (daily bar charts) ── */}
+            <View style={s.card}>
+              <View style={s.cardPad}>
+                <CardHead
+                  image={ART_NUTRITION} title="Nutrition"
+                  subtitle={`${summary.nutrition.daysLogged} of 7 days logged`}
+                  colors={colors}
+                />
+
+                <MetricBlock
+                  title="Calories" avg={summary.nutrition.avgCalories} unit=" cal"
+                  goal={summary.nutrition.caloriesTarget}
+                  descriptor={calorieDescriptor(summary.nutrition.avgCalories, summary.nutrition.caloriesTarget)}
+                  values={summary.nutrition.caloriesByDay ?? FILL_NULL}
+                  labels={dayLabels} color={colors.orange} colors={colors} image={ART_CALORIES}
+                />
+
+                <View style={s.divider} />
+
+                <MetricBlock
+                  title="Protein" avg={summary.nutrition.avgProteinG} unit="g"
+                  goal={summary.nutrition.proteinTarget}
+                  descriptor={goalDescriptor(summary.nutrition.avgProteinG, summary.nutrition.proteinTarget)}
+                  values={summary.nutrition.proteinByDay ?? FILL_NULL}
+                  labels={dayLabels} color={C_PROTEIN} colors={colors} image={ART_PROTEIN}
+                  topGap={20}
+                />
+
+                <View style={s.divider} />
+
+                <MetricBlock
+                  title="Fiber" avg={summary.nutrition.avgFiberG} unit="g"
+                  goal={summary.nutrition.fiberTarget}
+                  descriptor={goalDescriptor(summary.nutrition.avgFiberG, summary.nutrition.fiberTarget)}
+                  values={summary.nutrition.fiberByDay ?? FILL_NULL}
+                  labels={dayLabels} color={C_FIBER} colors={colors} image={ART_FIBER}
+                  topGap={20}
+                />
+
+                <View style={s.divider} />
+
+                <MetricBlock
+                  title="Water"
+                  avg={summary.nutrition.avgWaterMl != null ? mlToOz(summary.nutrition.avgWaterMl) : null}
+                  unit=" oz"
+                  goal={mlToOz(summary.nutrition.waterTarget)}
+                  descriptor={goalDescriptor(
+                    summary.nutrition.avgWaterMl != null ? mlToOz(summary.nutrition.avgWaterMl) : null,
+                    mlToOz(summary.nutrition.waterTarget),
                   )}
-                </View>
-              )}
-            </SectionCard>
-
-            {/* Nutrition */}
-            <SectionCard title="Nutrition" colors={colors}>
-              <Text style={[s.subNote, { marginBottom: 12 }]}>
-                {summary.nutrition.daysLogged} of 7 days logged
-              </Text>
-              <ProgressRow
-                label="Calories"
-                value={summary.nutrition.avgCalories}
-                target={summary.nutrition.caloriesTarget}
-                colors={colors}
-              />
-              <ProgressRow
-                label="Protein"
-                value={summary.nutrition.avgProteinG}
-                target={summary.nutrition.proteinTarget}
-                unit="g"
-                colors={colors}
-              />
-              <ProgressRow
-                label="Fiber"
-                value={summary.nutrition.avgFiberG}
-                target={summary.nutrition.fiberTarget}
-                unit="g"
-                colors={colors}
-              />
-              <ProgressRow
-                label="Water"
-                value={summary.nutrition.avgWaterMl != null ? mlToOz(summary.nutrition.avgWaterMl) : null}
-                target={mlToOz(summary.nutrition.waterTarget)}
-                unit=" oz"
-                colors={colors}
-              />
-            </SectionCard>
-
-            {/* Activity */}
-            <SectionCard title="Activity" colors={colors}>
-              <View style={s.actRow}>
-                <Text style={s.actSteps}>
-                  {summary.activity.avgSteps?.toLocaleString() ?? '—'}
-                </Text>
-                <Text style={s.actTarget}>
-                  / {summary.activity.stepsTarget.toLocaleString()} avg steps
-                </Text>
+                  values={(summary.nutrition.waterByDay ?? FILL_NULL).map(ml => (ml == null ? null : mlToOz(ml)))}
+                  labels={dayLabels} color={C_WATER} colors={colors} image={ART_WATER}
+                  topGap={20}
+                />
               </View>
-              <View style={s.dayDots}>
-                {summary.activity.dayFlags.map((active, i) => (
-                  <View key={i} style={s.dayDotCol}>
-                    <View style={[s.dayDot, active && s.dayDotActive]} />
-                    <Text style={s.dayDotLabel}>{DAY_LABELS[i]}</Text>
+            </View>
+
+            {/* ── Activity (daily step bars) ── */}
+            <View style={s.card}>
+              <View style={s.cardPad}>
+                <CardHead
+                  image={ART_STEPS} title="Activity"
+                  subtitle={`${summary.activity.activeDays} of 7 days active`}
+                  colors={colors}
+                />
+                <MetricBlock
+                  title="Steps" avg={summary.activity.avgSteps} unit=""
+                  goal={summary.activity.stepsTarget}
+                  descriptor={goalDescriptor(summary.activity.avgSteps, summary.activity.stepsTarget)}
+                  values={(summary.activity.stepsByDay ?? FILL_ZERO).map(v => (v > 0 ? v : null))}
+                  labels={dayLabels} color={C_STEPS} colors={colors}
+                  topGap={6}
+                />
+              </View>
+            </View>
+
+            {/* ── Check-In Scores (this week vs last week) ── */}
+            <View style={s.card}>
+              <View style={s.cardPad}>
+                <CardHead image={ART_CHECKIN} title="Check-In Scores" colors={colors} />
+                {checkinRows.length === 0 ? (
+                  <Text style={[s.mutedBody, { marginTop: 6 }]}>No check-ins completed this week</Text>
+                ) : (
+                  <View style={{ marginTop: 8 }}>
+                    <CompareBars rows={checkinRows} color={GREEN} hasPrevious={!!prevSummary} />
                   </View>
-                ))}
+                )}
               </View>
-              <Text style={s.subNote}>{summary.activity.activeDays} of 7 days active</Text>
-            </SectionCard>
+            </View>
 
-            {/* Check-In Scores */}
-            <SectionCard title="Check-In Scores" colors={colors}>
-              {Object.entries(summary.checkins).every(([, v]) => v == null) ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>No check-ins completed this week</Text>
-              ) : (
-                <View style={s.checkinGrid}>
-                  {Object.entries(summary.checkins)
-                    .filter(([, v]) => v != null)
-                    .map(([key, score]) => (
-                      <View key={key} style={[s.checkinPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
-                        <Text style={s.checkinPillLabel}>{CHECKIN_LABELS[key] ?? key}</Text>
-                        <View style={[s.checkinScore, { backgroundColor: scoreColor(score!) + '22' }]}>
-                          <Text style={[s.checkinScoreText, { color: scoreColor(score!) }]}>{score}</Text>
-                        </View>
-                      </View>
-                    ))
+            {/* ── Side Effects (this week vs last week trend) ── */}
+            <View style={s.card}>
+              <View style={s.cardPad}>
+                <CardHead
+                  image={ART_SIDE_EFFECTS} title="Side Effects"
+                  subtitle={
+                    summary.sideEffects.totalCount === 0 && seTypeRows.length === 0
+                      ? undefined
+                      : `${summary.sideEffects.totalCount} logged this week${prevSummary ? ` · ${prevSummary.sideEffects.totalCount} last week` : ''}`
                   }
-                </View>
-              )}
-            </SectionCard>
+                  colors={colors}
+                />
+                {summary.sideEffects.totalCount === 0 && seTypeRows.length === 0 ? (
+                  <Text style={[s.mutedBody, { marginTop: 6 }]}>None logged this week</Text>
+                ) : (
+                  <>
+                    <View style={{ marginTop: 8 }}>
+                      <DualLineChart
+                        current={summary.sideEffects.countByDay ?? FILL_ZERO}
+                        previous={prevSummary?.sideEffects.countByDay ?? null}
+                        labels={dayLabels} color={C_SE}
+                      />
+                    </View>
 
-            {/* Side Effects */}
-            <SectionCard title="Side Effects" colors={colors}>
-              {summary.sideEffects.totalCount === 0 ? (
-                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>None logged this week</Text>
-              ) : (
-                <View>
-                  <Text style={[s.actSteps, { marginBottom: 10 }]}>
-                    {summary.sideEffects.totalCount}
-                    <Text style={{ color: colors.textSecondary, fontSize: 17, fontWeight: '400' }}> logged</Text>
-                  </Text>
-                  <View style={s.seChips}>
-                    {summary.sideEffects.topTypes.map(t => (
-                      <View key={t} style={s.seChip}>
-                        <Text style={s.seChipText}>{capitalize(t)}</Text>
+                    {seTypeRows.length > 0 && (
+                      <View style={{ marginTop: 18 }}>
+                        <Text style={s.logHeader}>SYMPTOM LOG</Text>
+                        <View style={s.logRow}>
+                          <Text style={[s.logCellLabel, { color: colors.textMuted, fontWeight: '700' }]}>Type</Text>
+                          <Text style={[s.logCellNum, { color: colors.textMuted }]}>This wk</Text>
+                          <Text style={[s.logCellNum, { color: colors.textMuted }]}>Last wk</Text>
+                        </View>
+                        {seTypeRows.map(r => (
+                          <View key={r.type} style={s.logRow}>
+                            <Text style={s.logCellLabel} numberOfLines={1}>{capitalize(r.type)}</Text>
+                            <Text style={[s.logCellNum, { color: r.cur > 0 ? colors.textPrimary : colors.textMuted }]}>{r.cur}</Text>
+                            <Text style={[s.logCellNum, { color: colors.textSecondary }]}>{prevSummary ? r.prev : '—'}</Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </SectionCard>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
           </>
         )}
-
       </ScrollView>
 
-      {/* Sticky Footer — only when a summary is loaded */}
+      {/* Sticky Footer */}
       {summary && (
-        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
-          <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi}>
+        <BlurView intensity={30} tint={colors.blurTint} style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
+          <TouchableOpacity style={s.primaryBtn} onPress={handleAskAi} activeOpacity={0.85}>
             <MessageCircle size={16} color="#fff" />
             <Text style={s.primaryBtnText}>Chat with AI</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading}>
+          <TouchableOpacity style={s.secondaryBtn} onPress={handleExportPdf} disabled={pdfLoading} activeOpacity={0.7}>
             {pdfLoading
               ? <ActivityIndicator size="small" color={colors.orange} />
-              : <>
-                  <Share2 size={16} color={colors.orange} />
-                  <Text style={s.secondaryBtnText}>Export PDF</Text>
-                </>
-            }
+              : (<><Share2 size={16} color={colors.orange} /><Text style={s.secondaryBtnText}>Export PDF</Text></>)}
           </TouchableOpacity>
         </BlurView>
       )}
@@ -466,214 +648,86 @@ export default function WeeklySummaryScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-function cardStyles(c: AppColors) {
-  return StyleSheet.create({
-    card: {
-      backgroundColor: c.surface,
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
-    },
-    title: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: c.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-      marginBottom: 12,
-      fontFamily: FF,
-    },
-    row: { marginBottom: 12 },
-    rowHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-    rowLabel: { fontSize: 16, color: c.textPrimary, fontFamily: FF },
-    rowValue: { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
-    rowTarget: { fontSize: 15, fontWeight: '400', color: c.textSecondary },
-    barBg: {
-      height: 5,
-      backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-      borderRadius: 4,
-      overflow: 'hidden',
-    },
-    barFill: { height: 5, backgroundColor: c.orange, borderRadius: 4 },
-  });
-}
-
 const createStyles = (c: AppColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.bg },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 20, paddingBottom: 14,
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: c.textPrimary,
-    fontFamily: 'System',
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 15,
-    color: c.textSecondary,
-    marginTop: 2,
-    fontFamily: FF,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.4 },
+  headerSub: { fontSize: 14, color: c.textSecondary, marginTop: 1, fontFamily: FF },
+
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
 
-  // Not-ready empty state
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: c.textPrimary,
-    fontFamily: FF,
-    marginBottom: 8,
-  },
-  emptyBody: {
-    fontSize: 15,
-    color: c.textSecondary,
-    fontFamily: FF,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: 24 },
+  emptyTitle: { fontSize: 19, fontWeight: '800', color: c.textPrimary, fontFamily: FF, marginBottom: 8 },
+  emptyBody: { fontSize: 15, color: c.textSecondary, fontFamily: FF, textAlign: 'center', lineHeight: 21 },
 
-  // AI Card
-  aiCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
+  // Solid white card (no blur) — the clean Apple-Health surface.
+  card: {
+    borderRadius: 22,
+    backgroundColor: c.surfaceElevated,
     marginBottom: 12,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
+    ...cardElevation(c.isDark),
   },
-  aiCardInner: { flexDirection: 'row' },
-  aiOrangeBorder: { width: 4, backgroundColor: c.orange },
-  aiContent: { flex: 1, padding: 14 },
-  aiLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.orange,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 6,
-    fontFamily: FF,
-  },
-  aiText: {
-    fontSize: 16,
-    color: c.textPrimary,
-    lineHeight: 20,
-    fontFamily: FF,
-  },
-  shimmerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  shimmerText: { fontSize: 16, color: c.textSecondary, fontFamily: FF },
-  askAiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 10,
-    alignSelf: 'flex-start',
-  },
-  askAiBtnText: { fontSize: 15, color: c.orange, fontWeight: '600', fontFamily: FF },
-
-  // Weight
-  deltaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  deltaBadgeText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
-
-  // Activity
-  actRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 12 },
-  actSteps: { fontSize: 28, fontWeight: '800', color: c.textPrimary, fontFamily: FF },
-  actTarget: { fontSize: 16, color: c.textSecondary, fontFamily: FF },
-  dayDots: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  dayDotCol: { alignItems: 'center', gap: 4 },
-  dayDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: c.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
-  },
-  dayDotActive: { backgroundColor: c.orange },
-  dayDotLabel: { fontSize: 12, color: c.textSecondary, fontFamily: FF },
+  cardPad: { padding: 18 },
   subNote: { fontSize: 14, color: c.textSecondary, fontFamily: FF },
+  mutedBody: { fontSize: 15, color: c.textSecondary, fontFamily: FF },
 
-  // Check-ins
-  checkinGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  checkinPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  checkinPillLabel: { fontSize: 15, color: c.textPrimary, fontFamily: FF },
-  checkinScore: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  checkinScoreText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
-
-  // Side effects
-  seChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  seChip: {
+  divider: {
+    height: StyleSheet.hairlineWidth, marginVertical: 18,
     backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
   },
-  seChipText: { fontSize: 15, color: c.textPrimary, fontFamily: FF },
+
+  // Side-effect symptom log table
+  logHeader: { fontSize: 12, fontWeight: '800', letterSpacing: 1.2, color: c.textMuted, fontFamily: FF, marginBottom: 8 },
+  logRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
+  logCellLabel: { flex: 1, fontSize: 14.5, color: c.textPrimary, fontFamily: FF },
+  logCellNum: { width: 64, textAlign: 'right', fontSize: 14.5, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+
+  // Weight hero
+  hero: { padding: 22, alignItems: 'center', overflow: 'hidden' },
+  heroGlow: { position: 'absolute', width: 220, height: 220, borderRadius: 999, top: -70 },
+  heroEyebrow: { fontSize: 12, fontWeight: '800', color: c.textMuted, letterSpacing: 1.5, fontFamily: FF, marginBottom: 8 },
+  heroValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroValue: { fontSize: 46, fontWeight: '800', fontFamily: FF, letterSpacing: -1 },
+  heroUnit: { fontSize: 20, fontWeight: '700', fontFamily: FF, marginBottom: 6 },
+  heroStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  heroDescriptor: { fontSize: 14, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+  heroRange: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+  },
+  heroRangeText: { fontSize: 15, fontWeight: '700', color: c.textPrimary, fontFamily: FF },
+
+  // AI
+  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  aiLabel: { fontSize: 12, fontWeight: '800', color: c.orange, letterSpacing: 1.2, fontFamily: FF },
+  aiText: { fontSize: 16, color: c.textPrimary, lineHeight: 22, fontFamily: FF },
+  askAiBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 12, alignSelf: 'flex-start' },
+  askAiBtnText: { fontSize: 15, color: c.orange, fontWeight: '700', fontFamily: FF },
 
   // Footer
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: c.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
   },
   primaryBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: c.orange,
-    height: 46,
-    borderRadius: 12,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: c.orange, height: 50, borderRadius: 999,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 17, fontFamily: FF },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16, fontFamily: FF },
   secondaryBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: c.orange,
-    height: 46,
-    borderRadius: 12,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: c.orange, height: 50, borderRadius: 999,
   },
-  secondaryBtnText: { color: c.orange, fontWeight: '700', fontSize: 17, fontFamily: FF },
+  secondaryBtnText: { color: c.orange, fontWeight: '700', fontSize: 16, fontFamily: FF },
 });
