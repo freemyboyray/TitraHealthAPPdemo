@@ -14,7 +14,7 @@ import type { AppColors } from '@/constants/theme';
 
 export default function PreferencesScreen() {
   const { colors } = useAppTheme();
-  const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle } = usePreferencesStore();
+  const { themeMode, setThemeMode, appleHealthEnabled } = usePreferencesStore();
   const { masterEnabled } = useRemindersStore();
   const { lastRefreshed, liveCategories } = useHealthKitStore();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -29,8 +29,6 @@ export default function PreferencesScreen() {
 
   const themeModes = ['system', 'light', 'dark'] as const;
   const themeLabels: Record<string, string> = { system: 'System', light: 'Light', dark: 'Dark' };
-  const headerStyles = ['gradient', 'minimal'] as const;
-  const headerLabels: Record<string, string> = { gradient: 'Gradient', minimal: 'Minimal' };
 
   return (
     <View style={s.safe}>
@@ -48,8 +46,8 @@ export default function PreferencesScreen() {
             {/* Appearance */}
             <Pressable style={s.cardRow} onPress={() => toggle('appearance')} accessibilityLabel="Appearance" accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name={themeMode === 'light' ? 'sun.max.fill' : themeMode === 'dark' ? 'moon.fill' : 'circle.lefthalf.filled'} size={18} color={colors.orange} />
+                <View style={s.iconBadge}>
+                  <IconSymbol name={themeMode === 'light' ? 'sun.max' : themeMode === 'dark' ? 'moon' : 'circle.lefthalf.filled'} size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>Appearance</Text>
               </View>
@@ -71,37 +69,11 @@ export default function PreferencesScreen() {
 
             <View style={s.divider} />
 
-            {/* Header Style */}
-            <Pressable style={s.cardRow} onPress={() => toggle('headerStyle')} accessibilityLabel="Header Style" accessibilityRole="button">
-              <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="paintbrush.fill" size={18} color={colors.orange} />
-                </View>
-                <Text style={s.rowLabel}>Header Style</Text>
-              </View>
-              <View style={s.rowRight}>
-                <Text style={s.rowValue}>{headerLabels[headerStyle ?? 'gradient']}</Text>
-                <IconSymbol name={expandedRow === 'headerStyle' ? 'chevron.down' : 'chevron.right'} size={16} color={colors.textMuted} />
-              </View>
-            </Pressable>
-            {expandedRow === 'headerStyle' && (
-              <Animated.View style={s.expandedContent} entering={enter} exiting={exit}>
-                {headerStyles.map((style) => (
-                  <Pressable key={style} style={s.optionRow} onPress={() => setHeaderStyle(style)} accessibilityLabel={headerLabels[style]} accessibilityRole="button" accessibilityState={{ selected: (headerStyle ?? 'gradient') === style }}>
-                    <Text style={[s.optionLabel, (headerStyle ?? 'gradient') === style && { color: colors.orange, fontWeight: '700' }]}>{headerLabels[style]}</Text>
-                    {(headerStyle ?? 'gradient') === style && <IconSymbol name="checkmark" size={16} color={colors.orange} />}
-                  </Pressable>
-                ))}
-              </Animated.View>
-            )}
-
-            <View style={s.divider} />
-
             {/* Reminders */}
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/reminders')} accessibilityLabel="Reminders" accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="bell.fill" size={18} color={colors.orange} />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="bell" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>Reminders</Text>
               </View>
@@ -116,8 +88,8 @@ export default function PreferencesScreen() {
             {/* Health Data Sync */}
             <Pressable style={s.cardRow} onPress={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)} accessibilityLabel={Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'} accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: Platform.OS === 'ios' ? 'rgba(255,59,48,0.15)' : 'rgba(66,133,244,0.15)' }]}>
-                  <IconSymbol name="heart.fill" size={18} color={Platform.OS === 'ios' ? '#FF3B30' : '#4285F4'} />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="heart" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>{Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect'}</Text>
               </View>

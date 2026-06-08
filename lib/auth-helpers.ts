@@ -17,6 +17,7 @@ export function useFinishAuth() {
   return async function finishAuth(
     session: Session,
     fallbackName?: string | null,
+    opts?: { returnTo?: string },
   ): Promise<void> {
     setSession(session);
     const user = session.user;
@@ -47,10 +48,14 @@ export function useFinishAuth() {
 
     await loadProfile();
     if (existing?.program_start_date) {
+      // Returning, fully-onboarded user → straight to the app.
       await reloadProfile();
       router.replace('/');
     } else {
-      router.replace('/onboarding');
+      // New / mid-onboarding account. `returnTo` lets a caller that creates the
+      // account partway through onboarding (e.g. the /onboarding/account step)
+      // resume at the next step instead of restarting the whole flow.
+      router.replace((opts?.returnTo ?? '/onboarding') as any);
     }
   };
 }

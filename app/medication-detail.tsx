@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -14,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
@@ -24,9 +23,11 @@ import { BRAND_DISPLAY_NAMES, BRAND_TO_GLP1_TYPE, isOnTreatment, getTransitionPh
 import { DRUG_HALF_LIFE_LABEL } from '@/constants/drug-pk';
 import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
-import { Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronLeft, ChevronUp, Hospital, Pill, Plus, PlusCircle, Trash2 } from 'lucide-react-native';
 
 const FF = 'System';
+
+const MED_PEN = require('@/assets/images/med-hero.png');
 
 const GLP1_DISPLAY: Record<string, string> = {
   semaglutide: 'Semaglutide',
@@ -54,15 +55,15 @@ function InfoRow({ label, value, isLast, colors }: { label: string; value: strin
   );
 }
 
-// ── Medication Card ──────────────────────────────────────────────────────────
+// ── Medication Row (within the grouped inset list) ───────────────────────────
 
 function MedicationCard({
   med,
   active,
   expanded,
+  isFirst,
   onToggle,
   onSetActive,
-  onPhotoUpload,
   onNotesUpdate,
   onDelete,
   colors,
@@ -71,31 +72,16 @@ function MedicationCard({
   med: UserMedication;
   active: boolean;
   expanded: boolean;
+  isFirst: boolean;
   onToggle: () => void;
   onSetActive: () => void;
-  onPhotoUpload: (medId: string) => void;
   onNotesUpdate: (medId: string, notes: string) => void;
   onDelete: () => void;
   colors: AppColors;
   s: ReturnType<typeof createStyles>;
 }) {
-  const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState(med.notes ?? '');
   const lastSavedNotes = useRef(med.notes ?? '');
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      if (!med.photo_url) { setPhotoSignedUrl(null); return; }
-      (async () => {
-        const { data } = await supabase.storage
-          .from('medication-photos')
-          .createSignedUrl(med.photo_url!, 3600);
-        if (!cancelled && data?.signedUrl) setPhotoSignedUrl(data.signedUrl);
-      })();
-      return () => { cancelled = true; };
-    }, [med.photo_url]),
-  );
 
   function saveNotes() {
     const trimmed = notes.trim();
@@ -111,64 +97,28 @@ function MedicationCard({
   const halfLife = DRUG_HALF_LIFE_LABEL[med.glp1_type as keyof typeof DRUG_HALF_LIFE_LABEL] ?? '';
 
   return (
-    <View style={[s.medCard, active && s.medCardActive]}>
-      <View style={s.medCardHeader}>
-        {/* Selection circle — separate touchable */}
-        <TouchableOpacity onPress={onSetActive} activeOpacity={0.6} style={s.selectCircle}>
-          {active ? (
-            <View style={s.selectCircleFilled}>
-              <Check size={14} color="#FFF" />
-            </View>
-          ) : (
-            <View style={s.selectCircleEmpty} />
-          )}
-        </TouchableOpacity>
+    <View>
+      {!isFirst && <View style={s.rowDivider} />}
 
-        {/* Rest of row — taps to expand */}
-        <Pressable onPress={onToggle} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          {/* Thumbnail */}
-          <View style={s.medThumb}>
-            {photoSignedUrl ? (
-              <Image source={{ uri: photoSignedUrl }} style={s.medThumbImg} resizeMode="cover" />
-            ) : (
-              <Pill size={22} color={colors.textMuted} />
-            )}
-          </View>
-
-          {/* Name + dose */}
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={s.medName} numberOfLines={1}>{brandLabel}</Text>
-            <Text style={s.medDose}>{med.dose_mg} mg · {route} · {freq}</Text>
-          </View>
-
-          {/* Expand chevron */}
-          {expanded ? <ChevronUp
-            size={18}
-            color={colors.textMuted}
-          /> : <ChevronDown
-            size={18}
-            color={colors.textMuted}
-          />}
-        </Pressable>
-      </View>
+      {/* Row header — text only, trailing check (active) + expand chevron */}
+      <Pressable onPress={onToggle} style={s.row}>
+        <View style={s.rowText}>
+          <Text style={s.medName} numberOfLines={1}>{brandLabel}</Text>
+          <Text style={s.medDose}>{med.dose_mg} mg · {route} · {freq}</Text>
+        </View>
+        {active && (
+          <View style={s.checkWrap}><Check size={15} color="#FFF" /></View>
+        )}
+        {expanded
+          ? <ChevronUp size={18} color={colors.textMuted} />
+          : <ChevronDown size={18} color={colors.textMuted} />}
+      </Pressable>
 
       {/* Expanded detail */}
       {expanded && (
-        <View style={s.medExpanded}>
-          {/* Photo section */}
-          <Pressable onPress={() => onPhotoUpload(med.id)} style={s.medPhotoArea}>
-            {photoSignedUrl ? (
-              <Image source={{ uri: photoSignedUrl }} style={s.medPhotoImg} resizeMode="cover" />
-            ) : (
-              <View style={s.medPhotoPlaceholder}>
-                <Camera size={28} color={colors.textMuted} />
-                <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: FF, marginTop: 4 }}>Add photo</Text>
-              </View>
-            )}
-          </Pressable>
-
+        <View style={s.rowExpanded}>
           {/* Info rows */}
-          <View style={{ marginTop: 12 }}>
+          <View>
             <InfoRow label="Active Ingredient" value={ingredient} colors={colors} />
             <InfoRow label="Dose" value={`${med.dose_mg} mg`} colors={colors} />
             <InfoRow label="Route" value={med.route_of_administration === 'injection' ? 'Subcutaneous Injection' : 'Oral'} colors={colors} />
@@ -192,13 +142,15 @@ function MedicationCard({
 
           {/* Actions */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            <TouchableOpacity
-              style={[s.actionBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,59,48,0.4)' }]}
-              onPress={onDelete}
-              activeOpacity={0.8}
-            >
+            {!active && (
+              <TouchableOpacity style={s.setActiveBtn} onPress={onSetActive} activeOpacity={0.85}>
+                <Check size={16} color="#FFF" />
+                <Text style={s.setActiveBtnText}>Set as Active</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.removeBtn} onPress={onDelete} activeOpacity={0.8}>
               <Trash2 size={16} color="#FF3B30" />
-              <Text style={[s.actionBtnText, { color: '#FF3B30' }]}>Remove</Text>
+              <Text style={s.removeBtnText}>Remove</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -212,6 +164,7 @@ function MedicationCard({
 export default function MedicationDetailScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { profile, updateProfile } = useProfile();
   const s = useMemo(() => createStyles(colors), [colors]);
   const onTreatment = isOnTreatment(profile);
@@ -234,7 +187,6 @@ export default function MedicationDetailScreen() {
   ].filter(Boolean).join(' · ');
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState<string | null>(null);
 
   // Backed by a store that's preloaded at app start, so navigating here shows
   // the medication library instantly instead of flashing an empty state. We
@@ -323,55 +275,6 @@ export default function MedicationDetailScreen() {
     });
   }
 
-  async function handlePhotoUpload(medId: string) {
-    Alert.alert('Medication Photo', 'Add a photo', [
-      {
-        text: 'Take Photo',
-        onPress: () => pickAndUpload(medId, 'camera'),
-      },
-      {
-        text: 'Choose from Library',
-        onPress: () => pickAndUpload(medId, 'library'),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }
-
-  async function pickAndUpload(medId: string, source: 'camera' | 'library') {
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ allowsEditing: true, base64: true, quality: 0.6 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, base64: true, quality: 0.6 });
-
-    if (result.canceled || !result.assets[0]?.base64) return;
-
-    setUploading(medId);
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-
-      const path = `${userData.user.id}/med-${medId}-${Date.now()}.jpg`;
-      const med = medications.find(m => m.id === medId);
-      if (med?.photo_url) {
-        await supabase.storage.from('medication-photos').remove([med.photo_url]).catch(() => {});
-      }
-
-      const bytes = Uint8Array.from(atob(result.assets[0].base64), c => c.charCodeAt(0));
-      const { error } = await supabase.storage
-        .from('medication-photos')
-        .upload(path, bytes, { contentType: 'image/jpeg' });
-
-      if (error) { Alert.alert('Upload Failed', error.message); return; }
-
-      await supabase.from('user_medications').update({ photo_url: path }).eq('id', medId);
-      if (med?.is_active) await updateProfile({ medicationPhotoUrl: path });
-      await fetchMedications();
-    } catch {
-      Alert.alert('Upload Failed', 'Please try again.');
-    } finally {
-      setUploading(null);
-    }
-  }
-
   async function handleNotesUpdate(medId: string, notes: string) {
     await supabase.from('user_medications').update({ notes: notes || null }).eq('id', medId);
     const med = medications.find(m => m.id === medId);
@@ -447,19 +350,22 @@ export default function MedicationDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-      {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <ChevronLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>My Medications</Text>
-        <TouchableOpacity onPress={handleAddNew} style={s.backBtn}>
-          <Plus size={26} color={colors.orange} />
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={s.safe} edges={['bottom']}>
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {/* ── Hero header: large pen illustration + title ── */}
+        <View style={[s.hero, { paddingTop: insets.top }]}>
+          {/* Nav row */}
+          <View style={[s.heroNav, { top: insets.top + 6 }]}>
+            <TouchableOpacity onPress={() => router.back()} style={s.heroNavBtn} hitSlop={8}>
+              <ChevronLeft size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <Image source={MED_PEN} style={s.heroPen} resizeMode="contain" />
+          <Text style={s.heroTitle}>My Medications</Text>
+          <Text style={s.heroSubtitle}>Set your active medication, add new ones, or switch to lifestyle-only tracking.</Text>
+        </View>
+
+        <View style={s.body}>
         {loading ? (
           <ActivityIndicator size="large" color={colors.orange} style={{ marginTop: 60 }} />
         ) : medications.length === 0 ? (
@@ -499,46 +405,50 @@ export default function MedicationDetailScreen() {
               </View>
             )}
 
-            {medications.map(med => (
-              <MedicationCard
-                key={med.id}
-                med={med}
-                active={med.is_active && onTreatment && !hasPending}
-                expanded={expandedId === med.id}
-                onToggle={() => handleToggle(med.id)}
-                onSetActive={() => handleSetActive(med)}
-                onPhotoUpload={handlePhotoUpload}
-                onNotesUpdate={handleNotesUpdate}
-                onDelete={() => handleDelete(med)}
-                colors={colors}
-                s={s}
-              />
-            ))}
+            <Text style={s.groupLabel}>Current medication</Text>
+            <View style={s.group}>
+              {medications.map((med, index) => (
+                <MedicationCard
+                  key={med.id}
+                  med={med}
+                  active={med.is_active && onTreatment && !hasPending}
+                  expanded={expandedId === med.id}
+                  isFirst={index === 0}
+                  onToggle={() => handleToggle(med.id)}
+                  onSetActive={() => handleSetActive(med)}
+                  onNotesUpdate={handleNotesUpdate}
+                  onDelete={() => handleDelete(med)}
+                  colors={colors}
+                  s={s}
+                />
+              ))}
 
-            {/* "Not currently taking" — selectable like a med, drives treatmentStatus 'off' */}
-            <TouchableOpacity
-              style={[s.noneRow, !onTreatment && s.noneRowActive]}
-              onPress={handleStopMedication}
-              activeOpacity={0.7}
-              disabled={!onTreatment}
-            >
-              {!onTreatment ? (
-                <View style={s.selectCircleFilled}><Check size={14} color="#FFF" /></View>
-              ) : (
-                <View style={s.selectCircleEmpty} />
-              )}
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={s.noneTitle}>I'm not taking a medication</Text>
-                <Text style={s.noneSub}>Lifestyle tracking only — weight, food, activity</Text>
-              </View>
-            </TouchableOpacity>
+              {/* "Not taking" — last row in the group, drives treatmentStatus 'off' */}
+              <View style={s.rowDivider} />
+              <TouchableOpacity
+                style={s.row}
+                onPress={handleStopMedication}
+                activeOpacity={0.7}
+                disabled={!onTreatment}
+              >
+                <View style={s.rowText}>
+                  <Text style={s.medName}>Not taking a medication</Text>
+                  <Text style={s.medDose}>Lifestyle tracking only — weight, food, activity</Text>
+                </View>
+                {!onTreatment && (
+                  <View style={s.checkWrap}><Check size={15} color="#FFF" /></View>
+                )}
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity style={s.addNewBtn} onPress={handleAddNew} activeOpacity={0.8}>
-              <PlusCircle size={18} color={colors.orange} style={{ marginRight: 8 }} />
-              <Text style={s.addNewBtnText}>Add New Medication</Text>
+            {/* Add medication — its own inset row */}
+            <TouchableOpacity style={s.addRow} onPress={handleAddNew} activeOpacity={0.7}>
+              <View style={s.addIcon}><Plus size={18} color={colors.orange} /></View>
+              <Text style={s.addLabel}>Add Medication</Text>
             </TouchableOpacity>
           </>
         )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -556,7 +466,104 @@ const createStyles = (c: AppColors) => {
     backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: c.textPrimary, fontSize: 18, fontWeight: '700', fontFamily: FF },
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 40 },
+    content: { paddingBottom: 40 },
+
+    // ── Hero header (no background — sits on the screen bg) ──
+    hero: {},
+    heroPen: {
+      alignSelf: 'center',
+      width: 300,
+      height: 300,
+      marginTop: 44, // clear the nav row
+    },
+    heroNav: {
+      position: 'absolute',
+      left: 8, right: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      zIndex: 1,
+    },
+    heroNavBtn: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    heroTitle: {
+      color: c.textPrimary,
+      fontSize: 30, fontWeight: '800',
+      letterSpacing: -0.4,
+      fontFamily: FF,
+      marginLeft: 20, marginTop: 4, marginBottom: 4,
+    },
+    heroSubtitle: {
+      color: c.textSecondary,
+      fontSize: 15, fontWeight: '500',
+      lineHeight: 20,
+      fontFamily: FF,
+      marginHorizontal: 20, marginBottom: 10,
+    },
+
+    body: { paddingHorizontal: 16, paddingTop: 16 },
+
+    // ── Grouped inset list (Apple-style selection list) ──
+    groupLabel: {
+      fontSize: 12, fontWeight: '600', color: c.textMuted,
+      letterSpacing: 0.6, textTransform: 'uppercase',
+      fontFamily: FF, marginLeft: 4, marginBottom: 8,
+    },
+    group: {
+      backgroundColor: c.surface,
+      borderRadius: 16, overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth, borderColor: c.border,
+      marginBottom: 18,
+    },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingHorizontal: 16, paddingVertical: 15,
+    },
+    rowText: { flex: 1, minWidth: 0 },
+    rowDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.borderSubtle,
+      marginLeft: 16,
+    },
+    checkWrap: {
+      width: 24, height: 24, borderRadius: 12,
+      backgroundColor: c.orange,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowExpanded: {
+      paddingHorizontal: 16, paddingBottom: 16, paddingTop: 2,
+    },
+    setActiveBtn: {
+      flex: 1,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      backgroundColor: c.orange, borderRadius: 12, paddingVertical: 11,
+    },
+    setActiveBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF', fontFamily: FF },
+    removeBtn: {
+      flex: 1,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      backgroundColor: 'transparent',
+      borderWidth: 1, borderColor: 'rgba(255,59,48,0.4)',
+      borderRadius: 12, paddingVertical: 11,
+    },
+    removeBtnText: { fontSize: 14, fontWeight: '600', color: '#FF3B30', fontFamily: FF },
+
+    // Add medication — inset row
+    addRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: c.surface,
+      borderRadius: 16, paddingHorizontal: 16, paddingVertical: 15,
+      borderWidth: StyleSheet.hairlineWidth, borderColor: c.border,
+    },
+    addIcon: {
+      width: 28, height: 28, borderRadius: 8,
+      backgroundColor: 'rgba(255,116,42,0.14)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    addLabel: { fontSize: 16, fontWeight: '600', color: c.orange, fontFamily: FF },
 
     // Medication card
     medCard: {

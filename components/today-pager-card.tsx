@@ -24,6 +24,7 @@ type MedicationProps = {
   weightDelta: number | null;
   stat3Val: string;
   stat3Lbl: string;
+  pctToGoal: number | null;
   todayDayNum: number | null;
   freq: number | null;
   todayInjLogged: boolean;
@@ -63,6 +64,7 @@ export function TodayPagerCard({ medication, energy }: Props) {
           weightDelta={medication.weightDelta}
           stat3Val={medication.stat3Val}
           stat3Lbl={medication.stat3Lbl}
+          pctToGoal={medication.pctToGoal}
           todayDayNum={medication.todayDayNum}
           freq={medication.freq}
           todayInjLogged={medication.todayInjLogged}

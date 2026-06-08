@@ -460,7 +460,7 @@ export default function LogHistoryScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <ChevronLeft size={26} color="#FFFFFF" />
+            <ChevronLeft size={26} color={colors.textPrimary} />
           </Pressable>
           <Text style={s.headerTitle} numberOfLines={1}>
             {singleFilter ? FILTER_TITLES[singleFilter] : scopeTab ? TAB_TITLES[scopeTab] : 'All Logs'}

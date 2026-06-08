@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   Platform,
   ScrollView,
@@ -19,22 +20,28 @@ import { usePreferencesStore } from '@/stores/preferences-store';
 import { usePostHog } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import type { AppColors } from '@/constants/theme';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
-import { ChevronLeft, ExternalLink } from 'lucide-react-native';
+import { Check, ChevronLeft, ExternalLink } from 'lucide-react-native';
 
 // Guard IAP for Expo Go
 let storekit: typeof import('@/lib/storekit') | undefined;
 try { storekit = require('@/lib/storekit'); } catch {}
 
-const FF = 'System';
+const FF = 'System'; // paywall
 
-const FEATURES = [
-  { icon: 'BarChart3' as const, title: 'AI Insights', desc: 'Personalized weekly analysis of your progress' },
-  { icon: 'TrendingUp' as const, title: 'Advanced Projections', desc: 'Weight forecasting and metabolic tracking' },
-  { icon: 'MessageCircle' as const, title: 'Unlimited AI Chat', desc: 'Ask anything about your medication journey' },
-  { icon: 'HeartPulse' as const, title: 'Cycle Intelligence', desc: 'Deep pharmacokinetic insights for your dose' },
-  { icon: 'FileText' as const, title: 'Provider Reports', desc: 'Shareable summaries for your doctor visits' },
-  { icon: 'Images' as const, title: 'Progress Comparisons', desc: 'Side-by-side photo tracking over time' },
+const PRO_HERO = require('@/assets/images/pro-hero-full.png');
+
+// Free vs Premium comparison. `free: true` rows are included on both tiers;
+// the rest are Premium-only. Premium gets every row.
+const COMPARE: { label: string; sub?: string; free: boolean }[] = [
+  { label: 'Medication & dose tracking', free: true },
+  { label: 'Weight, food & activity logs', free: true },
+  { label: 'Daily check-ins', free: true },
+  { label: 'AI weekly insights', free: false },
+  { label: 'Advanced projections', sub: 'Weight forecasting & metabolic trends', free: false },
+  { label: 'Unlimited AI chat', free: false },
+  { label: 'Cycle intelligence', sub: 'Pharmacokinetic dose insights', free: false },
+  { label: 'Provider reports', free: false },
+  { label: 'Progress photo comparisons', free: true },
 ];
 
 /**
@@ -315,23 +322,36 @@ export default function UpgradeScreen() {
           <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={s.header}>
-              <View style={s.badge}><Text style={s.badgeText}>PRO</Text></View>
               <Text style={s.title}>Unlock the full{'\n'}Titra Health experience</Text>
-              <Text style={s.subtitle}>
-                Get deeper insights, unlimited AI, and tools designed to maximize your results.
-              </Text>
+              <Image source={PRO_HERO} style={s.heroImg} resizeMode="contain" accessibilityIgnoresInvertColors />
             </View>
 
-            {/* Features */}
-            <View style={s.features}>
-              {FEATURES.map((f) => (
-                <View key={f.title} style={s.featureRow}>
-                  <View style={s.featureIcon}>
-                    <LucideIconByName name={f.icon} size={20} color={colors.orange} />
+            {/* Compare features — Free vs Premium */}
+            <Text style={s.compareLabel}>COMPARE FEATURES</Text>
+            <View style={s.compareTable}>
+              {/* Tinted strip behind the Premium column */}
+              <View style={s.premStrip} pointerEvents="none" />
+
+              {/* Header */}
+              <View style={s.compareHeadRow}>
+                <View style={{ flex: 1 }} />
+                <Text style={s.freeHead}>Free</Text>
+                <View style={s.premHead}><Text style={s.premHeadText}>Premium</Text></View>
+              </View>
+
+              {COMPARE.map((row, i) => (
+                <View key={row.label} style={[s.compareRow, i > 0 && s.compareRowBorder]}>
+                  <View style={s.compareLabelCell}>
+                    <Text style={s.compareFeature}>{row.label}</Text>
+                    {row.sub ? <Text style={s.compareSub}>{row.sub}</Text> : null}
                   </View>
-                  <View style={s.featureText}>
-                    <Text style={s.featureTitle}>{f.title}</Text>
-                    <Text style={s.featureDesc}>{f.desc}</Text>
+                  <View style={s.freeCell}>
+                    {row.free
+                      ? <Check size={16} color={colors.textSecondary} />
+                      : <Text style={s.dash}>–</Text>}
+                  </View>
+                  <View style={s.premCell}>
+                    <View style={s.premCheck}><Check size={12} color="#FFF" strokeWidth={3} /></View>
                   </View>
                 </View>
               ))}
@@ -457,6 +477,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
 
   // Header
   header: { alignItems: 'center', marginBottom: 32 },
+  heroImg: { width: 320, height: 320, marginTop: 4, marginBottom: -8 },
   badge: {
     backgroundColor: c.orange,
     borderRadius: 8,
@@ -491,20 +512,27 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     paddingHorizontal: 8,
   },
 
-  // Features
-  features: { gap: 16, marginBottom: 32 },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: c.isDark ? 'rgba(255,116,42,0.1)' : 'rgba(255,116,42,0.06)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Compare features table
+  compareLabel: { fontSize: 12, fontWeight: '700', color: c.textMuted, letterSpacing: 1.5, marginBottom: 10, marginLeft: 2, fontFamily: FF },
+  compareTable: { position: 'relative', marginBottom: 28 },
+  premStrip: {
+    position: 'absolute', right: 0, top: 0, bottom: 0, width: 84,
+    backgroundColor: c.isDark ? 'rgba(255,116,42,0.07)' : 'rgba(255,116,42,0.05)',
+    borderRadius: 14,
   },
-  featureText: { flex: 1 },
-  featureTitle: { fontSize: 16, fontWeight: '600', color: c.textPrimary, fontFamily: FF },
-  featureDesc: { fontSize: 13, color: c.textSecondary, fontFamily: FF, marginTop: 1 },
+  compareHeadRow: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10 },
+  freeHead: { width: 52, textAlign: 'center', fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
+  premHead: { width: 84, backgroundColor: c.orange, borderRadius: 8, paddingVertical: 5, alignItems: 'center' },
+  premHeadText: { fontSize: 12.5, fontWeight: '800', color: '#FFFFFF', fontFamily: FF, letterSpacing: 0.2 },
+  compareRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  compareRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSubtle },
+  compareLabelCell: { flex: 1, paddingRight: 10 },
+  compareFeature: { fontSize: 15, fontWeight: '500', color: c.textPrimary, fontFamily: FF },
+  compareSub: { fontSize: 11, color: c.textMuted, fontFamily: FF, marginTop: 2 },
+  freeCell: { width: 52, alignItems: 'center' },
+  dash: { fontSize: 18, color: c.textMuted, fontFamily: FF },
+  premCell: { width: 84, alignItems: 'center' },
+  premCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
 
   // Plans
   plans: { flexDirection: 'row', gap: 12, marginBottom: 8 },

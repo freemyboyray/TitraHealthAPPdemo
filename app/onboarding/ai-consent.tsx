@@ -40,7 +40,11 @@ export default function AiConsentScreen() {
     // Record that the user reached and reviewed the AI Disclosure (whichever
     // choice they make), at the current version.
     updateDraft({ aiAcceptedAt: new Date().toISOString(), aiVersion: AI_VERSION });
-    router.push('/onboarding/doctor-code');
+    // Account creation comes right after AI consent — onboarding has run
+    // anonymously up to here; the user signs up (Apple/Google/email) so the
+    // remaining steps attach to a real account. account.tsx then continues to
+    // /onboarding/doctor-code.
+    router.push('/onboarding/account');
   };
 
   const handleAllow = () => {

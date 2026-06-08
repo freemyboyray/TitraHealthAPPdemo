@@ -29,8 +29,8 @@ export default function SupportScreen() {
           <View style={s.card}>
             <Pressable style={s.cardRow} onPress={() => WebBrowser.openBrowserAsync('https://embed-245422884.sleekplan.app/?hide_elements[]=footer#/feedback/')} accessibilityLabel="Send Feedback" accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
-                  <IconSymbol name="exclamationmark.bubble.fill" size={18} color="#32ADE6" />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="exclamationmark.bubble" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>Send Feedback</Text>
               </View>
@@ -50,8 +50,8 @@ export default function SupportScreen() {
               accessibilityRole="button"
             >
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="book.fill" size={18} color="#FF742A" />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="book" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>App Tutorial</Text>
               </View>
@@ -62,8 +62,8 @@ export default function SupportScreen() {
 
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/medical-sources' as any)} accessibilityLabel="Medical Sources" accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                  <IconSymbol name="book.fill" size={18} color="#34C759" />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="book" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>Medical Sources</Text>
               </View>

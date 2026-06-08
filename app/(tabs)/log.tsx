@@ -3288,8 +3288,9 @@ function LifestyleTrendCard({
 
 export default function InsightsScreen() {
   const { colors } = useAppTheme();
-  const { appleHealthEnabled, headerStyle } = usePreferencesStore();
-  const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
+  const { appleHealthEnabled } = usePreferencesStore();
+  // Gradient header removed — header always renders in its solid (minimal) form.
+  const minimalHeader = true;
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();

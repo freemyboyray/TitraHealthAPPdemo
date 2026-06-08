@@ -199,6 +199,20 @@ export default function WelcomeScreen() {
             Already have an account? <Text style={s.loginLink}>Log in</Text>
           </Text>
         </Pressable>
+
+        {/* Dev-only: jump straight into the app, skipping onboarding. Gated by
+            __DEV__ so it's stripped from production builds. */}
+        {__DEV__ && (
+          <Pressable
+            style={({ pressed }) => [s.devSkip, pressed && { opacity: 0.6 }]}
+            onPress={() => router.replace('/(tabs)' as any)}
+            accessibilityLabel="Developer: skip to app"
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Text style={s.devSkipText}>⚙ Skip to app (dev)</Text>
+          </Pressable>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -286,5 +300,22 @@ const s = StyleSheet.create({
     color: '#FF742A',
     fontWeight: '700',
     opacity: 1,
+  },
+  devSkip: {
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,116,42,0.55)',
+    borderStyle: 'dashed',
+  },
+  devSkipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF742A',
+    fontFamily: FF,
+    letterSpacing: -0.2,
   },
 });

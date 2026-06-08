@@ -50,8 +50,8 @@ export default function PrivacyScreen() {
           <View style={s.card}>
             <View style={s.cardRow}>
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="sparkles" size={18} color={colors.orange} />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="sparkles" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>AI Data</Text>
               </View>
@@ -62,8 +62,8 @@ export default function PrivacyScreen() {
 
             <View style={s.cardRow}>
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                  <IconSymbol name="fork.knife" size={18} color="#34C759" />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="fork.knife" size={18} color={colors.textPrimary} />
                 </View>
                 <Text style={s.rowLabel}>Food Database</Text>
               </View>
@@ -98,8 +98,8 @@ export default function PrivacyScreen() {
             >
               <View style={s.detailSection}>
                 <View style={s.detailHeader}>
-                  <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                    <IconSymbol name="sparkles" size={16} color={colors.orange} />
+                  <View style={s.iconBadge}>
+                    <IconSymbol name="sparkles" size={16} color={colors.textPrimary} />
                   </View>
                   <Text style={s.detailTitle}>AI Data (OpenAI)</Text>
                 </View>
@@ -118,8 +118,8 @@ export default function PrivacyScreen() {
 
               <View style={s.detailSection}>
                 <View style={s.detailHeader}>
-                  <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                    <IconSymbol name="fork.knife" size={16} color="#34C759" />
+                  <View style={s.iconBadge}>
+                    <IconSymbol name="fork.knife" size={16} color={colors.textPrimary} />
                   </View>
                   <Text style={s.detailTitle}>Food Database (FatSecret)</Text>
                 </View>

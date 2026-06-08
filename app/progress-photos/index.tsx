@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -28,14 +28,27 @@ export default function ProgressPhotosScreen() {
   const loading = useProgressPhotoStore((st) => st.loading);
   const fetchPhotos = useProgressPhotoStore((st) => st.fetchPhotos);
   const getSignedUrl = useProgressPhotoStore((st) => st.getSignedUrl);
+  const deletePhoto = useProgressPhotoStore((st) => st.deletePhoto);
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  // The photo log opens straight into Compare once there are 2+ photos. The
+  // gallery is still reachable via ?view=grid (from Compare's "All Photos").
+  const { view } = useLocalSearchParams<{ view?: string }>();
+  const forceGrid = view === 'grid';
+  const redirectingToCompare = !forceGrid && photos.length >= 2;
 
   // ── Load photos & generate signed URLs ──────────────────────────────────────
 
   useEffect(() => {
     fetchPhotos();
   }, [fetchPhotos]);
+
+  useEffect(() => {
+    if (!forceGrid && !loading && photos.length >= 2) {
+      router.replace('/progress-photos/compare');
+    }
+  }, [forceGrid, loading, photos.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +80,23 @@ export default function ProgressPhotosScreen() {
     [photos.length],
   );
 
+  // Long-press any photo to remove it (native iOS context pattern).
+  const handleDeletePhoto = useCallback(
+    (photo: ProgressPhoto) => {
+      Alert.alert(
+        'Delete Photo',
+        photo.isStarting
+          ? 'This is your starting photo — deleting it removes your before/after anchor. This can’t be undone.'
+          : 'Remove this progress photo? This can’t be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => { deletePhoto(photo.id); } },
+        ],
+      );
+    },
+    [deletePhoto],
+  );
+
   // ── Date formatting ─────────────────────────────────────────────────────────
 
   function formatDate(iso: string): string {
@@ -84,6 +114,8 @@ export default function ProgressPhotosScreen() {
         <Pressable
           style={s.card}
           onPress={() => handlePhotoPress(item)}
+          onLongPress={() => handleDeletePhoto(item)}
+          delayLongPress={350}
           android_ripple={{ color: w(0.08) }}
         >
           <View style={s.imageWrap}>
@@ -172,7 +204,7 @@ export default function ProgressPhotosScreen() {
       </View>
 
       {/* Content */}
-      {loading && photos.length === 0 ? (
+      {(loading && photos.length === 0) || redirectingToCompare ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.orange} />
         </View>

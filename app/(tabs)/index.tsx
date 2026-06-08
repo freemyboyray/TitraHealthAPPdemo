@@ -2,10 +2,11 @@ import { Calendar, FileText, Frown, MessageCircle, Heart, TrendingUp, ChevronRig
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { GradientBackground } from '@/components/ui/gradient-background';
+import { HomeHeroBanner } from '@/components/ui/home-hero-banner';
+import { getCycleCoachLine } from '@/lib/cycle-copy';
 import { ScrollTitle } from '@/components/ui/scroll-title';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, FlatList, Image, KeyboardAvoidingView, LayoutChangeEvent, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassBorder } from '@/components/ui/glass-border';
@@ -34,7 +35,7 @@ import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
 import { WeeklyCheckinCard } from '@/components/weekly-checkin-card';
 import { WeeklySummaryCard } from '@/components/weekly-summary-card';
-import { TodayPagerCard } from '@/components/today-pager-card';
+import { WeightTrackCard } from '@/components/home/weight-track-card';
 import { EnergyBankCard } from '@/components/energy-bank-card';
 import { PremiumGate } from '@/components/ui/premium-gate';
 import { AppleHealthPromoCard } from '@/components/apple-health-promo-card';
@@ -643,8 +644,10 @@ function DailyLogSummaryCard({
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const { appleHealthEnabled, headerStyle, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklySummaryViewedId, setWeeklySummaryViewed, tutorialHintPending, setTutorialHintPending } = usePreferencesStore();
-  const minimalHeader = (headerStyle ?? 'gradient') === 'minimal';
+  const { appleHealthEnabled, healthPromoCardDismissed, dismissHealthPromoCard, devicesPromoCardDismissed, dismissDevicesPromoCard, weeklySummaryViewedId, setWeeklySummaryViewed, tutorialHintPending, setTutorialHintPending } = usePreferencesStore();
+  // Gradient header removed — every screen uses a solid background, so the
+  // header always renders in its solid (minimal) form.
+  const minimalHeader = true;
   const s = useMemo(() => createStyles(colors, minimalHeader), [colors, minimalHeader]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const { width: winW } = useWindowDimensions();
@@ -684,6 +687,30 @@ export default function HomeScreen() {
   useWeeklySummaryAutoGen();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // Keep the home view pinned to the current day. If the app stays open (or is
+  // resumed) across midnight, the once-"today" selectedDate would silently
+  // become yesterday and the app would show the previous day with a "viewing
+  // history" banner. Snap any *past* selection forward to today on the midnight
+  // rollover and on app resume (intentional future/projected dates are left as-is).
+  useEffect(() => {
+    const snapToToday = () =>
+      setSelectedDate((prev) => {
+        const now = new Date();
+        if (sameDay(prev, now)) return prev;
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return prev < startToday ? now : prev;
+      });
+
+    const now = new Date();
+    const msToMidnight =
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2).getTime() - now.getTime();
+    const timer = setTimeout(snapToToday, msToMidnight);
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') snapToToday(); });
+
+    return () => { clearTimeout(timer); sub.remove(); };
+  }, []);
+
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [historicalSnapshot, setHistoricalSnapshot] = useState<DailySnapshot | null>(null);
@@ -1103,6 +1130,16 @@ export default function HomeScreen() {
 
   const overdueDays = (rawDaysUntil != null && rawDaysUntil < 0) ? Math.abs(rawDaysUntil) : 0;
 
+  // Phase-based coaching line for the home greeting (templated, deterministic).
+  const cycleCoach = getCycleCoachLine({
+    onTreatment,
+    oral,
+    daysUntil,
+    todayDosed: todayInjLogged,
+    overdueDays,
+    freq: freq ?? 7,
+  });
+
   const daysSinceLastShot = effectiveLastInjectionDate
     ? Math.floor(
         (today.getTime() - new Date(effectiveLastInjectionDate + 'T00:00:00').getTime()) / 86400000
@@ -1258,49 +1295,61 @@ export default function HomeScreen() {
           onMomentumScrollEnd={onScrollEnd}
           scrollEventThrottle={16}
         >
-          <GradientBackground />
-          {/* ── Header (scrolls with content) ── */}
-          <View
-            style={s.headerArea}
-            onLayout={(e: LayoutChangeEvent) => setHeaderHeight(e.nativeEvent.layout.height)}
-          >
-            {/* Greeting + Streak row */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={s.greetingText}>
-                {(() => {
-                  const h = new Date().getHours();
-                  return h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
-                })()}
-                {userName ? (
-                  <>
-                    {'\n'}
-                    <Text style={s.greetingName}>
-                      {userName.length > 15 ? userName.slice(0, 15).trim() + '…' : userName}
-                    </Text>
-                  </>
-                ) : null}
-              </Text>
+          {/* ── Hero image with the calendar button at the top-right ── */}
+          <HomeHeroBanner
+            topLeft={onTreatment ? (
+              <Pressable
+                onPress={() => router.push('/medication-detail' as any)}
+                style={s.calBtn}
+                accessibilityLabel={`${daysUntil} day${daysUntil === 1 ? '' : 's'} until your next ${oral ? 'dose' : 'injection'}. View medications.`}
+                accessibilityRole="button"
+              >
+                <View style={{ alignItems: 'center' }}>
+                  {oral
+                    ? <Pill size={14} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                    : <Syringe size={14} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />}
+                  <Text style={s.calBtnDays}>{daysUntil}d</Text>
+                </View>
+              </Pressable>
+            ) : undefined}
+            topRight={
+              <Pressable
+                onPress={() => router.push('/streak')}
+                style={s.calBtn}
+                accessibilityLabel="Calendar and achievements"
+                accessibilityRole="button"
+              >
+                <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
+              </Pressable>
+            }
+          />
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Pressable
-                  onPress={() => router.push('/streak')}
-                  style={{
-                    width: 52, height: 52, borderRadius: 26,
-                    backgroundColor: colors.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                  accessibilityLabel="Calendar and achievements"
-                  accessibilityRole="button"
-                >
-                  <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
-                </Pressable>
+          {/* ── Greeting (below the hero image, on the page background) ── */}
+          <View style={s.greetingBelow}>
+            <Text style={s.greetingText} numberOfLines={1}>
+              {(() => {
+                const h = new Date().getHours();
+                return h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
+              })()}
+              {userName ? (
+                <>
+                  {' '}
+                  <Text style={s.greetingName}>
+                    {userName.length > 14 ? userName.slice(0, 14).trim() + '…' : userName}
+                  </Text>
+                </>
+              ) : null}
+            </Text>
+
+            {isToday && cycleCoach && (
+              <View style={s.coach}>
+                <Text style={s.coachHeadline}>{cycleCoach.headline}</Text>
+                <Text style={s.coachLine}>{cycleCoach.line}</Text>
               </View>
-            </View>
-
-            <View style={{ height: 8 }} />
+            )}
 
             {isFuture && <Text style={s.futureNote}>Projected plan - nothing logged yet</Text>}
-            {isPast && isLoadingDate && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 6 }} />}
+            {isPast && isLoadingDate && <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginTop: 6 }} />}
             {isPast && !isLoadingDate && historicalSnapshot !== null &&
               historicalSnapshot.actuals.proteinG === 0 && historicalSnapshot.actuals.fiberG === 0 &&
               historicalSnapshot.actuals.steps === 0 && !historicalSnapshot.actuals.injectionLogged &&
@@ -1351,37 +1400,19 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
-          {/* ── Today Pager Card (medication, energy, lifestyle highlight, article of day) ── */}
+          {/* ── Weight-loss track card (replaces the old medication pager card) ── */}
           <TourTarget id={TOUR_IDS.homeTodayCard}>
-          <TodayPagerCard
-            medication={{
-              onTreatment,
-              profile,
-              medName,
-              medDose,
-              treatmentDisplayVal,
-              treatmentDisplayLbl,
-              weightDelta,
-              stat3Val,
-              stat3Lbl,
-              todayDayNum,
-              freq,
-              todayInjLogged,
-              rawDaysUntil,
-              daysUntil,
-              oral,
-              effectiveLastInjectionDate,
-              transitionPhase,
-              intradayPhase,
-              shotPhaseForLabel,
-              isPast,
-              selectedDate,
-              today,
-              onPhaseLongPress: handlePhasePillPress,
-            }}
-            energy={null}
-          />
+            <WeightTrackCard
+              startWeightLbs={startWeight}
+              currentWeightLbs={latestWeight}
+              goalWeightLbs={goalWeight}
+              unitSystem={fullUserProfile?.unitSystem ?? 'imperial'}
+              onPress={() => router.push('/(tabs)/log')}
+            />
           </TourTarget>
+
+          {/* ── Premium Upsell (free users only, today view) ── */}
+          {isToday && !isPremium && <PremiumUpsellCard />}
 
           {/* ── Today's Focus + Energy tiles (two-tile row) ── */}
           {isToday && (
@@ -1465,16 +1496,6 @@ export default function HomeScreen() {
             );
           })()}
 
-          {/* ── Health Sync Promo (below the recap cards; hidden once connected) ── */}
-          {!healthPromoCardDismissed && !appleHealthEnabled && (
-            <View style={{ marginBottom: 16 }}>
-              <AppleHealthPromoCard
-                onConnect={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)}
-                onDismiss={dismissHealthPromoCard}
-              />
-            </View>
-          )}
-
           {/* ── Shot / Dose Day Banner (future projected days) ── */}
           {isFuture && isProjectedInjectionDay && (
             <View style={[s.phaseBanner, { marginBottom: 12 }]}>
@@ -1506,6 +1527,16 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
+          {/* ── Health Sync Promo (below Progress Photos; hidden once connected) ── */}
+          {!healthPromoCardDismissed && !appleHealthEnabled && (
+            <View style={{ marginBottom: 16 }}>
+              <AppleHealthPromoCard
+                onConnect={() => router.push(Platform.OS === 'ios' ? '/settings/apple-health' as any : '/settings/health-connect' as any)}
+                onDismiss={dismissHealthPromoCard}
+              />
+            </View>
+          )}
+
           {/* ── Daily Log Summary (moved to bottom) ── */}
           <DailyLogSummaryCard
             foodLogs={displaySnapshot.foodLogs}
@@ -1518,9 +1549,6 @@ export default function HomeScreen() {
             isFuture={isFuture}
             oral={oral}
           />
-
-          {/* ── Premium Upsell (free users only, today view) ── */}
-          {isToday && !isPremium && <PremiumUpsellCard />}
 
           </Pressable>
         </ScrollView>
@@ -1597,8 +1625,10 @@ export default function HomeScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const createStyles = (c: AppColors, minimalHeader = false) => {
-  const headerText = minimalHeader && !c.isDark ? '#000000' : '#FFFFFF';
-  const headerTextMuted = minimalHeader && !c.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)';
+  // The greeting now sits below the hero banner on the app background, so use
+  // adaptive (theme-aware) text colors rather than always-white-over-gradient.
+  const headerText = c.textPrimary;
+  const headerTextMuted = c.textSecondary;
   const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   return StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 120, backgroundColor: c.bg },
@@ -1611,6 +1641,20 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
+  // Calendar button, top-right over the hero image.
+  calBtn: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: c.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  // Day-count text inside the top-left "days until next injection" button.
+  calBtnDays: { fontSize: 13, fontWeight: '800', color: c.isDark ? '#FFFFFF' : '#1A1A1A', marginTop: 1, fontFamily: FF },
+  // Greeting block sitting below the hero image, on the page background.
+  greetingBelow: { paddingTop: 12, paddingBottom: 22 },
+  // Phase-based coaching line under the greeting.
+  coach: { marginTop: 6 },
+  coachHeadline: { fontSize: 26, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.5, lineHeight: 30, fontFamily: FF },
+  coachLine: { fontSize: 15, fontWeight: '500', color: c.textPrimary, lineHeight: 21, marginTop: 4, fontFamily: FF },
   overdueHomeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -1618,9 +1662,9 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
   },
   overdueHomeTitle: { fontSize: 15, fontWeight: '800', color: '#E8732C', fontFamily: FF },
   overdueHomeSub: { fontSize: 13, fontWeight: '500', color: '#5C5C5C', fontFamily: FF, marginTop: 2 },
-  greetingText: { fontSize: 28, fontWeight: '600', color: headerText, letterSpacing: -0.5, fontFamily: FF },
-  greetingName: { fontSize: 28, fontWeight: '900', color: headerText, letterSpacing: -0.5, fontFamily: FF },
-  dateTitle: { fontSize: 18, fontWeight: '700', color: minimalHeader && !c.isDark ? '#000000' : '#FFFFFF', letterSpacing: -0.3, fontFamily: FF },
+  greetingText: { fontSize: 18, fontWeight: '600', color: headerText, letterSpacing: -0.2, fontFamily: FF },
+  greetingName: { fontSize: 18, fontWeight: '600', color: headerText, letterSpacing: -0.2, fontFamily: FF },
+  dateTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, letterSpacing: -0.3, fontFamily: FF },
   medStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
   medPill: {
     flexDirection: 'row', alignItems: 'center',

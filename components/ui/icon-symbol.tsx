@@ -14,7 +14,8 @@ import {
   CircleCheck, Brain, Smile, Hospital, Search,
   TrendingDown, Mic, MessageCircle, User, BarChart3,
   Flame, CircleDashed, Percent, Sparkles, Info,
-  Hand, HelpCircle, Paintbrush, Calendar, Check, RefreshCw,
+  Hand, HelpCircle, Paintbrush, Calendar, Check, RefreshCw, Gift,
+  Moon, Contrast,
 } from 'lucide-react-native';
 
 // ─── Fallback mapping: SF Symbol name → Lucide component ───────────────────
@@ -38,18 +39,34 @@ const MAPPING: Record<string, LucideIcon> = {
 
   // Settings
   'bolt.fill':        Zap,
+  'bolt':             Zap,
   'figure.stand':     PersonStanding,
   'doc.text.fill':    FileText,
   'doc.text':         FileText,
   'sun.max.fill':     Sun,
+  'sun.max':          Sun,
+  'moon.fill':        Moon,
+  'moon':             Moon,
+  'circle.lefthalf.filled': Contrast,
+  'circle.lefthalf':  Contrast,
   'bell.fill':        Bell,
+  'bell':             Bell,
   'heart.fill':       Heart,
+  'heart':            Heart,
+  'paintbrush':       Paintbrush,
+  'exclamationmark.bubble.fill': MessageCircle,
+  'exclamationmark.bubble': MessageCircle,
   'trash.fill':       Trash2,
+  'trash':            Trash2,
+  'gift.fill':        Gift,
+  'gift':             Gift,
   'rectangle.portrait.and.arrow.right': LogOut,
   'pencil':           Pencil,
   'paintbrush.fill':  Paintbrush,
   'hand.raised.fill': Hand,
+  'hand.raised':      Hand,
   'questionmark.circle.fill': HelpCircle,
+  'questionmark.circle': HelpCircle,
   'info.circle':      Info,
 
   // Health / log / entry
@@ -63,6 +80,7 @@ const MAPPING: Record<string, LucideIcon> = {
   'figure.strengthtraining.traditional': Dumbbell,
   'scalemass.fill':   Scale,
   'syringe.fill':     Syringe,
+  'syringe':          Syringe,
   'pills.fill':       Pill,
   'leaf.fill':        Leaf,
   'waveform.path.ecg': HeartPulse,

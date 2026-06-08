@@ -7,7 +7,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { BRAND_DISPLAY_NAMES, type FullUserProfile } from '@/constants/user-profile';
 import type { AppColors } from '@/constants/theme';
 import type { ShotPhase, IntradayPhase } from '@/constants/scoring';
-import { InjectionCycleTimeline } from '@/components/today/injection-cycle-timeline';
+import { TodayHeroCard } from '@/components/today/today-hero-card';
 import { ArrowLeftRight, PauseCircle, PlusCircle } from 'lucide-react-native';
 
 const FF = 'System';
@@ -37,6 +37,7 @@ type Props = {
   weightDelta: number | null;
   stat3Val: string;
   stat3Lbl: string;
+  pctToGoal: number | null;
   todayDayNum: number | null;
   freq: number | null;
   todayInjLogged: boolean;
@@ -107,7 +108,7 @@ export function MedicationStatusTile(props: Props) {
     stat3Val, stat3Lbl, todayDayNum, freq, todayInjLogged, rawDaysUntil,
     daysUntil, oral, effectiveLastInjectionDate, transitionPhase,
     intradayPhase, shotPhaseForLabel, isPast, selectedDate, today, profile,
-    onLongPress,
+    pctToGoal, onLongPress,
   } = props;
 
   // ── Pending-transition labels (shared by old_med + washout phases) ──
@@ -188,41 +189,27 @@ export function MedicationStatusTile(props: Props) {
           </View>
         )}
 
-        {/* Injection cycle timeline — hidden during washout and off-treatment */}
-        {transitionPhase !== 'washout' && effectiveLastInjectionDate && todayDayNum != null && (freq ?? 7) > 1 && (
-          <InjectionCycleTimeline
-            todayDayNum={todayDayNum}
-            freq={freq ?? 7}
+        {/* Phase + progress hero — illustration, dynamic message, and the three
+            stats that matter (next shot · lbs lost · % goal). Hidden during
+            washout, where the block above already explains the transition. */}
+        {transitionPhase !== 'washout' && (
+          <TodayHeroCard
+            colors={colors}
             shotPhase={shotPhaseForLabel}
+            intradayPhase={intradayPhase}
+            transitionPhase={transitionPhase}
+            oral={oral}
+            daysUntil={daysUntil}
             rawDaysUntil={rawDaysUntil}
             todayInjLogged={todayInjLogged}
-            oral={oral}
-            colors={colors}
-            treatmentDisplayVal={treatmentDisplayVal}
-            treatmentDisplayLbl={treatmentDisplayLbl}
             weightDelta={weightDelta}
+            pctToGoal={pctToGoal}
             stat3Val={stat3Val}
             stat3Lbl={stat3Lbl}
-          />
-        )}
-
-        {/* Daily / oral drugs have no injection cycle, so the shot-phase arc is
-            hidden — but progress (days on med · weight delta · to goal) still shows. */}
-        {transitionPhase !== 'washout' && (freq ?? 7) === 1 && (
-          <InjectionCycleTimeline
-            hideArc
-            todayDayNum={todayDayNum ?? 1}
-            freq={freq ?? 1}
-            shotPhase={shotPhaseForLabel}
-            rawDaysUntil={rawDaysUntil}
-            todayInjLogged={todayInjLogged}
-            oral={oral}
-            colors={colors}
-            treatmentDisplayVal={treatmentDisplayVal}
-            treatmentDisplayLbl={treatmentDisplayLbl}
-            weightDelta={weightDelta}
-            stat3Val={stat3Val}
-            stat3Lbl={stat3Lbl}
+            effectiveLastInjectionDate={effectiveLastInjectionDate}
+            freq={freq}
+            selectedDate={selectedDate}
+            today={today}
           />
         )}
       </View>

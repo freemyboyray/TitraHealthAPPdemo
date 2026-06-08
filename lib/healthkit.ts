@@ -11,7 +11,11 @@ const log = (...args: unknown[]) => console.log(TAG, ...args);
 const warn = (...args: unknown[]) => console.warn(TAG, ...args);
 const err = (label: string, e: unknown) => {
   const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-  console.error(`${TAG} ${label}:`, msg);
+  // HealthKit read failures are expected and non-fatal (missing entitlement in
+  // dev builds, or the user hasn't granted Health access) — the app handles the
+  // absent data gracefully. Use warn, not error, so these don't trip the dev
+  // LogBox overlay on every launch.
+  console.warn(`${TAG} ${label}:`, msg);
 };
 
 const TITRA_BUNDLE_ID = 'com.titrahealth.app';

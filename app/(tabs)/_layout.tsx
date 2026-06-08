@@ -242,7 +242,6 @@ export default function TabLayout() {
           )}
           screenOptions={{
             headerShown: false,
-            animation: 'fade',
           }}>
           <Tabs.Screen name="index" />
           <Tabs.Screen name="log" />

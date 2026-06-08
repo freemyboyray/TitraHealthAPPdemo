@@ -18,7 +18,6 @@ import { ScrollTitle } from '@/components/ui/scroll-title';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
-import { usePreferencesStore } from '@/stores/preferences-store';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
 import { ARTICLE_SECTIONS, getArticleById, type Article } from '@/constants/articles';
 
@@ -124,8 +123,8 @@ export default function EducationScreen() {
     [tabBarOnScroll],
   );
   const { colors } = useAppTheme();
-  const headerStyle = usePreferencesStore((st) => st.headerStyle ?? 'gradient');
-  const minimalHeader = headerStyle === 'minimal';
+  // Gradient header removed — header always renders in its solid (minimal) form.
+  const minimalHeader = true;
   const s = useMemo(() => createScreenStyles(colors, minimalHeader), [colors, minimalHeader]);
 
   return (

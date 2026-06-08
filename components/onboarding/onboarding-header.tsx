@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { ChevronLeft } from 'lucide-react-native';
@@ -13,16 +14,22 @@ type Props = {
 
 export function OnboardingHeader({ step, total, onBack }: Props) {
   const { colors } = useAppTheme();
+  const router = useRouter();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: withTiming(`${(step / total) * 100}%` as `${number}%`, { duration: 300 }),
   }));
 
+  // Hide the back arrow when there's nothing to pop to — after sign-in we reach
+  // onboarding via router.replace(), so the first screen is the stack root and
+  // router.back() would fire an unhandled GO_BACK and dead-end the tap.
+  const showBack = !!onBack && router.canGoBack();
+
   return (
     <View style={s.container}>
       <View style={s.row}>
-        {onBack ? (
+        {showBack ? (
           <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
             <ChevronLeft size={24} color={colors.isDark ? '#FFFFFF' : 'rgba(0,0,0,0.7)'} />
           </TouchableOpacity>

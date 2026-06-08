@@ -323,7 +323,11 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      const redirectUri = makeRedirectUri({ scheme: 'titrahealth' });
+      // Must include a path — a bare `titrahealth://` produces an empty-authority
+      // URL (`titrahealth://#access_token=…`) that iOS rejects as invalid, so the
+      // auth session never captures the callback. `titrahealth://auth-callback`
+      // is well-formed and gets intercepted correctly.
+      const redirectUri = makeRedirectUri({ scheme: 'titrahealth', path: 'auth-callback' });
 
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -337,11 +341,29 @@ export default function SignInScreen() {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
-      if (result.type !== 'success' || !result.url) return;
+      // User tapped cancel / swiped the browser away — stay silent, no error.
+      if (result.type === 'cancel' || result.type === 'dismiss') return;
+      if (result.type !== 'success' || !result.url) {
+        setError('Google sign-in was interrupted. Please try again.');
+        return;
+      }
 
+      // Tokens (or an OAuth error) come back in the URL fragment on the implicit
+      // flow, but providers/Supabase sometimes use the query string — merge both.
       const url = result.url;
-      const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
-      const params = Object.fromEntries(new URLSearchParams(fragment));
+      const hashPart = url.includes('#') ? url.split('#')[1] : '';
+      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : '';
+      const params = Object.fromEntries(
+        new URLSearchParams(`${queryPart}&${hashPart}`),
+      );
+
+      // Surface the real reason instead of a generic "no token" message.
+      const oauthError = params['error_description'] || params['error'];
+      if (oauthError) {
+        setError(`Google sign-in failed: ${decodeURIComponent(oauthError).replace(/\+/g, ' ')}`);
+        return;
+      }
+
       const accessToken = params['access_token'];
       const refreshToken = params['refresh_token'];
 
@@ -468,7 +490,7 @@ export default function SignInScreen() {
             <Text style={s.tagline}>
               {confirmationSent
                 ? 'Verify your email'
-                : 'Built to track more,\nso you can achieve more.'}
+                : 'Welcome back!'}
             </Text>
             {confirmationSent ? (
               <Text style={s.verifySubtitle}>
@@ -557,17 +579,18 @@ export default function SignInScreen() {
             </Pressable>
           </View>
 
-          {/* Action button */}
+          {/* Action button — this screen is login-only (returning users).
+              Account creation lives in onboarding (/onboarding/account). */}
           <TouchableOpacity
             style={[s.emailBtn, anyLoading && s.btnDisabled]}
-            onPress={isLoginMode ? handleLogin : handleCreateAccount}
+            onPress={handleLogin}
             activeOpacity={0.85}
             disabled={anyLoading}
           >
             {signUpLoading ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Animated.Text style={[s.emailBtnText, modeAnim]}>{isLoginMode ? 'Login' : 'Create Your Account'}</Animated.Text>
+              <Text style={s.emailBtnText}>Login</Text>
             )}
           </TouchableOpacity>
 
@@ -622,16 +645,6 @@ export default function SignInScreen() {
           </Animated.View>
 
           {error ? <Text style={s.errorText}>{error}</Text> : null}
-
-          {/* ── Toggle mode ── */}
-          <Animated.View style={[s.footer, modeAnim]}>
-            <Text style={s.legalText}>
-              {isLoginMode ? "Don't have an account? " : 'Already have an account? '}
-              <Text style={s.legalLink} onPress={toggleMode}>
-                {isLoginMode ? 'Sign up' : 'Sign in'}
-              </Text>
-            </Text>
-          </Animated.View>
           </>
           )}
         </View>

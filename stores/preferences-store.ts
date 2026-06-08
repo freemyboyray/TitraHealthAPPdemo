@@ -174,7 +174,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         shownPhotoMilestones: photoMilestones,
         photoMilestonesSeeded: true,
       }),
-      headerStyle: 'gradient' as HeaderStyle,
+      headerStyle: 'minimal' as HeaderStyle,
       setHeaderStyle: (v) => set({ headerStyle: v }),
       aiDataConsent: false,
       setAiDataConsent: (v) => set({ aiDataConsent: v }),
@@ -214,7 +214,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         appOpenCount: s.appOpenCount + 1,
         firstOpenDate: s.firstOpenDate ?? todayKey(),
       })),
-      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'gradient' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, weeklySummaryViewedId: null, consentPromptShown: false, tutorialHintPending: false, tourPending: false, tourCompleted: false, homeFocusTiles: DEFAULT_HOME_FOCUS_TILES, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
+      reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'minimal' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, weeklySummaryViewedId: null, consentPromptShown: false, tutorialHintPending: false, tourPending: false, tourCompleted: false, homeFocusTiles: DEFAULT_HOME_FOCUS_TILES, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
     { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
   )

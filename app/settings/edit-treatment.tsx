@@ -514,7 +514,7 @@ export default function EditTreatmentScreen() {
   async function handleStopMedication() {
     Alert.alert(
       'Stop Medication',
-      "You'll still have access to weight, food, and activity tracking. You can resume treatment anytime from Settings.",
+      'Switch to lifestyle-only tracking. Your medication history will be preserved, and you can resume treatment anytime from Settings.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1090,69 +1090,68 @@ export default function EditTreatmentScreen() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {view === 'summary' && (
         <ScrollView style={s.scroll} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-          {/* Medication card */}
-          <View style={s.summaryCard}>
-            <Text style={s.summaryBrand}>{summaryBrandName}</Text>
-            <Text style={s.summaryMolecule}>{summaryGlp1Label}</Text>
+          {/* Large title */}
+          <Text style={s.planTitle}>{summaryBrandName}</Text>
+          {!!summaryGlp1Label && <Text style={s.planSubtitle}>{summaryGlp1Label}</Text>}
 
-            <View style={s.summaryDivider} />
-
-            <View style={s.summaryRow}>
-              <Text style={s.summaryLabel}>Dose</Text>
-              <Text style={s.summaryValue}>{profile?.doseMg} mg</Text>
+          {/* Details — grouped inset list */}
+          <View style={s.planGroup}>
+            <View style={s.planRow}>
+              <Text style={s.planKey}>Dose</Text>
+              <Text style={s.planVal}>{profile?.doseMg} mg</Text>
             </View>
-            <View style={s.summaryRow}>
-              <Text style={s.summaryLabel}>Schedule</Text>
-              <Text style={s.summaryValue}>{summaryFreqLabel} · {summaryRouteLabel}</Text>
+            <View style={s.planDivider} />
+            <View style={s.planRow}>
+              <Text style={s.planKey}>Schedule</Text>
+              <Text style={s.planVal}>{summaryFreqLabel} · {summaryRouteLabel}</Text>
             </View>
             {summaryNextDose && (
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>Next dose</Text>
-                <Text style={[s.summaryValue, summaryNextDose === 'Overdue' && { color: '#FF4444' }]}>
-                  {summaryNextDose}
-                </Text>
-              </View>
+              <>
+                <View style={s.planDivider} />
+                <View style={s.planRow}>
+                  <Text style={s.planKey}>Next dose</Text>
+                  <Text style={[s.planVal, { color: summaryNextDose === 'Overdue' ? '#FF4444' : colors.orange }]}>
+                    {summaryNextDose}
+                  </Text>
+                </View>
+              </>
             )}
             {summaryDoseStart && (
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>On this dose since</Text>
-                <Text style={s.summaryValue}>{summaryDoseStart}</Text>
-              </View>
-            )}
-
-            {/* Pending transition badge */}
-            {profile?.pendingMedicationBrand && (
-              <View style={s.pendingBadge}>
-                <Clock size={14} color={colors.orange} style={{ marginRight: 6 }} />
-                <Text style={s.pendingText}>
-                  Switching to {BRAND_LABEL[profile.pendingMedicationBrand] ?? profile.pendingMedicationBrand} {profile.pendingDoseMg}mg
-                  {profile.pendingFirstDoseDate ? ` on ${new Date(profile.pendingFirstDoseDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
-                </Text>
-              </View>
+              <>
+                <View style={s.planDivider} />
+                <View style={s.planRow}>
+                  <Text style={s.planKey}>On this dose since</Text>
+                  <Text style={s.planVal}>{summaryDoseStart}</Text>
+                </View>
+              </>
             )}
           </View>
 
-          {/* Action buttons */}
-          <TouchableOpacity style={s.changeMedBtn} onPress={enterWizard} activeOpacity={0.8}>
-            <ArrowLeftRight size={18} color={colors.orange} style={{ marginRight: 10 }} />
-            <Text style={s.changeMedBtnText}>Change Medication</Text>
-            <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+          {/* Pending transition badge */}
+          {profile?.pendingMedicationBrand && (
+            <View style={[s.pendingBadge, { marginTop: 0, marginBottom: 18 }]}>
+              <Clock size={14} color={colors.orange} style={{ marginRight: 6 }} />
+              <Text style={s.pendingText}>
+                Switching to {BRAND_LABEL[profile.pendingMedicationBrand] ?? profile.pendingMedicationBrand} {profile.pendingDoseMg}mg
+                {profile.pendingFirstDoseDate ? ` on ${new Date(profile.pendingFirstDoseDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+              </Text>
+            </View>
+          )}
 
-          <View style={{ height: 1, backgroundColor: colors.borderSubtle, marginVertical: 12 }} />
-
-          <TouchableOpacity
-            style={s.stopBtn}
-            onPress={handleStopMedication}
-            activeOpacity={0.7}
-            disabled={saving}
-          >
-            <PauseCircle size={18} color="#FF4444" style={{ marginRight: 10 }} />
-            <Text style={s.stopBtnText}>Stop Medication</Text>
-          </TouchableOpacity>
-          <Text style={s.stopHint}>
-            Switch to lifestyle-only tracking. Your medication history will be preserved.
-          </Text>
+          {/* Manage — grouped inset list */}
+          <Text style={s.planSecLabel}>Manage</Text>
+          <View style={s.planGroup}>
+            <TouchableOpacity style={s.manageRow} onPress={enterWizard} activeOpacity={0.7}>
+              <ArrowLeftRight size={18} color={colors.orange} />
+              <Text style={s.manageLabel}>Change Medication</Text>
+              <ChevronRight size={16} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+            <View style={s.planDivider} />
+            <TouchableOpacity style={s.manageRow} onPress={handleStopMedication} activeOpacity={0.7} disabled={saving}>
+              <PauseCircle size={18} color="#FF4444" />
+              <Text style={[s.manageLabel, { color: '#FF4444' }]}>Stop Medication</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       )}
 
@@ -1465,6 +1464,40 @@ const createStyles = (c: AppColors) => StyleSheet.create({
   changeMedBtnText: {
     fontSize: 17, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'System',
   },
+
+  // ── Treatment Plan (summary) — native grouped-list layout ──
+  planTitle: {
+    fontSize: 30, fontWeight: '800' as const, color: c.textPrimary,
+    letterSpacing: -0.5, fontFamily: 'System', marginBottom: 2,
+  },
+  planSubtitle: {
+    fontSize: 15, color: c.textSecondary, fontFamily: 'System', marginBottom: 18,
+  },
+  planGroup: {
+    backgroundColor: c.surface, borderRadius: 16, overflow: 'hidden' as const,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, marginBottom: 18,
+  },
+  planRow: {
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  planKey: { fontSize: 16, color: c.textSecondary, fontFamily: 'System' },
+  planVal: {
+    fontSize: 16, fontWeight: '600' as const, color: c.textPrimary,
+    fontFamily: 'System', textAlign: 'right' as const, marginLeft: 16, flexShrink: 1,
+  },
+  planDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.borderSubtle, marginLeft: 16 },
+  planSecLabel: {
+    fontSize: 13, fontWeight: '600' as const, color: c.textMuted,
+    letterSpacing: 0.4, textTransform: 'uppercase' as const,
+    fontFamily: 'System', marginLeft: 4, marginBottom: 8,
+  },
+  manageRow: {
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12,
+    paddingHorizontal: 16, paddingVertical: 15,
+  },
+  manageLabel: { fontSize: 16, fontWeight: '600' as const, color: c.textPrimary, fontFamily: 'System' },
 });
 
 const FF = 'System';

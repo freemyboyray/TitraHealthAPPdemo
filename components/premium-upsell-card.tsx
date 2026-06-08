@@ -2,11 +2,16 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMemo } from 'react';
+import { ChevronRight } from 'lucide-react-native';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
+// Matches the Titra logo's background orange (sampled from titra-logo.png).
+const ORANGE = '#FC560B';
 
+// Compact, solid-orange upsell banner (white badge · headline · chevron). The
+// whole card is the tap target → /upgrade, where the full trial/pricing lives.
 export function PremiumUpsellCard() {
   const router = useRouter();
   const { colors } = useAppTheme();
@@ -19,119 +24,82 @@ export function PremiumUpsellCard() {
 
   return (
     <View style={s.wrapper}>
-      <View style={s.card}>
-        {/* Logo + Pro badge */}
-        <View style={s.logoRow}>
+      <Pressable
+        style={({ pressed }) => [s.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Ready to try Titra Pro for free? Start your free trial."
+      >
+        <View style={s.badge}>
           <Image
             source={require('@/assets/images/titra-logo.png')}
             style={s.logo}
             resizeMode="cover"
           />
-          <Text style={s.proBadge}>Pro</Text>
         </View>
 
-        {/* Headline */}
-        <Text style={s.headline}>Level Up with Titra Pro</Text>
+        <View style={s.textCol}>
+          <Text style={s.headline}>Ready to Try Titra Pro for Free?</Text>
+          <Text style={s.subtitle}>Start your free trial with no commitment.</Text>
+        </View>
 
-        {/* Description */}
-        <Text style={s.description}>
-          Unlock AI coaching, cycle intelligence, weight projections, and unlimited food logging — everything you need to optimize your journey.
-        </Text>
-
-        {/* CTA Button */}
-        <Pressable
-          style={({ pressed }) => [s.ctaBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-          onPress={onPress}
-          accessibilityLabel="Try Titra Pro for free"
-          accessibilityRole="button"
-        >
-          <Text style={s.ctaText}>TRY PRO FOR FREE</Text>
-        </Pressable>
-
-        {/* Pricing details */}
-        <Text style={s.pricingMain}>7 days free, then $4.99/month</Text>
-        <Text style={s.pricingFine}>Cancel anytime.</Text>
-      </View>
+        <ChevronRight size={26} color="rgba(255,255,255,0.95)" />
+      </Pressable>
     </View>
   );
 }
 
-function createStyles(colors: AppColors) {
-  const dark = colors.isDark;
+function createStyles(_colors: AppColors) {
   return StyleSheet.create({
     wrapper: {
       paddingTop: 12,
-      paddingBottom: 8,
+      paddingBottom: 18,
     },
     card: {
-      backgroundColor: dark ? '#1C1816' : colors.surface,
-      borderRadius: 20,
-      borderWidth: 1.5,
-      borderColor: dark ? '#FF742A' : 'rgba(255,116,42,0.35)',
-      padding: 24,
-    },
-    logoRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 18,
+      gap: 16,
+      backgroundColor: ORANGE,
+      borderRadius: 22,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      shadowColor: ORANGE,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    badge: {
+      width: 46,
+      height: 46,
+      borderRadius: 12,
+      backgroundColor: '#FFFFFF',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     logo: {
-      width: 52,
-      height: 52,
-      borderRadius: 14,
+      width: 36,
+      height: 36,
+      borderRadius: 9,
     },
-    proBadge: {
-      fontSize: 22,
-      fontWeight: '700',
-      color: '#FF742A',
-      fontFamily: FF,
-      letterSpacing: -0.3,
+    textCol: {
+      flex: 1,
     },
     headline: {
-      fontSize: 22,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      fontFamily: FF,
-      letterSpacing: -0.3,
-      marginBottom: 10,
-    },
-    description: {
-      fontSize: 16,
-      fontWeight: '400',
-      color: colors.textSecondary,
-      fontFamily: FF,
-      lineHeight: 23,
-      marginBottom: 24,
-    },
-    ctaBtn: {
-      backgroundColor: '#FF742A',
-      borderRadius: 28,
-      paddingVertical: 18,
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    ctaText: {
-      fontSize: 16,
+      fontSize: 20,
       fontWeight: '800',
       color: '#FFFFFF',
       fontFamily: FF,
-      letterSpacing: 1,
+      letterSpacing: -0.3,
+      lineHeight: 25,
     },
-    pricingMain: {
+    subtitle: {
       fontSize: 14,
       fontWeight: '500',
-      color: colors.textSecondary,
+      color: 'rgba(255,255,255,0.92)',
       fontFamily: FF,
-      textAlign: 'center',
-      marginBottom: 4,
-    },
-    pricingFine: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: '#FF742A',
-      fontFamily: FF,
-      textAlign: 'center',
+      lineHeight: 19,
+      marginTop: 4,
     },
   });
 }

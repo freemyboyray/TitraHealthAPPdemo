@@ -194,9 +194,6 @@ export default function SettingsScreen() {
 
         {/* Profile card */}
         <Pressable style={s.profileCard} onPress={() => { setNameInput(displayName); setEditingName(true); }} accessibilityLabel="Edit display name" accessibilityRole="button">
-          <View style={s.avatar}>
-            <Text style={s.avatarLetter}>{displayName.charAt(0).toUpperCase()}</Text>
-          </View>
           <View style={{ flex: 1 }}>
             {editingName ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -219,96 +216,108 @@ export default function SettingsScreen() {
           {!editingName && <IconSymbol name="pencil" size={16} color={colors.textMuted} />}
         </Pressable>
 
-        {/* ── Categories ── */}
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/plan' as any)} accessibilityLabel="My Plan" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="syringe.fill" size={18} color={colors.orange} />
+        {/* ── Account ── */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>Account</Text>
+          <View style={s.card}>
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/plan' as any)} accessibilityLabel="My Plan" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="syringe" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>My Plan</Text>
               </View>
-              <Text style={s.rowLabel}>My Plan</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
 
-          <View style={s.divider} />
+            <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/upgrade' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="bolt.fill" size={18} color={colors.orange} />
+            <Pressable style={s.cardRow} onPress={() => router.push('/upgrade' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="bolt" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Subscription</Text>
               </View>
-              <Text style={s.rowLabel}>Subscription</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
 
-          <View style={s.divider} />
+            <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/referrals' as any)} accessibilityLabel="Refer friends" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                <IconSymbol name="gift.fill" size={18} color="#34C759" />
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/referrals' as any)} accessibilityLabel="Refer friends" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="gift" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Refer Friends</Text>
               </View>
-              <Text style={s.rowLabel}>Refer Friends</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
-        <View style={s.card}>
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/preferences' as any)} accessibilityLabel="Preferences" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                <IconSymbol name="gearshape.fill" size={18} color={colors.orange} />
+        {/* ── Preferences ── */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>Preferences</Text>
+          <View style={s.card}>
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/preferences' as any)} accessibilityLabel="Preferences" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="gearshape" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Preferences</Text>
               </View>
-              <Text style={s.rowLabel}>Preferences</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
 
-          <View style={s.divider} />
+            <View style={s.divider} />
 
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/privacy' as any)} accessibilityLabel="Privacy & Data" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
-                <IconSymbol name="hand.raised.fill" size={18} color="#0A84FF" />
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/privacy' as any)} accessibilityLabel="Privacy & Data" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="hand.raised" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Privacy & Data</Text>
               </View>
-              <Text style={s.rowLabel}>Privacy & Data</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={s.divider} />
-
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/support' as any)} accessibilityLabel="Help & Support" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(50,173,230,0.15)' }]}>
-                <IconSymbol name="questionmark.circle.fill" size={18} color="#32ADE6" />
-              </View>
-              <Text style={s.rowLabel}>Help & Support</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={s.divider} />
-
-          <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Legal" accessibilityRole="button">
-            <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(88,86,214,0.15)' }]}>
-                <IconSymbol name="doc.text.fill" size={18} color="#5856D6" />
-              </View>
-              <Text style={s.rowLabel}>Legal</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
-          </Pressable>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
+        {/* ── Support ── */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>Support</Text>
+          <View style={s.card}>
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/support' as any)} accessibilityLabel="Help & Support" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="questionmark.circle" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Help & Support</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
+
+            <View style={s.divider} />
+
+            <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Legal" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="doc.text" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Legal</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ── Session (sign out / delete) ── */}
         <View style={s.card}>
           <Pressable style={s.cardRow} onPress={handleSignOut} accessibilityLabel="Sign out" accessibilityRole="button">
             <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
-                <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="#FF453A" />
+              <View style={s.iconBadge}>
+                <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={colors.textPrimary} />
               </View>
               <Text style={s.rowLabel}>Sign Out</Text>
             </View>
@@ -318,8 +327,8 @@ export default function SettingsScreen() {
 
           <Pressable style={s.cardRow} onPress={handleDeleteAccount} disabled={deleting} accessibilityLabel="Delete account" accessibilityRole="button">
             <View style={s.rowLeft}>
-              <View style={[s.iconBadge, { backgroundColor: 'rgba(255,69,58,0.15)' }]}>
-                <IconSymbol name="trash.fill" size={18} color="#FF453A" />
+              <View style={s.iconBadge}>
+                <IconSymbol name="trash" size={18} color={colors.textPrimary} />
               </View>
               <Text style={[s.rowLabel, { color: '#FF453A' }]}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
             </View>
@@ -346,29 +355,27 @@ function createStyles(c: AppColors) {
     headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
 
     scroll: { flex: 1 },
-    content: { padding: 16, gap: 8, paddingBottom: 120 },
+    // 16px between top-level blocks (profile card + each section + session card).
+    content: { padding: 16, gap: 16, paddingBottom: 120 },
 
     profileCard: {
       flexDirection: 'row', alignItems: 'center', gap: 14,
       backgroundColor: c.surface,
-      borderRadius: 16, padding: 16, marginBottom: 8,
+      borderRadius: 16, padding: 16,
       borderWidth: 1,
       borderTopColor: c.border,
       borderLeftColor: c.borderSubtle,
       borderRightColor: c.borderSubtle,
       borderBottomColor: c.borderSubtle,
     },
-    avatar: {
-      width: 48, height: 48, borderRadius: 24,
-      backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
-    },
-    avatarLetter: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
     profileName: { color: c.textPrimary, fontSize: 18, fontWeight: '600' },
     profileEmail: { color: c.textSecondary, fontSize: 15, marginTop: 2 },
 
+    // A labeled section: muted header sitting 8px above its card.
+    section: { gap: 8 },
     sectionLabel: {
-      color: c.textMuted, fontSize: 11, fontWeight: '600',
-      letterSpacing: 1, marginTop: 12, marginBottom: 6, marginLeft: 4,
+      color: c.textMuted, fontSize: 12, fontWeight: '600',
+      letterSpacing: 1, marginLeft: 4,
       textTransform: 'uppercase',
     },
 
@@ -389,7 +396,9 @@ function createStyles(c: AppColors) {
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     iconBadge: {
-      width: 36, height: 36, borderRadius: 12,
+      // Bare icons (no background tile) — keep the 36px box so labels stay
+      // aligned and the row divider inset (marginLeft: 64) is unchanged.
+      width: 36, height: 36,
       alignItems: 'center', justifyContent: 'center',
     },
     rowLabel: { color: c.textPrimary, fontSize: 17, fontWeight: '600', lineHeight: 22 },

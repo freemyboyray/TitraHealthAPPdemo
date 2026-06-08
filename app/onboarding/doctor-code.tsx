@@ -51,7 +51,7 @@ export default function DoctorCodeScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
-        <OnboardingHeader step={5} total={17} onBack={() => router.back()} />
+        <OnboardingHeader step={6} total={17} onBack={() => router.back()} />
         <View style={s.content}>
           <Text style={s.title}>Have a provider code?</Text>
           <Text style={s.subtitle}>

@@ -95,8 +95,8 @@ export default function PlanScreen() {
           <View style={s.card}>
             <Pressable style={s.cardRow} onPress={() => router.push('/medication-detail' as any)} accessibilityLabel={`Treatment Plan, ${treatmentLine1}`} accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(255,116,42,0.15)' }]}>
-                  <IconSymbol name="syringe.fill" size={18} color={colors.orange} />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="syringe" size={18} color={colors.textPrimary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowLabel}>Treatment Plan</Text>
@@ -113,8 +113,8 @@ export default function PlanScreen() {
           <View style={s.card}>
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/edit-profile')} accessibilityLabel={`Body & Goals, ${bodyLine}`} accessibilityRole="button">
               <View style={s.rowLeft}>
-                <View style={[s.iconBadge, { backgroundColor: 'rgba(10,132,255,0.15)' }]}>
-                  <IconSymbol name="figure.stand" size={18} color="#0A84FF" />
+                <View style={s.iconBadge}>
+                  <IconSymbol name="figure.stand" size={18} color={colors.textPrimary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowLabel}>Body & Goals</Text>
@@ -133,8 +133,8 @@ export default function PlanScreen() {
               <View style={s.card}>
                 <Pressable style={s.cardRow} onPress={() => router.push('/settings/export-report' as any)} accessibilityLabel="Provider Report" accessibilityRole="button">
                   <View style={s.rowLeft}>
-                    <View style={[s.iconBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
-                      <IconSymbol name="doc.text.fill" size={18} color="#34C759" />
+                    <View style={s.iconBadge}>
+                      <IconSymbol name="doc.text" size={18} color={colors.textPrimary} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.rowLabel}>Provider Report</Text>
