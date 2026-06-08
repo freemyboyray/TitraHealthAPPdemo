@@ -146,6 +146,7 @@ export const ARTICLES: Article[] = [
     category: 'hydration',
     readingTime: 5,
     coverImage: require('@/assets/images/articles/staying-hydrated-drop.png'),
+    transparentArt: true,
     bgColor: '#D9EDFB',
     sections: [
       {
@@ -182,7 +183,8 @@ export const ARTICLES: Article[] = [
     subtitle: 'Why resistance training is so important right now.',
     category: 'lifestyle',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    coverImage: require('@/assets/images/articles/movement-that-matters.png'),
+    transparentArt: true,
     bgColor: '#D9F2E3',
     sections: [
       {
@@ -281,41 +283,13 @@ export const ARTICLES: Article[] = [
     ],
   },
   {
-    id: 'when-the-scale-stalls',
-    title: 'When the Scale Stalls',
-    subtitle: 'Why weight loss plateaus happen and what they actually mean.',
-    category: 'medication',
-    readingTime: 5,
-    coverImage: require('@/assets/images/articles/when-the-scale-stalls.png'),
-    bgColor: '#E6E3FB',
-    transparentArt: true,
-    sections: [
-      {
-        heading: 'Plateaus Are Expected, Not a Failure',
-        body: 'Almost everyone who loses weight hits points where the scale stops moving, sometimes for weeks. This is one of the most common sources of frustration during GLP-1 therapy, and it rarely means anything has gone wrong.\n\nAs the body loses weight, it needs fewer calories to function. The same intake that once created a deficit eventually matches your new, lower needs. The body also defends itself with hormonal and metabolic adjustments. A plateau is often simply the point where everything has rebalanced.',
-      },
-      {
-        heading: 'What\'s Happening Beneath the Surface',
-        body: 'The number on the scale measures everything at once: fat, muscle, water, and the contents of your digestive system. Day-to-day swings of a few pounds are usually water and food weight, not fat.\n\nThis matters during a plateau, because body composition can keep improving even when total weight holds steady. People sometimes lose fat and gain or maintain muscle at the same time, which barely moves the scale but meaningfully changes how they look and feel. Measurements, how clothes fit, and energy levels often tell a fuller story.',
-      },
-      {
-        heading: 'Working Through a Stall',
-        body: 'Plateaus usually resolve with patience and consistency rather than drastic action. Approaches many people find helpful:\n\n- **Protect protein and muscle**: Adequate protein plus resistance exercise helps preserve the lean mass that keeps metabolism higher.\n\n- **Check the basics**: Hydration, sleep, and stress all influence weight regulation and are easy to overlook.\n\n- **Track trends, not single days**: A weekly average smooths out the daily noise and reveals the real direction.\n\n- **Avoid extreme restriction**: Cutting intake too far can backfire, costing muscle and making the plateau harder to break.\n\nDose questions and stubborn plateaus are worth discussing with your healthcare provider, who can look at your full picture. This app never recommends changing your dose on your own.',
-      },
-    ],
-    sources: [
-      'NIH/PMC: Metabolic Adaptation During Weight Loss',
-      'Cleveland Clinic: Weight Loss Plateaus Explained',
-      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on GLP-1 Therapy',
-    ],
-  },
-  {
     id: 'managing-constipation',
     title: 'The Constipation Fix',
     subtitle: 'Why digestion slows down and the habits that get things moving.',
     category: 'side-effects',
     readingTime: 4,
     coverImage: require('@/assets/images/articles/managing-constipation.png'),
+    transparentArt: true,
     bgColor: '#FBEADF',
     sections: [
       {
@@ -373,6 +347,7 @@ export const ARTICLES: Article[] = [
     category: 'hydration',
     readingTime: 4,
     coverImage: require('@/assets/images/articles/electrolytes.png'),
+    transparentArt: true,
     bgColor: '#D9EDFB',
     sections: [
       {
@@ -400,7 +375,8 @@ export const ARTICLES: Article[] = [
     subtitle: 'The most underrated movement for steady, sustainable progress.',
     category: 'lifestyle',
     readingTime: 4,
-    coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    coverImage: require('@/assets/images/articles/walking-counts.png'),
+    transparentArt: true,
     bgColor: '#D9F2E3',
     sections: [
       {
@@ -428,7 +404,8 @@ export const ARTICLES: Article[] = [
     subtitle: "Lean mass is easy to lose and worth defending. Here's how.",
     category: 'lifestyle',
     readingTime: 5,
-    coverImage: require('@/assets/images/articles/exercise-on-glp1s.png'),
+    coverImage: require('@/assets/images/articles/preserving-muscle.png'),
+    transparentArt: true,
     bgColor: '#D9F2E3',
     sections: [
       {
@@ -448,35 +425,6 @@ export const ARTICLES: Article[] = [
       'NIH/PMC: Resistance Training During Dietary Weight Loss (2025 Meta-Analysis)',
       'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on Nutritional Priorities',
       'Mayo Clinic: Strength Training Guidelines',
-    ],
-  },
-  {
-    id: 'eating-out',
-    title: 'Eating Out Without the Stress',
-    subtitle: 'Restaurants, social meals, and travel on a reduced appetite.',
-    category: 'nutrition',
-    readingTime: 4,
-    coverImage: require('@/assets/images/articles/eating-out.png'),
-    bgColor: '#FBE2D2',
-    transparentArt: true,
-    sections: [
-      {
-        heading: 'The Restaurant Reality',
-        body: 'Eating out on a reduced appetite comes with a few predictable challenges: large portions, rich and fried foods that sit heavily when digestion is slowed, and the social pressure to clean your plate.\n\nNone of this means avoiding restaurants. With a little planning, social meals stay enjoyable, you just work with your appetite instead of against it.',
-      },
-      {
-        heading: 'Ordering with Confidence',
-        body: 'A few habits make menus easier to navigate:\n\n- **Lead with protein**: Grilled chicken, fish, eggs, or a lean cut gives you the most important nutrient first, before fullness arrives.\n\n- **Go for cooked over heavy**: Grilled, baked, or steamed dishes tend to sit better than fried or cream-heavy ones during dose adjustments.\n\n- **Right-size the portion**: Order an appetizer as your main, split a dish, or plan to take half home. Restaurant portions often far exceed what a reduced appetite can handle.\n\n- **Watch carbonation and alcohol**: Both can amplify bloating in a slow-emptying stomach.',
-      },
-      {
-        heading: 'The Social Side',
-        body: 'You don\'t owe anyone an explanation for eating less. A simple "I\'m pacing myself" is plenty. Eating slowly also helps, your body needs time to register fullness, and rushing when digestion is already slowed tends to backfire.\n\nFor travel, packing a few protein-dense, shelf-stable options, like jerky, nuts, or ready-to-drink shakes, keeps you covered when good choices aren\'t available. And keep sipping water throughout; it\'s easy to fall behind on hydration when you\'re out and about.',
-      },
-    ],
-    sources: [
-      'NIH/PMC: Dietary Recommendations for GI Symptoms on GLP-1 RAs',
-      'Cleveland Clinic: GLP-1 Agonists: Side Effects',
-      'ACLM/ASN/OMA/TOS: 2025 Joint Advisory on Nutritional Priorities',
     ],
   },
 ];
@@ -499,13 +447,12 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
   {
     id: 'essentials',
     title: 'The Essentials',
-    description: 'Start here — how GLP-1 medications work and what your first weeks may feel like.',
+    description: 'Start here: how GLP-1 medications work and what your first weeks may feel like.',
     bgColor: '#F4F2FE',
     articleIds: [
       'how-glp1s-work',
       'managing-side-effects',
       'quieting-food-noise',
-      'when-the-scale-stalls',
     ],
   },
   {
@@ -517,7 +464,6 @@ export const ARTICLE_SECTIONS: ArticleRow[] = [
       'protein-priority',
       'what-to-eat',
       'protein-on-low-appetite-days',
-      'eating-out',
     ],
   },
   {

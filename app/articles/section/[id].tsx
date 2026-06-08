@@ -29,7 +29,7 @@ function ArticleRowItem({
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
       accessibilityRole="button"
-      accessibilityLabel={`${article.title}. ${article.subtitle}. ${article.readingTime} minute read.`}
+      accessibilityLabel={`${article.title}. ${article.subtitle}.`}
     >
       <View style={[styles.thumbWrap, { backgroundColor: getArticleColor(article) }]}>
         <Image
@@ -47,7 +47,6 @@ function ArticleRowItem({
         <Text style={styles.rowSubtitle} numberOfLines={2}>
           {article.subtitle}
         </Text>
-        <Text style={styles.rowMeta}>{article.readingTime} min read</Text>
       </View>
 
       <ChevronRight size={20} color={styles.chevronColor.color} />

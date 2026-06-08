@@ -136,7 +136,6 @@ export default function ArticleDetailScreen() {
             <View style={[s.chip, { backgroundColor: chipColor + '18' }]}>
               <Text style={[s.chipText, { color: chipColor }]}>{categoryLabel}</Text>
             </View>
-            <Text style={s.readTime}>{article.readingTime} min read</Text>
           </View>
 
           {/* Title + subtitle */}

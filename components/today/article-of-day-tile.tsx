@@ -92,7 +92,7 @@ export function ArticleOfDayTile() {
             fontSize: 12, fontWeight: '600', color: tc(0.45), fontFamily: FF,
             marginTop: 2,
           }}>
-            {article.category} · {article.readingTime} min read
+            {article.category}
           </Text>
         </View>
       </View>

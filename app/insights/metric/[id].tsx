@@ -467,13 +467,10 @@ function ArticleCard({ article, colors }: { article: Article; colors: AppColors 
       style={({ pressed }) => [s.articleCard, { backgroundColor: article.bgColor }, pressed && { opacity: 0.92, transform: [{ scale: 0.97 }] }]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
       accessibilityRole="button"
-      accessibilityLabel={`${article.title}. ${article.readingTime} minute read.`}
+      accessibilityLabel={article.title}
     >
       <View style={s.articleImageWrap}>
         <Image source={article.coverImage} style={s.articleImage} resizeMode="cover" accessibilityIgnoresInvertColors />
-        <View style={s.articleReadPill}>
-          <Text style={s.articleReadPillText}>{article.readingTime} MIN</Text>
-        </View>
       </View>
       <View style={s.articleTextArea}>
         <Text style={s.articleHeadline} numberOfLines={3}>{article.title}</Text>

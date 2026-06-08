@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -26,67 +27,77 @@ const FF = 'System';
 const DISCLAIMER_TEXT =
   'Content is for informational and educational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult your healthcare provider.';
 
-// ─── Article Card (pastel illustration tile in horizontal rows) ───────────────
+// ─── Article Card (tinted illustration tile in horizontal rows) ───────────────
 
-const CARD_W = 172;
-
-// Turn an article's pastel hex into a translucent TINT laid over the page
-// background: a dark muted tint in dark mode, a soft tint in light mode
-// (Apple Fitness+ education-card style) instead of a solid pastel fill.
-function tintBg(hex: string, dark: boolean): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${dark ? 0.18 : 0.55})`;
+// Extract the hue (0–360) from a hex color. Used so even near-white pastel
+// article colors yield a clearly-colored tint instead of washing out to gray.
+function hexToHue(hex: string): number {
+  const s = hex.replace('#', '');
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 220; // neutral → soft blue fallback
+  let hue: number;
+  if (max === r) hue = ((g - b) / d) % 6;
+  else if (max === g) hue = (b - r) / d + 2;
+  else hue = (r - g) / d + 4;
+  hue *= 60;
+  return Math.round(hue < 0 ? hue + 360 : hue);
 }
 
-function ArticleCard({ article, dark }: { article: Article; dark: boolean }) {
+// A clean single-color card tint from the article's hue: a rich, dark muted
+// color in dark mode; a soft pastel in light mode. The whole card uses this one
+// color so the illustration and title share a single seamless background.
+function tintBg(hex: string, dark: boolean): string {
+  const hue = hexToHue(hex);
+  return dark ? `hsl(${hue}, 42%, 17%)` : `hsl(${hue}, 58%, 92%)`;
+}
+
+function ArticleCard({ article, colors }: { article: Article; colors: AppColors }) {
+  const dark = colors.isDark;
+  const { width } = useWindowDimensions();
+  const cardW = Math.round(width * 0.46);
   const cardColor = getArticleColor(article);
   return (
     <Pressable
       style={({ pressed }) => [
         cardStyles.card,
-        { backgroundColor: tintBg(cardColor, dark) },
+        { width: cardW, backgroundColor: tintBg(cardColor, dark) },
         pressed && { opacity: 0.92, transform: [{ scale: 0.97 }] },
       ]}
       onPress={() => router.push(`/articles/${article.id}` as any)}
       accessibilityRole="button"
-      accessibilityLabel={`${article.title}. ${article.subtitle}. ${article.readingTime} minute read.`}
+      accessibilityLabel={`${article.title}. ${article.subtitle}.`}
     >
-      {/* Square illustration. Transparent art is contained with padding over the section
-          color; legacy baked-background art fills the tile edge-to-edge. */}
-      <View style={cardStyles.imageWrap}>
+      {/* Illustration sits on the card's single tint. Transparent art is contained
+          with padding; legacy baked-background art fills edge-to-edge. */}
+      <View style={[cardStyles.imageWrap, { height: cardW }]}>
         <Image
           source={article.coverImage}
           style={article.transparentArt ? cardStyles.imageContain : cardStyles.image}
           resizeMode={article.transparentArt ? 'contain' : 'cover'}
           accessibilityIgnoresInvertColors
         />
-        <View style={cardStyles.readPill}>
-          <Text style={cardStyles.readPillText}>{article.readingTime} MIN</Text>
-        </View>
       </View>
 
-      {/* Title sits inside the tinted card */}
+      {/* Title sits on the same tint below the illustration */}
       <View style={cardStyles.textArea}>
-        <Text style={[cardStyles.title, { color: dark ? '#FFFFFF' : '#1A1A1A' }]} numberOfLines={3}>{article.title}</Text>
+        <Text style={[cardStyles.title, { color: dark ? '#FFFFFF' : colors.textPrimary }]} numberOfLines={2}>{article.title}</Text>
       </View>
     </Pressable>
   );
 }
 
-// Pastel cards stay light in both themes, so colors here are fixed (dark text on pastel).
 const cardStyles = StyleSheet.create({
+  // Single-tint card: illustration on top, title below, both on one tint.
   card: {
-    width: CARD_W,
     borderRadius: 22,
     overflow: 'hidden',
     marginRight: 14,
   },
   imageWrap: {
-    width: CARD_W,
-    height: CARD_W,
+    width: '100%',
   },
   image: {
     width: '100%',
@@ -98,32 +109,16 @@ const cardStyles = StyleSheet.create({
     marginLeft: '-9%',
     marginTop: '-9%',
   },
-  readPill: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  readPillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    fontFamily: FF,
-  },
   textArea: {
     paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingTop: 2,
+    paddingBottom: 14,
   },
   title: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
-    letterSpacing: -0.4,
-    lineHeight: 25,
+    letterSpacing: -0.3,
+    lineHeight: 22,
     fontFamily: FF,
   },
 });
@@ -190,7 +185,7 @@ export default function EducationScreen() {
                     contentContainerStyle={s.row}
                   >
                     {items.map((article) => (
-                      <ArticleCard key={article.id} article={article} dark={colors.isDark} />
+                      <ArticleCard key={article.id} article={article} colors={colors} />
                     ))}
                   </ScrollView>
                 </View>
