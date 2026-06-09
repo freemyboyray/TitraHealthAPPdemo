@@ -29,7 +29,7 @@ import {
 } from '@/constants/scoring';
 import { BRAND_DISPLAY_NAMES, isOnTreatment, getTransitionPhase } from '@/constants/user-profile';
 import { isOralDrug, doseNoun, pkConcentrationPct } from '@/constants/drug-pk';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useUserStore } from '@/stores/user-store';
 import { useTabBarVisibility } from '@/contexts/tab-bar-visibility';
 // generateDynamicInsights removed — replaced by static Treatment Progress card
@@ -665,6 +665,20 @@ export default function HomeScreen() {
   const plan = personalizationStore.plan;
   const router = useRouter();
   const { openAiChat } = useUiStore();
+  const setFoodSheetPending = useUiStore((st) => st.setFoodSheetPending);
+
+  // Notification taps / CTAs that used to open the old /entry/log-food hub now
+  // deep link to home with ?logFood=1. Honor it by asking AddEntrySheet (mounted
+  // at the tab layout) to open the describe-food modal, then strip the param so
+  // it doesn't reopen. A plain effect (not useFocusEffect) so it also fires when
+  // a "Log food" CTA is tapped while home is already the focused tab — there the
+  // param changes but focus doesn't.
+  const { logFood: logFoodParam } = useLocalSearchParams<{ logFood?: string }>();
+  useEffect(() => {
+    if (!logFoodParam) return;
+    setFoodSheetPending(true);
+    router.setParams({ logFood: undefined } as any);
+  }, [logFoodParam, setFoodSheetPending, router]);
 
 
   // Interactive walkthrough: launch when flagged (post-onboarding, or from

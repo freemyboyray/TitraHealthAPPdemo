@@ -91,12 +91,12 @@ const DEFAULT_CONTENT: Record<ReminderSlot, { title: string; body: string; deepL
   meals_morning: {
     title: 'Log Your Breakfast',
     body: 'Tap to log what you had this morning.',
-    deepLink: '/entry/log-food',
+    deepLink: '/(tabs)?logFood=1',
   },
   meals_evening: {
     title: 'Log Your Dinner',
     body: 'End the day strong - log your evening meal.',
-    deepLink: '/entry/log-food',
+    deepLink: '/(tabs)?logFood=1',
   },
   weight_morning: {
     title: 'Morning Weigh-In',

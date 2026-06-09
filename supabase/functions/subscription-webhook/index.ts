@@ -321,6 +321,25 @@ async function handleAppleNotification(
     });
   } catch (_e) { /* ignore audit errors */ }
 
+  // Ghost-subscription guard: a deleted account can still own a live sandbox or
+  // production sub that Apple keeps renewing. subscriptions.user_id has a FK to
+  // profiles, so the upsert below would fail (500) and Apple would retry the
+  // notification forever. Ack with 200 so Apple stops, and skip — there's no one
+  // left to entitle. (The audit row above still records that Apple sent it.)
+  const { count: profileCount } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('id', userId);
+  if (!profileCount) {
+    console.log(
+      `[apple-webhook] No profile for user=${userId.slice(0, 8)}… (deleted account) — acking ${notificationType} and skipping`,
+    );
+    return new Response(JSON.stringify({ ok: true, skipped: 'no_user' }), {
+      status: 200,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
   // Map Apple notification types to our subscription status
   let status: SubscriptionStatus;
   let isPremium: boolean;

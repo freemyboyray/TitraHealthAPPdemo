@@ -189,7 +189,7 @@ export default function SettingsScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} onScroll={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)} scrollEventThrottle={16}>
           <View style={s.header}>
-            <Text style={s.headerTitle}>SETTINGS</Text>
+            <Text style={s.headerTitle}>Settings</Text>
           </View>
 
         {/* Profile card */}
@@ -368,7 +368,7 @@ function createStyles(c: AppColors) {
       paddingHorizontal: 20, paddingVertical: 16,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderSubtle,
     },
-    headerTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 3.5 },
+    headerTitle: { color: c.textPrimary, fontSize: 36, fontWeight: '800', letterSpacing: -1 },
 
     scroll: { flex: 1 },
     // 16px between top-level blocks (profile card + each section + session card).

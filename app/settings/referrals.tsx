@@ -113,9 +113,9 @@ export default function ReferralsScreen() {
   const statusLine = (status: string): string | null => {
     switch (status) {
       case 'pending':
-        return 'A friend joined, waiting for them to start a trial';
+        return 'A friend joined, waiting for them to start their free trial';
       case 'trialing':
-        return 'A friend started their free trial, your month lands when they subscribe';
+        return 'A friend is on their free trial, your free month unlocks when their subscription begins';
       case 'qualified':
       case 'rewarded':
         return 'A friend subscribed, free month earned!';
@@ -195,6 +195,23 @@ export default function ReferralsScreen() {
                 )}
               </View>
 
+              {/* How it works */}
+              <View style={s.card}>
+                <Text style={s.cardTitle}>How it works</Text>
+                {[
+                  'Share your code. Your friend enters it when they sign up, or later from their settings.',
+                  'They subscribe to Titra Pro. A free trial alone does not count yet, the month is earned once their paid subscription begins.',
+                  'You each get one additional month of Pro inside the app. If you are already subscribed it is added on and starts when your current period ends, so the full month always counts. It unlocks automatically, nothing to claim.',
+                ].map((step, i) => (
+                  <View key={i} style={s.stepRow}>
+                    <View style={s.stepNum}>
+                      <Text style={s.stepNumText}>{i + 1}</Text>
+                    </View>
+                    <Text style={s.stepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+
               {/* Status */}
               <View style={s.card}>
                 <Text style={s.cardTitle}>Your referrals</Text>
@@ -214,9 +231,10 @@ export default function ReferralsScreen() {
               </View>
 
               <Text style={s.disclaimer}>
-                Referral months are applied as free Titra Pro access. If you’re already subscribed, your free
-                month starts automatically once your current subscription ends. Your App Store subscription is
-                never changed or paused.
+                A referral month is free Titra Pro access inside the app, not a refund or a discount on your
+                bill. If you are not subscribed, it starts right away. If you are already subscribed, it is
+                saved and starts automatically once your current subscription ends, so you are never charged
+                for that month. Your App Store subscription is never changed or paused.
               </Text>
             </>
           )}
@@ -270,6 +288,15 @@ function createStyles(c: AppColors) {
     },
     shareBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
     earnedText: { color: '#34C759', fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 12 },
+
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 7 },
+    stepNum: {
+      width: 24, height: 24, borderRadius: 12, marginTop: 1,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)',
+    },
+    stepNumText: { color: c.textPrimary, fontSize: 13, fontWeight: '800' },
+    stepText: { color: c.textSecondary, fontSize: 15, lineHeight: 21, flex: 1 },
 
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     statusDot: { width: 8, height: 8, borderRadius: 4 },

@@ -19,6 +19,12 @@ type UiStore = {
   closeAiChat: () => void;
   insightsDefaultTab: InsightsTab | null;
   setInsightsDefaultTab: (tab: InsightsTab | null) => void;
+  // One-shot request to open the describe-food modal (the replacement for the
+  // old /entry/log-food hub). Set by deep links / focus taps / CTAs; consumed
+  // and cleared by AddEntrySheet, which owns the modal. The home screen flips
+  // this on when it sees a ?logFood param so notification taps reach the modal.
+  foodSheetPending: boolean;
+  setFoodSheetPending: (pending: boolean) => void;
   healthSyncToast: string | null;
   showHealthSyncToast: (msg: string) => void;
   hideHealthSyncToast: () => void;
@@ -39,6 +45,8 @@ export const useUiStore = create<UiStore>((set) => ({
   closeAiChat: () => set({ aiChatOpen: false, aiChatParams: {} }),
   insightsDefaultTab: null,
   setInsightsDefaultTab: (tab) => set({ insightsDefaultTab: tab }),
+  foodSheetPending: false,
+  setFoodSheetPending: (pending) => set({ foodSheetPending: pending }),
   healthSyncToast: null,
   showHealthSyncToast: (msg) => {
     if (_toastTimer) clearTimeout(_toastTimer);

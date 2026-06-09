@@ -1,8 +1,8 @@
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   LayoutAnimation,
   Pressable,
   ScrollView,
@@ -19,19 +19,34 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, CircleCheck, Clock, Dumbbell, ExternalLink, ShieldCheck, X, XCircle } from 'lucide-react-native';
 
+import { CircleIconButton } from '@/components/ui/circle-icon-button';
+import { SolidCard } from '@/components/ui/solid-card';
 import { useHealthData } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { computeBaseTargets, applyAdjustments, SIDE_EFFECT_RULES } from '@/lib/targets';
 import { severityTier } from '@/constants/side-effects';
 import { useUiStore } from '@/stores/ui-store';
-import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, CircleCheck, Clock, Droplet, Dumbbell, ExternalLink, Footprints, Grip, Leaf, MessageCircle, ShieldCheck, Sparkles, Utensils, X, XCircle } from 'lucide-react-native';
 
-const GREEN  = '#34C759';
-const RED    = '#FF3B30';
-const BLUE   = '#5AC8FA';
-const FF     = 'System';
+const GREEN = '#27AE60';
+const RED   = '#E53E3E';
+const BLUE  = '#5AC8FA';
+const FF    = 'System';
+
+// Same hand-illustrated card assets the weekly check-in targets card uses, so
+// the two "adjusted targets" surfaces never drift visually.
+const METRIC_IMAGE = {
+  protein: require('@/assets/images/cards/protein.png'),
+  water:   require('@/assets/images/cards/hydration.png'),
+  fiber:   require('@/assets/images/cards/fiber.png'),
+  carbs:   require('@/assets/images/cards/carbs.png'),
+  fat:     require('@/assets/images/cards/fat.png'),
+  steps:   require('@/assets/images/cards/steps.png'),
+} as const;
+
+type MetricImageKey = keyof typeof METRIC_IMAGE;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,95 +56,88 @@ function capitalize(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+type Citation = { label: string; shortDesc: string };
 
-function GlassBorder({ r = 20 }: { r?: number }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFillObject, {
-        borderRadius: r, borderWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.13)',
-        borderLeftColor: 'rgba(255,255,255,0.08)',
-        borderRightColor: 'rgba(255,255,255,0.03)',
-        borderBottomColor: 'rgba(255,255,255,0.02)',
-      }]}
-    />
-  );
-}
-
-type MetricRowProps = {
-  icon: React.ReactNode;
+type Row = {
+  imageKey: MetricImageKey;
   label: string;
-  before: string;
-  after: string;
+  before: number;
+  after: number;
+  beforeStr: string;
+  afterStr: string;
   delta: string;
   increased: boolean;
   reason: string;
+  citations?: Citation[];
+};
+
+// ─── Metric row (before/after bars + expandable reason) ─────────────────────────
+
+function MetricRow({
+  row, colors, isLast, expanded, onToggle, openAiChat, aiContext,
+}: {
+  row: Row;
   colors: AppColors;
-  citations?: { label: string; shortDesc: string }[];
+  isLast: boolean;
   expanded: boolean;
   onToggle: () => void;
   openAiChat: (opts: any) => void;
   aiContext: string;
-  isLast?: boolean;
-};
-
-function MetricRow({ icon, label, before, after, delta, increased, reason, colors, citations, expanded, onToggle, openAiChat, aiContext, isLast }: MetricRowProps) {
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const arrowColor = increased ? colors.orange : BLUE;
-  const deltaColor = increased ? colors.orange : BLUE;
+}) {
+  const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+  const beforeColor = w(0.18);
+  const chipColor = row.increased ? colors.orange : BLUE;
+  const max = Math.max(row.before, row.after, 1);
+  const beforePct = (row.before / max) * 100;
+  const afterPct = (row.after / max) * 100;
 
   return (
     <Pressable
       onPress={onToggle}
-      style={{
-        paddingVertical: 14,
-        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-        borderBottomColor: w(0.07),
-      }}
+      style={{ paddingVertical: 16, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: w(0.07) }}
     >
-      {/* Label + delta badge */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {icon}
-          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF }}>{label}</Text>
+      {/* Head: asset + label + delta pill + chevron */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          <Image source={METRIC_IMAGE[row.imageKey]} style={{ width: 28, height: 28 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, letterSpacing: -0.2, flexShrink: 1 }}>{row.label}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center', gap: 4,
-            paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20,
-            backgroundColor: increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)',
-          }}>
-            {increased ? <ArrowUp size={11} color={arrowColor} /> : <ArrowDown size={11} color={arrowColor} />}
-            <Text style={{ fontSize: 14, fontWeight: '800', color: deltaColor, fontFamily: FF }}>{delta}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: row.increased ? 'rgba(255,116,42,0.12)' : 'rgba(90,200,250,0.12)' }}>
+            {row.increased ? <ArrowUp size={11} color={chipColor} /> : <ArrowDown size={11} color={chipColor} />}
+            <Text style={{ fontSize: 14, fontWeight: '800', color: chipColor, fontFamily: FF }}>{row.delta}</Text>
           </View>
           {expanded ? <ChevronUp size={14} color={w(0.25)} /> : <ChevronDown size={14} color={w(0.25)} />}
         </View>
       </View>
 
-      {/* Before → After */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 20, fontWeight: '300', color: w(0.35), fontFamily: FF }}>{before}</Text>
-        <ArrowRight size={14} color={w(0.25)} />
-        <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>{after}</Text>
+      {/* Two bars: before (muted) + after (orange) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <View style={{ flex: 1, height: 12, borderRadius: 999, overflow: 'hidden', backgroundColor: w(0.06) }}>
+          <View style={{ height: 12, borderRadius: 999, width: `${beforePct}%`, backgroundColor: beforeColor }} />
+        </View>
+        <Text style={{ width: 70, textAlign: 'right', fontSize: 13.5, fontWeight: '600', color: w(0.45), fontFamily: FF }}>{row.beforeStr}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flex: 1, height: 12, borderRadius: 999, overflow: 'hidden', backgroundColor: w(0.06) }}>
+          <View style={{ height: 12, borderRadius: 999, width: `${afterPct}%`, backgroundColor: colors.orange }} />
+        </View>
+        <Text style={{ width: 70, textAlign: 'right', fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, fontFamily: FF }}>{row.afterStr}</Text>
       </View>
 
       {/* Expanded: reason + citations */}
       {expanded && (
-        <View style={{ marginTop: 8 }}>
-          <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, lineHeight: 17 }}>{reason}</Text>
+        <View style={{ marginTop: 12 }}>
+          <Text style={{ fontSize: 14, color: w(0.45), fontFamily: FF, lineHeight: 19 }}>{row.reason}</Text>
 
-          {citations && citations.length > 0 && (
-            <View style={{ marginTop: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                <ShieldCheck size={13} color={w(0.30)} />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: w(0.30), fontFamily: FF, letterSpacing: 0.5 }}>
-                  INFORMED BY
-                </Text>
+          {row.citations && row.citations.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <ShieldCheck size={14} color={w(0.35)} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: w(0.4), fontFamily: FF }}>Informed by</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {citations.map(c => (
+                {row.citations.map(c => (
                   <Pressable
                     key={c.label}
                     onPress={() => openAiChat({
@@ -143,14 +151,10 @@ function MetricRow({ icon, label, before, after, delta, increased, reason, color
                         'Should I talk to my doctor about this?',
                       ]),
                     })}
-                    style={{
-                      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
-                      backgroundColor: w(0.04), borderWidth: 1, borderColor: w(0.08),
-                      flexDirection: 'row', alignItems: 'center', gap: 4,
-                    }}
+                    style={{ paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, backgroundColor: w(0.05), flexDirection: 'row', alignItems: 'center', gap: 5 }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: w(0.45), fontFamily: FF }}>{c.label}</Text>
-                    <ExternalLink size={10} color={w(0.30)} />
+                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: w(0.5), fontFamily: FF }}>{c.label}</Text>
+                    <ExternalLink size={11} color={w(0.35)} />
                   </Pressable>
                 ))}
               </View>
@@ -168,7 +172,7 @@ export default function SideEffectImpactScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const w = (a: number) => (colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   const { openAiChat } = useUiStore();
 
   const { effects: effectsParam } = useLocalSearchParams<{ effects: string }>();
@@ -199,20 +203,9 @@ export default function SideEffectImpactScreen() {
   }), [base]);
   const adjusted = useMemo(() => applyAdjustments(baseWithActive, recentLogs), [baseWithActive, recentLogs]);
 
-  // Severity-adaptive banner
-  const maxSeverity = useMemo(() => Math.max(...loggedEffects.map(e => e.severity), 0), [loggedEffects]);
-  const tier = severityTier(maxSeverity);
-  const primaryEffect = loggedEffects.length > 0 ? displayName(loggedEffects[0]).toLowerCase() : 'today';
-  const bannerTitle = tier === 'severe' ? 'Adjusted for today' : tier === 'moderate' ? 'Targets adjusted' : 'A few small tweaks';
-  const bannerSub = tier === 'severe'
-    ? `Tuned to be easier on your body while ${primaryEffect} is strong.`
-    : tier === 'moderate'
-      ? "Tuned to work with how you're feeling today."
-      : 'Minor changes to keep you on track.';
-
   // Collect all triggered citations for metric rows
   const triggeredCitations = useMemo(() => {
-    const map = new Map<string, { label: string; shortDesc: string }[]>();
+    const map = new Map<string, Citation[]>();
     for (const e of loggedEffects) {
       const rule = SIDE_EFFECT_RULES[e.type];
       if (rule?.citations) {
@@ -224,7 +217,6 @@ export default function SideEffectImpactScreen() {
         if (rule.stepsDelta !== 0) map.set('Daily Steps', [...(map.get('Daily Steps') ?? []), ...rule.citations]);
       }
     }
-    // Deduplicate per metric
     for (const [key, cites] of map) {
       const unique = cites.filter((c, i, arr) => arr.findIndex(x => x.label === c.label) === i);
       map.set(key, unique);
@@ -234,114 +226,83 @@ export default function SideEffectImpactScreen() {
 
   // Build metric change rows (only show metrics that actually changed)
   const metricRows = useMemo(() => {
-    const rows: Omit<MetricRowProps, 'expanded' | 'onToggle' | 'openAiChat' | 'aiContext'>[] = [];
-    const c = colors;
+    const rows: Row[] = [];
 
     const proteinDiff = adjusted.proteinG - base.proteinG;
-    if (Math.abs(proteinDiff) >= 1) {
-      rows.push({
-        icon: <Utensils size={18} color={colors.orange} />,
-        label: 'Daily Protein',
-        before: `${base.proteinG}g`,
-        after: `${adjusted.proteinG}g`,
-        delta: `${proteinDiff > 0 ? '+' : ''}${proteinDiff}g`,
-        increased: proteinDiff > 0,
-        reason: proteinDiff > 0
-          ? 'Higher protein preserves lean muscle when GLP-1 suppresses appetite. Try adding protein shakes, eggs, or Greek yogurt.'
-          : 'Protein target slightly reduced to ease digestion.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Protein'),
-      });
-    }
+    if (Math.abs(proteinDiff) >= 1) rows.push({
+      imageKey: 'protein', label: 'Daily Protein',
+      before: base.proteinG, after: adjusted.proteinG,
+      beforeStr: `${base.proteinG} g`, afterStr: `${adjusted.proteinG} g`,
+      delta: `${proteinDiff > 0 ? '+' : ''}${proteinDiff} g`, increased: proteinDiff > 0,
+      reason: proteinDiff > 0
+        ? 'Higher protein preserves lean muscle when GLP-1 suppresses appetite. Try adding protein shakes, eggs, or Greek yogurt.'
+        : 'Protein target slightly reduced to ease digestion.',
+      citations: triggeredCitations.get('Daily Protein'),
+    });
 
     const waterDiffMl = adjusted.waterMl - base.waterMl;
     const waterDiffOz = mlToOz(Math.abs(waterDiffMl));
-    if (waterDiffOz >= 1) {
-      rows.push({
-        icon: <Droplet size={18} color={BLUE} />,
-        label: 'Daily Water',
-        before: `${mlToOz(base.waterMl)}oz`,
-        after: `${mlToOz(adjusted.waterMl)}oz`,
-        delta: `${waterDiffMl > 0 ? '+' : '-'}${waterDiffOz}oz`,
-        increased: waterDiffMl > 0,
-        reason: waterDiffMl > 0
-          ? 'Increased hydration helps manage GI symptoms and supports medication absorption. Sip steadily throughout the day.'
-          : 'Water target unchanged.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Water'),
-      });
-    }
+    if (waterDiffOz >= 1) rows.push({
+      imageKey: 'water', label: 'Daily Water',
+      before: mlToOz(base.waterMl), after: mlToOz(adjusted.waterMl),
+      beforeStr: `${mlToOz(base.waterMl)} oz`, afterStr: `${mlToOz(adjusted.waterMl)} oz`,
+      delta: `${waterDiffMl > 0 ? '+' : '-'}${waterDiffOz} oz`, increased: waterDiffMl > 0,
+      reason: waterDiffMl > 0
+        ? 'Increased hydration helps manage GI symptoms and supports medication absorption. Sip steadily throughout the day.'
+        : 'Water target unchanged.',
+      citations: triggeredCitations.get('Daily Water'),
+    });
 
     const fiberDiff = adjusted.fiberG - base.fiberG;
-    if (Math.abs(fiberDiff) >= 1) {
-      rows.push({
-        icon: <Leaf size={18} color={GREEN} />,
-        label: 'Daily Fiber',
-        before: `${base.fiberG}g`,
-        after: `${adjusted.fiberG}g`,
-        delta: `${fiberDiff > 0 ? '+' : ''}${fiberDiff}g`,
-        increased: fiberDiff > 0,
-        reason: fiberDiff > 0
-          ? 'Soluble fiber (oats, legumes) supports digestion and softens stool. Add gradually to avoid gas.'
-          : 'Fiber reduced to ease GI distress. Focus on easy-to-digest foods until symptoms settle.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Fiber'),
-      });
-    }
+    if (Math.abs(fiberDiff) >= 1) rows.push({
+      imageKey: 'fiber', label: 'Daily Fiber',
+      before: base.fiberG, after: adjusted.fiberG,
+      beforeStr: `${base.fiberG} g`, afterStr: `${adjusted.fiberG} g`,
+      delta: `${fiberDiff > 0 ? '+' : ''}${fiberDiff} g`, increased: fiberDiff > 0,
+      reason: fiberDiff > 0
+        ? 'Soluble fiber (oats, legumes) supports digestion and softens stool. Add gradually to avoid gas.'
+        : 'Fiber reduced to ease GI distress. Focus on easy-to-digest foods until symptoms settle.',
+      citations: triggeredCitations.get('Daily Fiber'),
+    });
 
     const carbsDiff = adjusted.carbsG - base.carbsG;
-    if (Math.abs(carbsDiff) >= 3) {
-      rows.push({
-        icon: <Grip size={18} color="#F6CB45" />,
-        label: 'Daily Carbs',
-        before: `${base.carbsG}g`,
-        after: `${adjusted.carbsG}g`,
-        delta: `${carbsDiff > 0 ? '+' : ''}${carbsDiff}g`,
-        increased: carbsDiff > 0,
-        reason: carbsDiff > 0
-          ? 'Complex carbs (whole grains, oats) provide steady energy. Avoid high-sugar foods that cause energy crashes.'
-          : 'Carbs reduced to limit GI load. Stick to plain, easy-to-digest carbs like white rice and toast.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Carbs'),
-      });
-    }
+    if (Math.abs(carbsDiff) >= 3) rows.push({
+      imageKey: 'carbs', label: 'Daily Carbs',
+      before: base.carbsG, after: adjusted.carbsG,
+      beforeStr: `${base.carbsG} g`, afterStr: `${adjusted.carbsG} g`,
+      delta: `${carbsDiff > 0 ? '+' : ''}${carbsDiff} g`, increased: carbsDiff > 0,
+      reason: carbsDiff > 0
+        ? 'Complex carbs (whole grains, oats) provide steady energy. Avoid high-sugar foods that cause energy crashes.'
+        : 'Carbs reduced to limit GI load. Stick to plain, easy-to-digest carbs like white rice and toast.',
+      citations: triggeredCitations.get('Daily Carbs'),
+    });
 
     const fatDiff = adjusted.fatG - base.fatG;
-    if (Math.abs(fatDiff) >= 2) {
-      rows.push({
-        icon: <Droplet size={18} color="#FF9F0A" />,
-        label: 'Daily Fat',
-        before: `${base.fatG}g`,
-        after: `${adjusted.fatG}g`,
-        delta: `${fatDiff > 0 ? '+' : ''}${fatDiff}g`,
-        increased: fatDiff > 0,
-        reason: fatDiff < 0
-          ? 'Reducing fat slows gastric emptying less aggressively and relieves GI symptoms. Avoid greasy and fried foods.'
-          : 'Fat target unchanged.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Fat'),
-      });
-    }
+    if (Math.abs(fatDiff) >= 2) rows.push({
+      imageKey: 'fat', label: 'Daily Fat',
+      before: base.fatG, after: adjusted.fatG,
+      beforeStr: `${base.fatG} g`, afterStr: `${adjusted.fatG} g`,
+      delta: `${fatDiff > 0 ? '+' : ''}${fatDiff} g`, increased: fatDiff > 0,
+      reason: fatDiff < 0
+        ? 'Reducing fat eases GI symptoms and slows gastric emptying less aggressively. Avoid greasy and fried foods.'
+        : 'Fat target unchanged.',
+      citations: triggeredCitations.get('Daily Fat'),
+    });
 
     const stepsDiff = adjusted.steps - base.steps;
-    if (Math.abs(stepsDiff) >= 100) {
-      rows.push({
-        icon: <Footprints size={18} color={GREEN} />,
-        label: 'Daily Steps',
-        before: `${base.steps.toLocaleString()}`,
-        after: `${adjusted.steps.toLocaleString()}`,
-        delta: `${stepsDiff > 0 ? '+' : ''}${stepsDiff.toLocaleString()}`,
-        increased: stepsDiff > 0,
-        reason: stepsDiff > 0
-          ? 'Light walking helps GI motility and reduces constipation and bloating. Short walks after meals are ideal.'
-          : 'Rest is prioritized - avoid intense activity until symptoms improve.',
-        colors: c,
-        citations: triggeredCitations.get('Daily Steps'),
-      });
-    }
+    if (Math.abs(stepsDiff) >= 100) rows.push({
+      imageKey: 'steps', label: 'Daily Steps',
+      before: base.steps, after: adjusted.steps,
+      beforeStr: base.steps.toLocaleString(), afterStr: adjusted.steps.toLocaleString(),
+      delta: `${stepsDiff > 0 ? '+' : ''}${stepsDiff.toLocaleString()}`, increased: stepsDiff > 0,
+      reason: stepsDiff > 0
+        ? 'Light walking helps GI motility and reduces constipation and bloating. Short walks after meals are ideal.'
+        : 'Rest is prioritized — avoid intense activity until symptoms improve.',
+      citations: triggeredCitations.get('Daily Steps'),
+    });
 
     return rows;
-  }, [base, adjusted, colors, triggeredCitations]);
+  }, [base, adjusted, triggeredCitations]);
 
   // Progressive disclosure — track which rows are expanded
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set([0]));
@@ -361,202 +322,147 @@ export default function SideEffectImpactScreen() {
   // AI context string summarising logged effects + changes
   const aiContext = useMemo(() => {
     const effectList = effectNames.join(', ') || 'side effects';
-    const changes = metricRows.map(r => `${r.label}: ${r.before} → ${r.after}`).join(', ');
+    const changes = metricRows.map(r => `${r.label}: ${r.beforeStr} → ${r.afterStr}`).join(', ');
     return `Logged: ${effectList}. Target changes: ${changes || 'none'}.`;
   }, [effectNames, metricRows]);
 
-  // Contextual quick-question chips
-  const aiChips = useMemo(() => {
-    const chips: string[] = [];
-    if (metricRows.some(r => r.label === 'Daily Protein'))
-      chips.push('Why was my protein target changed?');
-    if (metricRows.some(r => r.label === 'Daily Water'))
-      chips.push('Why do I need more water?');
-    if (metricRows.some(r => r.label === 'Daily Fiber'))
-      chips.push('How should I adjust my fiber intake?');
-    if (metricRows.some(r => r.label === 'Daily Fat'))
-      chips.push('Why should I reduce fat right now?');
-    if (metricRows.some(r => r.label === 'Daily Steps'))
-      chips.push('Should I rest or stay active?');
-    if (loggedEffects.some(e => e.type === 'nausea' || e.type === 'vomiting'))
-      chips.push('How can I manage nausea on GLP-1?');
-    if (loggedEffects.some(e => e.type === 'constipation' || e.type === 'diarrhea'))
-      chips.push('What helps with GI side effects?');
-    chips.push('How long do these side effects typically last?');
-    chips.push('Should I contact my doctor about this?');
-    return chips.slice(0, 5);
-  }, [metricRows, loggedEffects]);
-
   const hasFoodGuidance = adjusted.foodsToPrioritize.length > 0 || adjusted.foodsToAvoid.length > 0;
   const hasMealFreq = adjusted.mealFrequency > 3;
-
-  // Total adjustments count
-  const adjustmentCount = metricRows.length + (hasMealFreq ? 1 : 0) + (hasFoodGuidance ? 1 : 0) + (adjusted.resistanceTrainingRecommended ? 1 : 0);
+  const hasAdjustments = metricRows.length > 0 || hasMealFreq || hasFoodGuidance || adjusted.resistanceTrainingRecommended;
 
   // ── Entrance animations ─────────────────────────────────────────────────────
-  const bannerOpacity = useSharedValue(0);
+  const headOpacity = useSharedValue(0);
+  const headY = useSharedValue(10);
   const contentOpacity = useSharedValue(0);
-  const contentY = useSharedValue(10);
+  const contentY = useSharedValue(12);
 
   useEffect(() => {
-    const ease = { duration: 250, easing: Easing.out(Easing.quad) };
-    bannerOpacity.value = withTiming(1, ease);
-    contentOpacity.value = withDelay(150, withTiming(1, ease));
-    contentY.value = withDelay(150, withTiming(0, ease));
+    const ease = { duration: 280, easing: Easing.out(Easing.quad) };
+    headOpacity.value = withTiming(1, ease);
+    headY.value = withTiming(0, ease);
+    contentOpacity.value = withDelay(120, withTiming(1, ease));
+    contentY.value = withDelay(120, withTiming(0, ease));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
-  const bannerAnim = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
+  const headAnim = useAnimatedStyle(() => ({ opacity: headOpacity.value, transform: [{ translateY: headY.value }] }));
   const contentAnim = useAnimatedStyle(() => ({ opacity: contentOpacity.value, transform: [{ translateY: contentY.value }] }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity
-          style={s.backBtn}
-          onPress={() => router.dismissAll()}
-          activeOpacity={0.7}
-        >
-          <BlurView intensity={75} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.borderSubtle }]} />
-          <GlassBorder r={20} />
-          <X size={20} color={w(0.6)} />
-        </TouchableOpacity>
+        <CircleIconButton icon={X} onPress={() => router.dismissAll()} accessibilityLabel="Close" />
         <Text style={s.headerTitle}>Target Adjustments</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 110 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Success banner */}
-        <Animated.View style={[s.banner, bannerAnim]}>
-          <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-          <GlassBorder r={20} />
-          <View style={{ padding: 20, alignItems: 'center' }}>
-            <View style={s.checkCircle}>
-              <Check size={22} color="#FFF" />
-            </View>
-            <Text style={s.bannerTitle}>{bannerTitle}</Text>
-            <Text style={s.bannerSub}>{bannerSub}</Text>
-            {/* Effect pills with severity coloring */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 12 }}>
-              {loggedEffects.map((e, i) => {
-                const t = severityTier(e.severity);
-                const pillColor = t === 'severe' ? RED : t === 'moderate' ? colors.orange : GREEN;
-                return (
-                  <View key={`${e.type}-${i}`} style={[s.effectPill, {
-                    backgroundColor: `${pillColor}15`,
-                    borderColor: `${pillColor}40`,
-                  }]}>
-                    <Text style={[s.effectPillText, { color: pillColor }]}>{displayName(e)}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            {/* Adjustment count */}
-            {adjustmentCount > 0 && (
-              <Text style={{ fontSize: 13, fontWeight: '600', color: w(0.35), fontFamily: FF, marginTop: 10 }}>
-                {adjustmentCount} target{adjustmentCount !== 1 ? 's' : ''} adjusted
-              </Text>
-            )}
+        {/* What was logged */}
+        <Animated.View style={[{ marginBottom: 24 }, headAnim]}>
+          <Text style={s.sectionHeader}>What was logged</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {loggedEffects.map((e, i) => {
+              const t = severityTier(e.severity);
+              const pillColor = t === 'severe' ? RED : t === 'moderate' ? colors.orange : GREEN;
+              return (
+                <View key={`${e.type}-${i}`} style={[s.effectPill, { backgroundColor: `${pillColor}14` }]}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: pillColor }} />
+                  <Text style={[s.effectPillText, { color: colors.textPrimary }]}>{displayName(e)}</Text>
+                </View>
+              );
+            })}
           </View>
         </Animated.View>
 
         <Animated.View style={[{ gap: 16 }, contentAnim]}>
-          {/* Metric changes */}
+          {/* What changed */}
           {metricRows.length > 0 && (
-            <View style={s.card}>
-              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-              <GlassBorder r={20} />
-              <View style={{ padding: 20 }}>
-                <Text style={s.sectionTitle}>WHAT CHANGED</Text>
-                {metricRows.map((row, i) => (
-                  <MetricRow
-                    key={row.label}
-                    {...row}
-                    isLast={i === metricRows.length - 1}
-                    expanded={expandedRows.has(i)}
-                    onToggle={() => toggleRow(i)}
-                    openAiChat={openAiChat}
-                    aiContext={aiContext}
-                  />
-                ))}
-              </View>
+            <View>
+              <Text style={s.sectionHeader}>What changed</Text>
+              <SolidCard radius={24}>
+                <View style={{ padding: 18 }}>
+                  {/* Legend */}
+                  <View style={s.legend}>
+                    <View style={s.legendItem}>
+                      <View style={[s.swatch, { backgroundColor: w(0.18) }]} />
+                      <Text style={s.legendText}>Before</Text>
+                    </View>
+                    <View style={s.legendItem}>
+                      <View style={[s.swatch, { backgroundColor: colors.orange }]} />
+                      <Text style={s.legendText}>After</Text>
+                    </View>
+                    <Text style={[s.legendText, { marginLeft: 'auto' }]}>Tap a row for why</Text>
+                  </View>
+
+                  {metricRows.map((row, i) => (
+                    <MetricRow
+                      key={row.label}
+                      row={row}
+                      colors={colors}
+                      isLast={i === metricRows.length - 1}
+                      expanded={expandedRows.has(i)}
+                      onToggle={() => toggleRow(i)}
+                      openAiChat={openAiChat}
+                      aiContext={aiContext}
+                    />
+                  ))}
+                </View>
+              </SolidCard>
             </View>
           )}
 
-          {/* Meal frequency */}
+          {/* Meal timing */}
           {hasMealFreq && (
-            <View style={s.card}>
-              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-              <GlassBorder r={20} />
-              <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View style={[s.iconCircle, { backgroundColor: 'rgba(255,116,42,0.12)' }]}>
-                  <Clock size={20} color={colors.orange} />
-                </View>
+            <SolidCard radius={24}>
+              <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Clock size={24} color={colors.textPrimary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.sectionTitle}>MEAL TIMING</Text>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, fontFamily: FF, marginTop: 2 }}>
-                    {adjusted.mealFrequency} small meals/day
-                  </Text>
-                  <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
+                  <Text style={s.cardTitle}>Meal timing</Text>
+                  <Text style={s.cardBigValue}>{adjusted.mealFrequency} small meals a day</Text>
+                  <Text style={s.cardBody}>
                     Smaller, more frequent meals reduce GI load and help manage gastric emptying more comfortably.
                   </Text>
                 </View>
               </View>
-            </View>
+            </SolidCard>
           )}
 
-          {/* Resistance training */}
+          {/* Strength training */}
           {adjusted.resistanceTrainingRecommended && (
-            <View style={s.card}>
-              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-              <GlassBorder r={20} />
-              <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View style={[s.iconCircle, { backgroundColor: 'rgba(52,199,89,0.12)' }]}>
-                  <Dumbbell size={20} color={GREEN} />
-                </View>
+            <SolidCard radius={24}>
+              <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Dumbbell size={24} color={colors.textPrimary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.sectionTitle}>STRENGTH TRAINING</Text>
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, fontFamily: FF, marginTop: 2 }}>
-                    Recommended 2–3×/week
-                  </Text>
-                  <Text style={{ fontSize: 14, color: w(0.40), fontFamily: FF, marginTop: 4, lineHeight: 17 }}>
+                  <Text style={s.cardTitle}>Strength training</Text>
+                  <Text style={[s.cardBigValue, { fontSize: 17 }]}>Recommended 2–3× a week</Text>
+                  <Text style={s.cardBody}>
                     Resistance training is the most effective way to prevent lean muscle loss on GLP-1. Even bodyweight squats and rows count.
                   </Text>
                 </View>
               </View>
-            </View>
+            </SolidCard>
           )}
 
           {/* Food guidance */}
           {hasFoodGuidance && (
-            <View style={s.card}>
-              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-              <GlassBorder r={20} />
+            <SolidCard radius={24}>
               <View style={{ padding: 20 }}>
-                <Text style={s.sectionTitle}>FOOD GUIDANCE</Text>
+                <Text style={s.cardTitle}>Food guidance</Text>
 
                 {adjusted.foodsToPrioritize.length > 0 && (
-                  <View style={{ marginTop: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <View style={{ marginTop: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <CircleCheck size={16} color={GREEN} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: GREEN, fontFamily: FF, letterSpacing: 0.5 }}>
-                        PRIORITIZE
-                      </Text>
+                      <Text style={[s.guidanceLabel, { color: GREEN }]}>Prioritize</Text>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {adjusted.foodsToPrioritize.map(food => (
-                        <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(52,199,89,0.10)', borderColor: 'rgba(52,199,89,0.25)' }]}>
+                        <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(39,174,96,0.10)' }]}>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: GREEN, fontFamily: FF }}>{food}</Text>
                         </View>
                       ))}
@@ -565,16 +471,14 @@ export default function SideEffectImpactScreen() {
                 )}
 
                 {adjusted.foodsToAvoid.length > 0 && (
-                  <View style={{ marginTop: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <View style={{ marginTop: 18 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <XCircle size={16} color={RED} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: RED, fontFamily: FF, letterSpacing: 0.5 }}>
-                        AVOID
-                      </Text>
+                      <Text style={[s.guidanceLabel, { color: RED }]}>Go easy on</Text>
                     </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {adjusted.foodsToAvoid.map(food => (
-                        <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(255,59,48,0.08)', borderColor: 'rgba(255,59,48,0.20)' }]}>
+                        <View key={food} style={[s.foodChip, { backgroundColor: 'rgba(229,62,62,0.08)' }]}>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: RED, fontFamily: FF }}>{food}</Text>
                         </View>
                       ))}
@@ -582,106 +486,35 @@ export default function SideEffectImpactScreen() {
                   </View>
                 )}
               </View>
-            </View>
+            </SolidCard>
           )}
 
           {/* No changes fallback */}
-          {metricRows.length === 0 && !hasMealFreq && !hasFoodGuidance && (
-            <View style={s.card}>
-              <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-              <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-              <GlassBorder r={20} />
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, color: w(0.40), textAlign: 'center', fontFamily: FF, lineHeight: 20 }}>
-                  No target adjustments for these effects. Continue with your regular targets.
+          {!hasAdjustments && (
+            <SolidCard radius={24}>
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <CircleCheck size={30} color={GREEN} style={{ marginBottom: 10 }} />
+                <Text style={s.noAdjTitle}>No adjustments needed</Text>
+                <Text style={s.noAdjBody}>
+                  These effects don't call for target changes. Continue with your regular targets.
                 </Text>
               </View>
-            </View>
+            </SolidCard>
           )}
 
-          {/* AI Coach card */}
-          <View style={s.aiCard}>
-            <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
-            <GlassBorder r={20} />
-            <View style={{ padding: 20 }}>
-              {/* Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <View style={s.aiIconWrap}>
-                  <Sparkles size={16} color={colors.orange} />
-                </View>
-                <Text style={s.aiCardLabel}>AI COACH</Text>
-              </View>
-              <Text style={s.aiCardTitle}>Have questions about your adjustments?</Text>
-              <Text style={[s.aiCardSub, { color: w(0.40) }]}>
-                Ask why targets changed, what to eat, or anything about managing your side effects.
-              </Text>
-
-              {/* Quick-question chips */}
-              <View style={s.chipsWrap}>
-                {aiChips.map(chip => (
-                  <TouchableOpacity
-                    key={chip}
-                    activeOpacity={0.75}
-                    style={s.chip}
-                    onPress={() => openAiChat({
-                      type: 'focus',
-                      contextLabel: 'Side Effect Adjustments',
-                      contextValue: aiContext,
-                      seedMessage: chip,
-                      chips: JSON.stringify([
-                        'What can I eat right now?',
-                        'How long will this last?',
-                        'Should I contact my doctor?',
-                        'What helps most right now?',
-                      ]),
-                    })}
-                  >
-                    <Text style={s.chipText}>{chip}</Text>
-                    <ArrowRight size={13} color={colors.orange} style={{ marginLeft: 2 }} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Ask anything button */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={s.askBtn}
-                onPress={() => openAiChat({
-                  type: 'focus',
-                  contextLabel: 'Side Effect Adjustments',
-                  contextValue: aiContext,
-                  chips: JSON.stringify([
-                    'What can I eat right now?',
-                    'How long will this last?',
-                    'Should I contact my doctor?',
-                    'What helps most right now?',
-                    'Why did my targets change?',
-                  ]),
-                })}
-              >
-                <MessageCircle size={18} color="#FFF" />
-                <Text style={s.askBtnText}>Ask anything</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
           {/* Disclaimer */}
-          <Text style={{ fontSize: 12, color: w(0.25), fontFamily: FF, textAlign: 'center', lineHeight: 15, marginTop: 4 }}>
+          <Text style={s.disclaimer}>
             Not medical advice. For informational purposes only.{'\n'}Always consult your healthcare provider.
           </Text>
-
-          {/* Done — placed at the end so the adjustments are seen before dismissing */}
-          <TouchableOpacity
-            style={[s.doneBtn, { marginTop: 8 }]}
-            onPress={() => router.dismissAll()}
-            activeOpacity={0.85}
-          >
-            <Text style={s.doneBtnText}>Got it</Text>
-          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
 
+      {/* Fixed Done CTA */}
+      <View style={[s.ctaWrap, { paddingBottom: insets.bottom + 16, borderTopColor: w(0.06) }]}>
+        <TouchableOpacity style={s.doneBtn} onPress={() => router.dismissAll()} activeOpacity={0.85}>
+          <Text style={s.doneBtnText}>Done</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -689,124 +522,45 @@ export default function SideEffectImpactScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const createStyles = (c: AppColors) => {
-  const w = (a: number) => c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const w = (a: number) => (c.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   return StyleSheet.create({
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 20, paddingBottom: 12,
     },
-    backBtn: {
-      width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: {
-      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'System', letterSpacing: -0.3,
-    },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.4 },
 
-    content: { paddingHorizontal: 20, paddingTop: 8, gap: 16 },
+    effectPill: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+    effectPillText: { fontSize: 14, fontWeight: '700', fontFamily: FF },
 
-    banner: {
-      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
-    },
-    checkCircle: {
-      width: 48, height: 48, borderRadius: 24,
-      backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center',
-      marginBottom: 12,
-      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.4, shadowRadius: 12,
-    },
-    bannerTitle: {
-      fontSize: 20, fontWeight: '800', color: c.textPrimary, fontFamily: 'System',
-      letterSpacing: -0.3, marginBottom: 6,
-    },
-    bannerSub: {
-      fontSize: 15, color: w(0.45), fontFamily: FF, textAlign: 'center', lineHeight: 19,
-    },
-    effectPill: {
-      paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
-      borderWidth: 1,
-    },
-    effectPillText: {
-      fontSize: 14, fontWeight: '700', fontFamily: FF,
-    },
+    sectionHeader: { fontSize: 18, fontWeight: '700', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.2, marginBottom: 12, marginLeft: 2 },
 
-    card: {
-      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
-    },
+    // Legend (matches CheckinTargetsCard)
+    legend: { flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 6 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    swatch: { width: 18, height: 10, borderRadius: 4 },
+    legendText: { fontSize: 12.5, fontWeight: '600', color: w(0.45), fontFamily: FF },
 
-    sectionTitle: {
-      fontSize: 12, fontWeight: '800', color: w(0.35), fontFamily: FF,
-      letterSpacing: 1.5, marginBottom: 2,
-    },
+    // Generic card text
+    cardTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.2 },
+    cardBigValue: { fontSize: 21, fontWeight: '800', color: c.textPrimary, fontFamily: FF, letterSpacing: -0.4, marginTop: 4 },
+    cardBody: { fontSize: 14, color: w(0.45), fontFamily: FF, lineHeight: 19, marginTop: 6 },
 
-    iconCircle: {
-      width: 44, height: 44, borderRadius: 22,
-      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    },
+    guidanceLabel: { fontSize: 15, fontWeight: '700', fontFamily: FF, letterSpacing: -0.2 },
+    foodChip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999 },
 
-    foodChip: {
-      paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-    },
+    // No-adjustments fallback
+    noAdjTitle: { fontSize: 17, fontWeight: '800', color: c.textPrimary, fontFamily: FF },
+    noAdjBody: { fontSize: 15, color: w(0.45), fontFamily: FF, marginTop: 6, textAlign: 'center', lineHeight: 19 },
 
-    aiCard: {
-      borderRadius: 20, overflow: 'hidden', backgroundColor: c.surface,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
-      borderWidth: 1, borderColor: 'rgba(255,116,42,0.15)',
-    },
-    aiIconWrap: {
-      width: 28, height: 28, borderRadius: 14,
-      backgroundColor: 'rgba(255,116,42,0.12)',
-      alignItems: 'center', justifyContent: 'center',
-    },
-    aiCardLabel: {
-      fontSize: 12, fontWeight: '800', color: c.orange,
-      fontFamily: FF, letterSpacing: 1.5,
-    },
-    aiCardTitle: {
-      fontSize: 18, fontWeight: '800', color: c.textPrimary,
-      fontFamily: 'System', letterSpacing: -0.2, marginTop: 6, marginBottom: 4,
-    },
-    aiCardSub: {
-      fontSize: 14, fontFamily: FF, lineHeight: 17, marginBottom: 16,
-    },
-    chipsWrap: {
-      gap: 8, marginBottom: 14,
-    },
-    chip: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 14, paddingVertical: 11,
-      borderRadius: 14, borderWidth: 1,
-      borderColor: 'rgba(255,116,42,0.25)',
-      backgroundColor: 'rgba(255,116,42,0.07)',
-    },
-    chipText: {
-      flex: 1, fontSize: 15, fontWeight: '600',
-      color: c.textPrimary, fontFamily: FF,
-    },
-    askBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 8, height: 48, borderRadius: 24,
-      backgroundColor: c.orange,
-      shadowColor: c.orange, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-    },
-    askBtnText: {
-      fontSize: 17, fontWeight: '800', color: '#FFF', fontFamily: FF,
-    },
+    disclaimer: { fontSize: 12, color: w(0.3), fontFamily: FF, textAlign: 'center', lineHeight: 16, marginTop: 4 },
 
+    // Fixed CTA
+    ctaWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth },
     doneBtn: {
-      height: 54, borderRadius: 27, backgroundColor: c.orange,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: c.orange, shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.4, shadowRadius: 18, elevation: 8,
+      backgroundColor: c.orange, borderRadius: 999, paddingVertical: 17, alignItems: 'center', justifyContent: 'center',
+      shadowColor: c.orange, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
     },
-    doneBtnText: {
-      fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.3,
-    },
+    doneBtnText: { fontSize: 18, fontWeight: '800', color: '#FFF', fontFamily: FF, letterSpacing: 0.4 },
   });
 };

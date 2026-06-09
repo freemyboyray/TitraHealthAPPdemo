@@ -159,17 +159,10 @@ export default function UpgradeScreen() {
     try {
       const products = await storekit.getProducts();
       if (products.length === 0) {
-        const d = storekit.getIAPDiagnostics?.() ?? { initialized: false, initError: null, fetchError: null };
-        const Constants = require('expo-constants').default;
-        const bundle = Constants?.expoConfig?.ios?.bundleIdentifier ?? Constants?.easConfig?.ios?.bundleIdentifier ?? 'unknown';
-        const detail = [
-          `init: ${d.initialized ? 'ok' : 'failed'}`,
-          d.initError ? `initErr: ${d.initError}` : null,
-          d.fetchError ? `fetchErr: ${d.fetchError}` : null,
-          `bundle: ${bundle}`,
-          `skus: ${storekit.PRODUCT_IDS.MONTHLY}, ${storekit.PRODUCT_IDS.ANNUAL}`,
-        ].filter(Boolean).join('\n');
-        Alert.alert('Not Available', `In-app purchases are not available right now.\n\n${detail}`);
+        Alert.alert(
+          'Not Available',
+          'In-app purchases aren’t available right now. Please try again in a moment.'
+        );
         return;
       }
       if (selectedPlan === 'annual') await storekit.purchaseAnnual();

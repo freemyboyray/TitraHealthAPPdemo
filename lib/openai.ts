@@ -493,30 +493,43 @@ export async function parseVoiceLog(
   }
 }
 
-// ─── Vision (used by capture-food / scan-food screens) ────────────────────────
+// ─── Vision (used by the capture-food screen + describe-food sheet) ───────────
 
 /**
  * Calls GPT-4o-mini with a base64-encoded image and a text prompt.
  * Used for food photo analysis in the capture-food entry flow.
  */
+// Sniff the media type from base64 magic bytes so we hand the API the right
+// data: prefix per image (iPhone JPEG vs. a PNG screenshot, etc.).
+function detectImageMediaType(
+  base64: string,
+  fallback: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): string {
+  if (base64.startsWith('/9j/')) return 'image/jpeg';
+  if (base64.startsWith('iVBOR')) return 'image/png';
+  if (base64.startsWith('R0lGO')) return 'image/gif';
+  if (base64.startsWith('UklGR')) return 'image/webp';
+  return fallback;
+}
+
 export async function callGPT4oMiniVision(
   systemPrompt: string,
-  imageBase64: string,
+  // One image, or several (e.g. multiple photos of the same meal). Each is sent
+  // as its own image_url block so the model sees them all in one request.
+  imageBase64: string | string[],
   userText: string,
   mediaType: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<string> {
-  // Detect actual image format from base64 magic bytes
-  let detectedType: string = mediaType;
-  if (imageBase64.startsWith('/9j/')) {
-    detectedType = 'image/jpeg';
-  } else if (imageBase64.startsWith('iVBOR')) {
-    detectedType = 'image/png';
-  } else if (imageBase64.startsWith('R0lGO')) {
-    detectedType = 'image/gif';
-  } else if (imageBase64.startsWith('UklGR')) {
-    detectedType = 'image/webp';
-  }
-  __DEV__ && console.log('[OpenAI] vision: detectedType=', detectedType, 'first4=', imageBase64.slice(0, 4));
+  const images = (Array.isArray(imageBase64) ? imageBase64 : [imageBase64]).filter(Boolean);
+
+  const imageBlocks = images.map((b64) => {
+    const detectedType = detectImageMediaType(b64, mediaType);
+    __DEV__ && console.log('[OpenAI] vision: detectedType=', detectedType, 'first4=', b64.slice(0, 4));
+    return {
+      type: 'image_url' as const,
+      image_url: { url: `data:${detectedType};base64,${b64}`, detail: 'low' as const },
+    };
+  });
 
   const data = await callOpenAIProxy({
     model: 'gpt-4o-mini',
@@ -525,16 +538,7 @@ export async function callGPT4oMiniVision(
       { role: 'system', content: systemPrompt },
       {
         role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${detectedType};base64,${imageBase64}`,
-              detail: 'low',
-            },
-          },
-          { type: 'text', text: userText },
-        ],
+        content: [...imageBlocks, { type: 'text', text: userText }],
       },
     ],
   });

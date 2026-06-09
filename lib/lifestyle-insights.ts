@@ -359,7 +359,7 @@ const logMealCta: Generator = (ctx) => {
     tagline: 'GET STARTED',
     title: 'Log a meal to unlock protein insights',
     body: 'Lean-mass loss is the top risk on GLP-1s. Tracking protein helps you stay on the right side of the data.',
-    cta: { label: 'Log food', route: '/entry/log-food' },
+    cta: { label: 'Log food', route: '/(tabs)?logFood=1' },
   };
 };
 

@@ -18,7 +18,7 @@ import { useFoodTaskStore } from '../../stores/food-task-store';
 import { resizeImageForVision } from '@/lib/image';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { AlertCircle, Camera, ChevronLeft, Images, Sparkles } from 'lucide-react-native';
+import { AlertCircle, Camera, ChevronLeft, Images, Plus, Sparkles, X } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,19 @@ export default function CaptureFoodScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Multi-capture session: photos staged before they're sent to vision together.
+  const [captured, setCaptured] = useState<{ uri: string; base64: string; description: string }[]>([]);
   const cameraRef = useRef<CameraView>(null);
+
+  function resetCurrentPhoto() {
+    setPhotoBase64(null);
+    setPhotoUri(null);
+    setDescription('');
+  }
+
+  function removeCaptured(idx: number) {
+    setCaptured((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleTakePhoto() {
     if (!camPermission?.granted) {
@@ -110,11 +122,35 @@ export default function CaptureFoodScreen() {
     }
   }
 
-  function handleAnalyze() {
-    if (!photoBase64) return;
-    const desc = description.trim() || undefined;
-    useFoodTaskStore.getState().startTask({ source: 'camera', photoBase64, description: desc });
+  // The current preview photo, packaged for the session list.
+  function currentItem() {
+    if (!photoBase64 || !photoUri) return null;
+    return { uri: photoUri, base64: photoBase64, description };
+  }
+
+  // Stage the current photo and return to the camera to capture another.
+  function handleAddAnother() {
+    const cur = currentItem();
+    if (cur) setCaptured((prev) => [...prev, cur]);
+    resetCurrentPhoto();
+    setPhase('camera');
+  }
+
+  // Send every staged photo (plus the current preview, if any) to vision as one
+  // task — their dishes merge into a single review, like barcode multi-scan.
+  function finalize(items: { uri: string; base64: string; description: string }[]) {
+    if (items.length === 0) return;
+    useFoodTaskStore.getState().startTask({
+      source: 'camera',
+      photos: items.map((p) => ({ base64: p.base64, description: p.description.trim() || undefined })),
+      photoUris: items.map((p) => p.uri),
+    });
     router.dismissTo('/(tabs)');
+  }
+
+  function handleAnalyze() {
+    const cur = currentItem();
+    finalize(cur ? [...captured, cur] : captured);
   }
 
   // ── Camera phase ───────────────────────────────────────────────────────────
@@ -135,6 +171,23 @@ export default function CaptureFoodScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={[s.shutterWrapper, { paddingBottom: insets.bottom + 30 }]}>
+          {captured.length > 0 && (
+            <View style={s.camBatchBar}>
+              <View style={s.thumbRow}>
+                {captured.map((p, i) => (
+                  <TouchableOpacity key={i} onPress={() => removeCaptured(i)} style={s.thumb} activeOpacity={0.8}>
+                    <Image source={{ uri: p.uri }} style={s.thumbImg} />
+                    <View style={s.thumbRemove}>
+                      <X size={11} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity style={s.camContinueBtn} onPress={() => finalize(captured)} activeOpacity={0.85}>
+                <Text style={s.camContinueText}>Continue ({captured.length})</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
             <View style={s.shutterInner} />
           </TouchableOpacity>
@@ -148,7 +201,7 @@ export default function CaptureFoodScreen() {
     return (
       <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[s.header, { paddingTop: insets.top + 4 }]}>
-          <TouchableOpacity onPress={() => { setPhase('intro'); setDescription(''); }} style={s.backShadow} activeOpacity={0.75}>
+          <TouchableOpacity onPress={() => { resetCurrentPhoto(); setPhase(captured.length > 0 ? 'camera' : 'intro'); }} style={s.backShadow} activeOpacity={0.75}>
             <View style={s.backClip}>
               <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
@@ -181,10 +234,28 @@ export default function CaptureFoodScreen() {
           />
         </View>
 
-        {/* Continue button */}
+        {/* Continue / Add another */}
         <View style={[s.previewBottom, { paddingBottom: insets.bottom + 20 }]}>
+          {captured.length > 0 && (
+            <View style={s.thumbRow}>
+              {captured.map((p, i) => (
+                <TouchableOpacity key={i} onPress={() => removeCaptured(i)} style={s.thumb} activeOpacity={0.8}>
+                  <Image source={{ uri: p.uri }} style={s.thumbImg} />
+                  <View style={s.thumbRemove}>
+                    <X size={11} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          <TouchableOpacity style={s.addAnotherBtn} onPress={handleAddAnother} activeOpacity={0.8}>
+            <Plus size={18} color={colors.orange} style={{ marginRight: 8 }} />
+            <Text style={s.addAnotherBtnText}>Add another photo</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={s.analyzeBtn} onPress={handleAnalyze} activeOpacity={0.85}>
-            <Text style={s.analyzeBtnText}>Continue</Text>
+            <Text style={s.analyzeBtnText}>
+              {captured.length > 0 ? `Continue (${captured.length + 1})` : 'Continue'}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -381,7 +452,7 @@ const createStyles = (c: AppColors) => {
     minHeight: 60, maxHeight: 120,
     padding: 0,
   },
-  previewBottom: { paddingHorizontal: 20 },
+  previewBottom: { paddingHorizontal: 20, gap: 12 },
   analyzeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     height: 56, borderRadius: 28,
@@ -389,6 +460,35 @@ const createStyles = (c: AppColors) => {
     shadowColor: c.orange, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 18, elevation: 8,
   },
   analyzeBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  addAnotherBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,116,42,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,116,42,0.35)',
+  },
+  addAnotherBtnText: { fontSize: 16, fontWeight: '700', color: c.orange, letterSpacing: 0.2 },
+
+  // Staged-capture thumbnails (shared by camera + preview phases)
+  thumbRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  thumb: {
+    width: 56, height: 56, borderRadius: 12, backgroundColor: w(0.06),
+    alignItems: 'center', justifyContent: 'center', overflow: 'visible',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)',
+  },
+  thumbImg: { width: '100%', height: '100%', borderRadius: 10 },
+  thumbRemove: {
+    position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#E74C3C', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#000000',
+  },
+
+  // Camera-phase batch bar (above the shutter)
+  camBatchBar: { width: '100%', paddingHorizontal: 20, gap: 12, marginBottom: 18, alignItems: 'center' },
+  camContinueBtn: {
+    width: '100%', height: 52, borderRadius: 26, backgroundColor: c.orange,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  camContinueText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
   // Error phase
   backBtnLight: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.borderSubtle },

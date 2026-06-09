@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { usePostHog } from '@/lib/posthog';
 import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useLogStore } from '../../stores/log-store';
@@ -27,11 +28,30 @@ import { parseVoiceLog, type VoiceWeightResult } from '../../lib/openai';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useProfile } from '@/contexts/profile-context';
-import { Calendar, ChevronLeft, Heart } from 'lucide-react-native';
+import { Calendar, ChevronLeft, ChevronRight, Heart } from 'lucide-react-native';
 
 const LB_TO_KG = 0.453592;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
+
+function localYMD(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Human label for the selected date+time, e.g. "Today at 3:45 PM" / "Mon, May 19 at 8:00 AM". */
+function whenLabel(d: Date): string {
+  const isToday = localYMD(d) === localYMD(new Date());
+  const dateStr = isToday
+    ? 'Today'
+    : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} at ${timeStr}`;
+}
+
+/** Never allow a weight to be logged in the future. */
+function clampToNow(d: Date): Date {
+  return d.getTime() > Date.now() ? new Date() : d;
+}
 
 function GlassBorder({ r = 28 }: { r?: number }) {
   return (
@@ -212,6 +232,9 @@ export default function LogWeightScreen() {
   });
   const [unit, setUnit] = useState<Unit>('lbs');
   const [hkSuggestion, setHkSuggestion] = useState<WeightSampleWithSource | null>(null);
+  const [loggedAt, setLoggedAt] = useState<Date>(() => new Date());
+  const [whenOpen, setWhenOpen] = useState(false);                       // iOS: inline picker panel
+  const [androidPicker, setAndroidPicker] = useState<'date' | 'time' | null>(null);
 
   // Pull the most recent scale reading from Apple Health (with source info)
   // and, if it's within the last 24h, offer it as a one-tap auto-fill.
@@ -221,6 +244,10 @@ export default function LogWeightScreen() {
       (async () => {
         const sample = await readLatestWeightWithSource();
         if (cancelled || !sample) return;
+        // Don't offer our own writes back as a "from your scale" suggestion —
+        // the chip is for external readings (Withings, etc.), not the value the
+        // user just logged here (which writeWeight() mirrored into Apple Health).
+        if (sample.bundleId === 'com.titrahealth.app') return;
         const ageMs = Date.now() - sample.recordedAt.getTime();
         if (ageMs > 24 * 60 * 60 * 1000) return;
         setHkSuggestion(sample);
@@ -278,8 +305,11 @@ export default function LogWeightScreen() {
 
   async function doLog() {
     const weightLbs = parseFloat(lbs.toFixed(1));
-    await addWeightLog(weightLbs);
-    posthog?.capture('weight_logged', { has_body_comp: false, source: 'manual' });
+    // Only pass an explicit timestamp when the user backdated; logging "now"
+    // lets the DB default stamp it (and keeps HealthKit/profile reconcile clean).
+    const isToday = localYMD(loggedAt) === localYMD(new Date());
+    await addWeightLog(weightLbs, undefined, undefined, isToday ? undefined : loggedAt);
+    posthog?.capture('weight_logged', { has_body_comp: false, source: 'manual', backdated: !isToday });
     const synced = await hkStore.writeWeight(weightLbs);
     if (synced) useUiStore.getState().showHealthSyncToast(`Weight saved to ${HEALTH_SERVICE_NAME}`);
     // addWeightLog already wrote profile.current_weight_lbs in the DB (using the
@@ -310,12 +340,6 @@ export default function LogWeightScreen() {
     await doLog();
   }
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.bg }}
@@ -342,14 +366,66 @@ export default function LogWeightScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        {/* Date card */}
-        <View style={[s.dateCard, s.shadow]}>
+        {/* Date card — tap to backdate */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (Platform.OS === 'android') setAndroidPicker('date');
+            else setWhenOpen(v => !v);
+          }}
+          style={[s.dateCard, s.shadow]}
+          accessibilityLabel={`Logged ${whenLabel(loggedAt)}. Tap to change the date and time`}
+          accessibilityRole="button"
+        >
           <BlurView intensity={78} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, backgroundColor: colors.glassOverlay }]} />
           <GlassBorder r={20} />
           <Calendar size={16} color={colors.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'} />
-          <Text style={s.dateText}>{dateStr}</Text>
-        </View>
+          <Text style={s.dateText}>{whenLabel(loggedAt)}</Text>
+          <View style={{ flex: 1 }} />
+          <ChevronRight size={16} color={colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'} />
+        </TouchableOpacity>
+
+        {/* iOS inline date+time picker */}
+        {whenOpen && Platform.OS === 'ios' && (
+          <View style={s.pickerCard}>
+            <DateTimePicker
+              value={loggedAt}
+              mode="date"
+              display="spinner"
+              maximumDate={new Date()}
+              onChange={(_, d) => { if (d) setLoggedAt(clampToNow(d)); }}
+              themeVariant={colors.isDark ? 'dark' : 'light'}
+              textColor={colors.textPrimary}
+              style={{ alignSelf: 'center' }}
+            />
+            <DateTimePicker
+              value={loggedAt}
+              mode="time"
+              display="spinner"
+              onChange={(_, d) => { if (d) setLoggedAt(clampToNow(d)); }}
+              themeVariant={colors.isDark ? 'dark' : 'light'}
+              textColor={colors.textPrimary}
+              style={{ alignSelf: 'center' }}
+            />
+          </View>
+        )}
+
+        {/* Android sequential date → time dialogs */}
+        {Platform.OS === 'android' && androidPicker && (
+          <DateTimePicker
+            value={loggedAt}
+            mode={androidPicker}
+            display="default"
+            maximumDate={androidPicker === 'date' ? new Date() : undefined}
+            onChange={(event, d) => {
+              if (event.type !== 'set' || !d) { setAndroidPicker(null); return; }
+              setLoggedAt(clampToNow(d));
+              setAndroidPicker(prev => (prev === 'date' ? 'time' : null));
+            }}
+          />
+        )}
 
         {/* HK scale auto-fill chip */}
         {hkSuggestion && (
@@ -488,6 +564,13 @@ const createStyles = (c: AppColors) => {
       fontSize: 16,
       fontWeight: '600',
       color: w(0.6),
+    },
+    pickerCard: {
+      marginHorizontal: 20,
+      marginTop: 8,
+      borderRadius: 16,
+      paddingVertical: 4,
+      backgroundColor: c.surface,
     },
     currentLabel: {
       fontSize: 16,

@@ -9,7 +9,10 @@ import type { FoodResult } from '../lib/fatsecret';
 // Vision now groups what it sees into DISHES (composite entities) made of
 // component ingredients — e.g. a bacon-egg-cheese bagel is ONE dish with four
 // components, not four separate logs.
-const VISION_SYSTEM = `You are a food logging assistant. Look at the photo and identify the distinct DISHES on the plate.
+const VISION_SYSTEM = `You are a food logging assistant. Look at the photo(s) and identify the distinct DISHES on the plate.
+You may be given MORE THAN ONE photo of the SAME meal (different angles, or close-ups of separate items). Treat all the
+images together as one meal: identify every distinct dish across them, but do NOT double-count a dish that appears in two
+photos (e.g. the same burger shot from two angles is ONE dish, not two).
 A "dish" is one thing a person eats as a unit — a sandwich, a bowl, a salad, a drink, a piece of fruit.
 Group the ingredients that make up a single dish into its "components". Keep clearly separate foods as separate dishes
 (e.g. a sandwich, a side of fries, and a soda are THREE dishes).
@@ -79,8 +82,13 @@ export type FoodTask = {
   photoUris?: string[];    // review-only display; never persisted to Storage
   // Retained so a failed camera/voice task can be retried WITH its original
   // input (re-running vision), instead of restarting empty. In-memory only.
+  // photoBase64 is the legacy single-image field; the full set (single or multi)
+  // lives in photoBatch below, which the worker actually iterates.
   photoBase64?: string;
   description?: string;
+  // Full multi-capture batch (camera), kept so a failed multi-photo task retries
+  // every photo, not just one. A single-photo task stores a batch of one here.
+  photoBatch?: { base64: string; description?: string }[];
   loggedAt?: number;       // editable date/time (epoch ms); defaults to now at confirm
 };
 
@@ -93,6 +101,10 @@ type FoodTaskStore = {
     photoBase64?: string;
     description?: string;
     photoUris?: string[];
+    // Multi-capture: several photos analyzed in one task, their dishes merged
+    // into a single review (mirrors barcode multi-scan). A single photoBase64 is
+    // treated as a batch of one internally, so existing callers are unaffected.
+    photos?: { base64: string; description?: string }[];
   }) => string;
 
   // Direct DB pick (search / barcode / saved meal item / custom food) → a
@@ -350,8 +362,17 @@ async function fetchComponentServingOptions(
 export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
   tasks: [],
 
-  startTask: ({ source, parsedDishes, photoBase64, description, photoUris }) => {
+  startTask: ({ source, parsedDishes, photoBase64, description, photoUris, photos }) => {
     const id = uuid();
+    // Normalize single + multi photo inputs into one batch the worker iterates.
+    // A lone photoBase64 becomes a batch of one, so the rest of the pipeline has
+    // a single shape to handle.
+    const photoBatch =
+      photos && photos.length > 0
+        ? photos
+        : photoBase64
+          ? [{ base64: photoBase64, description }]
+          : undefined;
     const task: FoodTask = {
       id,
       status: 'processing',
@@ -362,6 +383,7 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
       photoUris,
       photoBase64,
       description,
+      photoBatch,
     };
 
     set((s) => ({ tasks: [...s.tasks, task] }));
@@ -369,17 +391,22 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
     // Fire-and-forget background processing
     (async () => {
       try {
-        let dishesToResolve = parsedDishes ?? [];
+        let dishesToResolve: ParsedDish[] = parsedDishes ? [...parsedDishes] : [];
 
-        // If we have a photo, run vision first to get dishes + components
-        if (photoBase64 && dishesToResolve.length === 0) {
-          if (__DEV__) console.log('[FoodTask] Starting vision analysis, base64 length:', photoBase64.length);
-          const userPrompt = description
-            ? `Identify the dishes in this image and their components. The user describes this as: "${description}"`
-            : 'Identify the dishes in this image and their components.';
+        // If we have photo(s), run vision to get dishes + components. Every photo
+        // in a multi-capture batch goes into ONE vision call so the model sees
+        // all the angles together and can dedupe a dish shot from two sides —
+        // see VISION_SYSTEM. Their dishes review as a single meal.
+        if (photoBatch && photoBatch.length > 0 && dishesToResolve.length === 0) {
+          if (__DEV__) console.log('[FoodTask] Starting vision analysis on', photoBatch.length, 'photo(s)');
+          const descs = photoBatch.map((p) => p.description?.trim()).filter(Boolean);
+          const noun = photoBatch.length > 1 ? 'these images' : 'this image';
+          const userPrompt = descs.length > 0
+            ? `Identify the dishes across ${noun} and their components. The user describes the meal as: "${descs.join('; ')}"`
+            : `Identify the dishes across ${noun} and their components.`;
           const raw = await callGPT4oMiniVision(
             VISION_SYSTEM,
-            photoBase64,
+            photoBatch.map((p) => p.base64),
             userPrompt,
           );
           if (__DEV__) console.log('[FoodTask] Vision raw response:', raw);
@@ -654,14 +681,16 @@ export const useFoodTaskStore = create<FoodTaskStore>((set, get) => ({
     // Only AI-resolved tasks can fail/retry; ready DB picks never reach here.
     if (task.source !== 'describe' && task.source !== 'voice' && task.source !== 'camera') return;
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== taskId) }));
-    // Re-run with the ORIGINAL input. Camera tasks must carry photoBase64 back
-    // through so vision runs again — otherwise retry produces an empty meal.
+    // Re-run with the ORIGINAL input. Camera tasks must carry their photo(s) back
+    // through so vision runs again — otherwise retry produces an empty meal. The
+    // batch covers both single- and multi-capture tasks.
     get().startTask({
       source: task.source,
       parsedDishes: task.parsedDishes,
       photoBase64: task.photoBase64,
       description: task.description,
       photoUris: task.photoUris,
+      photos: task.photoBatch,
     });
   },
 

@@ -219,14 +219,14 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
       return {
         title: 'Start Strong This Morning',
         body: `You had ${Math.round(ydProtein)}g protein yesterday. Aim for a high-protein breakfast to close the gap.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
     if (ydProtein >= proteinTarget) {
       return {
         title: 'Great Protein Day Yesterday!',
         body: `${Math.round(ydProtein)}g. Keep it going. Log your breakfast to stay on track.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
   }
@@ -237,7 +237,7 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
     return {
       title: 'Log Your Breakfast',
       body: `${streak}-day food logging streak! Don't break the chain!`,
-      deepLink: '/entry/log-food',
+      deepLink: '/(tabs)?logFood=1',
     };
   }
 
@@ -247,11 +247,11 @@ export function getMealsMorningContent(ctx: ReminderContext): ReminderContent {
     return {
       title: 'Log Your Breakfast',
       body: `It's been ${gap} days since your last food log. One tap to get back on track.`,
-      deepLink: '/entry/log-food',
+      deepLink: '/(tabs)?logFood=1',
     };
   }
 
-  return { ...pickVariant(MEALS_MORNING_VARIANTS, 0), deepLink: '/entry/log-food' };
+  return { ...pickVariant(MEALS_MORNING_VARIANTS, 0), deepLink: '/(tabs)?logFood=1' };
 }
 
 export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
@@ -275,14 +275,14 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
       return {
         title: 'Evening Meal Time',
         body: `You're at ${Math.round(todayProtein)}g protein today. Aim for ${Math.round(remaining)}g more at dinner.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
     if (remaining <= 10) {
       return {
         title: 'You Crushed Protein Today',
         body: `${Math.round(todayProtein)}g protein. Log dinner to cap off a strong day.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
   }
@@ -294,12 +294,12 @@ export function getMealsEveningContent(ctx: ReminderContext): ReminderContent {
       return {
         title: 'Appetite May Be Returning',
         body: `You're in the waning phase of ${drugLabel(ctx.profile)}. Log dinner to stay mindful.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
   }
 
-  return { ...pickVariant(MEALS_EVENING_VARIANTS, 1), deepLink: '/entry/log-food' };
+  return { ...pickVariant(MEALS_EVENING_VARIANTS, 1), deepLink: '/(tabs)?logFood=1' };
 }
 
 export function getWeightMorningContent(ctx: ReminderContext): ReminderContent {
@@ -531,14 +531,14 @@ export function getProteinCheckContent(
       return {
         title: 'Protein goal hit!',
         body: `You've reached ${targetProtein}g today. Great job keeping your muscle-preserving protein high.`,
-        deepLink: '/entry/log-food',
+        deepLink: '/(tabs)?logFood=1',
       };
     }
     const perMeal = Math.round(remaining / (3 - mealIndex || 1));
     return {
       title: `Protein check: ${mealLabel}`,
       body: `You're at ${todayProtein}g of ${targetProtein}g. Aim for ~${perMeal}g this ${mealLabel}.`,
-      deepLink: '/entry/log-food',
+      deepLink: '/(tabs)?logFood=1',
     };
   }
 
@@ -552,6 +552,6 @@ export function getProteinCheckContent(
   return {
     title: `Protein first: ${mealLabel}`,
     body: fallbacks[mealIndex % fallbacks.length],
-    deepLink: '/entry/log-food',
+    deepLink: '/(tabs)?logFood=1',
   };
 }

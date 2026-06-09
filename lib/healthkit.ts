@@ -162,14 +162,25 @@ function dateRangeOptions(from: Date, to: Date, unit?: string, limit = 0) {
   };
 }
 
+// `sourceRevision.source` is a Nitro SourceProxy (a native-backed hybrid object),
+// not a plain value — reading `.name`/`.bundleIdentifier` off it directly can fall
+// through to the proxy's class tag ("SourceProxy") or come back empty. Unwrap via
+// toJSON() to get the real { name, bundleIdentifier }.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sourceInfo(sample: { sourceRevision?: any } | null | undefined): { name: string; bundleId: string } {
+  const src = sample?.sourceRevision?.source;
+  const info = src && typeof src.toJSON === 'function' ? src.toJSON() : src;
+  return {
+    name: info?.name ?? 'Unknown',
+    bundleId: info?.bundleIdentifier ?? '',
+  };
+}
+
 // Drop samples that Titra itself wrote — prevents the nutrition echo where
 // writeNutrition() writes to HK and a subsequent read sees our own data.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function excludeTitraSources<T extends { sourceRevision?: any }>(samples: T[]): T[] {
-  return samples.filter((s) => {
-    const bundleId = s?.sourceRevision?.source?.bundleIdentifier;
-    return bundleId !== TITRA_BUNDLE_ID;
-  });
+  return samples.filter((s) => sourceInfo(s).bundleId !== TITRA_BUNDLE_ID);
 }
 
 // ─── Authorization ───────────────────────────────────────────────────────────
@@ -561,7 +572,7 @@ export async function readTodayWorkouts(): Promise<WorkoutSample[]> {
       totalDistance: s.totalDistance?.quantity ?? null,
       startDate: s.startDate,
       endDate: s.endDate,
-      sourceName: s.sourceRevision?.source?.name ?? 'Unknown',
+      sourceName: sourceInfo(s).name,
     }));
   } catch (e) { err('readTodayWorkouts', e); return []; }
 }
@@ -601,11 +612,12 @@ export async function readLatestWeightWithSource(): Promise<WeightSampleWithSour
   try {
     const sample = await HK.getMostRecentQuantitySample(HK_CATEGORIES.weight, 'lb');
     if (!sample) return null;
+    const { name, bundleId } = sourceInfo(sample);
     return {
       lbs: parseFloat((sample.quantity as number).toFixed(1)),
       recordedAt: new Date(sample.endDate ?? sample.startDate),
-      sourceName: sample.sourceRevision?.source?.name ?? 'Unknown',
-      bundleId: sample.sourceRevision?.source?.bundleIdentifier ?? '',
+      sourceName: name,
+      bundleId,
     };
   } catch (e) { err('readLatestWeightWithSource', e); return null; }
 }

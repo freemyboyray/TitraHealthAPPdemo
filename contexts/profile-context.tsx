@@ -468,6 +468,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setProfile(updated);
 
+    // If the treatment start date itself changed (e.g. setting a medication
+    // active for the first time, or backdating it), the treatment-day
+    // achievements the new date puts in the past are historical data entry, not
+    // real-time progress — suppress them so they don't fire celebration popups.
+    // Thresholds crossed naturally over time leave startDate unchanged and still
+    // celebrate correctly, since this only runs when startDate is edited.
+    if (fields.startDate !== undefined && fields.startDate !== previousProfile.startDate && updated.startDate) {
+      const start = new Date(updated.startDate.slice(0, 10) + 'T12:00:00');
+      if (!isNaN(start.getTime())) {
+        const now = new Date();
+        now.setHours(12, 0, 0, 0);
+        const days = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 86400000));
+        usePreferencesStore.getState().seedAchievements(getUnlockedAchievementIds(0, 0, days));
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const row: ProfileUpdate = {};

@@ -48,6 +48,8 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { openAiChat } = useUiStore();
+  const foodSheetPending = useUiStore((st) => st.foodSheetPending);
+  const setFoodSheetPending = useUiStore((st) => st.setFoodSheetPending);
   const { dispatch, profile, actuals } = useHealthData();
   const { profile: fullProfile } = useProfile();
   const oral = isOralDrug(fullProfile?.glp1Type);
@@ -56,6 +58,17 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
   const [describeVisible, setDescribeVisible] = useState(false);
+
+  // A deep link / focus tap / CTA can request the describe-food modal by setting
+  // foodSheetPending (the old log-food hub's replacement). AddEntrySheet is always
+  // mounted at the tab layout, so it can honor the request from anywhere. Close
+  // the FAB grid first so only the modal is showing, then clear the one-shot flag.
+  useEffect(() => {
+    if (!foodSheetPending) return;
+    setFoodSheetPending(false);
+    onClose();
+    setDescribeVisible(true);
+  }, [foodSheetPending]);
   const [searchVisible, setSearchVisible] = useState(false);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [waterInput, setWaterInput] = useState('');
@@ -202,7 +215,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     {
       label: 'CAPTURE FOOD',
       icon: <IconSymbol name="camera.fill" size={ICON_SIZE} color={colors.textPrimary} />,
-      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/log-food?mode=camera' as any), 300); }, true),
+      onPress: () => gateFood(() => { closeSheet(); setTimeout(() => router.push('/entry/capture-food' as any), 300); }, true),
     },
     {
       label: 'SCAN FOOD',

@@ -21,7 +21,11 @@ export async function resizeImageForVision(uri: string): Promise<string> {
     const image = await context.renderAsync();
     const result = await image.saveAsync({ compress: 0.6, format: SaveFormat.JPEG, base64: true });
     return result.base64 ?? '';
-  } catch {
+  } catch (err) {
+    // Surface the reason in dev — a failure here is why an attached HEIC photo
+    // would otherwise be sent to OpenAI as-is and rejected as an unsupported
+    // format. Callers MUST treat '' as an error and never fall back to raw bytes.
+    __DEV__ && console.warn('[image] resizeImageForVision failed:', err);
     return '';
   }
 }

@@ -28,6 +28,7 @@ export function useAchievementDetector() {
   const weightLogs = useLogStore((s) => s.weightLogs);
   const hydrated = useLogStore((s) => s.hydrated);
   const streakCount = usePreferencesStore((s: { streakCount: number }) => s.streakCount);
+  const prefsHydrated = usePreferencesStore((s: { _hasHydrated: boolean }) => s._hasHydrated);
 
   // Achievement tracking
   const shownIds = usePreferencesStore((s: { shownAchievementIds: string[] }) => s.shownAchievementIds);
@@ -42,12 +43,28 @@ export function useAchievementDetector() {
   const seedPhotoMilestones = usePreferencesStore((s: { seedPhotoMilestones: (milestones: number[]) => void }) => s.seedPhotoMilestones);
 
   const weightLost = useMemo(() => {
+    // Don't attempt weight-milestone math until we know when the user started
+    // using Titra. Without it, resolveEngagementStart() falls back to *today*,
+    // so the baseline shifts as the real engagement date and older logs load in
+    // — which fires phantom milestones. Wait until the anchor is known.
+    if (!profile?.engagementStartDate) return 0;
+
     const latestLog = weightLogs[0];
     // Only calculate weight loss from actual weight log entries — never fall
     // back to profile.currentWeightLbs alone, which can drift from the baseline
     // (e.g. via HealthKit sync) and trigger false achievements.
     if (!latestLog) return 0;
     const currentWeight = latestLog.weight_lbs;
+
+    // Reject corrupt readings before they unlock every weight milestone at once
+    // (and get marked shown forever). A sub-floor weight is a mistyped/garbage
+    // entry; an implausible single-weigh-in drop is almost certainly a typo or
+    // bad HealthKit sync, not real loss.
+    const MIN_PLAUSIBLE_WEIGHT_LBS = 50;
+    const MAX_SINGLE_STEP_DROP_LBS = 30;
+    if (currentWeight < MIN_PLAUSIBLE_WEIGHT_LBS) return 0;
+    const prevWeight = weightLogs[1]?.weight_lbs; // weightLogs sorted desc by logged_at
+    if (prevWeight != null && prevWeight - currentWeight > MAX_SINGLE_STEP_DROP_LBS) return 0;
 
     // Baseline = the user's weight when they STARTED using Titra, so milestones
     // celebrate in-app progress, not weight lost before they ever installed the
@@ -89,12 +106,22 @@ export function useAchievementDetector() {
   // One-time seed: mark everything currently unlocked/reached as already shown.
   const seedingRef = useRef(false);
   useEffect(() => {
-    if (seedingRef.current || !hydrated || !profile) return;
+    if (seedingRef.current) return;
     if (achievementsSeeded && photoMilestonesSeeded) return;
+    // Only seed once EVERY baseline input has settled. Seeding against a value
+    // that is still loading (default streakCount, an empty/partial weight-log
+    // list, a profile without its dates yet) snapshots a too-small baseline, so
+    // everything that loads afterward looks like a brand-new unlock and fires.
+    //  - prefsHydrated: streakCount / shown* arrays are off disk, not defaults
+    //  - hydrated:      weight logs fetch has resolved
+    //  - startDate:     treatment-day count is real, not 0
+    //  - engagementStartDate: weight baseline anchor is known (see weightLost)
+    if (!prefsHydrated || !hydrated || !profile) return;
+    if (!profile.startDate || !profile.engagementStartDate) return;
     seedingRef.current = true;
     if (!achievementsSeeded) seedAchievements(allUnlockedIds);
     if (!photoMilestonesSeeded) seedPhotoMilestones(allReachedPhotoMilestones);
-  }, [achievementsSeeded, photoMilestonesSeeded, hydrated, profile, allUnlockedIds, allReachedPhotoMilestones, seedAchievements, seedPhotoMilestones]);
+  }, [achievementsSeeded, photoMilestonesSeeded, prefsHydrated, hydrated, profile, allUnlockedIds, allReachedPhotoMilestones, seedAchievements, seedPhotoMilestones]);
 
   const seeded = achievementsSeeded && photoMilestonesSeeded;
 

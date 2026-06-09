@@ -84,12 +84,16 @@ export default function EditTreatmentScreen() {
   // When present, brand/dose/schedule are already known, so we skip the wizard
   // pages entirely and open the confirmation flow (last/first dose, site) directly
   // — see the mount effect below. The switch still records history + recalcs targets.
-  const params = useLocalSearchParams<{ presetBrand?: string; presetDose?: string; presetFreq?: string }>();
+  const params = useLocalSearchParams<{ presetBrand?: string; presetDose?: string; presetFreq?: string; from?: string }>();
   const presetBrand = (typeof params.presetBrand === 'string' && params.presetBrand)
     ? (params.presetBrand as MedicationBrand) : null;
   const presetDoseNum = params.presetDose ? parseFloat(params.presetDose as string) : null;
   const presetFreqNum = params.presetFreq ? parseInt(params.presetFreq as string, 10) : null;
   const hasPreset = presetBrand !== null;
+  // Launched from the Log Injection screen's medication row. When the change
+  // records today's dose itself, we send the user home instead of back to the
+  // log screen (which would tempt a second, duplicate injection log).
+  const fromLog = params.from === 'log-dose';
 
   // ── View state ──
   const wasOffTreatment = !isOnTreatment(profile);
@@ -164,6 +168,8 @@ export default function EditTreatmentScreen() {
   const [postSaveVisible, setPostSaveVisible] = useState(false);
   const [postSaveDiffs, setPostSaveDiffs] = useState<TargetDiff[]>([]);
   const [postSaveMedLabel, setPostSaveMedLabel] = useState('');
+  // When true, leaving this screen lands on Home instead of going back (see fromLog).
+  const [exitHome, setExitHome] = useState(false);
 
   // ── Confirmation modal state ──
   type ConfirmStep = 'start_weight' | 'last_dose' | 'first_dose' | 'injection_site';
@@ -177,6 +183,25 @@ export default function EditTreatmentScreen() {
   const [confirmStartWeight, setConfirmStartWeight] = useState<string>(
     () => String(profile?.currentWeightLbs ?? profile?.weightLbs ?? ''),
   );
+
+  // iOS `display="spinner"` pickers fire spurious onChange events with garbage
+  // far-past dates while remounting inside the modal's fade animation (see the
+  // FadeIn-keyed wrapper below). Without a floor the spinner happily represents
+  // 1960s dates, and the stray value then sticks because confirmLastDoseDate is
+  // only reset when the flow first opens. Clamp the range and reject implausible
+  // emits so a last-dose date can't drift into the past.
+  const MIN_DOSE_DATE = useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 5);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  function isPlausibleDoseDate(d: Date | undefined | null): d is Date {
+    if (!d || isNaN(d.getTime())) return false;
+    const today = new Date(); today.setHours(23, 59, 59, 999);
+    return d.getTime() >= MIN_DOSE_DATE.getTime() && d.getTime() <= today.getTime();
+  }
 
   // ── Medication history ──
   type MedHistoryRow = {
@@ -293,6 +318,8 @@ export default function EditTreatmentScreen() {
     if (!brand) return;
     setSaving(true);
     const oldTargets = profile ? getDailyTargets(profile) : null;
+    // Did this save record today's dose itself? Drives go-home routing when fromLog.
+    let loggedInjection = false;
     try {
     const changeType = getChangeType();
     const newIsDaily = freqDays === 1;
@@ -436,6 +463,7 @@ export default function EditTreatmentScreen() {
             undefined,
             brandDisplay,
           );
+          loggedInjection = true;
         }
       }
 
@@ -489,10 +517,18 @@ export default function EditTreatmentScreen() {
     setSaving(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // If we got here from the Log Injection screen AND this save already recorded
+    // today's dose, go Home — returning to the log screen would invite a duplicate
+    // log. Otherwise (e.g. a frequency-only change that logged nothing) go back so
+    // the user can still finish logging their injection.
+    const goHome = fromLog && loggedInjection;
     if (diffs.length > 0) {
+      setExitHome(goHome);
       setPostSaveDiffs(diffs);
       setPostSaveMedLabel(`${BRAND_LABEL[brand] ?? brand} ${doseMg}mg`);
       setPostSaveVisible(true);
+    } else if (goHome) {
+      router.dismissTo('/(tabs)');
     } else {
       router.back();
     }
@@ -509,6 +545,13 @@ export default function EditTreatmentScreen() {
       );
       setSaving(false);
     }
+  }
+
+  // Leave after the post-save modal: Home when this save logged today's dose
+  // from the Log Injection entry point, otherwise back to wherever we came from.
+  function exitAfterSave() {
+    if (exitHome) router.dismissTo('/(tabs)');
+    else router.back();
   }
 
   async function handleStopMedication() {
@@ -595,8 +638,14 @@ export default function EditTreatmentScreen() {
       return;
     }
 
-    // Reset confirmation state
-    setConfirmLastDoseDate(lastInjDate);
+    // Reset confirmation state. Derive the last-dose prefill fresh from the
+    // profile (not from lastInjDate, which can be a stale "today" fallback if
+    // the profile loaded after this screen mounted) and clamp it so a bad value
+    // can never seed the picker.
+    const freshLastDose = profile?.lastInjectionDate
+      ? new Date(profile.lastInjectionDate + 'T12:00:00')
+      : new Date();
+    setConfirmLastDoseDate(isPlausibleDoseDate(freshLastDose) ? freshLastDose : new Date());
     setConfirmFirstDoseDate(new Date());
     setConfirmSite(null);
 
@@ -678,8 +727,13 @@ export default function EditTreatmentScreen() {
             value={confirmLastDoseDate}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={MIN_DOSE_DATE}
             maximumDate={new Date()}
-            onChange={(_, date) => { if (date) setConfirmLastDoseDate(date); }}
+            onChange={(e, date) => {
+              if (e.type === 'dismissed') return;
+              // Ignore the spurious far-past emits the iOS spinner fires on remount.
+              if (isPlausibleDoseDate(date)) setConfirmLastDoseDate(date);
+            }}
             themeVariant="dark"
           />
         </View>
@@ -706,7 +760,10 @@ export default function EditTreatmentScreen() {
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             minimumDate={wasOffTreatment ? undefined : new Date(confirmLastDoseDate.getTime() - 86400000)} // Allow same day; no min for off→on
-            onChange={(_, date) => { if (date) setConfirmFirstDoseDate(date); }}
+            onChange={(e, date) => {
+              if (e.type === 'dismissed') return;
+              if (date && !isNaN(date.getTime())) setConfirmFirstDoseDate(date);
+            }}
             themeVariant="dark"
           />
         </View>
@@ -1292,7 +1349,7 @@ export default function EditTreatmentScreen() {
         visible={postSaveVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => { setPostSaveVisible(false); router.back(); }}
+        onRequestClose={() => { setPostSaveVisible(false); exitAfterSave(); }}
       >
         <View style={ms.backdrop}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
@@ -1328,7 +1385,7 @@ export default function EditTreatmentScreen() {
               <View style={{ paddingHorizontal: 28, paddingBottom: 28, paddingTop: 8 }}>
                 <TouchableOpacity
                   style={{ borderRadius: 14, paddingVertical: 16, alignItems: 'center', backgroundColor: colors.orange }}
-                  onPress={() => { setPostSaveVisible(false); router.back(); }}
+                  onPress={() => { setPostSaveVisible(false); exitAfterSave(); }}
                   activeOpacity={0.8}
                 >
                   <Text style={ms.btnConfirmText}>Got it</Text>

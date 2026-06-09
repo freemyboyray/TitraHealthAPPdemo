@@ -262,7 +262,7 @@ export default function LogDoseScreen() {
         <Animated.View style={medRowAnim}>
           <TouchableOpacity
             style={s.medRow}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings/edit-treatment'); }}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings/edit-treatment?from=log-dose'); }}
             activeOpacity={0.7}
             accessibilityLabel={`Medication: ${medication}, ${doseLabel}. Tap to edit treatment`}
             accessibilityRole="button"

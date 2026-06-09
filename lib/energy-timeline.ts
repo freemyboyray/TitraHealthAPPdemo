@@ -1,6 +1,8 @@
 /**
- * Reconstructs an hourly energy timeline for the current day by replaying
+ * Reconstructs an hourly energy timeline for the last 24 hours by replaying
  * timestamped food/water/side-effect logs through computeEnergyBank().
+ * Uses a fixed rolling 24h window (ending "now") so the tile always has a
+ * full curve to draw — no more sparse early-morning collapse to the battery.
  */
 import {
   computeEnergyBank,
@@ -55,44 +57,45 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
     isOnTreatment = true,
   } = params;
 
+  const WINDOW_HOURS = 24;
+  const HOUR_MS = 3_600_000;
+
   const now = new Date();
-  const currentHour = now.getHours() + now.getMinutes() / 60;
-
-  // Estimate wake hour from sleep duration, or default to 6am
-  const sleepMin = wearable.sleepMinutes;
-  const sleepHrs = sleepMin != null ? sleepMin / 60 : 8;
-  const wakeHour = Math.max(0, Math.floor(currentHour - (24 - sleepHrs)));
-  const startHour = Math.max(0, Math.min(wakeHour, Math.floor(currentHour)));
-
-  // Parse food log hours (local time)
-  const foodWithHour = todayFoodLogs.map(f => {
-    const d = new Date(f.logged_at);
-    return { ...f, hour: d.getHours() + d.getMinutes() / 60 };
-  });
-
-  // Build hourly time points from wake to now
-  const points: EnergyTimelinePoint[] = [];
-  const endHour = Math.floor(currentHour);
+  const nowMs = now.getTime();
   const intervalH = injectionFrequencyDays * 24;
 
-  for (let h = startHour; h <= endHour; h++) {
-    const pointTime = new Date(now);
-    pointTime.setHours(h, 0, 0, 0);
+  // Top of the current hour — every point except "now" lands on an hour mark.
+  const topOfHour = new Date(now);
+  topOfHour.setMinutes(0, 0, 0);
 
-    // Cumulative food up to this hour
-    const foodBefore = foodWithHour.filter(f => f.hour <= h);
+  // Local midnight, used to scale water accrual (water is a today-only total).
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const elapsedTodayMs = Math.max(1, nowMs - startOfToday.getTime());
+
+  // Parse food log timestamps once for cumulative replay across the window.
+  const foodWithTs = todayFoodLogs.map(f => ({ ...f, ts: new Date(f.logged_at).getTime() }));
+
+  // Walk back a fixed 24h window so there is always a full curve to draw.
+  const points: EnergyTimelinePoint[] = [];
+
+  for (let i = WINDOW_HOURS; i >= 0; i--) {
+    // i === 0 is "now" (keeps live minutes); earlier points sit on hour marks.
+    const pointTime = i === 0 ? now : new Date(topOfHour.getTime() - i * HOUR_MS);
+    const pointMs = pointTime.getTime();
+
+    // Cumulative food up to this timestamp (absolute, so it survives midnight).
+    const foodBefore = foodWithTs.filter(f => f.ts <= pointMs);
     const cumCalories = foodBefore.reduce((s, f) => s + f.calories, 0);
     const cumProtein = foodBefore.reduce((s, f) => s + f.protein_g, 0);
     const cumFiber = foodBefore.reduce((s, f) => s + f.fiber_g, 0);
 
-    // Proportional water: distribute evenly across waking hours
-    const wakingHoursElapsed = Math.max(0, h - startHour);
-    const totalWakingHours = Math.max(1, endHour - startHour);
-    const cumWater = todayWaterMl * (wakingHoursElapsed / totalWakingHours);
+    // Water accrues linearly across today; 0 for the overnight portion.
+    const waterFrac = Math.max(0, Math.min(1, (pointMs - startOfToday.getTime()) / elapsedTodayMs));
+    const cumWater = todayWaterMl * waterFrac;
 
-    // PK concentration at this specific hour
-    // pkHoursSinceInjection is "now", so adjust backward for earlier hours
-    const hoursAgo = currentHour - h;
+    // PK concentration at this specific point in time.
+    const hoursAgo = (nowMs - pointMs) / HOUR_MS;
     const pkAtPoint = pkHoursSinceInjection - hoursAgo;
     const pkPct = isOnTreatment && glp1Type && pkAtPoint > 0
       ? pkConcentrationPct(pkAtPoint, glp1Type, true, intervalH)
@@ -119,7 +122,7 @@ export function buildEnergyTimeline(params: TimelineParams): EnergyTimelinePoint
       time: pointTime,
       score: result.score,
       label: result.label,
-      hourLabel: h === endHour ? 'Now' : formatHourLabel(h),
+      hourLabel: i === 0 ? 'Now' : formatHourLabel(pointTime.getHours()),
     });
   }
 

@@ -72,7 +72,7 @@ type LogStore = {
   fetchInsightsData: () => Promise<void>;
 
   // Weight - DB stores lbs
-  addWeightLog: (weight_lbs: number, bodyComp?: BodyCompositionInput, notes?: string) => Promise<void>;
+  addWeightLog: (weight_lbs: number, bodyComp?: BodyCompositionInput, notes?: string, loggedAt?: Date) => Promise<void>;
 
   // Side effects - effect_type is enum, severity 1–10, phase required
   addSideEffectLog: (
@@ -364,7 +364,7 @@ export const useLogStore = create<LogStore>((set, get) => ({
 
 
 
-  addWeightLog: async (weight_lbs, bodyComp, notes) => {
+  addWeightLog: async (weight_lbs, bodyComp, notes, loggedAt) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
@@ -374,6 +374,10 @@ export const useLogStore = create<LogStore>((set, get) => ({
         user_id: user.id,
         weight_lbs,
         notes: notes ?? null,
+        // Backdated entries pass an explicit timestamp; otherwise the DB default
+        // (now()) stamps logged_at. The most-recent-by-logged_at reconcile below
+        // ensures a past date never clobbers the real current weight.
+        ...(loggedAt && { logged_at: loggedAt.toISOString() }),
         ...(bodyComp && {
           body_fat_pct: bodyComp.body_fat_pct ?? null,
           lean_mass_lbs: bodyComp.lean_mass_lbs ?? null,

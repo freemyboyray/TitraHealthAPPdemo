@@ -67,9 +67,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const posthog = usePostHog();
 
-  // Track app opens for review prompt eligibility (once per session)
+  // Track app opens for review prompt eligibility (once per session) and advance
+  // the daily streak. updateStreakOnOpen is a no-op if already counted today, so
+  // it's safe to fire on every launch; it continues the streak from yesterday,
+  // resets to 1 after a gap, or holds steady within the same day.
   useEffect(() => {
-    usePreferencesStore.getState().incrementAppOpen();
+    const prefs = usePreferencesStore.getState();
+    prefs.incrementAppOpen();
+    prefs.updateStreakOnOpen();
   }, []);
 
   // Restore food-database (FatSecret) consent for returning users on a fresh

@@ -26,14 +26,13 @@ import {
   ACTIVE_EFFECTS_KEY,
   CUSTOM_EFFECTS_KEY,
   SIDE_EFFECTS,
-  type SideEffectDef,
 } from '../../constants/side-effects';
 import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
 import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
-import { ArrowRight, ChevronLeft, ChevronRight, Heart, Settings } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Heart, Settings } from 'lucide-react-native';
 
 
 // ─── Severity buckets ─────────────────────────────────────────────────────────
@@ -299,22 +298,6 @@ export default function SideEffectsScreen() {
             <Text style={s.customizeText}>Customize effects</Text>
             <ChevronRight size={16} color={colors.textMuted} />
           </TouchableOpacity>
-
-          {[0, 1].includes(new Date().getDay()) && (
-            <TouchableOpacity
-              style={s.foodNoiseCard}
-              onPress={() => router.push('/entry/food-noise-survey' as any)}
-              activeOpacity={0.8}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={s.foodNoiseTitle}>Weekly Food Noise Check-In</Text>
-                <Text style={s.foodNoiseDesc}>
-                  Track how much you're thinking about food this week
-                </Text>
-              </View>
-              <ArrowRight size={16} color={colors.orange} />
-            </TouchableOpacity>
-          )}
         </Animated.View>
       </ScrollView>
 
@@ -512,27 +495,6 @@ const createStyles = (c: AppColors) =>
     customizeText: {
       fontSize: 15,
       fontWeight: '600',
-      color: c.textMuted,
-    },
-
-    // ── Food noise card ──
-    foodNoiseCard: {
-      borderRadius: 20,
-      backgroundColor: 'rgba(255,116,42,0.08)',
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 16,
-    },
-    foodNoiseTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: c.orange,
-      marginBottom: 3,
-    },
-    foodNoiseDesc: {
-      fontSize: 14,
       color: c.textMuted,
     },
 

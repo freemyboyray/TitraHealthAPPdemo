@@ -212,7 +212,9 @@ export default function DailyFocusScreen() {
     if (locked) { router.push('/settings/apple-health' as any); return; }
     if (id === 'water') { setWaterLogVisible(true); return; }
     const routes: Record<string, string> = {
-      protein: '/entry/log-food', fiber: '/entry/log-food', activity: '/entry/log-activity',
+      // Food focuses open the describe-food modal via home (?logFood=1) instead
+      // of the retired /entry/log-food hub.
+      protein: '/(tabs)?logFood=1', fiber: '/(tabs)?logFood=1', activity: '/entry/log-activity',
     };
     if (routes[id]) router.push(routes[id] as any);
   }, [router]);

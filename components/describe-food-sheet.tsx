@@ -33,8 +33,9 @@ export function DescribeFoodSheet({ visible, onClose }: { visible: boolean; onCl
   const startTask = useFoodTaskStore((st) => st.startTask);
 
   const [text, setText] = useState('');
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  // Several photos can be attached; they're sent to vision together as one meal
+  // (the store merges their dishes into a single review).
+  const [photos, setPhotos] = useState<{ base64: string; uri: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,55 +43,65 @@ export function DescribeFoodSheet({ visible, onClose }: { visible: boolean; onCl
   useEffect(() => {
     if (visible) {
       setText('');
-      setPhotoBase64(null);
-      setPhotoUri(null);
+      setPhotos([]);
       setBusy(false);
       setError('');
     }
   }, [visible]);
 
   async function applyPhoto(asset: ImagePicker.ImagePickerAsset) {
-    let base64 = asset.base64 ?? '';
-    try {
-      const r = await resizeImageForVision(asset.uri);
-      if (r) base64 = r;
-    } catch {}
+    // Always re-encode to a resized JPEG. iPhone photos are HEIC, which OpenAI's
+    // vision API rejects — never fall back to the raw asset.base64, or an
+    // attached HEIC photo gets sent as-is and fails ("unsupported image format")
+    // even though a live capture (already JPEG) works.
+    const base64 = await resizeImageForVision(asset.uri);
     if (base64) {
-      setPhotoBase64(base64);
-      setPhotoUri(asset.uri);
+      setPhotos((prev) => [...prev, { base64, uri: asset.uri }]);
+      setError('');
+    } else {
+      setError("We couldn't process one of those photos. Please try a different image.");
     }
+  }
+
+  function removePhoto(idx: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleCapture() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) return;
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], base64: true, quality: 0.6 });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
     if (!result.canceled && result.assets[0]) await applyPhoto(result.assets[0]);
   }
 
   async function handleImport() {
+    // allowsMultipleSelection lets the user grab several shots of one meal in a
+    // single trip to the library; each is appended to the batch.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      base64: true,
+      allowsMultipleSelection: true,
       quality: 0.6,
     });
-    if (!result.canceled && result.assets[0]) await applyPhoto(result.assets[0]);
+    if (!result.canceled) {
+      for (const asset of result.assets) await applyPhoto(asset);
+    }
   }
 
-  const canContinue = !busy && (!!photoBase64 || text.trim().length > 0);
+  const canContinue = !busy && (photos.length > 0 || text.trim().length > 0);
 
   async function handleContinue() {
     if (!canContinue) return;
     setBusy(true);
     setError('');
     try {
-      if (photoBase64) {
+      if (photos.length > 0) {
+        // One shared description for the meal: attach it to the first photo only
+        // so the store's per-photo hint join doesn't repeat it N times.
+        const desc = text.trim() || undefined;
         startTask({
           source: 'camera',
-          photoBase64,
-          description: text.trim() || undefined,
-          photoUris: photoUri ? [photoUri] : undefined,
+          photos: photos.map((p, i) => ({ base64: p.base64, description: i === 0 ? desc : undefined })),
+          photoUris: photos.map((p) => p.uri),
         });
       } else {
         const dishes = await parseDescriptionToDishes(text.trim());
@@ -131,30 +142,31 @@ export function DescribeFoodSheet({ visible, onClose }: { visible: boolean; onCl
               textAlignVertical="top"
             />
 
-            {photoUri && (
+            {photos.length > 0 && (
               <View style={s.thumbRow}>
-                <Image source={{ uri: photoUri }} style={s.thumb} />
-                <TouchableOpacity
-                  style={s.thumbRemove}
-                  onPress={() => {
-                    setPhotoBase64(null);
-                    setPhotoUri(null);
-                  }}
-                  hitSlop={8}
-                >
-                  <X size={13} color="#FFF" />
-                </TouchableOpacity>
+                {photos.map((p, i) => (
+                  <View key={`${p.uri}-${i}`} style={s.thumbWrap}>
+                    <Image source={{ uri: p.uri }} style={s.thumb} />
+                    <TouchableOpacity
+                      style={s.thumbRemove}
+                      onPress={() => removePhoto(i)}
+                      hitSlop={8}
+                    >
+                      <X size={13} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
             )}
 
             <View style={s.photoRow}>
               <TouchableOpacity style={s.photoBtn} onPress={handleCapture} activeOpacity={0.7} disabled={busy}>
                 <Camera size={18} color={colors.textSecondary} />
-                <Text style={s.photoBtnText}>Capture photo</Text>
+                <Text style={s.photoBtnText}>{photos.length > 0 ? 'Add photo' : 'Capture photo'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.photoBtn} onPress={handleImport} activeOpacity={0.7} disabled={busy}>
                 <ImagePlus size={18} color={colors.textSecondary} />
-                <Text style={s.photoBtnText}>Import photo</Text>
+                <Text style={s.photoBtnText}>Import photos</Text>
               </TouchableOpacity>
             </View>
 
@@ -181,8 +193,9 @@ function createStyles(c: AppColors) {
     root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
     kav: { width: '100%' },
     sheet: {
-      // Taller sheet that sits higher up the screen.
-      minHeight: Math.round(SCREEN_H * 0.62),
+      // Hug content so the sheet sits low; the keyboard lift won't push the
+      // top past the screen edge the way a tall fixed-height sheet did.
+      maxHeight: Math.round(SCREEN_H * 0.85),
       backgroundColor: c.cardBg,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
@@ -195,13 +208,14 @@ function createStyles(c: AppColors) {
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     title: { fontSize: 23, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.4 },
     closeBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: w(0.06), alignItems: 'center', justifyContent: 'center' },
-    input: { marginTop: 18, fontSize: 17, color: c.textPrimary, minHeight: 120, maxHeight: 220, lineHeight: 24, flexGrow: 1 },
-    thumbRow: { flexDirection: 'row', marginTop: 8 },
+    input: { marginTop: 18, fontSize: 17, color: c.textPrimary, minHeight: 96, maxHeight: 180, lineHeight: 24 },
+    thumbRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+    thumbWrap: { width: 76, height: 76 },
     thumb: { width: 76, height: 76, borderRadius: 14, backgroundColor: w(0.06) },
     thumbRemove: {
       position: 'absolute',
       top: -6,
-      left: 64,
+      right: -6,
       width: 22,
       height: 22,
       borderRadius: 11,

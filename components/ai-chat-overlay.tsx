@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -44,6 +44,7 @@ type Message = {
   isError?: boolean;
   retryText?: string;
   retryImageBase64?: string;
+  animate?: boolean; // typewriter the assistant reply in (fresh replies only, not history)
 };
 
 type HistoryMessage = {
@@ -152,6 +153,70 @@ function TypingBubble() {
   );
 }
 
+// ─── Fade + rise on mount ───────────────────────────────────────────────────
+
+function FadeInView({
+  children,
+  style,
+  delay = 0,
+  distance = 8,
+}: {
+  children: ReactNode;
+  style?: any;
+  delay?: number;
+  distance?: number;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(distance)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 320, delay, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 320, delay, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+// ─── Typewriter text ──────────────────────────────────────────────────────────
+
+function TypewriterText({
+  text,
+  style,
+  onTick,
+}: {
+  text: string;
+  style?: any;
+  onTick?: () => void;
+}) {
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    if (!text) {
+      setShown(0);
+      return;
+    }
+    let i = 0;
+    setShown(0);
+    // Scale chars-per-tick so long replies don't crawl (~1.5s ceiling).
+    const step = Math.max(1, Math.ceil(text.length / 70));
+    const id = setInterval(() => {
+      i = Math.min(text.length, i + step);
+      setShown(i);
+      onTick?.();
+      if (i >= text.length) clearInterval(id);
+    }, 22);
+    return () => clearInterval(id);
+  }, [text]);
+
+  return <Text style={style}>{text.slice(0, shown)}</Text>;
+}
+
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
 export function AiChatOverlay() {
@@ -205,6 +270,7 @@ export function AiChatOverlay() {
   const [userId, setUserId] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ uri: string; base64: string } | null>(null);
   const [resumedFrom, setResumedFrom] = useState<string | null>(null); // date label of resumed conv
+  const [resumeCount, setResumeCount] = useState(0); // # of messages loaded via resume (for stagger)
   const inputRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
   const wasOpenRef = useRef(false);
@@ -229,6 +295,7 @@ export function AiChatOverlay() {
       setPendingImage(null);
       setShowHistory(false);
       setResumedFrom(null);
+      setResumeCount(0);
       setPillVisible(!!aiChatParams.contextLabel);
     }
     wasOpenRef.current = aiChatOpen;
@@ -265,6 +332,7 @@ export function AiChatOverlay() {
       content: m.content,
     }));
     setMessages(mapped);
+    setResumeCount(mapped.length);
     setResumedFrom(formatConvDate(conv.startedAt));
     setShowHistory(false);
     // Scroll to end after layout
@@ -297,13 +365,12 @@ export function AiChatOverlay() {
     if (status !== 'granted') return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'] as any,
-      base64: true,
       quality: 0.6,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       const asset = result.assets[0];
-      let base64 = asset.base64 ?? '';
-      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      // Always re-encode to JPEG; never send raw HEIC (OpenAI rejects it).
+      const base64 = await resizeImageForVision(asset.uri);
       if (base64) setPendingImage({ uri: asset.uri, base64 });
     }
   }
@@ -313,13 +380,12 @@ export function AiChatOverlay() {
     if (status !== 'granted') return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'] as any,
-      base64: true,
       quality: 0.6,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       const asset = result.assets[0];
-      let base64 = asset.base64 ?? '';
-      try { base64 = await resizeImageForVision(asset.uri); } catch {}
+      // Always re-encode to JPEG; never send raw HEIC (OpenAI rejects it).
+      const base64 = await resizeImageForVision(asset.uri);
       if (base64) setPendingImage({ uri: asset.uri, base64 });
     }
   }
@@ -361,7 +427,7 @@ export function AiChatOverlay() {
       } else {
         response = await callOpenAI(newMessages, systemPrompt);
       }
-      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: response, animate: true }]);
       if (userId) {
         supabase.from('chat_messages').insert({ user_id: userId, role: 'assistant', content: response }).then(() => {});
       }
@@ -441,27 +507,28 @@ export function AiChatOverlay() {
                 contentContainerStyle={s.convListContent}
                 showsVerticalScrollIndicator={false}
               >
-                {conversations.map((conv) => (
-                  <TouchableOpacity
-                    key={conv.id}
-                    activeOpacity={0.75}
-                    style={s.convCard}
-                    onPress={() => resumeConversation(conv)}
-                  >
-                    <View style={s.convCardInner}>
-                      <View style={s.convMeta}>
-                        <Text style={s.convDate}>{formatConvDate(conv.startedAt)}</Text>
-                        <View style={s.convCountBadge}>
-                          <Text style={s.convCountText}>{conv.messageCount}</Text>
+                {conversations.map((conv, i) => (
+                  <FadeInView key={conv.id} delay={Math.min(i, 10) * 55} distance={12}>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      style={s.convCard}
+                      onPress={() => resumeConversation(conv)}
+                    >
+                      <View style={s.convCardInner}>
+                        <View style={s.convMeta}>
+                          <Text style={s.convDate}>{formatConvDate(conv.startedAt)}</Text>
+                          <View style={s.convCountBadge}>
+                            <Text style={s.convCountText}>{conv.messageCount}</Text>
+                          </View>
+                        </View>
+                        <Text style={s.convPreview} numberOfLines={2}>{conv.preview}</Text>
+                        <View style={s.convResumePill}>
+                          <ArrowRight size={12} color={colors.orange} />
+                          <Text style={s.convResumeText}>Resume conversation</Text>
                         </View>
                       </View>
-                      <Text style={s.convPreview} numberOfLines={2}>{conv.preview}</Text>
-                      <View style={s.convResumePill}>
-                        <ArrowRight size={12} color={colors.orange} />
-                        <Text style={s.convResumeText}>Resume conversation</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </FadeInView>
                 ))}
               </ScrollView>
             )}
@@ -484,41 +551,52 @@ export function AiChatOverlay() {
                 </View>
               )}
 
-              {messages.map((msg, i) => (
-                <View key={i} style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}>
-                  <Pressable
-                    style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant, msg.isError && s.bubbleError]}
-                    onPress={msg.isError && msg.retryText ? () => {
-                      setMessages(prev => prev.slice(0, i));
-                      sendMessage(msg.retryText!);
-                    } : undefined}
-                  >
-                    {msg.role === 'user' && msg.imageUri && (
-                      <Image source={{ uri: msg.imageUri }} style={s.bubbleImage} />
-                    )}
-                    {msg.role === 'user' && msg.contextLabel && (
-                      <>
-                        <View style={s.bubbleContextTag}>
-                          <View style={s.bubbleContextDot} />
-                          <Text style={s.bubbleContextText} numberOfLines={1}>
-                            {msg.contextLabel}{msg.contextValue ? ` · ${msg.contextValue}` : ''}
-                          </Text>
+              {messages.map((msg, i) => {
+                // Resumed messages stagger in together; live messages snap in.
+                const delay = i < resumeCount ? Math.min(i, 8) * 45 : 0;
+                const bubbleTextStyle = [s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant, msg.isError && s.bubbleTextError];
+                return (
+                  <FadeInView key={i} delay={delay} style={[s.bubbleRow, msg.role === 'user' ? s.bubbleRowUser : s.bubbleRowAssistant]}>
+                    <Pressable
+                      style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant, msg.isError && s.bubbleError]}
+                      onPress={msg.isError && msg.retryText ? () => {
+                        setMessages(prev => prev.slice(0, i));
+                        sendMessage(msg.retryText!);
+                      } : undefined}
+                    >
+                      {msg.role === 'user' && msg.imageUri && (
+                        <Image source={{ uri: msg.imageUri }} style={s.bubbleImage} />
+                      )}
+                      {msg.role === 'user' && msg.contextLabel && (
+                        <>
+                          <View style={s.bubbleContextTag}>
+                            <View style={s.bubbleContextDot} />
+                            <Text style={s.bubbleContextText} numberOfLines={1}>
+                              {msg.contextLabel}{msg.contextValue ? ` · ${msg.contextValue}` : ''}
+                            </Text>
+                          </View>
+                          <View style={s.bubbleContextDivider} />
+                        </>
+                      )}
+                      {msg.role === 'assistant' && msg.animate && !msg.isError ? (
+                        <TypewriterText
+                          text={msg.content}
+                          style={bubbleTextStyle}
+                          onTick={() => scrollRef.current?.scrollToEnd({ animated: false })}
+                        />
+                      ) : (
+                        <Text style={bubbleTextStyle}>{msg.content}</Text>
+                      )}
+                      {msg.isError && msg.retryText && (
+                        <View style={s.retryRow}>
+                          <RefreshCw size={12} color="rgba(220,80,50,0.8)" />
+                          <Text style={s.retryLabel}>Tap to retry</Text>
                         </View>
-                        <View style={s.bubbleContextDivider} />
-                      </>
-                    )}
-                    <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant, msg.isError && s.bubbleTextError]}>
-                      {msg.content}
-                    </Text>
-                    {msg.isError && msg.retryText && (
-                      <View style={s.retryRow}>
-                        <RefreshCw size={12} color="rgba(220,80,50,0.8)" />
-                        <Text style={s.retryLabel}>Tap to retry</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                </View>
-              ))}
+                      )}
+                    </Pressable>
+                  </FadeInView>
+                );
+              })}
               {loading && (
                 <View style={[s.bubbleRow, s.bubbleRowAssistant]}>
                   <View style={[s.bubble, s.bubbleAssistant, { paddingHorizontal: 0, paddingVertical: 0 }]}>

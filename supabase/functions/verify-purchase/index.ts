@@ -214,11 +214,32 @@ Deno.serve(async (req: Request) => {
       if (!body.jws) return json({ error: 'Missing jws' }, 400);
       const txn = await verifyAppleJWS(body.jws);
 
-      // Bind: the transaction's appAccountToken (set at purchase) must match the
-      // signed-in user when present. Reject mismatches; allow absence (legacy).
+      // Bind the entitlement to the authenticated caller. appAccountToken records
+      // the *original* purchase's owner and Apple pins it forever, so a legitimate
+      // "subscribe → delete account → re-subscribe" (or sandbox Apple-ID reuse
+      // across test accounts) carries a stale token that no longer matches. Rather
+      // than hard-reject those real cases, trust the Apple-verified JWS + the
+      // authenticated JWT and entitle the caller. We still block the actual fraud
+      // vector below: one Apple subscription entitling a *different* live account.
       const tokenUser = (txn.appAccountToken as string | undefined)?.toLowerCase();
       if (tokenUser && tokenUser !== userId.toLowerCase()) {
-        return json({ error: 'Transaction does not belong to this account' }, 403);
+        console.warn(
+          `[verify-purchase] appAccountToken ${tokenUser.slice(0, 8)}… != caller ${userId.slice(0, 8)}… — binding to caller`,
+        );
+      }
+      const originalTxnId =
+        (txn.originalTransactionId as string) ?? (txn.transactionId as string) ?? null;
+      if (originalTxnId) {
+        const { data: otherClaims } = await supabase
+          .from('subscriptions')
+          .select('user_id')
+          .eq('provider_subscription_id', originalTxnId)
+          .neq('user_id', userId)
+          .in('status', ['active', 'trialing', 'past_due'])
+          .limit(1);
+        if (otherClaims && otherClaims.length > 0) {
+          return json({ error: 'This subscription is already linked to another account.' }, 403);
+        }
       }
 
       const productId = (txn.productId as string) ?? body.productId ?? '';

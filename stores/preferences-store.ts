@@ -18,6 +18,14 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 export type HeaderStyle = 'gradient' | 'solid' | 'minimal';
 
 type PreferencesStore = {
+  /**
+   * True once this store has finished rehydrating from AsyncStorage. Consumers
+   * that read persisted milestone state (e.g. the achievement detector) MUST
+   * wait for this — reading streakCount/shownAchievementIds before rehydration
+   * returns defaults and re-fires already-earned achievements.
+   */
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
   isLightMode: boolean;
   toggleLightMode: () => void;
   setLightMode: (v: boolean) => void;
@@ -123,6 +131,8 @@ export const DEFAULT_HOME_FOCUS_TILES = ['protein', 'water', 'fiber', 'activity'
 export const usePreferencesStore = create<PreferencesStore>()(
   persist(
     (set) => ({
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
       isLightMode: false,
       toggleLightMode: () => set((s) => ({ isLightMode: !s.isLightMode })),
       setLightMode: (v) => set({ isLightMode: v }),
@@ -216,6 +226,14 @@ export const usePreferencesStore = create<PreferencesStore>()(
       })),
       reset: () => set({ isLightMode: false, appleHealthEnabled: false, lastWeeklySummaryDate: null, lastDailyStreakDate: null, streakCount: 0, lastStreakDate: null, shownAchievementIds: [], achievementsSeeded: false, shownPhotoMilestones: [], photoMilestonesSeeded: false, themeMode: 'system' as ThemeMode, headerStyle: 'minimal' as HeaderStyle, aiDataConsent: false, foodDbConsent: false, healthPromoCardDismissed: false, devicesPromoCardDismissed: false, weeklyCheckinCardDismissed: false, weeklySummaryCardDismissed: false, weeklySummaryViewedId: null, consentPromptShown: false, tutorialHintPending: false, tourPending: false, tourCompleted: false, homeFocusTiles: DEFAULT_HOME_FOCUS_TILES, hasReviewedApp: false, reviewPromptLastShown: null, reviewPromptDismissCount: 0, appOpenCount: 0, firstOpenDate: null }),
     }),
-    { name: 'preferences-store', storage: createJSONStorage(() => AsyncStorage) }
+    {
+      name: 'preferences-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      // Flip the reactive hydration flag once disk state is merged in. Runs even
+      // on a fresh install (no stored data), so the flag always settles to true.
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );
