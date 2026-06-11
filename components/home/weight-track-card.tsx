@@ -12,7 +12,7 @@ import type { AppColors } from '@/constants/theme';
 
 const FF = 'System';
 const LB_TO_KG = 0.453592;
-const TOKEN = 38;
+const TOKEN = 42;
 
 // Track colors are brand-independent green (works in both light & dark).
 const GREEN = '#34C759';        // covered (progress made)
@@ -126,7 +126,15 @@ export function WeightTrackCard({
           <Animated.View style={[s.barFill, fillStyle]} />
           <Animated.View style={[s.token, tokenStyle]}>
             <View style={s.tokenInner}>
-              <Text style={s.tokenTxt} numberOfLines={1}>{currentLabel}</Text>
+              <Text
+                style={s.tokenTxt}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+                allowFontScaling={false}
+              >
+                {currentLabel}
+              </Text>
             </View>
           </Animated.View>
         </View>
@@ -208,7 +216,16 @@ const createStyles = (c: AppColors) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    tokenTxt: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', fontFamily: FF, letterSpacing: -0.3 },
+    tokenTxt: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '800',
+      fontFamily: FF,
+      letterSpacing: -0.3,
+      width: TOKEN - 12,           // definite width so auto-shrink can fit 3+ digits
+      textAlign: 'center',
+      paddingHorizontal: 1,
+    },
 
     below: { marginTop: 16, textAlign: 'center', fontSize: 13, fontWeight: '600', color: c.textSecondary, fontFamily: FF },
     belowStrong: { color: c.textPrimary, fontWeight: '800' },
