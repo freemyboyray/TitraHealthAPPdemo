@@ -32,6 +32,7 @@ import { AiConsentModal } from '@/components/ai-consent-modal';
 import { TourProvider } from '@/contexts/tour-context';
 import { TourOverlay } from '@/components/tour/tour-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
+import { LogSuccessOverlay } from '@/components/ui/log-success-overlay';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
 import { ReviewPrompt } from '@/components/review-prompt';
@@ -324,6 +325,7 @@ function RootLayoutInner() {
               <AiChatOverlay />
               <AiConsentModal />
               <HealthSyncToast />
+              <LogSuccessOverlay />
               <MilestoneLayer />
               <ReviewPromptLayer />
               <TourOverlay />

@@ -2,33 +2,33 @@ import { useRouter } from 'expo-router';
 // expo-print requires a dev build; guard so Expo Go doesn't crash.
 let Print: typeof import('expo-print') | undefined;
 try { Print = require('expo-print'); } catch {}
-import * as Sharing from 'expo-sharing';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CircleIconButton } from '@/components/ui/circle-icon-button';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useProfile } from '@/contexts/profile-context';
 import { useLogStore } from '@/stores/log-store';
 import type { AppColors } from '@/constants/theme';
 import { buildHealthReportHtml, type ReportData } from '@/lib/health-report';
 import { useSubscriptionStore } from '@/stores/subscription-store';
-import { ChevronLeft, Download, FileText, Info } from 'lucide-react-native';
+import { ChevronLeft, Download, FileText } from 'lucide-react-native';
 
 
 type RangeOption = { label: string; days: number };
 const RANGE_OPTIONS: RangeOption[] = [
-  { label: 'Last 7 days', days: 7 },
-  { label: 'Last 30 days', days: 30 },
-  { label: 'Last 90 days', days: 90 },
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
 ];
 
 export default function ExportReportScreen() {
@@ -160,7 +160,13 @@ export default function ExportReportScreen() {
 
       const html = buildHealthReportHtml(reportData);
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+
+      // Hand off to the in-app preview screen (WebView) where the user can view,
+      // save, and share the generated PDF.
+      router.push({
+        pathname: '/entry/report-preview',
+        params: { pdfUri: uri, rangeStart: startStr, rangeEnd: endStr },
+      } as any);
     } catch (e) {
       Alert.alert('Error', 'Failed to generate PDF. Please try again.');
     } finally {
@@ -169,55 +175,52 @@ export default function ExportReportScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
-      {/* Header */}
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+      {/* Header — back button, then icon + title centered */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <ChevronLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Export Health Report</Text>
-        <View style={{ width: 36 }} />
+        <CircleIconButton
+          icon={ChevronLeft}
+          onPress={() => router.back()}
+          accessibilityLabel="Go back"
+        />
+        <View style={s.headerCenter}>
+          <FileText size={20} color={colors.textPrimary} strokeWidth={1.8} />
+          <Text style={s.headerTitle}>Share your wellness data</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        {/* Info card */}
-        <View style={s.infoCard}>
-          <FileText size={32} color={colors.orange} />
-          <Text style={s.infoTitle}>Share Your Wellness Data</Text>
-          <Text style={s.infoBody}>
-            Generate a PDF report of your self-reported wellness data to share with your physician
-            during appointments. The report includes medication, weight, nutrition, activity,
-            side effects, and check-in scores.
-          </Text>
-        </View>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={s.intro}>
+          Generate a clean PDF of your self-reported data to bring to your next appointment.
+          It covers medication, weight, nutrition, activity, side effects, and check-in scores.
+        </Text>
 
-        {/* Disclaimer */}
-        <View style={s.disclaimer}>
-          <Info size={18} color="#856404" />
-          <Text style={s.disclaimerText}>
-            This is self-reported wellness data, not a medical record. The report includes a
-            blank "Patient Name" field so you can hand-write your name when sharing with your doctor.
-          </Text>
-        </View>
-
-        {/* Date range selection */}
-        <Text style={s.sectionLabel}>DATE RANGE</Text>
+        {/* Date range */}
+        <Text style={s.sectionLabel}>Date range</Text>
         <View style={s.rangeRow}>
-          {RANGE_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.days}
-              style={[s.rangePill, selectedDays === opt.days && s.rangePillActive]}
-              onPress={() => setSelectedDays(opt.days)}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.rangePillText, selectedDays === opt.days && s.rangePillTextActive]}>
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {RANGE_OPTIONS.map((opt) => {
+            const active = selectedDays === opt.days;
+            return (
+              <TouchableOpacity
+                key={opt.days}
+                style={[s.rangePill, active && s.rangePillActive]}
+                onPress={() => setSelectedDays(opt.days)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.rangePillText, active && s.rangePillTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Generate button */}
+        {/* Generate → opens in-app preview */}
         <TouchableOpacity
           style={[s.generateBtn, generating && s.generateBtnDisabled]}
           onPress={handleGenerate}
@@ -229,10 +232,11 @@ export default function ExportReportScreen() {
           ) : (
             <>
               <Download size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={s.generateBtnText}>Generate PDF</Text>
+              <Text style={s.generateBtnText}>Generate report</Text>
             </>
           )}
         </TouchableOpacity>
+        <Text style={s.generateHint}>You'll preview it before sharing.</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -249,98 +253,61 @@ function createStyles(c: AppColors) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.borderSubtle,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
     },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+    headerCenter: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 8,
     },
     headerTitle: {
-      fontSize: 19,
+      fontSize: 18,
       fontWeight: '700',
+      letterSpacing: -0.3,
       color: c.textPrimary,
     },
 
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 40 },
+    content: { paddingHorizontal: 20, paddingBottom: 40 },
 
-    infoCard: {
-      backgroundColor: c.surface,
-      borderRadius: 16,
-      padding: 24,
-      alignItems: 'center',
-      gap: 12,
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      marginBottom: 16,
-    },
-    infoTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: c.textPrimary,
-      textAlign: 'center',
-    },
-    infoBody: {
-      fontSize: 16,
-      color: w(0.6),
-      textAlign: 'center',
-      lineHeight: 20,
-    },
-
-    disclaimer: {
-      flexDirection: 'row',
-      gap: 8,
-      backgroundColor: 'rgba(255,243,205,0.15)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,193,7,0.3)',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 24,
-    },
-    disclaimerText: {
-      flex: 1,
-      fontSize: 14,
-      color: w(0.6),
-      lineHeight: 18,
+    intro: {
+      fontSize: 15,
+      color: c.textSecondary,
+      lineHeight: 22,
+      paddingTop: 12,
+      paddingBottom: 28,
     },
 
     sectionLabel: {
-      color: c.textMuted,
-      fontSize: 13,
+      color: c.textSecondary,
+      fontSize: 15,
       fontWeight: '700',
-      letterSpacing: 2,
-      marginBottom: 8,
-      marginLeft: 4,
+      letterSpacing: -0.2,
+      marginBottom: 10,
     },
 
     rangeRow: {
       flexDirection: 'row',
-      gap: 8,
-      marginBottom: 32,
+      gap: 10,
+      marginBottom: 24,
     },
     rangePill: {
       flex: 1,
-      paddingVertical: 12,
-      borderRadius: 12,
+      paddingVertical: 14,
+      borderRadius: 16,
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: w(0.1),
-      backgroundColor: w(0.03),
+      backgroundColor: w(0.05),
     },
     rangePillActive: {
       backgroundColor: c.orange,
-      borderColor: c.orange,
     },
     rangePillText: {
       fontSize: 15,
       fontWeight: '600',
-      color: w(0.5),
+      color: c.textSecondary,
     },
     rangePillTextActive: {
       color: '#FFFFFF',
@@ -348,17 +315,23 @@ function createStyles(c: AppColors) {
 
     generateBtn: {
       flexDirection: 'row',
-      height: 52,
-      borderRadius: 26,
+      height: 54,
+      borderRadius: 999,
       backgroundColor: c.orange,
       alignItems: 'center',
       justifyContent: 'center',
     },
     generateBtnDisabled: { opacity: 0.55 },
     generateBtnText: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '700',
       color: '#FFFFFF',
+    },
+    generateHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginTop: 12,
     },
   });
 }

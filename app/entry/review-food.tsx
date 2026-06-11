@@ -561,6 +561,10 @@ export default function ReviewFoodScreen() {
         backdated: loggedDate.toDateString() !== new Date().toDateString(),
       });
       setInsightsDefaultTab('lifestyle');
+      useUiStore.getState().showLogSuccess({
+        title: 'Meal logged',
+        subtitle: dishes.length === 1 ? dishes[0].name : `${dishes.length} items`,
+      });
       router.replace('/(tabs)/log' as any);
     } catch {
       setLogging(false);

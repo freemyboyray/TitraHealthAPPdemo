@@ -18,23 +18,27 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
   Easing,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
+import { useUiStore } from '@/stores/ui-store';
 import { usePostHog } from '@/lib/posthog';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { cardElevation } from '@/constants/theme';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
-import { ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, Footprints } from 'lucide-react-native';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, Footprints } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 import { useActivityPicker } from '@/stores/activity-picker-store';
 import {
@@ -261,13 +265,19 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+function localYMD(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** "Today" or "Mon, Jun 9" for the selected calendar day. */
+function dayLabel(d: Date): string {
+  if (localYMD(d) === localYMD(new Date())) return 'Today';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Never allow an activity to be logged on a future day. */
+function clampToToday(d: Date): Date {
+  return d.getTime() > Date.now() ? new Date() : d;
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -293,6 +303,10 @@ export default function LogActivityScreen() {
   const [notes, setNotes]                   = useState('');
   const [isSubmitting, setIsSubmitting]     = useState(false);
   const [customActivities, setCustomActivities] = useState<CustomActivity[]>([]);
+  const [loggedAt, setLoggedAt]             = useState<Date>(() => new Date());
+  const [whenOpen, setWhenOpen]             = useState(false);            // iOS: inline picker panel
+  const [androidPicker, setAndroidPicker]   = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Reload custom exercises + adopt any pending pick from the picker page.
   useFocusEffect(
@@ -406,7 +420,7 @@ export default function LogActivityScreen() {
     if (isSubmitting || !selected) return;
     setIsSubmitting(true);
     try {
-      await addActivityLog(selected.label, durationMin, intensityDb(intensity), stepsValue, estCalories);
+      await addActivityLog(selected.label, durationMin, intensityDb(intensity), stepsValue, estCalories, loggedAt);
       const { error } = useLogStore.getState();
       if (error) {
         Alert.alert('Could not save activity', error);
@@ -420,6 +434,10 @@ export default function LogActivityScreen() {
         intensity: intensity,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      useUiStore.getState().showLogSuccess({
+        title: 'Activity logged',
+        subtitle: `${selected.label}, ${durationMin} min`,
+      });
       router.back();
     } finally {
       setIsSubmitting(false);
@@ -452,13 +470,63 @@ export default function LogActivityScreen() {
 
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>Log Activity</Text>
-          <Text style={s.dateLabel}>{todayLabel()}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS === 'android') setAndroidPicker(true);
+              else setWhenOpen(v => !v);
+            }}
+            activeOpacity={0.7}
+            hitSlop={8}
+            style={s.dateChip}
+            accessibilityLabel={`Logged ${dayLabel(loggedAt)}. Tap to change the date`}
+            accessibilityRole="button"
+          >
+            <Calendar size={13} color={colors.textMuted} />
+            <Text style={s.dateLabel}>{dayLabel(loggedAt)}</Text>
+            <ChevronDown size={13} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
         <View style={s.headerSpacer} />
       </Animated.View>
 
+      {/* iOS inline date picker */}
+      {whenOpen && Platform.OS === 'ios' && (
+        <Animated.View
+          style={s.pickerCard}
+          entering={FadeIn.duration(550).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOut.duration(350).easing(Easing.in(Easing.cubic))}
+        >
+          <DateTimePicker
+            value={loggedAt}
+            mode="date"
+            display="spinner"
+            maximumDate={new Date()}
+            onChange={(_, d) => { if (d) setLoggedAt(clampToToday(d)); }}
+            themeVariant={colors.isDark ? 'dark' : 'light'}
+            textColor={colors.textPrimary}
+            style={{ alignSelf: 'center' }}
+          />
+        </Animated.View>
+      )}
+
+      {/* Android date dialog */}
+      {Platform.OS === 'android' && androidPicker && (
+        <DateTimePicker
+          value={loggedAt}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={(event, d) => {
+            setAndroidPicker(false);
+            if (event.type === 'set' && d) setLoggedAt(clampToToday(d));
+          }}
+        />
+      )}
+
       <ScrollView
+        ref={scrollRef}
         style={s.scroll}
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
@@ -590,6 +658,12 @@ export default function LogActivityScreen() {
               placeholderTextColor={colors.textMuted}
               value={notes}
               onChangeText={setNotes}
+              onFocus={() => {
+                // Keep the note field above the keyboard — KeyboardAvoidingView
+                // shrinks the view, but the field is the last thing in the
+                // scroll, so nudge it fully into view once the keyboard settles.
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+              }}
               maxLength={200}
               multiline
               textAlignVertical="top"
@@ -666,12 +740,28 @@ const createStyles = (c: AppColors) => {
       color: c.textPrimary,
       letterSpacing: -0.4,
     },
+    dateChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 3,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
     dateLabel: {
       fontSize: 13,
-      fontWeight: '500',
+      fontWeight: '600',
       color: c.textMuted,
-      letterSpacing: 0.3,
-      marginTop: 2,
+      letterSpacing: 0.1,
+    },
+    pickerCard: {
+      marginHorizontal: 20,
+      marginTop: 8,
+      borderRadius: 16,
+      paddingVertical: 4,
+      backgroundColor: c.cardBg,
     },
     headerSpacer: {
       width: 44,

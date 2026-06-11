@@ -511,7 +511,15 @@ export default function SideEffectImpactScreen() {
 
       {/* Fixed Done CTA */}
       <View style={[s.ctaWrap, { paddingBottom: insets.bottom + 16, borderTopColor: w(0.06) }]}>
-        <TouchableOpacity style={s.doneBtn} onPress={() => router.dismissAll()} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={s.doneBtn}
+          onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            useUiStore.getState().showLogSuccess({ title: 'Side effects logged' });
+            router.dismissAll();
+          }}
+          activeOpacity={0.85}
+        >
           <Text style={s.doneBtnText}>Done</Text>
         </TouchableOpacity>
       </View>

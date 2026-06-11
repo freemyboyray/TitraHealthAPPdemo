@@ -316,6 +316,10 @@ export default function LogWeightScreen() {
     // most-recent-by-logged_at log, not necessarily this entry). Pull the fresh
     // row so the in-memory profile reflects it.
     await reloadProfile();
+    useUiStore.getState().showLogSuccess({
+      title: 'Weight logged',
+      subtitle: `${disp.toFixed(1)} ${unit}`,
+    });
     router.back();
   }
 

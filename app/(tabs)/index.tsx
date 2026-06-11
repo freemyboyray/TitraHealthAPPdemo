@@ -1315,21 +1315,23 @@ export default function HomeScreen() {
         >
           {/* ── Hero image with the calendar button at the top-right ── */}
           <HomeHeroBanner
-            topLeft={onTreatment ? (
+            topLeft={
               <Pressable
                 onPress={() => router.push('/medication-detail' as any)}
                 style={s.calBtn}
-                accessibilityLabel={`${daysUntil} day${daysUntil === 1 ? '' : 's'} until your next ${oral ? 'dose' : 'injection'}. View medications.`}
+                accessibilityLabel={onTreatment
+                  ? `${daysUntil} day${daysUntil === 1 ? '' : 's'} until your next ${oral ? 'dose' : 'injection'}. View medications.`
+                  : 'View medications'}
                 accessibilityRole="button"
               >
                 <View style={{ alignItems: 'center' }}>
                   {oral
                     ? <Pill size={14} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
                     : <Syringe size={14} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />}
-                  <Text style={s.calBtnDays}>{daysUntil}d</Text>
+                  {onTreatment && <Text style={s.calBtnDays}>{daysUntil}d</Text>}
                 </View>
               </Pressable>
-            ) : undefined}
+            }
             topRight={
               <View style={s.topRightRow}>
                 {isPremium && (

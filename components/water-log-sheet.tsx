@@ -253,17 +253,9 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
   // Drag-to-dismiss (handle only)
   const sheetY = useRef(new Animated.Value(0)).current;
 
+  // Dismiss without logging (X / backdrop / swipe-down). Adding a beverage is a
+  // one-shot commit (see addBeverage), so closing never writes anything.
   const commitAndClose = () => {
-    const deltaOz = effectiveHydrationOz - initialHydrationOz.current;
-    if (deltaOz !== 0) {
-      const ml = Math.round(deltaOz * ML_PER_OZ);
-      dispatch({ type: 'LOG_WATER', ml });
-      if (ml > 0) {
-        useHealthKitStore.getState().writeWater(ml).then(synced => {
-          if (synced) useUiStore.getState().showHealthSyncToast(`Water saved to ${HEALTH_SERVICE_NAME}`);
-        });
-      }
-    }
     sheetY.setValue(0);
     onClose();
   };
@@ -299,12 +291,25 @@ export function WaterLogSheet({ visible, onClose }: { visible: boolean; onClose:
     }
   }, [visible]);
 
+  // One-shot: log this single pour, show the confirmation splash, and close.
+  // No multi-add — the sheet dismisses as soon as you add something.
   const addBeverage = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const factor = HYDRATION_FACTOR_MAP[activeBeverage.key];
-    const effective = Math.round(pourOz * factor * 10) / 10;
-    setEffectiveHydrationOz(prev => Math.round((prev + effective) * 10) / 10);
-    setLastAdd({ rawOz: pourOz, bevKey: activeBeverage.key });
+    const effectiveOz = Math.round(pourOz * factor * 10) / 10;
+    const ml = Math.round(effectiveOz * ML_PER_OZ);
+    if (ml > 0) {
+      dispatch({ type: 'LOG_WATER', ml });
+      useHealthKitStore.getState().writeWater(ml).then(synced => {
+        if (synced) useUiStore.getState().showHealthSyncToast(`Water saved to ${HEALTH_SERVICE_NAME}`);
+      });
+      useUiStore.getState().showLogSuccess({
+        title: 'Hydration logged',
+        subtitle: `${pourOz} oz ${activeBeverage.label.toLowerCase()}`,
+      });
+    }
+    sheetY.setValue(0);
+    onClose();
   };
 
   return (

@@ -115,6 +115,7 @@ type LogStore = {
     intensity?: 'low' | 'moderate' | 'high',
     steps?: number,
     active_calories?: number,
+    loggedDate?: Date,
   ) => Promise<void>;
 
   // Food - uses food_logs table (richer, with meal_type + source enums)
@@ -679,16 +680,16 @@ export const useLogStore = create<LogStore>((set, get) => ({
     }
   },
 
-  addActivityLog: async (exercise_type, duration_min, intensity, steps, active_calories) => {
+  addActivityLog: async (exercise_type, duration_min, intensity, steps, active_calories, loggedDate) => {
     set({ loading: true, error: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { set({ loading: false, error: 'Not authenticated' }); return; }
-    const today = localDateStr();
+    const day = localDateStr(loggedDate);
     const { error } = await supabase
       .from('activity_logs')
       .insert({
         user_id: user.id,
-        date: today,
+        date: day,
         exercise_type,
         duration_min,
         intensity: intensity ?? null,

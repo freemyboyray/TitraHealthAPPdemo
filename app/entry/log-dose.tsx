@@ -25,6 +25,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useLogStore } from '../../stores/log-store';
+import { useUiStore } from '../../stores/ui-store';
 import { VoiceButton } from '../../components/ui/voice-button';
 import { usePostHog } from '@/lib/posthog';
 import { parseVoiceLog, type VoiceInjectionResult } from '../../lib/openai';
@@ -217,6 +218,10 @@ export default function LogDoseScreen() {
     dispatch({ type: 'LOG_INJECTION' });
     await updateProfile({ lastInjectionDate: date });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    useUiStore.getState().showLogSuccess({
+      title: isOral ? 'Dose logged' : 'Injection logged',
+      subtitle: `${medication}, ${doseMg} mg`,
+    });
     router.back();
   }
 

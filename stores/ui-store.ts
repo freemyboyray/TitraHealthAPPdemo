@@ -28,6 +28,11 @@ type UiStore = {
   healthSyncToast: string | null;
   showHealthSyncToast: (msg: string) => void;
   hideHealthSyncToast: () => void;
+  // Full-screen "logged" confirmation splash. Any save flow can fire it; a
+  // single global <LogSuccessOverlay/> renders it and auto-dismisses.
+  logSuccess: { title: string; subtitle?: string } | null;
+  showLogSuccess: (payload: { title: string; subtitle?: string }) => void;
+  hideLogSuccess: () => void;
   // Session-only dismissal: the Apple Health promo re-appears on the next app
   // launch (this store isn't persisted), but stays hidden after an X this session.
   healthPromoDismissed: boolean;
@@ -57,6 +62,9 @@ export const useUiStore = create<UiStore>((set) => ({
     if (_toastTimer) clearTimeout(_toastTimer);
     set({ healthSyncToast: null });
   },
+  logSuccess: null,
+  showLogSuccess: (payload) => set({ logSuccess: payload }),
+  hideLogSuccess: () => set({ logSuccess: null }),
   healthPromoDismissed: false,
   dismissHealthPromo: () => set({ healthPromoDismissed: true }),
 }));
