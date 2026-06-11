@@ -2,7 +2,7 @@ import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useFoodTaskStore } from '../../stores/food-task-store';
+import { useUiStore } from '@/stores/ui-store';
 import { resizeImageForVision } from '@/lib/image';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -59,7 +60,7 @@ export default function CaptureFoodScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [phase, setPhase] = useState<Phase>('intro');
+  const [phase, setPhase] = useState<Phase>('camera');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [description, setDescription] = useState('');
@@ -83,12 +84,16 @@ export default function CaptureFoodScreen() {
     setCaptured((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function handleTakePhoto() {
-    if (!camPermission?.granted) {
-      await requestCamPermission();
-      return;
-    }
-    setPhase('camera');
+  // Open straight into the camera: request permission on mount if we don't have it.
+  useEffect(() => {
+    if (!camPermission?.granted) requestCamPermission();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "Describe" hands off to the always-mounted describe sheet on the home tab.
+  function handleDescribe() {
+    useUiStore.getState().setFoodSheetPending(true);
+    router.dismissTo('/(tabs)');
   }
 
   // Always re-encode the captured image to a resized JPEG before sending it on.
@@ -121,7 +126,6 @@ export default function CaptureFoodScreen() {
   async function handlePickLibrary() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
       quality: 0.6,
     });
     if (!result.canceled && result.assets[0]?.uri) {
@@ -160,24 +164,61 @@ export default function CaptureFoodScreen() {
     finalize(cur ? [...captured, cur] : captured);
   }
 
-  // ── Camera phase ───────────────────────────────────────────────────────────
+  // ── Camera phase (default) — full-screen live camera ────────────────────────
   if (phase === 'camera') {
+    // Permission not yet granted: prompt for it (we auto-request on mount too).
+    if (!camPermission?.granted) {
+      return (
+        <View style={[s.root, s.centered, { paddingTop: insets.top }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[s.camCloseBtn, { position: 'absolute', top: insets.top + 12, left: 16, backgroundColor: colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}
+            activeOpacity={0.75}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+          >
+            <X size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Camera size={56} color={colors.orange} />
+          <Text style={s.errTitle}>Camera Access Needed</Text>
+          <Text style={s.errDesc}>Allow camera access to take food photos, or import one from your library.</Text>
+          <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
+            <TouchableOpacity style={s.errSecBtn} onPress={handlePickLibrary} activeOpacity={0.8}>
+              <Text style={s.errSecBtnText}>Import Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.errPrimBtn} onPress={requestCamPermission} activeOpacity={0.85}>
+              <Text style={s.errPrimBtnText}>Allow Camera</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={s.root}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="back" />
-        <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
+
+        {/* Top bar — close */}
+        <View style={[s.camTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity
-            onPress={() => setPhase('intro')}
-            style={s.circleBtn}
+            onPress={() => router.back()}
+            style={s.camCloseBtn}
             activeOpacity={0.75}
+            accessibilityLabel="Close camera"
+            accessibilityRole="button"
           >
-            <BlurView intensity={60} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <ChevronLeft size={22} color={colors.textPrimary} />
+            <X size={20} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={s.camTitle}>Take Photo</Text>
-          <View style={{ width: 40 }} />
         </View>
-        <View style={[s.shutterWrapper, { paddingBottom: insets.bottom + 30 }]}>
+
+        {/* Center hint */}
+        <View style={s.camHintWrap} pointerEvents="none">
+          <Text style={s.camHintTitle}>Take a photo</Text>
+          <Text style={s.camHintSub}>Capture an image of a food or a receipt.</Text>
+        </View>
+
+        {/* Bottom — staged thumbnails + Import · Shutter · Describe */}
+        <View style={[s.camBottom, { paddingBottom: insets.bottom + 24 }]}>
           {captured.length > 0 && (
             <View style={s.camBatchBar}>
               <View style={s.thumbRow}>
@@ -195,9 +236,40 @@ export default function CaptureFoodScreen() {
               </TouchableOpacity>
             </View>
           )}
-          <TouchableOpacity onPress={handleCaptureShutter} style={s.shutterBtn} activeOpacity={0.85}>
-            <View style={s.shutterInner} />
-          </TouchableOpacity>
+
+          <View style={s.camControls}>
+            <TouchableOpacity
+              onPress={handlePickLibrary}
+              style={s.camSideBtn}
+              activeOpacity={0.75}
+              accessibilityLabel="Import a photo from your library"
+              accessibilityRole="button"
+            >
+              <View style={s.camSideIcon}><Images size={22} color="#FFFFFF" /></View>
+              <Text style={s.camSideLabel}>Import</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleCaptureShutter}
+              style={s.shutterBtn}
+              activeOpacity={0.85}
+              accessibilityLabel="Take photo"
+              accessibilityRole="button"
+            >
+              <View style={s.shutterInner} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleDescribe}
+              style={s.camSideBtn}
+              activeOpacity={0.75}
+              accessibilityLabel="Describe your food with text instead"
+              accessibilityRole="button"
+            >
+              <View style={s.camSideIcon}><Text style={s.camDescribeGlyph}>A</Text></View>
+              <Text style={s.camSideLabel}>Describe</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -208,7 +280,7 @@ export default function CaptureFoodScreen() {
     return (
       <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[s.header, { paddingTop: insets.top + 4 }]}>
-          <TouchableOpacity onPress={() => { resetCurrentPhoto(); setPhase(captured.length > 0 ? 'camera' : 'intro'); }} style={s.backShadow} activeOpacity={0.75}>
+          <TouchableOpacity onPress={() => { resetCurrentPhoto(); setPhase('camera'); }} style={s.backShadow} activeOpacity={0.75}>
             <View style={s.backClip}>
               <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
               <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
@@ -297,7 +369,7 @@ export default function CaptureFoodScreen() {
           {errorMsg ?? "AI couldn't identify food in this photo. Try describing it instead."}
         </Text>
         <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
-          <TouchableOpacity style={s.errSecBtn} onPress={() => { setErrorMsg(null); setPhase('intro'); }} activeOpacity={0.8}>
+          <TouchableOpacity style={s.errSecBtn} onPress={() => { setErrorMsg(null); setPhase('camera'); }} activeOpacity={0.8}>
             <Text style={s.errSecBtnText}>Try Again</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -312,45 +384,8 @@ export default function CaptureFoodScreen() {
     );
   }
 
-  // ── Intro phase (default) ─────────────────────────────────────────────────
-  return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backShadow} activeOpacity={0.75}>
-          <View style={s.backClip}>
-            <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={[StyleSheet.absoluteFillObject, s.backOverlay]} />
-            <GlassBorder r={20} />
-            <ChevronLeft size={22} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
-          </View>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Capture Food</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={s.introCentered}>
-        <View style={s.introIconWrapper}>
-          <BlurView intensity={80} tint={colors.blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,116,42,0.15)', borderRadius: 40 }]} />
-          <Camera size={56} color={colors.orange} />
-        </View>
-        <Text style={s.introTitle}>Photo Food Log</Text>
-        <Text style={s.introDesc}>
-          Take or choose a photo of your meal. AI will identify foods and estimate portions.
-        </Text>
-
-        <TouchableOpacity style={s.introBtn} onPress={handleTakePhoto} activeOpacity={0.85}>
-          <Camera size={20} color="#FFFFFF" style={{ marginRight: 10 }} />
-          <Text style={s.introBtnText}>Take Photo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.introSecBtn} onPress={handlePickLibrary} activeOpacity={0.8}>
-          <Images size={20} color={colors.isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} style={{ marginRight: 10 }} />
-          <Text style={s.introSecBtnText}>Choose from Library</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  // No intro phase — the camera (above) is the default. This is unreachable.
+  return null;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -464,6 +499,19 @@ const createStyles = (c: AppColors) => {
     backgroundColor: w(0.15),
   },
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#FFFFFF' },
+
+  // Full-screen camera (close, center hint, Import · Shutter · Describe)
+  camTopBar: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' },
+  camCloseBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  camHintWrap: { position: 'absolute', top: '46%', left: 0, right: 0, alignItems: 'center', paddingHorizontal: 32 },
+  camHintTitle: { color: '#FFFFFF', fontSize: 19, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  camHintSub: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '500', textAlign: 'center' },
+  camBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' },
+  camControls: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 40 },
+  camSideBtn: { width: 64, alignItems: 'center', gap: 6 },
+  camSideIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(120,120,128,0.5)', alignItems: 'center', justifyContent: 'center' },
+  camSideLabel: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+  camDescribeGlyph: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
 
   // Preview phase
   previewScroll: { flex: 1 },
