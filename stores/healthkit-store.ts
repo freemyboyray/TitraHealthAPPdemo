@@ -18,8 +18,6 @@ type HealthKitStore = {
   todayNutrition: NutritionData | null;
 
   // Extended (iOS-only today; Android stays null)
-  bodyFat: number | null;         // %
-  leanMass: number | null;        // lbs
   spo2: number | null;            // %
   exerciseMinutes: number | null; // today
   waterToday: number | null;      // fl oz
@@ -63,8 +61,6 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
   latestWeight: null,
   todayNutrition: null,
 
-  bodyFat: null,
-  leanMass: null,
   spo2: null,
   exerciseMinutes: null,
   waterToday: null,
@@ -127,8 +123,6 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
     // Extended reads (iOS only — Android's Health Connect doesn't have
     // equivalents for most of these, so we leave them null on Android)
     let extended = {
-      bodyFat: null as number | null,
-      leanMass: null as number | null,
       spo2: null as number | null,
       exerciseMinutes: null as number | null,
       waterToday: null as number | null,
@@ -141,12 +135,10 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
     };
     if (isIOS) {
       const [
-        bodyFat, leanMass, spo2,
+        spo2,
         exerciseMinutes, waterToday, respiratoryRate, basalEnergy,
         distance, flightsClimbed, workouts, mindfulMinutes,
       ] = await Promise.all([
-        HealthKit.readLatestBodyFat(),
-        HealthKit.readLatestLeanMass(),
         HealthKit.readLatestSpO2(),
         HealthKit.readTodayExerciseMinutes(),
         HealthKit.readTodayWater(),
@@ -158,7 +150,7 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
         HealthKit.readTodayMindfulMinutes(),
       ]);
       extended = {
-        bodyFat, leanMass, spo2,
+        spo2,
         exerciseMinutes, waterToday, respiratoryRate, basalEnergy,
         distance, flightsClimbed, workouts, mindfulMinutes,
       };
@@ -175,7 +167,7 @@ export const useHealthKitStore = create<HealthKitStore>((set, get) => ({
     set({
       steps: null, activeCalories: null, hrv: null, restingHR: null,
       sleepHours: null, latestWeight: null, todayNutrition: null,
-      bodyFat: null, leanMass: null, spo2: null, exerciseMinutes: null,
+      spo2: null, exerciseMinutes: null,
       waterToday: null, respiratoryRate: null, basalEnergy: null,
       distance: null, flightsClimbed: null, workouts: [], mindfulMinutes: null,
       liveCategories: new Set(), permissionsGranted: false, lastRefreshed: null,

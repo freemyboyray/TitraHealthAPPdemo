@@ -365,7 +365,7 @@ export default function AiChatScreen() {
                 )}
                 <Pressable
                   style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant]}
-                  onPress={msg.content.includes('Upgrade to Titra Pro') ? () => router.push('/upgrade' as any) : undefined}
+                  onPress={msg.content.includes('Upgrade to Titra Pro') ? () => router.push('/upgrade?source=ai_chat_upsell' as any) : undefined}
                 >
                   {msg.role === 'user' && msg.contextLabel && (
                     <>
@@ -516,7 +516,7 @@ export default function AiChatScreen() {
                 shadowColor: colors.orange, shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
               }}
-              onPress={() => { setShowUpgradeCard(false); router.push('/upgrade' as any); }}
+              onPress={() => { setShowUpgradeCard(false); router.push('/upgrade?source=ai_chat_limit' as any); }}
               activeOpacity={0.85}
             >
               <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 }}>

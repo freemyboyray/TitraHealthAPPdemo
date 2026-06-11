@@ -24,6 +24,7 @@ import { useHealthKitStore } from '../../stores/healthkit-store';
 import { useHealthData } from '@/contexts/health-data';
 import { HEALTH_SERVICE_NAME } from '@/lib/health-service';
 import { useUiStore } from '@/stores/ui-store';
+import { usePostHog } from '@/lib/posthog';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import {
@@ -38,6 +39,7 @@ import {
 } from '@/lib/food-macros';
 import { NutritionLabelModal } from '@/components/food/nutrition-label-modal';
 import { FoodNotIdentifiedModal } from '@/components/food/food-not-identified-modal';
+import { FoodIdentifiedModal } from '@/components/food/food-identified-modal';
 import { DescribeFoodSheet } from '@/components/describe-food-sheet';
 import {
   AlertCircle,
@@ -292,7 +294,7 @@ function PhotoLimitReached({
 
   const goUpgrade = () => {
     onClose();
-    router.push('/upgrade');
+    router.push('/upgrade?source=food_scan_limit' as any);
   };
   const goBarcode = () => {
     onClose();
@@ -372,6 +374,7 @@ export default function ReviewFoodScreen() {
   const removeTask = useFoodTaskStore((st) => st.removeTask);
 
   const { addToTray, logMeal } = useMealTrayStore();
+  const posthog = usePostHog();
   const hkStore = useHealthKitStore();
   const { refreshActuals } = useHealthData();
   const setInsightsDefaultTab = useUiStore((st) => st.setInsightsDefaultTab);
@@ -384,10 +387,21 @@ export default function ReviewFoodScreen() {
   const [labelOpen, setLabelOpen] = useState(false);
   // Review-only photos: seeded from the task, addable in-screen, never persisted.
   const [photos, setPhotos] = useState<string[]>([]);
+  // "Review complete" success sheet — the symmetric twin of the not-identified
+  // modal. Fired once, only on the AI photo path (the route that can also fail).
+  const [successOpen, setSuccessOpen] = useState(false);
+  const successShownRef = useRef(false);
 
   useEffect(() => {
     if (task?.photoUris) setPhotos(task.photoUris);
   }, [task?.id]);
+
+  useEffect(() => {
+    if (task?.status === 'ready' && task.source === 'camera' && !successShownRef.current) {
+      successShownRef.current = true;
+      setSuccessOpen(true);
+    }
+  }, [task?.status, task?.source]);
 
   // Meal total across all dishes (each already portion-scaled by dishMacros).
   const total = useMemo(() => {
@@ -541,6 +555,11 @@ export default function ReviewFoodScreen() {
 
       refreshActuals();
       removeTask(taskId);
+      // Dish count + whether it was backdated only — no food names (avoid PHI).
+      posthog?.capture('food_logged', {
+        dish_count: dishes.length,
+        backdated: loggedDate.toDateString() !== new Date().toDateString(),
+      });
       setInsightsDefaultTab('lifestyle');
       router.replace('/(tabs)/log' as any);
     } catch {
@@ -745,6 +764,14 @@ export default function ReviewFoodScreen() {
       </View>
 
       <NutritionLabelModal visible={labelOpen} onClose={() => setLabelOpen(false)} macros={total} />
+
+      <FoodIdentifiedModal
+        visible={successOpen}
+        colors={colors}
+        isDark={colors.isDark}
+        onPrimary={() => setSuccessOpen(false)}
+        onDismiss={() => setSuccessOpen(false)}
+      />
     </View>
   );
 }

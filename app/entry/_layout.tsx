@@ -7,6 +7,7 @@ export default function EntryLayout() {
       <Stack.Screen name="side-effects" />
       <Stack.Screen name="log-dose" />
       <Stack.Screen name="log-activity" />
+      <Stack.Screen name="select-activity" />
       <Stack.Screen name="scan-barcode" />
       <Stack.Screen name="capture-food" />
       <Stack.Screen name="ask-ai" />

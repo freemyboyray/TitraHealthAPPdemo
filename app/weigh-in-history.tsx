@@ -1,13 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { AppColors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useLogStore } from '@/stores/log-store';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, Scale } from 'lucide-react-native';
+import { ChevronLeft, Scale, Trash2 } from 'lucide-react-native';
 
 const FF = 'System';
 const PAGE_SIZE = 20;
@@ -63,9 +64,10 @@ type WeightRow = {
 // ─── WeightCard ───────────────────────────────────────────────────────────────
 
 function WeightCard({
-  row, prev, isLatest, colors,
+  row, prev, isLatest, colors, onDelete,
 }: {
   row: WeightRow; prev: WeightRow | undefined; isLatest: boolean; colors: AppColors;
+  onDelete: (row: WeightRow) => void;
 }) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -103,9 +105,20 @@ function WeightCard({
               {dAgo > 0 ? ` · ${dAgo}d ago` : ''}
             </Text>
           </View>
-          <View style={s.weightBadge}>
-            <Scale size={11} color={colors.orange} />
-            <Text style={s.weightBadgeText}>{round1(row.weight_lbs)} lbs</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={s.weightBadge}>
+              <Scale size={11} color={colors.orange} />
+              <Text style={s.weightBadgeText}>{round1(row.weight_lbs)} lbs</Text>
+            </View>
+            <Pressable
+              onPress={() => onDelete(row)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Delete weigh-in of ${round1(row.weight_lbs)} pounds`}
+              style={({ pressed }) => [s.deleteBtn, pressed && { opacity: 0.5 }]}
+            >
+              <Trash2 size={16} color={w(0.4)} />
+            </Pressable>
           </View>
         </View>
 
@@ -143,6 +156,7 @@ export default function WeighInHistoryScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const deleteWeightLog = useLogStore(st => st.deleteWeightLog);
 
   const [rows, setRows] = useState<WeightRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +191,20 @@ export default function WeighInHistoryScreen() {
     // Refresh latest page on focus so newly-logged weigh-ins show up immediately
     fetchPage(0, true);
   }, [fetchPage]));
+
+  const handleDelete = useCallback((row: WeightRow) => {
+    Alert.alert('Delete Weigh-In', `Are you sure you want to delete the ${round1(row.weight_lbs)} lbs weigh-in?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await deleteWeightLog(row.id);
+          setRows(prev => prev.filter(r => r.id !== row.id));
+        },
+      },
+    ]);
+  }, [deleteWeightLog]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -220,6 +248,7 @@ export default function WeighInHistoryScreen() {
                 prev={rows[i + 1]}
                 isLatest={i === 0}
                 colors={colors}
+                onDelete={handleDelete}
               />
             ))}
 
@@ -276,6 +305,7 @@ const createStyles = (c: AppColors) => StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5,
   },
   weightBadgeText: { fontSize: 14, fontWeight: '700', color: c.orange, fontFamily: FF },
+  deleteBtn: { padding: 6 },
   loadMoreBtn: {
     marginTop: 8,
     paddingVertical: 14,

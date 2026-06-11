@@ -57,9 +57,12 @@ const COMPARE: { label: string; sub?: string; free: boolean }[] = [
  */
 export default function UpgradeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ from?: string }>();
+  const params = useLocalSearchParams<{ from?: string; source?: string }>();
   const fromOnboarding = params.from === 'onboarding';
-  const source = fromOnboarding ? 'onboarding' : 'settings';
+  // Where the paywall was opened from, for funnel attribution. Each entry point
+  // passes ?source=... (e.g. 'ai_chat_limit', 'energy_bank', 'gate_cycle…').
+  // Falls back to the legacy onboarding flag, else 'settings'.
+  const source = params.source ?? (fromOnboarding ? 'onboarding' : 'settings');
 
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -86,6 +89,12 @@ export default function UpgradeScreen() {
     activeUntil: null,
     banked: 0,
   });
+
+  // Paywall impression — the top of the purchase funnel. Pairs with
+  // purchase_tapped / purchase_completed to compute view→buy conversion.
+  useEffect(() => {
+    posthog?.capture('paywall_viewed', { source, already_premium: isPremium });
+  }, []);
 
   useEffect(() => {
     if (!storekit) return;
@@ -143,13 +152,16 @@ export default function UpgradeScreen() {
   };
 
   // Leave the screen: onboarding continues into the app, everywhere else returns.
-  const leave = () => {
+  // `purchased` distinguishes a successful exit from an abandonment so the funnel
+  // can measure paywall drop-off by source.
+  const leave = (purchased = false) => {
+    if (!purchased) posthog?.capture('paywall_dismissed', { source });
     if (fromOnboarding) continueFromOnboarding();
     else router.back();
   };
 
   const handlePurchase = async () => {
-    posthog?.capture('purchase_tapped', { plan: selectedPlan, source });
+    posthog?.capture('purchase_tapped', { plan: selectedPlan, source, is_trial: hasTrial });
     if (!storekit) {
       // Expo Go / no native IAP — onboarding still needs to move forward.
       leave();
@@ -173,7 +185,10 @@ export default function UpgradeScreen() {
       // webhook. Do NOT call refreshPremiumStatus() synchronously here — the webhook
       // hasn't run yet, so the DB still says "free" and it would clobber this unlock.
       setPremium(true);
-      posthog?.capture('purchase_completed', { plan: selectedPlan, source });
+      posthog?.capture('purchase_completed', { plan: selectedPlan, source, is_trial: hasTrial });
+      // Dedicated funnel endpoint: a paid conversion that began as a free trial.
+      // Lets you measure trial-start rate by source without filtering properties.
+      if (hasTrial) posthog?.capture('trial_started', { plan: selectedPlan, source });
       // Onboarding continues into the app; elsewhere we stay so the screen
       // flips to the premium-status view.
       if (fromOnboarding) continueFromOnboarding();
@@ -187,12 +202,15 @@ export default function UpgradeScreen() {
   };
 
   const handleRestore = async () => {
+    posthog?.capture('restore_tapped', { source });
     setRestoring(true);
     try {
       const restored = await storekit?.restorePurchases() ?? false;
+      posthog?.capture('restore_completed', { source, restored });
       if (restored) Alert.alert('Restored', 'Your subscription has been restored.');
       else Alert.alert('Not Found', 'No active subscription found for this account.');
     } catch {
+      posthog?.capture('restore_failed', { source });
       Alert.alert('Error', 'Failed to restore. Please try again.');
     } finally {
       setRestoring(false);
@@ -246,7 +264,7 @@ export default function UpgradeScreen() {
       {/* Nav (hidden during onboarding — that flow uses "Maybe later") */}
       {!fromOnboarding && (
         <View style={s.nav}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
+          <TouchableOpacity onPress={() => { if (!isPremium) posthog?.capture('paywall_dismissed', { source }); router.back(); }} hitSlop={12} accessibilityLabel="Back" accessibilityRole="button">
             <ChevronLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={s.navTitle}>{isPremium ? 'Subscription' : 'Titra Pro'}</Text>
@@ -439,7 +457,7 @@ export default function UpgradeScreen() {
             </View>
 
             {fromOnboarding ? (
-              <TouchableOpacity onPress={leave} activeOpacity={0.7} style={s.skipBtn} accessibilityLabel="Maybe later" accessibilityRole="button">
+              <TouchableOpacity onPress={() => leave()} activeOpacity={0.7} style={s.skipBtn} accessibilityLabel="Maybe later" accessibilityRole="button">
                 <Text style={s.skipText}>Maybe later</Text>
               </TouchableOpacity>
             ) : (

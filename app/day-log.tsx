@@ -1,18 +1,23 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { AppColors } from '@/constants/theme';
 import { isOralDrug } from '@/constants/drug-pk';
 import { fetchDailySnapshot, useHealthData, type DailySnapshot } from '@/contexts/health-data';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useLogStore } from '@/stores/log-store';
 import { localDateStr } from '@/lib/date-utils';
-import { ChevronLeft, Frown, Pill, Syringe } from 'lucide-react-native';
+import { ChevronLeft, Frown, Pill, Syringe, Trash2 } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
+
+// Log kinds the day log can delete (water is an aggregate, not a deletable row).
+type DeletableKind = 'food' | 'activity' | 'weight' | 'medication' | 'side_effect';
 
 const FF = 'System';
 const DAYS_PER_PAGE = 10;
@@ -54,7 +59,7 @@ function MealIcon({ mealType, size = 16, color }: { mealType: string; size?: num
 function activityIconName(exerciseType: string | null | undefined): string {
   const t = (exerciseType ?? '').toLowerCase();
   if (t.includes('run') || t.includes('jog'))      return 'Activity';
-  if (t.includes('walk'))                           return 'Footprints';
+  if (t.includes('walk') || t.includes('step'))     return 'Footprints';
   if (t.includes('cycl') || t.includes('bike'))    return 'Bike';
   if (t.includes('swim'))                           return 'Waves';
   if (t.includes('yoga') || t.includes('stretch'))  return 'Brain';
@@ -81,9 +86,26 @@ type DayCardData = {
   waterOz: number;
 };
 
-function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors; oral: boolean }) {
+type DeleteFn = (kind: DeletableKind, id: string, label: string) => void;
+
+function DeleteBtn({ onPress, color }: { onPress: () => void; color: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Delete entry"
+      style={({ pressed }) => [{ padding: 6, marginLeft: 4, alignSelf: 'center' }, pressed && { opacity: 0.5 }]}
+    >
+      <Trash2 size={16} color={color} />
+    </Pressable>
+  );
+}
+
+function DayCard({ data, colors, oral, onDelete }: { data: DayCardData; colors: AppColors; oral: boolean; onDelete: DeleteFn }) {
   const w = (a: number) => colors.isDark ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const s = useMemo(() => createStyles(colors), [colors]);
+  const delColor = w(0.3);
 
   const { foodLogs, activityLogs, weightLog, injectionLog, sideEffectLogs } = data.snapshot;
   const { waterOz, date } = data;
@@ -120,6 +142,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>
                     {injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} · {injectionLog.dose_mg}mg
                   </Text>
+                  <DeleteBtn color={delColor} onPress={() => onDelete('medication', injectionLog.id, `${injectionLog.medication_name ?? (oral ? 'Dose' : 'Injection')} ${injectionLog.dose_mg}mg`)} />
                 </View>
               </View>
             )}
@@ -138,6 +161,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                           {f.calories} cal · P {f.protein_g}g · C {f.carbs_g}g · F {f.fat_g}g
                         </Text>
                       </View>
+                      <DeleteBtn color={delColor} onPress={() => onDelete('food', f.id, f.food_name)} />
                     </View>
                   </View>
                 ))}
@@ -161,6 +185,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                         ].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
+                    <DeleteBtn color={delColor} onPress={() => onDelete('activity', a.id, a.exercise_type || 'Activity')} />
                   </View>
                 ))}
               </View>
@@ -173,6 +198,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 8 }}>
                   <IconSymbol name="scalemass.fill" size={16} color={w(0.45)} />
                   <Text style={{ fontSize: 16, color: w(0.82), flex: 1, fontFamily: FF }}>{weightLog.weight_lbs} lbs</Text>
+                  <DeleteBtn color={delColor} onPress={() => onDelete('weight', weightLog.id, `${weightLog.weight_lbs} lbs`)} />
                 </View>
               </View>
             )}
@@ -199,6 +225,7 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
                       <Text style={{ fontSize: 16, color: w(0.82), fontFamily: FF }}>{se.effect_type.replace(/_/g, ' ')}</Text>
                       <Text style={{ fontSize: 13, color: w(0.38), marginTop: 2, fontFamily: FF }}>Severity: {se.severity}/10</Text>
                     </View>
+                    <DeleteBtn color={delColor} onPress={() => onDelete('side_effect', se.id, se.effect_type.replace(/_/g, ' '))} />
                   </View>
                 ))}
               </View>
@@ -215,7 +242,8 @@ function DayCard({ data, colors, oral }: { data: DayCardData; colors: AppColors;
 export default function DayLogScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
-  const { profile } = useHealthData();
+  const { profile, refreshActuals } = useHealthData();
+  const store = useLogStore();
   const oral = isOralDrug(profile?.glp1Type);
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -275,6 +303,28 @@ export default function DayLogScreen() {
     if (daysLoaded > 0) reloadAll();
   }, [reloadAll, daysLoaded]));
 
+  const handleDelete = useCallback<DeleteFn>((kind, id, label) => {
+    Alert.alert('Delete Entry', `Are you sure you want to delete "${label}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          switch (kind) {
+            case 'food': await store.deleteFoodLog(id); break;
+            case 'activity': await store.deleteActivityLog(id); break;
+            case 'weight': await store.deleteWeightLog(id); break;
+            case 'medication': await store.deleteInjectionLog(id); break;
+            case 'side_effect': await store.deleteSideEffectLog(id); break;
+          }
+          // Deleting food changes protein/water/etc.; keep today's actuals in sync.
+          if (kind === 'food') await refreshActuals();
+          await reloadAll();
+        },
+      },
+    ]);
+  }, [store, refreshActuals, reloadAll]);
+
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
     setLoadingMore(true);
@@ -309,7 +359,7 @@ export default function DayLogScreen() {
         ) : (
           <>
             {days.map(d => (
-              <DayCard key={d.dateStr} data={d} colors={colors} oral={oral} />
+              <DayCard key={d.dateStr} data={d} colors={colors} oral={oral} onDelete={handleDelete} />
             ))}
 
             <Pressable

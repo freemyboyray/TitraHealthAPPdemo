@@ -438,7 +438,7 @@ const LIFESTYLE_METRICS: MetricConfig[] = [
   { id: 'sat_fat',     label: 'Sat Fat',    unit: 'g',     color: '#F59E0B', getTarget: _t => DEFAULT_SAT_FAT_G,      getValue: (f, _, d) => f[d]?.saturated_fat_g ?? null,  inverseGoal: true },
   { id: 'cholesterol', label: 'Cholesterol',unit: 'mg',    color: '#A78BFA', getTarget: _t => DEFAULT_CHOLESTEROL_MG, getValue: (f, _, d) => f[d]?.cholesterol_mg ?? null,   inverseGoal: true },
   { id: 'steps',       label: 'Steps',      unit: 'steps', color: '#FF742A', getTarget: t => t.steps,                getValue: (_, a, d) => a[d]?.steps ?? null },
-  { id: 'active_cal',  label: 'Active Cal', unit: 'cal',   color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
+  { id: 'active_cal',  label: 'Calories Burned', unit: 'cal',   color: '#5B8BF5', getTarget: t => t.activeCaloriesTarget, getValue: (_, a, d) => a[d]?.calories ?? null },
 ];
 
 const LT_TML = 44, LT_TMR = 12, LT_TMT = 10, LT_TMB = 24;
@@ -3013,7 +3013,7 @@ export default function InsightsScreen() {
   const onScroll = useCallback((e: any) => { scrollY.setValue(e.nativeEvent.contentOffset.y); tabBarOnScroll(e); }, [tabBarOnScroll]);
   const health = useHealthData();
   const { targets } = health;
-  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, fetchInsightsData, syncWeightFromHealthKit } = useLogStore();
+  const { weightLogs, injectionLogs, foodLogs, activityLogs, sideEffectLogs, profile, deleteInjectionLog, fetchInsightsData, syncWeightFromHealthKit, syncStepsFromHealthKit } = useLogStore();
   const hkStore = useHealthKitStore();
   // Shared lifestyle data. The same hook powers the three /insights detail
   // screens so the row preview and detail cards never diverge.
@@ -3166,7 +3166,10 @@ export default function InsightsScreen() {
   useFocusEffect(useCallback(() => {
     fetchInsightsData();
     if (!appleHealthEnabled) return;
-    hkStore.fetchAll().then(() => syncWeightFromHealthKit()).catch(() => {});
+    hkStore.fetchAll().then(() => {
+      syncWeightFromHealthKit();
+      syncStepsFromHealthKit();
+    }).catch(() => {});
     biometricStore.recordDayEntry({
       dateStr: todayStr,
       hrvMs: hkStore.hrv,
@@ -3350,10 +3353,10 @@ export default function InsightsScreen() {
                 iconName="HeartPulse"
                 color="#F5972A"
                 title="Wellness"
-                value={todaySteps > 0 ? todaySteps.toLocaleString() : '0'}
-                unit="steps today"
+                value={todayActiveCalories > 0 ? todayActiveCalories.toLocaleString() : '0'}
+                unit="cal burned today"
                 description="Activity, heart rate, sleep & vitals."
-                sparkline={{ values: summarySeries.steps, color: '#F5972A' }}
+                sparkline={{ values: summarySeries.active_cal, color: '#F5972A' }}
                 onPress={() => router.push('/insights/wellness' as any)}
                 onLongPress={() => openAiChat({ chips: JSON.stringify(['Am I active enough today?', 'What do my biometrics show?', 'How was my sleep last night?']) })}
               />

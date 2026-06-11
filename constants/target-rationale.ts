@@ -87,6 +87,7 @@ export function resolveTargetRationale(label: string): TargetRationale | undefin
   const alias: Record<string, string> = {
     'Active Calories': 'Active Cal',
     'Active Cal': 'Active Cal',
+    'Calories Burned': 'Active Cal',
   };
   return TARGET_RATIONALE[alias[normalized] ?? normalized];
 }

@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
+import { usePostHog } from '@/lib/posthog';
 import { useAppTheme } from '../../contexts/theme-context';
 import { useSubscriptionStore, type FeatureKey } from '../../stores/subscription-store';
 import { ORANGE } from '../../constants/theme';
@@ -47,8 +48,20 @@ export function PremiumGate({
   onUpgrade,
 }: Props) {
   const { colors, isDark } = useAppTheme();
+  const posthog = usePostHog();
   const access = useSubscriptionStore((s) => s.checkFeatureAccess(feature));
-  const handleUpgrade = onUpgrade ?? (() => router.push('/upgrade' as any));
+  const handleUpgrade = onUpgrade ?? (() => router.push(`/upgrade?source=gate_${feature}` as any));
+
+  // A free user is actually walled off only when the lock UI shows — i.e. not
+  // 'allowed', and not a usage-variant 'limited' (which still renders children).
+  const gated = access !== 'allowed' && !(access === 'limited' && variant === 'usage');
+
+  // Fire the "hit a paywall" event once when this gate locks. This is the
+  // denominator for "trial rate after hitting limits": premium_gate_hit →
+  // paywall_viewed{source: gate_*} → trial_started{source: gate_*}.
+  useEffect(() => {
+    if (gated) posthog?.capture('premium_gate_hit', { feature, variant });
+  }, [gated, feature, variant]);
 
   // Premium users or allowed features — render children directly
   if (access === 'allowed') return <>{children}</>;

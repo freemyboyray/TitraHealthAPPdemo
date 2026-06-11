@@ -84,7 +84,15 @@ export function useLifestyleMetrics() {
   const todayIronMg = Math.round(todayFoodLogs.reduce((s, f) => s + (f.iron_mg ?? 0), 0)) + qa.ironMg;
 
   const loggedActiveCalories = Math.round(todayActivityLogs.reduce((s, a) => s + (a.active_calories ?? 0), 0));
-  const loggedSteps = todayActivityLogs.reduce((s, a) => s + (a.steps ?? 0), 0);
+  // Apple Health's daily total already counts steps taken during manual workouts,
+  // so the HK snapshot row and manual step entries must NOT be summed. Split them
+  // and prefer the HK total (see todaySteps below).
+  const hkRowSteps = todayActivityLogs
+    .filter(a => a.source === 'apple_health')
+    .reduce((s, a) => s + (a.steps ?? 0), 0);
+  const manualSteps = todayActivityLogs
+    .filter(a => a.source !== 'apple_health')
+    .reduce((s, a) => s + (a.steps ?? 0), 0);
 
   const todayProteinG = (loggedProteinG > 0 ? loggedProteinG : Math.round(hkStore.todayNutrition?.protein ?? 0)) + qa.proteinG;
   const todayFiberG = (loggedFiberG > 0 ? loggedFiberG : Math.round(hkStore.todayNutrition?.fiber ?? 0)) + qa.fiberG;
@@ -92,7 +100,12 @@ export function useLifestyleMetrics() {
   const todayFatG = (loggedFatG > 0 ? loggedFatG : Math.round(hkStore.todayNutrition?.fat ?? 0)) + qa.fatG;
   const todayCalories = (loggedCalories > 0 ? loggedCalories : Math.round(hkStore.todayNutrition?.calories ?? 0)) + qa.calories;
   const todayActiveCalories = (loggedActiveCalories > 0 ? loggedActiveCalories : Math.round(hkStore.activeCalories ?? 0)) + qa.activeCal;
-  const todaySteps = (loggedSteps > 0 ? loggedSteps : (hkStore.steps ?? 0)) + qa.steps;
+  // Prefer the persisted HK snapshot (kept fresh against the live store reading),
+  // else manual step entries, else the live HK value before a snapshot exists.
+  const baseSteps = hkRowSteps > 0
+    ? Math.max(hkRowSteps, hkStore.steps ?? 0)
+    : (manualSteps > 0 ? manualSteps : (hkStore.steps ?? 0));
+  const todaySteps = baseSteps + qa.steps;
 
   const hkWaterMl = hkStore.waterToday != null ? Math.round(hkStore.waterToday * 29.5735) : 0;
   const resolvedWaterMl = actuals.waterMl > 0 ? actuals.waterMl : hkWaterMl;

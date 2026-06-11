@@ -6,11 +6,14 @@ import { localDateStr } from '../lib/date-utils';
 import { HEALTH_SERVICE_NAME } from '../lib/health-service';
 import { BRAND_DISPLAY_NAMES } from '../constants/user-profile';
 import { useSubscriptionStore } from './subscription-store';
+import { usePreferencesStore } from './preferences-store';
 
 // Guards against concurrent HealthKit weight syncs. The sync runs on both a 60s
 // poll and on screen focus; without this flag two overlapping calls read the
 // same stale in-memory "latest log" and insert the same sample twice.
 let weightSyncInFlight = false;
+// Same re-entrancy guard for the daily Apple Health steps snapshot.
+let stepsSyncInFlight = false;
 
 
 // ─── Convenience type aliases ─────────────────────────────────────────────────
@@ -207,6 +210,8 @@ type LogStore = {
 
   // Apple Health weight sync — imports latest weight sample if newer than last log
   syncWeightFromHealthKit: () => Promise<void>;
+  // Apple Health steps sync — upserts one "Daily Steps" activity row per day
+  syncStepsFromHealthKit: () => Promise<void>;
 };
 
 // ─── Streak helper (computed from already-fetched logs) ──────────────────────
@@ -508,6 +513,64 @@ export const useLogStore = create<LogStore>((set, get) => ({
       // HealthKit unavailable (Expo Go, Android) — silently skip
     } finally {
       weightSyncInFlight = false;
+    }
+  },
+
+  syncStepsFromHealthKit: async () => {
+    if (Platform.OS !== 'ios') return;
+    // Respect the user's Apple Health toggle — don't persist rows they didn't opt into.
+    if (!usePreferencesStore.getState().appleHealthEnabled) return;
+    if (stepsSyncInFlight) return;
+    stepsSyncInFlight = true;
+    try {
+      const HK = require('../lib/healthkit') as typeof import('../lib/healthkit');
+      const steps = await HK.readTodaySteps();
+      // No steps yet today → nothing to snapshot (don't create empty rows).
+      if (steps == null || steps <= 0) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = localDateStr();
+      // One Apple Health steps row per day, keyed by (user, date, source). We
+      // upsert it: the running daily total grows through the day, so update in
+      // place rather than inserting duplicates. Only ever touches *today* —
+      // past days stay frozen at their last-synced value (and stay deleted if
+      // the user removed them).
+      const { data: existing } = await supabase
+        .from('activity_logs')
+        .select('id, steps')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .eq('source', 'apple_health')
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        if ((existing.steps ?? 0) === steps) return; // unchanged since last sync
+        const { error } = await supabase
+          .from('activity_logs')
+          .update({ steps })
+          .eq('id', existing.id)
+          .eq('user_id', user.id);
+        if (!error) await get().fetchInsightsData();
+      } else {
+        const { error } = await supabase.from('activity_logs').insert({
+          user_id: user.id,
+          date: today,
+          exercise_type: 'Daily Steps',
+          duration_min: 0,
+          intensity: null,
+          source: 'apple_health',
+          steps,
+          active_calories: 0,
+        });
+        if (!error) await get().fetchInsightsData();
+      }
+    } catch {
+      // HealthKit unavailable (Expo Go, Android) — silently skip
+    } finally {
+      stepsSyncInFlight = false;
     }
   },
 

@@ -18,6 +18,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { callOpenAI, UsageLimitError } from '../../lib/openai';
 import { UsageBadge } from '../../components/ui/usage-badge';
+import { UpgradePrompt } from '../../components/ui/upgrade-prompt';
+import { useSubscriptionStore } from '../../stores/subscription-store';
 import { buildContextSnapshot } from '../../lib/context-snapshot';
 import { supabase } from '../../lib/supabase';
 import { computeScore } from '../../stores/insights-store';
@@ -167,6 +169,8 @@ export default function AskAIScreen() {
   const [typing, setTyping] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const trialEligible = useSubscriptionStore((st) => st.trialEligible);
 
   // Load user + history
   useEffect(() => {
@@ -249,10 +253,13 @@ export default function AskAIScreen() {
           : isUsageLimit
             ? (err.isPremium
                 ? `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.`
-                : `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`)
+                : `That's your ${err.limit} free messages for today.`)
             : "I'm having trouble connecting right now. Please try again in a moment.",
         created_at: new Date().toISOString(),
       }]);
+      // Free user out of messages → surface the upgrade modal. Premium users who
+      // hit the (much higher) daily cap just get the inline "try tomorrow" note.
+      if (isUsageLimit && !(err as UsageLimitError).isPremium) setUpgradeVisible(true);
     } finally {
       setTyping(false);
     }
@@ -294,10 +301,11 @@ export default function AskAIScreen() {
             : isUsageLimit
               ? (err.isPremium
                   ? `You've hit today's daily limit (${err.limit} messages). Please try again tomorrow.`
-                  : `You've reached your ${err.limit} free messages for today. Upgrade to Titra Pro for unlimited AI coaching.`)
+                  : `That's your ${err.limit} free messages for today.`)
               : "I'm having trouble connecting. Please try again.",
           created_at: new Date().toISOString(),
         }]);
+        if (isUsageLimit && !(err as UsageLimitError).isPremium) setUpgradeVisible(true);
       })
       .finally(() => setTyping(false));
   }
@@ -458,6 +466,20 @@ export default function AskAIScreen() {
           </View>
         </TouchableOpacity>
       )}
+
+      <UpgradePrompt
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
+        onUpgrade={() => { setUpgradeVisible(false); router.push('/upgrade?source=ai_limit' as any); }}
+        title="You've hit today's free limit"
+        description={
+          trialEligible
+            ? "That's your 5 free AI messages for today — but don't worry, you can keep the conversation going. Start your free trial for unlimited AI coaching."
+            : "That's your 5 free AI messages for today. Upgrade to Titra Pro for unlimited AI coaching."
+        }
+        feature="ai_chat"
+        trialEligible={trialEligible}
+      />
     </KeyboardAvoidingView>
   );
 }

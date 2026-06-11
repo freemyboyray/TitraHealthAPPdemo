@@ -15,7 +15,7 @@ import {
   TrendingDown, Mic, MessageCircle, User, BarChart3,
   Flame, CircleDashed, Percent, Sparkles, Info,
   Hand, HelpCircle, Paintbrush, Calendar, Check, RefreshCw, Gift,
-  Moon, Contrast,
+  Moon, Contrast, Star,
 } from 'lucide-react-native';
 
 // ─── Fallback mapping: SF Symbol name → Lucide component ───────────────────
@@ -60,6 +60,8 @@ const MAPPING: Record<string, LucideIcon> = {
   'trash':            Trash2,
   'gift.fill':        Gift,
   'gift':             Gift,
+  'star.fill':        Star,
+  'star':             Star,
   'rectangle.portrait.and.arrow.right': LogOut,
   'pencil':           Pencil,
   'paintbrush.fill':  Paintbrush,

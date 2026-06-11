@@ -25,6 +25,12 @@ type Props = {
   description?: string;
   /** Which feature triggered this */
   feature?: string;
+  /**
+   * Whether to frame the CTA as a free trial. When false (user already used
+   * their one Apple/Google trial), we promise an upgrade instead of a trial we
+   * can't actually deliver. Defaults to true.
+   */
+  trialEligible?: boolean;
 };
 
 const BENEFITS = [
@@ -41,6 +47,7 @@ export function UpgradePrompt({
   title = 'Unlock Titra Pro',
   description = 'Get unlimited AI coaching and advanced health intelligence for just $4.99/month.',
   feature,
+  trialEligible = true,
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -104,11 +111,13 @@ export function UpgradePrompt({
           onPress={onUpgrade}
           activeOpacity={0.8}
         >
-          <Text style={styles.ctaText}>Start 7-Day Free Trial</Text>
+          <Text style={styles.ctaText}>
+            {trialEligible ? 'Start your free trial' : 'Upgrade to Titra Pro'}
+          </Text>
         </TouchableOpacity>
 
         <Text style={[styles.priceNote, { color: colors.textMuted }]}>
-          Then $4.99/month. Cancel anytime.
+          {trialEligible ? 'Then $4.99/month. Cancel anytime.' : '$4.99/month. Cancel anytime.'}
         </Text>
       </Animated.View>
     </Modal>

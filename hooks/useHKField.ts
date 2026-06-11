@@ -16,8 +16,6 @@ const FIELD_MAP: Partial<Record<HKCategoryKey, keyof ReturnType<typeof useHealth
   hrv: 'hrv',
   restingHR: 'restingHR',
   sleep: 'sleepHours',
-  bodyFat: 'bodyFat',
-  leanMass: 'leanMass',
   spo2: 'spo2',
   exerciseMinutes: 'exerciseMinutes',
   water: 'waterToday',

@@ -42,6 +42,13 @@ type SubscriptionStore = {
   status: SubscriptionStatus;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  /**
+   * Whether this user can still be offered a free trial. Apple/Google grant the
+   * intro offer once per account, so we never promise a "free trial" to someone
+   * who already consumed one. A subscriptions row only exists after a purchase or
+   * trial has been recorded — so "no row" == genuinely new == trial-eligible.
+   */
+  trialEligible: boolean;
   loaded: boolean;
 
   // Actions
@@ -58,6 +65,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   status: 'none',
   trialEndsAt: null,
   currentPeriodEnd: null,
+  trialEligible: true,
   loaded: false,
 
   loadSubscription: async () => {
@@ -103,11 +111,16 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       (c) => c.expires_at != null && new Date(c.expires_at) > new Date(),
     );
 
+    const isPremium = subscriptionActive || trialActive || creditActive;
+
     set({
-      isPremium: subscriptionActive || trialActive || creditActive,
+      isPremium,
       trialEndsAt,
       status,
       currentPeriodEnd: sub?.current_period_end ?? null,
+      // No subscriptions row = never purchased or trialed = still trial-eligible.
+      // A non-null trial_end means a trial was already recorded, so rule it out too.
+      trialEligible: !isPremium && sub == null && trialEndsAt == null,
       loaded: true,
     });
   },
@@ -169,11 +182,14 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       (c) => c.expires_at != null && new Date(c.expires_at) > new Date(),
     );
 
+    const isPremium = subscriptionActive || trialActive || creditActive;
+
     set({
-      isPremium: subscriptionActive || trialActive || creditActive,
+      isPremium,
       trialEndsAt,
       status,
       currentPeriodEnd: sub?.current_period_end ?? null,
+      trialEligible: !isPremium && sub == null && trialEndsAt == null,
     });
   },
 

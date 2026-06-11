@@ -7,6 +7,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useFoodTaskStore } from '../../stores/food-task-store';
 import { resizeImageForVision } from '@/lib/image';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -65,6 +67,11 @@ export default function CaptureFoodScreen() {
   // Multi-capture session: photos staged before they're sent to vision together.
   const [captured, setCaptured] = useState<{ uri: string; base64: string; description: string }[]>([]);
   const cameraRef = useRef<CameraView>(null);
+  const previewScrollRef = useRef<ScrollView>(null);
+  // Preview photo shrinks while the description input is focused so the meal stays
+  // visible (as a thumbnail) above the keyboard instead of scrolling fully away.
+  const photoHeight = useSharedValue(220);
+  const previewImageStyle = useAnimatedStyle(() => ({ height: photoHeight.value }));
 
   function resetCurrentPhoto() {
     setPhotoBase64(null);
@@ -213,9 +220,15 @@ export default function CaptureFoodScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={s.previewContent}>
+        <ScrollView
+          ref={previewScrollRef}
+          style={s.previewScroll}
+          contentContainerStyle={s.previewContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Photo preview */}
-          <Image source={{ uri: photoUri }} style={s.previewImage} resizeMode="cover" />
+          <Animated.Image source={{ uri: photoUri }} style={[s.previewImage, previewImageStyle]} resizeMode="cover" />
 
           {/* What are you eating? */}
           <Text style={s.previewHeading}>What are you eating?</Text>
@@ -231,8 +244,17 @@ export default function CaptureFoodScreen() {
             textAlignVertical="top"
             returnKeyType="done"
             blurOnSubmit
+            // Collapse the photo to a thumbnail and ride the page up so the input
+            // clears the keyboard and never collides with the docked button below.
+            onFocus={() => {
+              photoHeight.value = withTiming(90, { duration: 220 });
+              setTimeout(() => previewScrollRef.current?.scrollToEnd({ animated: true }), 80);
+            }}
+            onBlur={() => {
+              photoHeight.value = withTiming(220, { duration: 220 });
+            }}
           />
-        </View>
+        </ScrollView>
 
         {/* Continue / Add another */}
         <View style={[s.previewBottom, { paddingBottom: insets.bottom + 20 }]}>
@@ -444,8 +466,9 @@ const createStyles = (c: AppColors) => {
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#FFFFFF' },
 
   // Preview phase
-  previewContent: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
-  previewImage: { width: '100%', height: 220, borderRadius: 20, marginBottom: 20, backgroundColor: w(0.06) },
+  previewScroll: { flex: 1 },
+  previewContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
+  previewImage: { width: '100%', borderRadius: 20, marginBottom: 20, backgroundColor: w(0.06) },
   previewHeading: { fontSize: 24, fontWeight: '800', color: c.textPrimary, letterSpacing: -0.3, marginBottom: 12, fontFamily: 'System' },
   descriptionInput: {
     fontSize: 16, color: c.textPrimary, fontFamily: 'System', lineHeight: 22,

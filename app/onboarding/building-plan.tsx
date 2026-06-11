@@ -91,7 +91,7 @@ export default function BuildingPlanScreen() {
       }
 
       await new Promise((r) => setTimeout(r, 400));
-      if (!cancelled) router.replace('/onboarding/commitment');
+      if (!cancelled) router.replace('/onboarding/your-targets');
     }
 
     run();

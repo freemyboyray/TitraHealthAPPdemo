@@ -18,6 +18,7 @@ import { useSubscriptionStore } from '@/stores/subscription-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput } from 'react-native';
 import { TabScreenWrapper } from '@/components/ui/tab-screen-wrapper';
+import { ReviewPrompt } from '@/components/review-prompt';
 import { supabase } from '@/lib/supabase';
 
 const BRAND_LABEL: Record<string, string> = {
@@ -57,7 +58,8 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const { profile, reloadProfile } = useProfile();
   const { masterEnabled } = useRemindersStore();
-  const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle, aiDataConsent, setAiDataConsent, foodDbConsent, setFoodDbConsent } = usePreferencesStore();
+  const { themeMode, setThemeMode, appleHealthEnabled, headerStyle, setHeaderStyle, aiDataConsent, setAiDataConsent, foodDbConsent, setFoodDbConsent, markReviewed } = usePreferencesStore();
+  const [showReview, setShowReview] = useState(false);
   const { lastRefreshed, liveCategories } = useHealthKitStore();
   const { colors } = useAppTheme();
   const isPremium = useSubscriptionStore((s) => s.isPremium);
@@ -232,7 +234,7 @@ export default function SettingsScreen() {
 
             <View style={s.divider} />
 
-            <Pressable style={s.cardRow} onPress={() => router.push('/upgrade' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
+            <Pressable style={s.cardRow} onPress={() => router.push('/upgrade?source=settings' as any)} accessibilityLabel="Subscription" accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={s.iconBadge}>
                   <IconSymbol name="bolt" size={18} color={colors.textPrimary} />
@@ -316,6 +318,18 @@ export default function SettingsScreen() {
 
             <View style={s.divider} />
 
+            <Pressable style={s.cardRow} onPress={() => setShowReview(true)} accessibilityLabel="Rate Titra" accessibilityRole="button">
+              <View style={s.rowLeft}>
+                <View style={s.iconBadge}>
+                  <IconSymbol name="star" size={18} color={colors.textPrimary} />
+                </View>
+                <Text style={s.rowLabel}>Rate Titra</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color={colors.textMuted} />
+            </Pressable>
+
+            <View style={s.divider} />
+
             <Pressable style={s.cardRow} onPress={() => router.push('/settings/legal' as any)} accessibilityLabel="Legal" accessibilityRole="button">
               <View style={s.rowLeft}>
                 <View style={s.iconBadge}>
@@ -356,6 +370,12 @@ export default function SettingsScreen() {
         </ScrollView>
       </SafeAreaView>
       <ScrollTitle title="Settings" scrollY={scrollY} />
+      {showReview && (
+        <ReviewPrompt
+          onReview={() => { markReviewed(); setShowReview(false); }}
+          onDismiss={() => setShowReview(false)}
+        />
+      )}
     </View>
     </TabScreenWrapper>
   );

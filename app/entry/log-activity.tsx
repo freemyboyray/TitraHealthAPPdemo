@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -27,56 +28,38 @@ import Animated, {
 
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
+import { usePostHog } from '@/lib/posthog';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { cardElevation } from '@/constants/theme';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseVoiceLog, type VoiceActivityResult } from '@/lib/openai';
-import { ChevronLeft, Clock, Dumbbell, Flame, Footprints } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, Footprints } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
+import { useActivityPicker } from '@/stores/activity-picker-store';
+import {
+  buildActivityItems,
+  CUSTOM_ACTIVITIES_KEY,
+  type CustomActivity,
+} from '@/constants/activities';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const USE_THREE_COLUMNS = SCREEN_WIDTH >= 375;
 
 function clamp(v: number, mn: number, mx: number) { return Math.min(Math.max(v, mn), mx); }
 
-const WORKOUT_TYPE_DATA = [
-  { key: 'Walking',  label: 'Walking',  icon: 'Footprints' },
-  { key: 'Running',  label: 'Running',  icon: 'Dumbbell' },
-  { key: 'Cycling',  label: 'Cycling',  icon: 'Bike' },
-  { key: 'Strength', label: 'Strength', icon: 'Dumbbell' },
-  { key: 'HIIT',     label: 'HIIT',     icon: 'Zap' },
-  { key: 'Yoga',     label: 'Yoga',     icon: 'PersonStanding' },
-  { key: 'Pilates',  label: 'Pilates',  icon: 'Dumbbell' },
-  { key: 'Swimming', label: 'Swimming', icon: 'Droplet' },
-  { key: 'Other',    label: 'Other',    icon: 'MoreHorizontal' },
-] as const;
-
-const STEPS_PER_MIN: Record<string, number> = {
-  Walking:  100,
-  Running:  160,
-  Cycling:    0,
-  Strength:  30,
-  HIIT:      30,
-  Yoga:      30,
-  Pilates:   30,
-  Swimming:  30,
-  Other:     30,
-};
-
-const MET_VALUES: Record<string, number> = {
-  Walking:  3.8,
-  Running:  9.8,
-  Cycling:  7.5,
-  Strength: 4.5,
-  HIIT:    10.0,
-  Yoga:     2.8,
-  Pilates:  3.0,
-  Swimming: 7.0,
-  Other:    4.0,
-};
+// Intensity is a 1–10 slider; these derive its label + the stored bucket and
+// scale the calorie estimate (mirrors the old 0.75–1.35 envelope).
+function intensityLabel(v: number): string {
+  return v <= 3 ? 'Recovery' : v <= 7 ? 'Moderate' : 'Max effort';
+}
+function intensityDb(v: number): 'low' | 'moderate' | 'high' {
+  return v <= 3 ? 'low' : v <= 7 ? 'moderate' : 'high';
+}
+function intensityMult(v: number): number {
+  return 0.75 + (v - 1) * (0.60 / 9);
+}
 
 // ─── LinearSlider ─────────────────────────────────────────────────────────────
 
@@ -91,8 +74,9 @@ interface LinearSliderProps {
 }
 
 function LinearSlider({ value, min, max, unit, labels, onChange, colors }: LinearSliderProps) {
+  const trackRef = useRef<View>(null);
   const trackWidthRef = useRef(0);
-  const panStartValueRef = useRef(value);
+  const trackXRef = useRef(0);
   const valueRef = useRef(value);
   valueRef.current = value;
   const onChangeRef = useRef(onChange);
@@ -108,34 +92,39 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
     : value <= min + (max - min) * 0.7  ? labels[1]
     : labels[2] ?? labels[labels.length - 1];
 
+  // Measure the track's absolute on-screen position so we can map a touch's
+  // pageX → value. locationX can't be used here because the track has child
+  // views (fill bar + thumb); a tap landing on a child reports locationX
+  // relative to that child, which would snap the value to the wrong spot.
+  const measureTrack = () => {
+    trackRef.current?.measureInWindow((x, _y, w) => {
+      trackXRef.current = x;
+      trackWidthRef.current = w;
+    });
+  };
+
+  const applyPageX = (pageX: number) => {
+    const tw = trackWidthRef.current;
+    if (tw <= 0) return;
+    const pct = clamp((pageX - trackXRef.current) / tw, 0, 1);
+    const next = Math.round(min + pct * (max - min));
+    onChangeRef.current(next);
+    if (next !== lastHapticRef.current) {
+      lastHapticRef.current = next;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > Math.abs(gs.dy),
       onPanResponderGrant: (evt) => {
-        const tw = trackWidthRef.current;
-        if (tw > 0) {
-          const tapPct = evt.nativeEvent.locationX / tw;
-          const next = Math.round(clamp(min + tapPct * (max - min), min, max));
-          onChangeRef.current(next);
-          if (next !== lastHapticRef.current) {
-            lastHapticRef.current = next;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-          panStartValueRef.current = next;
-        } else {
-          panStartValueRef.current = valueRef.current;
-        }
+        measureTrack();
+        applyPageX(evt.nativeEvent.pageX);
       },
-      onPanResponderMove: (_, gs) => {
-        if (!trackWidthRef.current) return;
-        const delta = (gs.dx / trackWidthRef.current) * (max - min);
-        const next = Math.round(clamp(panStartValueRef.current + delta, min, max));
-        onChangeRef.current(next);
-        if (next !== lastHapticRef.current) {
-          lastHapticRef.current = next;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+      onPanResponderMove: (evt) => {
+        applyPageX(evt.nativeEvent.pageX);
       },
     })
   ).current;
@@ -208,11 +197,9 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
           </Text>
         )}
         <Text style={{
-          fontSize: 13,
-          fontWeight: '700',
+          fontSize: 14,
+          fontWeight: '600',
           color: colors.textMuted,
-          letterSpacing: 1.2,
-          textTransform: 'uppercase',
           marginBottom: 10,
           marginLeft: 4,
         }}>
@@ -221,8 +208,9 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
       </TouchableOpacity>
 
       <View
+        ref={trackRef}
         style={{ height: 36, justifyContent: 'center' }}
-        onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width; }}
+        onLayout={e => { trackWidthRef.current = e.nativeEvent.layout.width; measureTrack(); }}
         {...pan.panHandlers}
       >
         <View style={{
@@ -260,10 +248,8 @@ function LinearSlider({ value, min, max, unit, labels, onChange, colors }: Linea
         {labels.map((l, i) => (
           <Text key={i} style={{
             fontSize: 12,
-            fontWeight: '700',
+            fontWeight: '600',
             color: colors.textMuted,
-            letterSpacing: 0.5,
-            textTransform: 'uppercase',
           }}>
             {l}
           </Text>
@@ -291,17 +277,41 @@ export default function LogActivityScreen() {
   const insets = useSafeAreaInsets();
   const { dispatch, profile } = useHealthData();
   const { addActivityLog } = useLogStore();
+  const posthog = usePostHog();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [workoutType, setWorkoutType]       = useState('Walking');
-  const [durationMin, setDurationMin]       = useState(30);
+  const pendingKey = useActivityPicker((st) => st.pendingKey);
+  const setPendingKey = useActivityPicker((st) => st.setPendingKey);
+
+  const [selectedKey, setSelectedKey]       = useState<string | null>(null);
   const [intensity, setIntensity]           = useState(5);
+  const [durationMin, setDurationMin]       = useState(30);
   const [stepsInput, setStepsInput]         = useState('');
   const [stepsEdited, setStepsEdited]       = useState(false);
   const [editingSteps, setEditingSteps]     = useState(false);
   const [notes, setNotes]                   = useState('');
   const [isSubmitting, setIsSubmitting]     = useState(false);
+  const [customActivities, setCustomActivities] = useState<CustomActivity[]>([]);
+
+  // Reload custom exercises + adopt any pending pick from the picker page.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(CUSTOM_ACTIVITIES_KEY).then((raw) => {
+        if (!active || !raw) return;
+        try { setCustomActivities(JSON.parse(raw)); } catch { /* ignore corrupt cache */ }
+      });
+      if (pendingKey != null) {
+        setSelectedKey(pendingKey);
+        setPendingKey(null);
+      }
+      return () => { active = false; };
+    }, [pendingKey, setPendingKey]),
+  );
+
+  const allItems = buildActivityItems(customActivities);
+  const selected = selectedKey ? allItems.find((i) => i.key === selectedKey) ?? null : null;
 
   // ── Entrance animations ──────────────────────────────────────────────────
   const headerOpacity = useSharedValue(0);
@@ -334,38 +344,27 @@ export default function LogActivityScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const headerAnim = useAnimatedStyle(() => ({
-    opacity: headerOpacity.value,
-    transform: [{ translateY: headerY.value }],
-  }));
-  const typeAnim = useAnimatedStyle(() => ({
-    opacity: typeOpacity.value,
-    transform: [{ translateY: typeY.value }],
-  }));
-  const summaryAnim = useAnimatedStyle(() => ({
-    opacity: summaryOpacity.value,
-    transform: [{ translateY: summaryY.value }],
-  }));
-  const slidersAnim = useAnimatedStyle(() => ({
-    opacity: slidersOpacity.value,
-    transform: [{ translateY: slidersY.value }],
-  }));
-  const fieldsAnim = useAnimatedStyle(() => ({
-    opacity: fieldsOpacity.value,
-    transform: [{ translateY: fieldsY.value }],
-  }));
-  const ctaAnim = useAnimatedStyle(() => ({
-    opacity: ctaOpacity.value,
-    transform: [{ translateY: ctaY.value }],
-  }));
+  const headerAnim = useAnimatedStyle(() => ({ opacity: headerOpacity.value, transform: [{ translateY: headerY.value }] }));
+  const typeAnim = useAnimatedStyle(() => ({ opacity: typeOpacity.value, transform: [{ translateY: typeY.value }] }));
+  const summaryAnim = useAnimatedStyle(() => ({ opacity: summaryOpacity.value, transform: [{ translateY: summaryY.value }] }));
+  const slidersAnim = useAnimatedStyle(() => ({ opacity: slidersOpacity.value, transform: [{ translateY: slidersY.value }] }));
+  const fieldsAnim = useAnimatedStyle(() => ({ opacity: fieldsOpacity.value, transform: [{ translateY: fieldsY.value }] }));
+  const ctaAnim = useAnimatedStyle(() => ({ opacity: ctaOpacity.value, transform: [{ translateY: ctaY.value }] }));
+
+  const stepsPerMin = selected?.stepsPerMin ?? 0;
+  const isStepBased = stepsPerMin > 0;
 
   // ── Steps auto-calculation ──────────────────────────────────────────────
   useEffect(() => {
+    if (stepsPerMin === 0) {
+      // Non-step activity: clear any steps and drop the manual-edit flag.
+      setStepsInput('');
+      setStepsEdited(false);
+      return;
+    }
     if (stepsEdited) return;
-    const rate = STEPS_PER_MIN[workoutType] ?? 30;
-    const estimated = Math.round(durationMin * rate);
-    setStepsInput(estimated > 0 ? String(estimated) : '');
-  }, [workoutType, durationMin, stepsEdited]);
+    setStepsInput(String(Math.round(durationMin * stepsPerMin)));
+  }, [stepsPerMin, durationMin, stepsEdited]);
 
   function handleStepsChange(text: string) {
     setStepsEdited(true);
@@ -374,9 +373,8 @@ export default function LogActivityScreen() {
 
   const stepsValue = stepsInput === '' ? 0 : parseInt(stepsInput, 10);
   const weightKg = profile.weightKg > 0 ? profile.weightKg : 75;
-  const met = MET_VALUES[workoutType] ?? 4.0;
-  const intensityMultiplier = 0.75 + (intensity - 1) * (0.60 / 9);
-  const estCalories = Math.round(met * intensityMultiplier * weightKg * (durationMin / 60));
+  const met = selected?.met ?? 0;
+  const estCalories = Math.round(met * intensityMult(intensity) * weightKg * (durationMin / 60));
 
   // ── Voice transcription ─────────────────────────────────────────────────
   async function handleVoiceTranscription(text: string) {
@@ -384,11 +382,11 @@ export default function LogActivityScreen() {
       const result = await parseVoiceLog('activity', text) as VoiceActivityResult;
       if (result.exercise_type) {
         const typeLower = result.exercise_type.toLowerCase();
-        const matched = WORKOUT_TYPE_DATA.find(t =>
+        const matched = allItems.find((t) =>
           t.key.toLowerCase() === typeLower ||
           t.label.toLowerCase().includes(typeLower)
         );
-        if (matched) setWorkoutType(matched.key);
+        if (matched) setSelectedKey(matched.key);
       }
       if (result.duration_min && result.duration_min > 0) {
         setDurationMin(clamp(result.duration_min, 0, 120));
@@ -405,11 +403,10 @@ export default function LogActivityScreen() {
 
   // ── Save handler ────────────────────────────────────────────────────────
   async function handleLog() {
-    if (isSubmitting) return;
+    if (isSubmitting || !selected) return;
     setIsSubmitting(true);
     try {
-      const intensityLevel = intensity <= 3 ? 'low' : intensity <= 7 ? 'moderate' : 'high';
-      await addActivityLog(workoutType, durationMin, intensityLevel, stepsValue, estCalories);
+      await addActivityLog(selected.label, durationMin, intensityDb(intensity), stepsValue, estCalories);
       const { error } = useLogStore.getState();
       if (error) {
         Alert.alert('Could not save activity', error);
@@ -417,6 +414,11 @@ export default function LogActivityScreen() {
       }
       // TODO: persist notes once activity_logs.notes column is added
       dispatch({ type: 'LOG_STEPS', steps: stepsValue });
+      posthog?.capture('activity_logged', {
+        type: selected.label,
+        duration_min: durationMin,
+        intensity: intensity,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } finally {
@@ -424,9 +426,10 @@ export default function LogActivityScreen() {
     }
   }
 
-  const cols = USE_THREE_COLUMNS ? 3 : 2;
-  const gridGap = 10;
-  const gridItemWidth = (SCREEN_WIDTH - 80 - gridGap * (cols - 1)) / cols;
+  function openPicker() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/entry/select-activity' as any);
+  }
 
   return (
     <KeyboardAvoidingView
@@ -461,102 +464,110 @@ export default function LogActivityScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Workout Type Grid ── */}
+        {/* ── Workout type selector ── */}
         <Animated.View style={typeAnim}>
-          <Text style={s.sectionLabel}>WORKOUT TYPE</Text>
-          <View style={s.typeCard}>
-            <View style={s.typeGrid}>
-              {WORKOUT_TYPE_DATA.map((t) => {
-                const active = t.key === workoutType;
-                return (
-                  <TouchableOpacity
-                    key={t.key}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setWorkoutType(t.key); }}
-                    activeOpacity={0.75}
-                    style={[
-                      s.typeBtn,
-                      { width: gridItemWidth },
-                      active ? s.typeBtnActive : s.typeBtnInactive,
-                    ]}
-                    accessibilityLabel={`${t.label}${active ? ', selected' : ''}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <View style={{ marginBottom: 4 }}>
-                      <LucideIconByName name={t.icon as any}
-                        size={20}
-                        color={active ? '#FFFFFF' : colors.textSecondary} />
-                    </View>
-                    <Text style={[s.typeBtnText, active ? s.typeBtnTextActive : s.typeBtnTextInactive]}>
-                      {t.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* ── Live Summary Row ── */}
-        <Animated.View style={summaryAnim}>
-          <View style={s.summaryRow}>
-            <View style={s.summaryItem}>
-              <Flame size={13} color={colors.textMuted} />
-              <Text style={s.summaryText}>{estCalories} cal</Text>
-            </View>
-            <Text style={s.summaryDot}>·</Text>
-            <View style={s.summaryItem}>
-              <Clock size={13} color={colors.textMuted} />
-              <Text style={s.summaryText}>{durationMin} min</Text>
-            </View>
-            <Text style={s.summaryDot}>·</Text>
-            <TouchableOpacity
-              style={s.summaryItem}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setEditingSteps(true);
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel={`Steps: ${stepsValue}. Tap to edit`}
-              accessibilityRole="button"
-            >
-              <Footprints size={13} color={colors.textMuted} />
-              {editingSteps ? (
-                <TextInput
-                  style={s.stepsInlineInput}
-                  value={stepsInput}
-                  onChangeText={handleStepsChange}
-                  keyboardType="number-pad"
-                  autoFocus
-                  selectTextOnFocus
-                  returnKeyType="done"
-                  onSubmitEditing={() => setEditingSteps(false)}
-                  onBlur={() => setEditingSteps(false)}
-                  maxLength={6}
-                />
-              ) : (
-                <Text style={s.summaryText}>{stepsValue} steps</Text>
-              )}
-              {!stepsEdited && !editingSteps && (
-                <View style={s.autoBadge}>
-                  <Text style={s.autoBadgeText}>auto</Text>
+          <Text style={s.sectionLabel}>Workout type</Text>
+          <TouchableOpacity
+            style={s.typeSelector}
+            onPress={openPicker}
+            activeOpacity={0.8}
+            accessibilityLabel={selected ? `Workout type: ${selected.label}. Tap to change.` : 'Choose workout type'}
+            accessibilityRole="button"
+          >
+            {selected ? (
+              <View style={s.typeSelectorInner}>
+                <View style={s.typeSelectorIcon}>
+                  <LucideIconByName name={selected.icon} size={22} color={colors.textPrimary} />
                 </View>
-              )}
-            </TouchableOpacity>
-            {stepsEdited && !editingSteps && (
-              <TouchableOpacity
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setStepsEdited(false); }}
-                activeOpacity={0.7}
-              >
-                <Text style={s.resetLink}>reset</Text>
-              </TouchableOpacity>
+                <Text style={s.typeSelectorLabel}>{selected.label}</Text>
+              </View>
+            ) : (
+              <Text style={s.typeSelectorPlaceholder}>Choose workout type</Text>
             )}
-          </View>
+            <ChevronRight size={20} color={colors.textMuted} />
+          </TouchableOpacity>
         </Animated.View>
 
-        {/* ── Duration & Intensity ── */}
+        {/* ── Calorie hero (once a type is chosen) ── */}
+        {selected && (
+          <Animated.View style={summaryAnim}>
+            <View style={s.heroCard}>
+              <View style={s.heroIcon}>
+                <Flame size={20} color={colors.textPrimary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={s.heroValueRow}>
+                  <Text style={s.heroValue}>{estCalories}</Text>
+                  <Text style={s.heroUnit}>cal</Text>
+                </View>
+                <View style={s.heroChips}>
+                  <View style={s.heroChip}>
+                    <Clock size={12} color={colors.textMuted} />
+                    <Text style={s.heroChipText}>{durationMin} min</Text>
+                  </View>
+                  <View style={s.heroChip}>
+                    <Text style={s.heroChipText}>{intensityLabel(intensity)}</Text>
+                  </View>
+                  {isStepBased && (
+                    <TouchableOpacity
+                      style={s.heroChip}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setEditingSteps(true); }}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Steps: ${stepsValue}. Tap to edit`}
+                      accessibilityRole="button"
+                    >
+                      <Footprints size={12} color={colors.textMuted} />
+                      {editingSteps ? (
+                        <TextInput
+                          style={s.stepsInlineInput}
+                          value={stepsInput}
+                          onChangeText={handleStepsChange}
+                          keyboardType="number-pad"
+                          autoFocus
+                          selectTextOnFocus
+                          returnKeyType="done"
+                          onSubmitEditing={() => setEditingSteps(false)}
+                          onBlur={() => setEditingSteps(false)}
+                          maxLength={6}
+                        />
+                      ) : (
+                        <Text style={s.heroChipText}>{stepsValue} steps</Text>
+                      )}
+                      {!stepsEdited && !editingSteps && (
+                        <View style={s.autoBadge}><Text style={s.autoBadgeText}>Auto</Text></View>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {isStepBased && stepsEdited && !editingSteps && (
+                    <TouchableOpacity
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setStepsEdited(false); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={s.resetLink}>Reset</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── Intensity ── */}
         <Animated.View style={slidersAnim}>
-          <Text style={s.sectionLabel}>DURATION & INTENSITY</Text>
+          <Text style={s.sectionLabel}>Intensity</Text>
+          <View style={s.slidersCard}>
+            <LinearSlider
+              value={intensity}
+              min={1}
+              max={10}
+              labels={['Recovery', 'Moderate', 'Max effort']}
+              onChange={setIntensity}
+              colors={colors}
+            />
+          </View>
+
+          {/* ── Duration ── */}
+          <Text style={[s.sectionLabel, { marginTop: 4 }]}>Duration</Text>
           <View style={s.slidersCard}>
             <LinearSlider
               value={durationMin}
@@ -565,15 +576,6 @@ export default function LogActivityScreen() {
               unit="min"
               labels={['0', '60 min', '120 min']}
               onChange={setDurationMin}
-              colors={colors}
-            />
-            <View style={s.sliderDivider} />
-            <LinearSlider
-              value={intensity}
-              min={1}
-              max={10}
-              labels={['Recovery', 'Moderate', 'Max Effort']}
-              onChange={setIntensity}
               colors={colors}
             />
           </View>
@@ -610,8 +612,8 @@ export default function LogActivityScreen() {
           <TouchableOpacity
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLog(); }}
             activeOpacity={0.85}
-            disabled={isSubmitting}
-            style={[s.saveBtn, isSubmitting && s.saveBtnDisabled]}
+            disabled={isSubmitting || !selected}
+            style={[s.saveBtn, (isSubmitting || !selected) && s.saveBtnDisabled]}
             accessibilityLabel="Save activity"
             accessibilityRole="button"
           >
@@ -620,7 +622,7 @@ export default function LogActivityScreen() {
             ) : (
               <View style={s.saveBtnInner}>
                 <Dumbbell size={16} color="#FFF" />
-                <Text style={s.saveBtnText}>Log Activity</Text>
+                <Text style={s.saveBtnText}>{selected ? 'Log Activity' : 'Choose a workout type'}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -682,90 +684,115 @@ const createStyles = (c: AppColors) => {
       paddingTop: 20,
     },
 
-    // ── Section label ──
+    // ── Section heading (sentence case, normal heading) ──
     sectionLabel: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: c.orange,
-      letterSpacing: 1.5,
-      textTransform: 'uppercase',
-      marginBottom: 14,
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.2,
+      marginBottom: 10,
     },
 
-    // ── Workout type card + grid ──
-    typeCard: {
+    // ── Workout type selector ──
+    typeSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       backgroundColor: c.cardBg,
-      borderRadius: 20,
-      padding: 20,
+      borderRadius: 18,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      marginBottom: 24,
       ...elevation,
     },
-    typeGrid: {
+    typeSelectorInner: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
     },
-    typeBtn: {
-      height: 72,
-      borderRadius: 16,
+    typeSelectorIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 6,
-    },
-    typeBtnActive: {
-      backgroundColor: c.orange,
-      shadowColor: c.orange,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.35,
-      shadowRadius: 14,
-      elevation: 5,
-    },
-    typeBtnInactive: {
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
     },
-    typeBtnText: {
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
+    typeSelectorLabel: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.3,
     },
-    typeBtnTextActive: {
-      color: '#FFFFFF',
-    },
-    typeBtnTextInactive: {
-      color: c.textSecondary,
-    },
-
-    // ── Live summary row ──
-    summaryRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.borderSubtle,
-      borderRadius: 12,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      marginTop: 16,
-      marginBottom: 8,
-      gap: 8,
-    },
-    summaryItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    summaryText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: c.textSecondary,
-    },
-    summaryDot: {
-      fontSize: 14,
+    typeSelectorPlaceholder: {
+      fontSize: 17,
       fontWeight: '600',
       color: c.textMuted,
     },
+
+    // ── Calorie hero ──
+    heroCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: c.cardBg,
+      borderRadius: 20,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      marginBottom: 24,
+      ...elevation,
+    },
+    heroIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    },
+    heroValueRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 4,
+    },
+    heroValue: {
+      fontSize: 34,
+      fontWeight: '800',
+      color: c.textPrimary,
+      letterSpacing: -1,
+    },
+    heroUnit: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.textMuted,
+    },
+    heroChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 6,
+    },
+    heroChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: c.borderSubtle,
+      borderRadius: 8,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    heroChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
     stepsInlineInput: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       color: c.textPrimary,
-      minWidth: 50,
+      minWidth: 44,
       borderBottomWidth: 1,
       borderBottomColor: c.orange,
       paddingVertical: 0,
@@ -781,8 +808,6 @@ const createStyles = (c: AppColors) => {
       fontSize: 10,
       fontWeight: '700',
       color: c.textMuted,
-      letterSpacing: 0.3,
-      textTransform: 'uppercase',
     },
     resetLink: {
       fontSize: 13,
@@ -790,18 +815,13 @@ const createStyles = (c: AppColors) => {
       color: c.orange,
     },
 
-    // ── Duration & Intensity card ──
+    // ── Slider cards ──
     slidersCard: {
       backgroundColor: c.cardBg,
       borderRadius: 20,
       padding: 20,
       marginBottom: 20,
       ...elevation,
-    },
-    sliderDivider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: c.borderSubtle,
-      marginVertical: 4,
     },
 
     // ── Notes (inline, no card) ──

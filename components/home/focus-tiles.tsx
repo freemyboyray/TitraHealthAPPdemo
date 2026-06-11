@@ -77,11 +77,11 @@ function TodayFocusTile({ width }: { width: number }) {
     <Pressable
       style={[s.tile, { width }]}
       onPress={() => router.push('/daily-focus' as any)}
-      accessibilityLabel="Today's Focuses. View details."
+      accessibilityLabel="Today's Targets. View details."
       accessibilityRole="button"
     >
       <View style={s.tileHead}>
-        <Text style={s.tileTitle}>Today's{'\n'}Focuses</Text>
+        <Text style={s.tileTitle}>Today's{'\n'}Targets</Text>
         <ChevronRight size={20} color={colors.textMuted} />
       </View>
 
@@ -188,7 +188,7 @@ function EnergyTile({
   return (
     <Pressable
       style={[s.tile, { width }]}
-      onPress={() => router.push((isPremium ? '/energy-detail' : '/upgrade') as any)}
+      onPress={() => router.push((isPremium ? '/energy-detail' : '/upgrade?source=energy_bank') as any)}
       accessibilityLabel={showData ? `Energy ${score} percent, last 24 hours` : 'Energy Bank, premium feature'}
       accessibilityRole="button"
     >

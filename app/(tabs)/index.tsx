@@ -751,7 +751,10 @@ export default function HomeScreen() {
     // Re-verify actuals (including injectionLogged) from Supabase on every tab focus
     // so the injection reminder updates immediately after logging a dose.
     healthData.refreshActuals();
-    hkStore.fetchAll().then(() => logStore.syncWeightFromHealthKit()).catch(() => {});
+    hkStore.fetchAll().then(() => {
+      logStore.syncWeightFromHealthKit();
+      logStore.syncStepsFromHealthKit();
+    }).catch(() => {});
     personalizationStore.fetchAndRecompute();
     logStore.fetchInsightsData().then(() => syncNotifications());
     pushWidgetData(fullUserProfile);
@@ -1328,14 +1331,27 @@ export default function HomeScreen() {
               </Pressable>
             ) : undefined}
             topRight={
-              <Pressable
-                onPress={() => router.push('/streak')}
-                style={s.calBtn}
-                accessibilityLabel="Calendar and achievements"
-                accessibilityRole="button"
-              >
-                <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
-              </Pressable>
+              <View style={s.topRightRow}>
+                {isPremium && (
+                  <Pressable
+                    onPress={() => router.push('/settings/export-report' as any)}
+                    style={s.reportPill}
+                    accessibilityLabel="Export report"
+                    accessibilityRole="button"
+                  >
+                    <FileText size={16} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                    <Text style={s.reportPillText}>Export Report</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => router.push('/streak')}
+                  style={s.calBtn}
+                  accessibilityLabel="Calendar and achievements"
+                  accessibilityRole="button"
+                >
+                  <Calendar size={24} color={colors.isDark ? '#FFFFFF' : '#1A1A1A'} />
+                </Pressable>
+              </View>
             }
           />
 
@@ -1658,6 +1674,15 @@ const createStyles = (c: AppColors, minimalHeader = false) => {
 
   // Fixed header
   headerArea: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
+  // Top-right cluster over the hero image (provider report pill + calendar).
+  topRightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // Provider report pill, sits left of the calendar button.
+  reportPill: {
+    height: 52, borderRadius: 26, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: c.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
+  },
+  reportPillText: { fontSize: 14, fontWeight: '700', color: c.isDark ? '#FFFFFF' : '#1A1A1A', fontFamily: FF },
   // Calendar button, top-right over the hero image.
   calBtn: {
     width: 52, height: 52, borderRadius: 26,

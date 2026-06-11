@@ -16,7 +16,7 @@ export function EnergyBankTile({ result, phase }: Props) {
 
   const onPress = () => {
     if (isPremium) router.push('/energy-detail' as any);
-    else router.push('/upgrade' as any);
+    else router.push('/upgrade?source=energy_bank' as any);
   };
 
   return (

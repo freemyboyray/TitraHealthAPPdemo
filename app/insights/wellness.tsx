@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 
@@ -28,6 +28,9 @@ const fmtVal = (v: number) => Math.round(v).toLocaleString();
 export default function WellnessDetailScreen() {
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  // Two-up grid: content padding is 20 each side, 12 gap between tiles.
+  const halfW = (width - 40 - 12) / 2;
 
   const {
     todaySteps, todayActiveCalories, targets,
@@ -46,6 +49,25 @@ export default function WellnessDetailScreen() {
 
   const baseMetrics = SUMMARY_METRICS.filter((m) => m.group === 'wellness');
   const hkMetrics = [...routedHealthGroups.activity, ...routedHealthGroups.vitals].flatMap((g) => g.metrics);
+  // Sleep gets its own full-width row; everything else is laid out two-up.
+  const sleepMetric = hkMetrics.find((hm) => hm.id === 'sleep');
+  const gridMetrics = hkMetrics.filter((hm) => hm.id !== 'sleep');
+
+  const renderHK = (hm: (typeof hkMetrics)[number]) => {
+    const ss = hmStatusStyle[hm.status];
+    return (
+      <HealthSummaryCard
+        iconName={hm.lucideIcon}
+        iconColor={hm.noData ? colors.textMuted : ss.text}
+        label={hm.label}
+        value={hm.noData ? 'No Data' : hm.value}
+        unit={hm.noData ? undefined : hm.unit}
+        descriptor={{ text: hm.rangeLabel, color: hm.noData ? colors.textMuted : ss.text }}
+        rightSlot={hm.gaugePosition != null ? <GaugeBar position={hm.gaugePosition} color={ss.text} /> : undefined}
+        noData={hm.noData}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -81,23 +103,22 @@ export default function WellnessDetailScreen() {
             );
           })}
 
-          {/* HealthKit vitals + activity extras: value + status + gauge */}
-          {hkMetrics.map((hm) => {
-            const ss = hmStatusStyle[hm.status];
-            return (
-              <HealthSummaryCard
-                key={hm.id}
-                iconName={hm.lucideIcon}
-                iconColor={hm.noData ? colors.textMuted : ss.text}
-                label={hm.label}
-                value={hm.noData ? 'No Data' : hm.value}
-                unit={hm.noData ? undefined : hm.unit}
-                descriptor={{ text: hm.rangeLabel, color: hm.noData ? colors.textMuted : ss.text }}
-                rightSlot={hm.gaugePosition != null ? <GaugeBar position={hm.gaugePosition} color={ss.text} /> : undefined}
-                noData={hm.noData}
-              />
-            );
-          })}
+          {/* HealthKit vitals + activity extras: Sleep full-width, rest two-up */}
+          {hkMetrics.length > 0 && (
+            <>
+              <Text style={s.sectionHeader}>From External Health Data</Text>
+
+              {sleepMetric && renderHK(sleepMetric)}
+
+              <View style={s.grid}>
+                {gridMetrics.map((hm) => (
+                  <View key={hm.id} style={{ width: halfW }}>
+                    {renderHK(hm)}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
 
           {!appleHealthEnabled && <HealthDataConnectPrompt />}
         </View>
@@ -119,4 +140,9 @@ const createStyles = (c: AppColors) =>
     headerTitle: { color: c.textPrimary, fontSize: 17, fontWeight: '700', fontFamily: FF, letterSpacing: -0.2 },
     scroll: { flex: 1 },
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 36 },
+    sectionHeader: {
+      color: c.textPrimary, fontSize: 18, fontWeight: '700',
+      fontFamily: FF, letterSpacing: -0.3, marginTop: 6, marginBottom: 2,
+    },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   });

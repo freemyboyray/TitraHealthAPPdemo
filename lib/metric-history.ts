@@ -130,7 +130,7 @@ export const SUMMARY_METRICS: SummaryMetric[] = [
     articleId: 'exercise-on-glp1s',
   },
   {
-    id: 'active_cal', label: 'Active Calories', unit: 'cal', color: '#E8960C', icon: 'Zap', group: 'wellness',
+    id: 'active_cal', label: 'Calories Burned', unit: 'cal', color: '#E8960C', icon: 'Zap', group: 'wellness',
     getValue: (_f, a, d) => a[d]?.calories ?? null,
     about: 'Active calories reflect energy burned through movement. Pairing activity, especially resistance training, with adequate protein helps preserve muscle.',
     articleId: 'exercise-on-glp1s',

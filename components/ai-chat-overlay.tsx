@@ -28,8 +28,8 @@ import { resizeImageForVision } from '@/lib/image';
 import { supabase } from '@/lib/supabase';
 import { useUiStore } from '@/stores/ui-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { ArrowLeft, ArrowRight, ArrowUp, Clock, MessageCircle, RefreshCw, X, XCircle } from 'lucide-react-native';
-import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 min gap = new conversation
 
@@ -257,6 +257,7 @@ export function AiChatOverlay() {
   const [loading, setLoading] = useState(false);
   const [showUpgradeCard, setShowUpgradeCard] = useState(false);
   const isPremium = useSubscriptionStore((s) => s.isPremium);
+  const trialEligible = useSubscriptionStore((s) => s.trialEligible);
 
   // Auto-dismiss the upgrade card the moment the user becomes premium
   // (e.g. they tapped Subscribe and the StoreKit purchaseUpdated listener
@@ -605,78 +606,6 @@ export function AiChatOverlay() {
                 </View>
               )}
 
-              {/* Upgrade card when usage limit hit */}
-              {showUpgradeCard && !isPremium && (
-                <View style={{
-                  marginTop: 16, marginHorizontal: 4, borderRadius: 24, overflow: 'hidden',
-                  backgroundColor: colors.isDark ? 'rgba(255,116,42,0.08)' : 'rgba(255,116,42,0.06)',
-                  borderWidth: 1, borderColor: colors.isDark ? 'rgba(255,116,42,0.25)' : 'rgba(255,116,42,0.2)',
-                  padding: 24,
-                }}>
-                  <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                    <Image
-                      source={require('@/assets/images/titra-logo.png')}
-                      style={{ width: 48, height: 48, borderRadius: 14, marginBottom: 12 }}
-                      resizeMode="cover"
-                    />
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', marginBottom: 6 }}>
-                      Upgrade to Titra Pro
-                    </Text>
-                    <Text style={{ fontSize: 14, color: colors.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', textAlign: 'center', lineHeight: 20 }}>
-                      You've used all your free AI messages for today. Unlock unlimited access with Pro.
-                    </Text>
-                  </View>
-
-                  <View style={{ gap: 10, marginBottom: 20 }}>
-                    {[
-                      { icon: 'MessagesSquare', text: 'Unlimited AI coaching & insights' },
-                      { icon: 'BarChart3', text: 'Advanced weight projections & cycle intelligence' },
-                      { icon: 'FileText', text: 'Provider reports for your doctor' },
-                      { icon: 'GraduationCap', text: 'All guided courses unlocked' },
-                      { icon: 'Camera', text: 'Unlimited photo food logging' },
-                      { icon: 'Mic', text: 'Unlimited voice logging' },
-                      { icon: 'Bell', text: 'Weekly AI summaries' },
-                    ].map((item, i) => (
-                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <LucideIconByName name={item.icon as any} size={18} color="#FF742A" />
-                        <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{item.text}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#FF742A', borderRadius: 16, paddingVertical: 16,
-                      alignItems: 'center', justifyContent: 'center',
-                      shadowColor: '#FF742A', shadowOffset: { width: 0, height: 6 },
-                      shadowOpacity: 0.35, shadowRadius: 16, elevation: 6,
-                    }}
-                    onPress={() => {
-                      setShowUpgradeCard(false);
-                      handleDismiss();
-                      setTimeout(() => router.push('/upgrade' as any), 300);
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 }}>
-                      Subscribe for $4.99/month
-                    </Text>
-                    <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
-                      7-day free trial included
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={{ alignItems: 'center', marginTop: 12 }}
-                    onPress={() => setShowUpgradeCard(false)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={{ fontSize: 13, color: colors.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}>
-                      Maybe later
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </ScrollView>
 
             {/* Suggestion chips — shown only when conversation is empty */}
@@ -770,6 +699,24 @@ export function AiChatOverlay() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      <UpgradePrompt
+        visible={showUpgradeCard && !isPremium}
+        onClose={() => setShowUpgradeCard(false)}
+        onUpgrade={() => {
+          setShowUpgradeCard(false);
+          handleDismiss();
+          setTimeout(() => router.push('/upgrade?source=ai_chat_limit' as any), 300);
+        }}
+        title="You've hit today's free limit"
+        description={
+          trialEligible
+            ? "That's your 5 free AI messages for today — but don't worry, you can keep the conversation going. Start your free trial for unlimited AI coaching."
+            : "That's your 5 free AI messages for today. Upgrade to Titra Pro for unlimited AI coaching."
+        }
+        feature="ai_chat"
+        trialEligible={trialEligible}
+      />
     </Animated.View>
   );
 }

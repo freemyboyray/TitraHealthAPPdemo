@@ -29,6 +29,7 @@ import {
 } from '../../constants/side-effects';
 import type { PhaseType, SideEffectType } from '../../stores/log-store';
 import { useLogStore } from '../../stores/log-store';
+import { usePostHog } from '@/lib/posthog';
 import { readTodaySymptomSeverities } from '../../lib/healthkit';
 import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
@@ -60,6 +61,7 @@ export default function SideEffectsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addSideEffectLog } = useLogStore();
+  const posthog = usePostHog();
   const { colors } = useAppTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -164,6 +166,8 @@ export default function SideEffectsScreen() {
       const effectsParam = JSON.stringify(
         toLog.map(e => ({ type: e.dbType, severity: values[e.id], label: e.label }))
       );
+      // Count + phase only — no symptom names or severities (avoid PHI in analytics).
+      posthog?.capture('side_effect_logged', { count: toLog.length, phase });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/entry/side-effect-impact?effects=${encodeURIComponent(effectsParam)}` as any);
     } finally {

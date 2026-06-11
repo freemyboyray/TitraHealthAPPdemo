@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  Dimensions,
   Linking,
   Modal,
   Platform,
@@ -8,10 +9,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-// App Store ID — update this once the app is live on the App Store
-const APP_STORE_ID = '6746837369';
+import * as StoreReview from 'expo-store-review';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,192 +19,221 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useAppTheme } from '@/contexts/theme-context';
 import { Star } from 'lucide-react-native';
+import { usePostHog } from '@/lib/posthog';
+
+// App Store ID — used only for the deep-link fallback when the native rating
+// sheet isn't available (e.g. already shown the OS-throttled max this year).
+const APP_STORE_ID = '6746837369';
+
+const ORANGE = '#FF742A';
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 type Props = {
   onReview: () => void;
   onDismiss: () => void;
 };
 
-export function ReviewPrompt({ onReview, onDismiss }: Props) {
-  const { colors, isDark } = useAppTheme();
+// Faint star field rendered behind the content, echoing the mockup. Positions
+// are deterministic (no RNG) so the layout is stable across renders.
+const FIELD_ROWS = 9;
+const FIELD_COLS = 5;
+const BACKDROP_STARS = Array.from({ length: FIELD_ROWS * FIELD_COLS }, (_, i) => {
+  const row = Math.floor(i / FIELD_COLS);
+  const col = i % FIELD_COLS;
+  // Offset alternate rows for a scattered, non-grid feel.
+  const x = (col + (row % 2 === 0 ? 0 : 0.5)) * (SCREEN_W / FIELD_COLS);
+  const y = row * (SCREEN_H / FIELD_ROWS) + 40;
+  const size = 38 + ((i * 7) % 22);
+  return { x, y, size };
+});
 
-  const backdropOpacity = useSharedValue(0);
-  const iconScale = useSharedValue(0.5);
+export function ReviewPrompt({ onReview, onDismiss }: Props) {
+  const posthog = usePostHog();
+  const clusterScale = useSharedValue(0.6);
+  const clusterOpacity = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(12);
-  const btnOpacity = useSharedValue(0);
-  const btnTranslateY = useSharedValue(16);
+  const contentTranslateY = useSharedValue(14);
+  const ctaOpacity = useSharedValue(0);
+  const ctaTranslateY = useSharedValue(18);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    posthog?.capture('review_prompt_shown');
 
-    backdropOpacity.value = withTiming(1, { duration: 200 });
-    iconScale.value = withDelay(100, withSpring(1, { damping: 14, stiffness: 150 }));
-    contentOpacity.value = withDelay(250, withTiming(1, { duration: 300 }));
-    contentTranslateY.value = withDelay(250, withTiming(0, { duration: 300 }));
-    btnOpacity.value = withDelay(450, withTiming(1, { duration: 250 }));
-    btnTranslateY.value = withDelay(450, withSpring(0, { damping: 14, stiffness: 120 }));
+    clusterScale.value = withDelay(80, withSpring(1, { damping: 13, stiffness: 140 }));
+    clusterOpacity.value = withDelay(80, withTiming(1, { duration: 300 }));
+    contentOpacity.value = withDelay(260, withTiming(1, { duration: 320 }));
+    contentTranslateY.value = withDelay(260, withTiming(0, { duration: 320 }));
+    ctaOpacity.value = withDelay(460, withTiming(1, { duration: 260 }));
+    ctaTranslateY.value = withDelay(460, withSpring(0, { damping: 14, stiffness: 120 }));
   }, []);
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
-  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: iconScale.value }] }));
+  const clusterStyle = useAnimatedStyle(() => ({
+    opacity: clusterOpacity.value,
+    transform: [{ scale: clusterScale.value }],
+  }));
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
     transform: [{ translateY: contentTranslateY.value }],
   }));
-  const btnStyle = useAnimatedStyle(() => ({
-    opacity: btnOpacity.value,
-    transform: [{ translateY: btnTranslateY.value }],
+  const ctaStyle = useAnimatedStyle(() => ({
+    opacity: ctaOpacity.value,
+    transform: [{ translateY: ctaTranslateY.value }],
   }));
 
+  // Wrap the dismiss so "Maybe later" and the OS back gesture both record it.
+  const handleDismiss = () => {
+    posthog?.capture('review_prompt_dismissed');
+    onDismiss();
+  };
+
   const handleReview = async () => {
+    posthog?.capture('review_prompt_accepted');
     onReview();
-    // Open the App Store review page directly so the user can always leave a review
+    try {
+      // Native in-app rating sheet — one tap, counts toward the public star
+      // average. The OS may decline to show it (throttled ~3x/year).
+      if (await StoreReview.isAvailableAsync()) {
+        await StoreReview.requestReview();
+        return;
+      }
+    } catch {
+      // fall through to deep link
+    }
     const url = Platform.select({
       ios: `itms-apps://itunes.apple.com/app/viewContentsUserReviews/id${APP_STORE_ID}?action=write-review`,
       android: 'market://details?id=com.titrahealth.app',
     });
-    if (url) {
-      Linking.openURL(url);
-    }
+    if (url) Linking.openURL(url).catch(() => {});
   };
 
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onDismiss}>
-      {/* Backdrop */}
-      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
-        <BlurView
-          intensity={40}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.25)' },
-          ]}
-        />
-      </Animated.View>
+    <Modal transparent visible animationType="fade" onRequestClose={handleDismiss}>
+      <View style={styles.root}>
+        {/* Faint star field backdrop */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {BACKDROP_STARS.map((s, i) => (
+            <Star
+              key={i}
+              size={s.size}
+              color="#FFFFFF"
+              fill="#FFFFFF"
+              style={{ position: 'absolute', left: s.x, top: s.y, opacity: 0.035 }}
+            />
+          ))}
+        </View>
 
-      {/* Content card */}
-      <Pressable style={styles.centerer} onPress={onDismiss}>
-        <Pressable style={[styles.card, { backgroundColor: colors.cardBg }]} onPress={() => {}}>
-          {/* Icon */}
-          <Animated.View style={iconStyle}>
-            <View style={[styles.iconCircle, { backgroundColor: '#FF742A1F' }]}>
-              <Star size={32} color="#FF742A" />
-            </View>
-          </Animated.View>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.center}>
+            {/* Star cluster */}
+            <Animated.View style={[styles.cluster, clusterStyle]}>
+              <Star size={34} color={ORANGE} fill={ORANGE} style={{ marginTop: 14 }} />
+              <Star size={44} color={ORANGE} fill={ORANGE} style={{ marginTop: 6 }} />
+              <Star size={56} color={ORANGE} fill={ORANGE} />
+              <Star size={44} color={ORANGE} fill={ORANGE} style={{ marginTop: 6 }} />
+              <Star size={34} color={ORANGE} fill={ORANGE} style={{ marginTop: 14 }} />
+            </Animated.View>
 
-          {/* Title & subtitle */}
-          <Animated.View style={[styles.textWrap, contentStyle]}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Enjoying Titra?
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Your feedback helps us improve and helps others discover Titra.
-            </Text>
-          </Animated.View>
+            {/* Headline + subtitle */}
+            <Animated.View style={[styles.textWrap, contentStyle]}>
+              <Text style={styles.title}>Enjoying Titra?</Text>
+              <Text style={styles.subtitle}>
+                Rate us on the App Store and show your support.
+              </Text>
+            </Animated.View>
+          </View>
 
-          {/* Buttons */}
-          <Animated.View style={[styles.btnWrap, btnStyle]}>
+          {/* CTAs pinned to the bottom */}
+          <Animated.View style={[styles.ctaWrap, ctaStyle]}>
             <Pressable
-              style={({ pressed }) => [
-                styles.primaryBtn,
-                { backgroundColor: '#FF742A', opacity: pressed ? 0.85 : 1 },
-              ]}
+              style={({ pressed }) => [styles.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
               onPress={handleReview}
             >
-              <Star size={18} color="#FFF" style={{ marginRight: 6 }} />
-              <Text style={styles.primaryBtnText}>Yes, Love It!</Text>
+              <Star size={18} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryBtnText}>Rate on App Store</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [
-                styles.secondaryBtn,
-                { opacity: pressed ? 0.5 : 1 },
-              ]}
-              onPress={onDismiss}
+              style={({ pressed }) => [styles.secondaryBtn, { opacity: pressed ? 0.5 : 1 }]}
+              onPress={handleDismiss}
             >
-              <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
-                Not Now
-              </Text>
+              <Text style={styles.secondaryBtnText}>Maybe later</Text>
             </Pressable>
           </Animated.View>
-        </Pressable>
-      </Pressable>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  centerer: {
+  root: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  safe: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
   },
-  card: {
-    width: '100%',
-    borderRadius: 24,
-    paddingVertical: 32,
-    paddingHorizontal: 28,
+  cluster: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 28,
   },
   textWrap: {
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 12,
   },
   title: {
     fontFamily: 'System',
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -0.3,
-    marginBottom: 6,
+    letterSpacing: -0.5,
+    marginBottom: 10,
   },
   subtitle: {
     fontFamily: 'System',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '400',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  btnWrap: {
-    width: '100%',
-    gap: 10,
+  ctaWrap: {
+    paddingBottom: 12,
+    gap: 14,
   },
   primaryBtn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: ORANGE,
+    paddingVertical: 17,
+    borderRadius: 16,
   },
   primaryBtnText: {
     fontFamily: 'System',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   secondaryBtn: {
-    width: '100%',
-    paddingVertical: 10,
     alignItems: 'center',
+    paddingVertical: 6,
   },
   secondaryBtnText: {
     fontFamily: 'System',
     fontSize: 15,
     fontWeight: '500',
+    color: 'rgba(255,255,255,0.45)',
+    textDecorationLine: 'underline',
   },
 });

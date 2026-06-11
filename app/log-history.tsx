@@ -22,7 +22,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { localDateStr } from '@/lib/date-utils';
 import { ORANGE } from '@/constants/theme';
 import type { AppColors } from '@/constants/theme';
-import { ChevronLeft, Frown, Syringe, X } from 'lucide-react-native';
+import { ChevronLeft, Frown, Syringe, Trash2, X } from 'lucide-react-native';
 import { LucideIconByName } from '@/lib/lucide-icon-map';
 
 const FF = 'System';
@@ -106,7 +106,7 @@ function foodToEntry(f: FoodLog): LogEntry {
 function activityIcon(type: string | null) {
   let name: string = 'Activity';
   const t = (type ?? '').toLowerCase();
-  if (t.includes('walk')) name = 'Footprints';
+  if (t.includes('walk') || t.includes('step')) name = 'Footprints';
   else if (t.includes('cycl') || t.includes('bike')) name = 'Bike';
   else if (t.includes('swim')) name = 'Waves';
   else if (t.includes('yoga')) name = 'Brain';
@@ -674,6 +674,15 @@ export default function LogHistoryScreen() {
                   </View>
                   <Text style={s.entryDetails} numberOfLines={2}>{item.details}</Text>
                 </View>
+                <Pressable
+                  onPress={() => handleDelete(item.id, item.logType, item.title)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${item.title}`}
+                  style={({ pressed }) => [s.entryDeleteBtn, pressed && { opacity: 0.5 }]}
+                >
+                  <Trash2 size={17} color={colors.textMuted} />
+                </Pressable>
               </View>
             </Pressable>
           )}
@@ -742,7 +751,8 @@ const createStyles = (c: AppColors) => {
       marginBottom: 1, paddingHorizontal: 16, paddingVertical: 12,
       borderWidth: 0.5, borderColor: c.border,
     },
-    entryRow: { flexDirection: 'row', gap: 12 },
+    entryRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    entryDeleteBtn: { padding: 6, alignSelf: 'center' },
     entryIconWrap: {
       width: 36, height: 36, borderRadius: 18,
       backgroundColor: c.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',

@@ -34,7 +34,7 @@ import { TourOverlay } from '@/components/tour/tour-overlay';
 import { HealthSyncToast } from '@/components/ui/health-sync-toast';
 import { AchievementCongrats } from '@/components/achievement-congrats';
 import { PhotoMilestonePrompt } from '@/components/photo-milestone-prompt';
-import * as StoreReview from 'expo-store-review';
+import { ReviewPrompt } from '@/components/review-prompt';
 import { useAchievementDetector } from '@/hooks/useAchievementDetector';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 
@@ -233,20 +233,16 @@ function MilestoneLayer() {
 
 function ReviewPromptLayer() {
   const { pendingEvent } = useAchievementDetector();
-  const { shouldShowReview, onDismiss } = useReviewPrompt();
+  const { shouldShowReview, onReview, onDismiss } = useReviewPrompt();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    if (!shouldShowReview || pendingEvent) return;
-    StoreReview.isAvailableAsync().then((available) => {
-      if (available) {
-        StoreReview.requestReview();
-      }
-      // Mark as shown regardless so we respect the cooldown
-      onDismiss();
-    });
-  }, [shouldShowReview, pendingEvent]);
+  // Hold the prompt while the user is mid-logging (entry flows) or while a
+  // milestone celebration is on screen. The hook keeps it armed, so it appears
+  // the moment they land back on a normal screen — we never interrupt logging.
+  const onLoggingScreen = pathname?.startsWith('/entry');
+  if (!shouldShowReview || pendingEvent || onLoggingScreen) return null;
 
-  return null;
+  return <ReviewPrompt onReview={onReview} onDismiss={onDismiss} />;
 }
 
 function ScreenTracker() {

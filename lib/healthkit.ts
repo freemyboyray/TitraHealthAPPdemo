@@ -467,25 +467,10 @@ export async function readLastNightSleep(): Promise<number | null> {
   } catch (e) { err('readLastNightSleep', e); return null; }
 }
 
-// ─── Extended readers: body composition ──────────────────────────────────────
-
-export async function readLatestBodyFat(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.bodyFat, '%');
-    return v != null ? parseFloat((v * 100).toFixed(1)) : null;
-  } catch (e) { err('readLatestBodyFat', e); return null; }
-}
-
-export async function readLatestLeanMass(): Promise<number | null> {
-  const HK = getHK();
-  if (!HK) return null;
-  try {
-    const v = await latestQuantity(HK, HK_CATEGORIES.leanMass, 'lb');
-    return v != null ? parseFloat(v.toFixed(1)) : null;
-  } catch (e) { err('readLatestLeanMass', e); return null; }
-}
+// Note: body composition (bodyFat / leanMass) is intentionally NOT read here.
+// The HK_CATEGORIES entries remain so the connected-devices "smart scale" card
+// can still show a live badge, but we don't surface the numeric values anywhere,
+// so reading them on every fetchAll() would be wasted queries.
 
 // ─── Extended readers: cardiovascular ────────────────────────────────────────
 

@@ -27,6 +27,7 @@ import { useAppTheme } from '@/contexts/theme-context';
 import type { AppColors } from '@/constants/theme';
 import { useHealthData } from '@/contexts/health-data';
 import { useLogStore } from '@/stores/log-store';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 import { parseFoodDescription, ParsedFood } from '@/lib/openai';
 import { ensureAiConsent } from '@/lib/ai-consent';
 import { useUiStore } from '@/stores/ui-store';
@@ -54,6 +55,7 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
   const { profile: fullProfile } = useProfile();
   const oral = isOralDrug(fullProfile?.glp1Type);
   const { addFoodLog, checkFoodLogQuota } = useLogStore();
+  const trialEligible = useSubscriptionStore((st) => st.trialEligible);
 
   const [activeEntry, setActiveEntry] = useState<EntryType>(null);
   const [waterLogVisible, setWaterLogVisible] = useState(false);
@@ -386,10 +388,15 @@ export function AddEntrySheet({ visible, onClose }: { visible: boolean; onClose:
     <UpgradePrompt
       visible={upgradeVisible}
       onClose={() => setUpgradeVisible(false)}
-      onUpgrade={() => { setUpgradeVisible(false); router.push('/upgrade' as any); }}
-      title="Daily food log limit reached"
-      description="You've logged 5 foods today on the free plan. Upgrade to Titra Pro for unlimited food logging."
+      onUpgrade={() => { setUpgradeVisible(false); router.push('/upgrade?source=add_entry' as any); }}
+      title="You've hit today's free limit"
+      description={
+        trialEligible
+          ? "That's your 5 free food logs for today — but don't worry, you can keep logging. Start your free trial for unlimited food logging."
+          : "That's your 5 free food logs for today. Upgrade to Titra Pro for unlimited food logging."
+      }
       feature="food_log"
+      trialEligible={trialEligible}
     />
   );
 
